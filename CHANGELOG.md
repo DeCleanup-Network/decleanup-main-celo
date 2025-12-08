@@ -134,3 +134,45 @@ Fix remaining TypeScript warnings in tests
 Additional refactor for Submission events
 
 Integration of frontend changes with unified reward system
+
+
+___
+
+
+## [Unreleased] – Sprint 1 Progress
+
+### 🔧 Core Contract Fixes & Improvements
+- Refactored reward logic in `Submission.sol` and `DCURewardManager.sol` to correct:
+  - Accurate distribution of rewards for approved submissions  
+  - Fully operational impact-report and recyclables-proof reward paths  
+  - Stable integration Submission → RewardManager → DCUToken  
+- Fixed bug in `userImpactFormCount` tracking.
+- Corrected hypercert eligibility logic in `Submission.sol`.
+- Reorganized events for clearer, more consistent tracking.
+
+### 🪪 Roles & Access Control (pre–Fix #3)
+- Ensured `MAIN_DEPLOYER` has:  
+  - `DEFAULT_ADMIN_ROLE`  
+  - `ADMIN_ROLE`  
+  - Ownership of the `Submission` contract  
+- Granted `MINTER_ROLE` on DCUToken to the DCURewardManager via Ignition deployment.
+- Improved role initialization in `setup-roles.ts`:
+  - Submission + RewardManager treasury both updated to `MAIN_DEPLOYER`
+  - Role checks and verification improved
+
+### 📦 Deployment & Hardhat / Ignition Updates
+- Updated Ignition modules to deploy all core DCU contracts:
+  - `DCUToken`
+  - `DCURewardManager`
+  - `Submission`
+  - `ImpactProductNFT`
+  - `DCUStorage` & `DCUAccounting`
+- Added automatic grant of `MINTER_ROLE` to the RewardManager during deployment.
+- Added structured export of deployed addresses into `deployed_addresses.json`.
+
+### 🛠 Script Improvements
+- Updated the post-deployment setup script (`setup-roles.ts`) to:
+  - Verify and sync ownership  
+  - Update treasuries  
+  - Grant core roles  
+  - Validate addresses and critical configuration  
