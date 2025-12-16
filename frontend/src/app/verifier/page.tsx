@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useSignMessage } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, Loader2, Shield, ArrowLeft, MapPin, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
@@ -13,6 +13,7 @@ import {
     rejectCleanup
 } from '@/lib/blockchain/contracts'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
+import type { Address } from 'viem'
 
 interface CleanupSubmission {
     id: bigint
@@ -28,35 +29,119 @@ interface CleanupSubmission {
     level: number
 }
 
+const VERIFIER_AUTH_MESSAGE = 'I am requesting access to the DeCleanup Verifier Dashboard. This signature proves I control this wallet address.'
+const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
+
 export default function VerifierPage() {
     const [mounted, setMounted] = useState(false)
     const { address, isConnected } = useAccount()
+    const { signMessageAsync, isPending: isSigning } = useSignMessage()
     const [loading, setLoading] = useState(true)
     const [isVerifierUser, setIsVerifierUser] = useState(false)
+    const [needsSignature, setNeedsSignature] = useState(false)
     const [cleanups, setCleanups] = useState<CleanupSubmission[]>([])
     const [processingId, setProcessingId] = useState<bigint | null>(null)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         setMounted(true)
         if (address) {
-            checkVerifierStatus()
+            checkStoredVerification()
         } else {
             setLoading(false)
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [address])
 
-    const checkVerifierStatus = async () => {
-        if (!address) return
+    const checkStoredVerification = () => {
+        if (!address) {
+            setLoading(false)
+            return
+        }
+
+        // Only access localStorage on client side
+        if (typeof window === 'undefined') {
+            setNeedsSignature(true)
+            setLoading(false)
+            return
+        }
+
         try {
-            const status = await isVerifier(address)
-            setIsVerifierUser(status)
-            if (status) {
-                fetchCleanups()
+            const stored = localStorage.getItem(VERIFIED_VERIFIER_KEY)
+            if (stored) {
+                const { verifiedAddress, timestamp } = JSON.parse(stored)
+                // Check if stored address matches current address and is recent (within 24 hours)
+                if (verifiedAddress?.toLowerCase() === address.toLowerCase() && 
+                    Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+                    // Verify against contract
+                    verifyAgainstContract(address)
+                    return
+                }
             }
         } catch (error) {
-            console.error('Error checking verifier status:', error)
+            console.error('Error checking stored verification:', error)
+        }
+
+        // No stored verification or expired - require signature
+        setNeedsSignature(true)
+        setLoading(false)
+    }
+
+    const verifyAgainstContract = async (addr: Address) => {
+        setLoading(true)
+        setError(null)
+        try {
+            const status = await isVerifier(addr)
+            setIsVerifierUser(status)
+            if (status) {
+                // Store verification
+                localStorage.setItem(VERIFIED_VERIFIER_KEY, JSON.stringify({
+                    verifiedAddress: addr,
+                    timestamp: Date.now(),
+                }))
+                setNeedsSignature(false)
+                fetchCleanups()
+            } else {
+                setError(`Address ${addr} is not authorized as a verifier.`)
+                setIsVerifierUser(false)
+                setNeedsSignature(true)
+            }
+        } catch (error) {
+            console.error('Error verifying against contract:', error)
+            setError(`Failed to verify: ${error instanceof Error ? error.message : 'Unknown error'}`)
+            setIsVerifierUser(false)
+            setNeedsSignature(true)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleSignIn = async () => {
+        if (!address) {
+            setError('Please connect your wallet first')
+            return
+        }
+
+        if (!signMessageAsync) {
+            setError('Signature functionality not available. Please ensure your wallet supports message signing.')
+            return
+        }
+
+        setError(null)
+        try {
+            const signature = await signMessageAsync({ message: VERIFIER_AUTH_MESSAGE })
+            
+            if (!signature) {
+                setError('Signature request was cancelled or rejected. Please try again.')
+                return
+            }
+
+            // Now verify against contract
+            setLoading(true)
+            await verifyAgainstContract(address)
+        } catch (error: any) {
+            console.error('Error during signature:', error)
+            setError(error?.message || 'Failed to sign message. Please try again.')
         }
     }
 
@@ -156,7 +241,62 @@ export default function VerifierPage() {
         )
     }
 
-    if (!isVerifierUser) {
+    if (needsSignature && !isVerifierUser) {
+        return (
+            <div className="min-h-screen bg-background px-4 py-8">
+                <div className="container mx-auto max-w-4xl">
+                    <Link href="/">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mb-6 gap-2 text-gray-400 hover:text-white"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            <span className="font-bebas text-sm tracking-wider">BACK</span>
+                        </Button>
+                    </Link>
+                    <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-6 text-center">
+                        <Shield className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
+                        <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                            Verifier Authentication Required
+                        </h2>
+                        <p className="mb-4 text-sm text-muted-foreground">
+                            Please sign a message to verify you control this wallet address. Only whitelisted verifier addresses can access this dashboard.
+                        </p>
+                        {error && (
+                            <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-400">
+                                {error}
+                            </div>
+                        )}
+                        <div className="mb-6 space-y-2 text-left">
+                            <p className="font-mono text-sm text-gray-500 break-all">
+                                <span className="text-gray-400">Your address:</span> {address}
+                            </p>
+                        </div>
+                        <Button
+                            onClick={handleSignIn}
+                            disabled={isSigning || loading}
+                            className="gap-2 bg-brand-green text-black hover:bg-brand-green/90"
+                        >
+                            {isSigning || loading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    {isSigning ? 'Signing...' : 'Verifying...'}
+                                </>
+                            ) : (
+                                <>
+                                    <Shield className="h-4 w-4" />
+                                    Sign Message to Continue
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if (!isVerifierUser && !needsSignature) {
         return (
             <div className="min-h-screen bg-background px-4 py-8">
                 <div className="container mx-auto max-w-4xl">
@@ -178,6 +318,11 @@ export default function VerifierPage() {
                         <p className="mb-4 text-sm text-muted-foreground">
                             This address is not authorized as a verifier. Only whitelisted verifier addresses can access this dashboard.
                         </p>
+                        {error && (
+                            <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-400">
+                                {error}
+                            </div>
+                        )}
                         <div className="mb-6 space-y-2 text-left">
                             <p className="font-mono text-sm text-gray-500 break-all">
                                 <span className="text-gray-400">Your address:</span> {address}

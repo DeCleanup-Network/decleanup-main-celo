@@ -2,6 +2,7 @@ import {
   buildModule,
   ModuleBuilder,
 } from "@nomicfoundation/hardhat-ignition/modules";
+import { keccak256, toBytes } from "viem";
 
 /**
  * Ignition module for deploying all DCU contracts
@@ -26,8 +27,10 @@ export default buildModule("DCUContracts", (m: ModuleBuilder) => {
   ]);
 
   // Grant the MINTER_ROLE to the DCURewardManager contract
+  // MINTER_ROLE = keccak256("MINTER_ROLE")
+  const MINTER_ROLE = keccak256(toBytes("MINTER_ROLE"));
   m.call(dcuToken, "grantRole", [
-    m.keccak256("MINTER_ROLE"),
+    MINTER_ROLE,
     dcuRewardManager,
   ]);
 

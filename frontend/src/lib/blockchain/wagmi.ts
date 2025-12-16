@@ -1,10 +1,9 @@
-import { celo, celoAlfajores } from 'wagmi/chains'
+import { celo } from 'wagmi/chains'
 import { createConfig, http } from 'wagmi'
 import { walletConnect, injected } from 'wagmi/connectors'
 import { defineChain, type Chain } from 'viem'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
-const celoAlfajoresRpcUrl = process.env.NEXT_PUBLIC_TESTNET_RPC_URL || 'https://alfajores-forno.celo-testnet.org'
 const celoSepoliaRpcUrl = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org'
 
 const celoMainnet = {
@@ -24,32 +23,6 @@ const celoMainnet = {
     },
   },
 }
-
-const celoAlfajoresChain = defineChain({
-  id: celoAlfajores.id,
-  name: 'Celo Alfajores Testnet',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'CELO',
-    symbol: 'CELO',
-  },
-  rpcUrls: {
-    default: {
-      http: [celoAlfajoresRpcUrl],
-    },
-    public: {
-      http: [celoAlfajoresRpcUrl],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'CeloScan Alfajores',
-      url: 'https://alfajores.celoscan.io',
-    },
-  },
-  contracts: celoAlfajores.contracts,
-  testnet: true,
-})
 
 const celoSepoliaChain = defineChain({
   id: 11142220,
@@ -76,17 +49,22 @@ const celoSepoliaChain = defineChain({
   testnet: true,
 })
 
-const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoAlfajoresChain, celoMainnet]
+const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoMainnet]
 // Default to Celo Sepolia (11142220) for testing
 // Change to celoMainnet.id (42220) after deploying contracts to mainnet
 const requiredChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || celoSepoliaChain.id)
 const requiredChain =
   configuredChains.find((chain) => chain.id === requiredChainId) ?? celoSepoliaChain
 const requiredChainLabel = requiredChain.testnet ? requiredChain.name : 'Celo Mainnet'
-const requiredBlockExplorerUrl = requiredChain.testnet
-  ? 'https://alfajores.celoscan.io'
-  : 'https://celoscan.io'
-const requiredRpcUrl = requiredChain.id === celoMainnet.id ? celoMainnetRpcUrl : celoAlfajoresRpcUrl
+
+// Resolve block explorer + RPC URL based on the active chain
+const requiredBlockExplorerUrl =
+  requiredChain.id === celoMainnet.id
+    ? 'https://celoscan.io'
+    : 'https://celo-sepolia.blockscout.com'
+
+const requiredRpcUrl =
+  requiredChain.id === celoMainnet.id ? celoMainnetRpcUrl : celoSepoliaRpcUrl
 
 const APP_NAME = 'DeCleanup Rewards'
 const APP_URL = process.env.NEXT_PUBLIC_MINIAPP_URL || 'http://localhost:3000'
@@ -157,7 +135,6 @@ export const config = createConfig({
   connectors,
   transports: {
     [celoMainnet.id]: http(celoMainnetRpcUrl),
-    [celoAlfajoresChain.id]: http(celoAlfajoresRpcUrl),
     [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
   },
 })
@@ -171,14 +148,17 @@ export const REQUIRED_RPC_URL = requiredRpcUrl
 export const REQUIRED_CHAIN_IS_TESTNET = Boolean(requiredChain.testnet)
 
 // Contract addresses (update with actual addresses after deployment)
+// Canonical names: NEXT_PUBLIC_IMPACT_PRODUCT_NFT, NEXT_PUBLIC_VERIFICATION_CONTRACT, NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT
+// Legacy names kept for backwards compatibility
 export const CONTRACT_ADDRESSES = {
   IMPACT_PRODUCT:
+    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT ||
     process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS ||
     process.env.NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT ||
     '',
   VERIFICATION:
-    process.env.NEXT_PUBLIC_VERIFICATION_CONTRACT_ADDRESS ||
     process.env.NEXT_PUBLIC_VERIFICATION_CONTRACT ||
+    process.env.NEXT_PUBLIC_VERIFICATION_CONTRACT_ADDRESS ||
     '',
   REWARD_DISTRIBUTOR:
     process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT ||

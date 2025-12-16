@@ -7,9 +7,9 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { BackButton } from '@/components/layout/BackButton'
-import { Camera, Upload, ArrowRight, Check, Loader2, ExternalLink, X, Clock, AlertCircle, Users } from 'lucide-react'
+import { Camera, Upload, ArrowRight, Check, Loader2, ExternalLink, X, Clock, AlertCircle, Users, CheckCircle } from 'lucide-react'
 import { uploadToIPFS, uploadJSONToIPFS } from '@/lib/blockchain/ipfs'
-import { submitCleanup, getSubmissionFee } from '@/lib/blockchain/contracts'
+import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission } from '@/lib/blockchain/contracts'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
 import { clearPendingCleanupData, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
 import type { Address } from 'viem'
@@ -639,21 +639,11 @@ function CleanupContent() {
         if (hasRecyclables && recyclablesPhotoHash) {
           try {
             console.log('Attaching recyclables to submission...')
-            // Attach recyclables if provided (separate function call - can be easily removed)
-if (hasRecyclables && recyclablesPhotoHash) {
-  try {
-    console.log('Attaching recyclables to submission...')
-    await attachRecyclablesToSubmission(
-      cleanupId,
-      recyclablesPhotoHash,
-      recyclablesReceiptHash || '',
-      chainId
-    )
-    console.log('✅ Recyclables attached successfully!')
-  } catch (recyclablesError: any) {
-    console.error('Error attaching recyclables (non-fatal):', recyclablesError)
-  }
-}
+            await attachRecyclablesToSubmission(
+              cleanupId,
+              recyclablesPhotoHash,
+              recyclablesReceiptHash || ''
+            )
             console.log('✅ Recyclables attached successfully!')
           } catch (recyclablesError: any) {
             console.error('Error attaching recyclables (non-fatal):', recyclablesError)
@@ -663,8 +653,7 @@ if (hasRecyclables && recyclablesPhotoHash) {
         }
 
         setCleanupId(cleanupId)
-        setStep('review')
-
+        
         // Store cleanup ID in localStorage for verification checking (scoped to user address)
         if (typeof window !== 'undefined' && address) {
           const pendingKey = `pending_cleanup_id_${address.toLowerCase()}`
@@ -682,6 +671,13 @@ if (hasRecyclables && recyclablesPhotoHash) {
           localStorage.removeItem('pending_cleanup_location')
         }
 
+        // Show success message and redirect to review step
+        setIsSubmitting(false)
+        setStep('review')
+        
+        // Show success alert
+        alert(`✅ Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\nYour cleanup is now pending verification. You'll be redirected to the home page.`)
+        
         // Redirect to home after 3 seconds
         setTimeout(() => {
           router.push('/')
@@ -1663,7 +1659,7 @@ if (hasRecyclables && recyclablesPhotoHash) {
               disabled={isSubmitting}
               className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
             >
-              Skip Impact Report
+              Skip
             </Button>
             <Button
               onClick={handleSubmitEnhanced}
@@ -1673,11 +1669,11 @@ if (hasRecyclables && recyclablesPhotoHash) {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Submitting...
+                  Processing...
                 </>
               ) : (
                 <>
-                  Submit {enhancedData.area ? 'with Bonus' : ''}
+                  Submit and Next
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -1709,6 +1705,46 @@ if (hasRecyclables && recyclablesPhotoHash) {
             <p className="text-sm text-gray-400">
               If you recycled any materials from your cleanup, upload proof to earn additional rewards.
             </p>
+          </div>
+
+          {/* cRECY Reserve Note */}
+          <div className="mb-6 rounded-lg border border-brand-green/50 bg-brand-green/10 p-4">
+            <p className="mb-2 text-sm font-medium text-brand-green">
+              💰 5,000 cRECY Token Reserve Available
+            </p>
+            <p className="mb-3 text-xs text-gray-300">
+              In partnership with{' '}
+              <a
+                href="https://detrash.global"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-green hover:underline font-semibold"
+              >
+                Detrash Global
+              </a>
+              , we have a reserve of 5,000 cRECY tokens for recycling rewards.
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <a
+                href={`${REQUIRED_BLOCK_EXPLORER_URL}/token/0x34C11A932853Ae24E845Ad4B633E3cEf91afE583`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-green hover:underline flex items-center gap-1"
+              >
+                View cRECY on {BLOCK_EXPLORER_NAME}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+              <span className="text-gray-500">•</span>
+              <a
+                href="https://detrash.global"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-green hover:underline flex items-center gap-1"
+              >
+                Detrash Global
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
           </div>
 
           <div className="mb-6 space-y-4">
@@ -1806,7 +1842,7 @@ if (hasRecyclables && recyclablesPhotoHash) {
               disabled={isSubmitting}
               className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
             >
-              Skip Recyclables
+              Skip
             </Button>
             <Button
               onClick={handleSubmitRecyclables}
@@ -1820,7 +1856,7 @@ if (hasRecyclables && recyclablesPhotoHash) {
                 </>
               ) : (
                 <>
-                  Submit with Recyclables
+                  Submit
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -1831,54 +1867,77 @@ if (hasRecyclables && recyclablesPhotoHash) {
     )
   }
 
-  // Step 6: In Review
-  return (
-    <div className="min-h-screen bg-black px-4 py-6 sm:py-8">
-      <div className="mx-auto max-w-md text-center">
-        <div className="mb-6">
-          <Loader2 className="mx-auto mb-4 h-16 w-16 animate-spin text-brand-green" />
-          <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
-            In Review
-          </h1>
-          <p className="text-sm text-gray-400">
-            After the team reviews the proof of cleanup, come back to claim your level. Usually the process takes from 2 to 12 hours. Contact us in telegram group if you have questions or for troubleshooting.
+  // Step 6: Success/Review
+  if (step === 'review') {
+    return (
+      <div className="min-h-screen bg-background px-4 py-6 sm:py-8">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mb-6">
+            <CheckCircle className="mx-auto mb-4 h-16 w-16 text-brand-green" />
+            <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
+              Submission Successful!
+            </h1>
+            {cleanupId && (
+              <p className="mb-2 text-sm font-mono text-brand-green">
+                Submission ID: {cleanupId.toString()}
+              </p>
+            )}
+            <p className="text-sm text-gray-400">
+              Your cleanup has been submitted successfully and is now pending verification. 
+              Usually the process takes from 2 to 12 hours. 
+              You'll be able to claim your rewards once it's verified.
+            </p>
+          </div>
+
+          {beforePhoto && afterPhoto && (
+            <div className="mb-6 grid grid-cols-2 gap-4">
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-400">BEFORE</p>
+                <img
+                  src={URL.createObjectURL(beforePhoto)}
+                  alt="Before"
+                  className="h-32 w-full rounded-lg object-cover"
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-400">AFTER</p>
+                <img
+                  src={URL.createObjectURL(afterPhoto)}
+                  alt="After"
+                  className="h-32 w-full rounded-lg object-cover"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="mb-6 rounded-lg border border-brand-green/50 bg-brand-green/10 p-4 text-left">
+            <p className="mb-2 text-sm font-semibold text-brand-green">What's Next?</p>
+            <ul className="space-y-1 text-xs text-gray-300 list-disc list-inside">
+              <li>Your submission is being reviewed by our verifiers</li>
+              <li>You'll receive rewards once verified (usually 2-12 hours)</li>
+              <li>Check your profile to see submission status</li>
+              <li>Contact us in Telegram if you have questions</li>
+            </ul>
+          </div>
+
+          <Button
+            onClick={() => router.push('/')}
+            className="w-full gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
+          >
+            Go to Home
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+
+          <p className="mt-4 text-xs text-gray-500">
+            Redirecting automatically in a few seconds...
           </p>
         </div>
-
-        {beforePhoto && afterPhoto && (
-          <div className="mb-6 grid grid-cols-2 gap-4">
-            <div>
-              <p className="mb-2 text-xs font-medium text-gray-400">BEFORE</p>
-              <img
-                src={URL.createObjectURL(beforePhoto)}
-                alt="Before"
-                className="h-32 w-full rounded-lg object-cover"
-              />
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium text-gray-400">AFTER</p>
-              <img
-                src={URL.createObjectURL(afterPhoto)}
-                alt="After"
-                className="h-32 w-full rounded-lg object-cover"
-              />
-            </div>
-          </div>
-        )}
-
-        <Button
-          disabled
-          className="w-full bg-gray-800 text-gray-400"
-        >
-          In Review
-        </Button>
-
-        <p className="mt-4 text-xs text-gray-500">
-          Redirecting to home page...
-        </p>
       </div>
-    </div>
-  )
+    )
+  }
+
+  // Fallback (shouldn't reach here)
+  return null
 }
 
 export default function CleanupPage() {
@@ -1895,8 +1954,5 @@ export default function CleanupPage() {
       <CleanupContent />
     </Suspense>
   )
-}
-function attachRecyclablesToSubmission(cleanupId: bigint, recyclablesPhotoHash: string, arg2: string, chainId: number) {
-  throw new Error('Function not implemented.')
 }
 

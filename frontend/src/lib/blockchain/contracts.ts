@@ -1,6 +1,7 @@
 import { Address } from 'viem'
-import { readContract, writeContract, getAccount } from '@wagmi/core'
+import { readContract, writeContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
 import { config } from './wagmi'
+import { keccak256, toBytes } from 'viem'
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -60,6 +61,70 @@ const SUBMISSION_ABI = [
       },
     ],
   },
+  {
+    type: 'function',
+    name: 'createSubmission',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'dataURI', type: 'string' },
+      { name: 'beforePhotoHash', type: 'string' },
+      { name: 'afterPhotoHash', type: 'string' },
+      { name: 'impactFormDataHash', type: 'string' },
+      { name: 'lat', type: 'int256' },
+      { name: 'lng', type: 'int256' },
+      { name: 'referrer', type: 'address' },
+    ],
+    outputs: [{ name: 'submissionId', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'attachRecyclables',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'submissionId', type: 'uint256' },
+      { name: 'recyclablesPhotoHash', type: 'string' },
+      { name: 'recyclablesReceiptHash', type: 'string' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'approveSubmission',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'submissionId', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'rejectSubmission',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'submissionId', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'hasRole',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'role', type: 'bytes32' },
+      { name: 'account', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'VERIFIER_ROLE',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
+    type: 'function',
+    name: 'submissionCount',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
 ] as const
 
 /* -------------------------------------------------------------------------- */
@@ -76,8 +141,91 @@ export async function submitCleanup(
   _impactReportHash: string,
   _fee?: bigint
 ): Promise<bigint> {
-  // MVP stub: return pseudo cleanupId for UI flow
-  return BigInt(Date.now())
+  if (!SUBMISSION_ADDRESS) {
+    throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
+  }
+
+  const account = getAccount(config)
+  if (!account.address) {
+    throw new Error('Wallet not connected')
+  }
+
+  // Convert lat/lng to int256 (scaled by 1e6 as per contract)
+  // int256 in Solidity is signed, so we need to handle negative values
+  const scale = 1_000_000
+  const latScaled = Math.round(lat * scale)
+  const lngScaled = Math.round(lng * scale)
+  
+  // Convert to BigInt, handling negative values correctly for int256
+  // JavaScript BigInt can represent int256 values directly
+  const latInt256 = BigInt(latScaled)
+  const lngInt256 = BigInt(lngScaled)
+
+  // Prepare dataURI (can be empty or contain metadata)
+  const dataURI = ''
+
+  // Referrer address (use zero address if none)
+  const referrer = (_referrer && _referrer !== '0x0000000000000000000000000000000000000000') 
+    ? (_referrer as Address)
+    : '0x0000000000000000000000000000000000000000' as Address
+
+  // Impact form hash (empty string if not provided)
+  const impactFormDataHash = _hasImpactForm && _impactReportHash ? _impactReportHash : ''
+
+  try {
+    // Get current submission count before submission
+    const submissionCountBefore = await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'submissionCount',
+    })
+
+    // Submit the transaction
+    const contractConfig: any = {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'createSubmission',
+      args: [
+        dataURI,
+        beforeHash,
+        afterHash,
+        impactFormDataHash,
+        latInt256,
+        lngInt256,
+        referrer,
+      ],
+      account: account.address,
+    }
+
+    // Only include value if fee is provided and > 0
+    if (_fee && _fee > 0n) {
+      contractConfig.value = _fee
+    }
+
+    const hash = await writeContract(config, contractConfig)
+
+    // Wait for transaction receipt
+    const receipt = await waitForTransactionReceipt(config, { hash })
+
+    // Read the new submission count to get the ID
+    const submissionCountAfter = await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'submissionCount',
+    })
+
+    // The new submission ID is the count before (since it starts at 0)
+    const submissionId = submissionCountBefore as bigint
+
+    if (submissionId === undefined || submissionId === null) {
+      throw new Error('Failed to get submission ID from transaction')
+    }
+
+    return submissionId
+  } catch (error: any) {
+    console.error('Error submitting cleanup:', error)
+    throw new Error(`Failed to submit cleanup: ${error?.message || error?.shortMessage || 'Unknown error'}`)
+  }
 }
 
 export async function getCleanupDetails(
@@ -125,8 +273,21 @@ export async function getCleanupDetails(
 }
 
 export async function getCleanupCounter(): Promise<bigint> {
-  // MVP: no on-chain iteration yet
-  return 0n
+  if (!SUBMISSION_ADDRESS) {
+    return 0n
+  }
+
+  try {
+    const count = await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'submissionCount',
+    })
+    return count as bigint
+  } catch (error) {
+    console.error('Error getting cleanup counter:', error)
+    return 0n
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -148,25 +309,90 @@ export async function getSubmissionFee(): Promise<{
 /* -------------------------------------------------------------------------- */
 
 export async function isVerifier(_address: Address): Promise<boolean> {
-  // MVP: verifier gating handled elsewhere
-  return true
+  if (!SUBMISSION_ADDRESS) {
+    return false
+  }
+
+  try {
+    // Get VERIFIER_ROLE constant from contract
+    const verifierRole = await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'VERIFIER_ROLE',
+    })
+
+    // Check if address has the VERIFIER_ROLE
+    const hasRole = await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'hasRole',
+      args: [verifierRole as `0x${string}`, _address],
+    })
+
+    return hasRole as boolean
+  } catch (error) {
+    console.error('Error checking verifier status:', error)
+    return false
+  }
 }
 
 export async function verifyCleanup(
   cleanupId: bigint,
   level: number
 ): Promise<`0x${string}`> {
-  // MVP stub: simulate tx hash
-  const fakeHash = `0x${cleanupId.toString(16).padStart(64, '0')}` as `0x${string}`
-  return fakeHash
+  if (!SUBMISSION_ADDRESS) {
+    throw new Error('Submission contract address not configured')
+  }
+
+  const account = getAccount(config)
+  if (!account.address) {
+    throw new Error('Wallet not connected')
+  }
+
+  try {
+    const hash = await writeContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'approveSubmission',
+      args: [cleanupId],
+      account: account.address,
+    })
+
+    await waitForTransactionReceipt(config, { hash })
+    return hash
+  } catch (error: any) {
+    console.error('Error verifying cleanup:', error)
+    throw new Error(`Failed to verify cleanup: ${error?.message || error?.shortMessage || 'Unknown error'}`)
+  }
 }
 
 export async function rejectCleanup(
   cleanupId: bigint
 ): Promise<`0x${string}`> {
-  // MVP stub: simulate tx hash
-  const fakeHash = `0x${cleanupId.toString(16).padStart(64, '0')}` as `0x${string}`
-  return fakeHash
+  if (!SUBMISSION_ADDRESS) {
+    throw new Error('Submission contract address not configured')
+  }
+
+  const account = getAccount(config)
+  if (!account.address) {
+    throw new Error('Wallet not connected')
+  }
+
+  try {
+    const hash = await writeContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'rejectSubmission',
+      args: [cleanupId],
+      account: account.address,
+    })
+
+    await waitForTransactionReceipt(config, { hash })
+    return hash
+  } catch (error: any) {
+    console.error('Error rejecting cleanup:', error)
+    throw new Error(`Failed to reject cleanup: ${error?.message || error?.shortMessage || 'Unknown error'}`)
+  }
 }
 
 
@@ -244,5 +470,40 @@ export async function getStreakCount(_: Address): Promise<number> {
 
 export async function hasActiveStreak(_: Address): Promise<boolean> {
   return false
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               RECYCLABLES                                  */
+/* -------------------------------------------------------------------------- */
+
+export async function attachRecyclablesToSubmission(
+  submissionId: bigint,
+  recyclablesPhotoHash: string,
+  recyclablesReceiptHash: string
+): Promise<`0x${string}`> {
+  if (!SUBMISSION_ADDRESS) {
+    throw new Error('Submission contract address not configured')
+  }
+
+  const account = getAccount(config)
+  if (!account.address) {
+    throw new Error('Wallet not connected')
+  }
+
+  try {
+    const hash = await writeContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'attachRecyclables',
+      args: [submissionId, recyclablesPhotoHash, recyclablesReceiptHash || ''],
+      account: account.address,
+    })
+
+    await waitForTransactionReceipt(config, { hash })
+    return hash
+  } catch (error: any) {
+    console.error('Error attaching recyclables:', error)
+    throw new Error(`Failed to attach recyclables: ${error?.message || error?.shortMessage || 'Unknown error'}`)
+  }
 }
 

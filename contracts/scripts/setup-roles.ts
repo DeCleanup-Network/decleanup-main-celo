@@ -106,7 +106,23 @@ async function main() {
     console.error("   ❌ Error granting ADMIN_ROLE to main deployer:", error.message);
   }
 
-  // 4. Grant ADMIN_ROLE to verifier
+  // 4. Grant VERIFIER_ROLE to verifier
+  try {
+    const VERIFIER_ROLE = await submission.VERIFIER_ROLE();
+    const hasVerifierRole = await submission.hasRole(VERIFIER_ROLE, VERIFIER);
+    if (!hasVerifierRole) {
+      console.log("   ⏳ Granting VERIFIER_ROLE to verifier...");
+      const tx = await submission.grantRole(VERIFIER_ROLE, VERIFIER);
+      await tx.wait();
+      console.log("   ✅ VERIFIER_ROLE granted to verifier:", VERIFIER);
+    } else {
+      console.log("   ✅ Verifier already has VERIFIER_ROLE");
+    }
+  } catch (error: any) {
+    console.error("   ❌ Error granting VERIFIER_ROLE to verifier:", error.message);
+  }
+
+  // 5. Grant ADMIN_ROLE to verifier (optional, for additional permissions)
   try {
     const hasAdminRole = await submission.hasRole(ADMIN_ROLE, VERIFIER);
     if (!hasAdminRole) {
@@ -121,7 +137,7 @@ async function main() {
     console.error("   ❌ Error granting ADMIN_ROLE to verifier:", error.message);
   }
 
-  // 5. Update treasury address to main deployer (fees go here)
+  // 6. Update treasury address to main deployer (fees go here)
   try {
     const currentTreasury = await submission.treasury();
     console.log("   Current treasury:", currentTreasury);
@@ -139,7 +155,7 @@ async function main() {
     console.error("   ❌ Error updating treasury:", error.message);
   }
 
-  // 6. Update DCURewardManager treasury (if contract exists)
+  // 7. Update DCURewardManager treasury (if contract exists)
   if (dcuRewardManager) {
     try {
       const currentTreasury = await dcuRewardManager.treasury();

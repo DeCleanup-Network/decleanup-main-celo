@@ -421,14 +421,15 @@ export default function Home() {
                     <Award className="h-4 w-4" />
                     CLAIM LEVEL
                   </Button>
-                  {isVerifierUser && (
-                    <Link href="/verifier" className="block">
-                      <Button className="w-full gap-2 bg-brand-green py-3 font-bebas text-base tracking-wider text-black hover:bg-brand-green/90">
-                        <CheckSquare className="h-4 w-4" />
-                        VERIFIER CABINET
-                      </Button>
-                    </Link>
-                  )}
+                  <Link href="/verifier" className="block">
+                    <Button 
+                      className="w-full gap-2 bg-brand-green py-3 font-bebas text-base tracking-wider text-black hover:bg-brand-green/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!isConnected}
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                      VERIFIER CABINET
+                    </Button>
+                  </Link>
                 </div>
               </div>
 

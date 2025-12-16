@@ -7,8 +7,15 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     // Get API keys from server-side environment variables (not NEXT_PUBLIC_*)
-    const pinataApiKey = process.env.PINATA_API_KEY || process.env.NEXT_PUBLIC_PINATA_API_KEY
-    const pinataSecretKey = process.env.PINATA_SECRET_KEY || process.env.NEXT_PUBLIC_PINATA_SECRET_KEY
+    // Support multiple naming conventions for backwards compatibility
+    const pinataApiKey = 
+      process.env.PINATA_API_KEY || 
+      process.env.NEXT_PUBLIC_PINATA_API_KEY
+    const pinataSecretKey = 
+      process.env.PINATA_SECRET_KEY || 
+      process.env.PINATA_SECRET_API_KEY ||
+      process.env.NEXT_PUBLIC_PINATA_SECRET_KEY ||
+      process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY
 
     if (!pinataApiKey || !pinataSecretKey) {
       return NextResponse.json(

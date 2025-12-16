@@ -5,12 +5,18 @@ import "@nomicfoundation/hardhat-verify";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import * as dotenv from "dotenv";
+import * as path from "path";
 
-dotenv.config();
+// Load .env from project root (where hardhat.config.ts is located)
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-const PRIVATE_KEY =
-  process.env.PRIVATE_KEY ??
-  "0x0000000000000000000000000000000000000000000000000000000000000000";
+// Ensure PRIVATE_KEY has 0x prefix if it exists
+const rawPrivateKey = process.env.PRIVATE_KEY;
+const PRIVATE_KEY = rawPrivateKey
+  ? rawPrivateKey.startsWith('0x')
+    ? rawPrivateKey
+    : `0x${rawPrivateKey}`
+  : "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -22,7 +28,8 @@ const config: HardhatUserConfig = {
   },
 
   paths: {
-    tests: "contracts/test"
+    tests: "contracts/test",
+    ignition: "contracts/ignition"
   },
 
   networks: {
