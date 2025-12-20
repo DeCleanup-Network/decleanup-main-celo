@@ -4,7 +4,7 @@
  */
 
 import { uploadToIPFS, uploadJSONToIPFS, type IPFSUploadResult } from '@/lib/blockchain/ipfs'
-import { getLevelName, getImpactValueRange, CONSTANT_TRAITS, LEVEL_PROGRESSION } from './impact-product'
+import { getLevelName, CONSTANT_TRAITS, LEVEL_PROGRESSION } from './impact-product'
 
 export interface ImpactProductMetadata {
   name: string
@@ -82,17 +82,20 @@ export function createImpactProductMetadata(
   level: number,
   imageHash: string,
   animationHash?: string,
-  cleanupsCompleted: number = 0,
+  cleanupsCompleted?: number,
   hypercertsEarned: number = 0
 ): ImpactProductMetadata {
   const levelName = getLevelName(level)
-  const impactValue = getImpactValueRange(level)
+  // Use specific level number for Impact Value, not a range
+  const impactValue = String(level)
+  // Level = number of cleanups completed (each level represents one verified cleanup)
+  const actualCleanupsCompleted = cleanupsCompleted ?? level
   const imageUrl = `ipfs://${imageHash}`
   const animationUrl = animationHash ? `ipfs://${animationHash}` : undefined
 
   const metadata: ImpactProductMetadata = {
     name: `DeCleanup Impact Product - Level ${level}`,
-    description: `A tokenized representation of environmental cleanup impact. Level ${level} (${levelName}) Impact Product with ${cleanupsCompleted} cleanups completed and ${hypercertsEarned} hypercerts earned.`,
+    description: `A tokenized representation of environmental cleanup impact. Level ${level} (${levelName}) Impact Product with ${actualCleanupsCompleted} cleanups completed and ${hypercertsEarned} hypercerts earned.`,
     image: imageUrl,
     external_url: process.env.NEXT_PUBLIC_APP_URL || 'https://decleanup.network',
     attributes: [
@@ -124,7 +127,7 @@ export function createImpactProductMetadata(
       },
       {
         trait_type: 'Cleanups Completed',
-        value: cleanupsCompleted,
+        value: actualCleanupsCompleted,
       },
       {
         trait_type: 'Hypercerts Earned',

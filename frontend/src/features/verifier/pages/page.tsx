@@ -5,7 +5,7 @@ import { useAccount, useSignMessage, useChainId, useSwitchChain } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/layout/BackButton'
-import { CheckCircle, XCircle, Clock, MapPin, User, Calendar, ExternalLink, Loader2, Shield, RefreshCw } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MapPin, User, Calendar, ExternalLink, Loader2, Shield, RefreshCw, Users } from 'lucide-react'
 import * as contractsLib from '@/lib/blockchain/contracts'
 
 const {
@@ -371,11 +371,23 @@ export default function VerifierPage() {
             impactFormDataHash: details.impactFormDataHash,
           })
           
+          // Fetch referrer for this user from contract
+          let referrer: Address = '0x0000000000000000000000000000000000000000'
+          try {
+            const { getUserReferrer } = await import('@/lib/blockchain/contracts')
+            const userReferrer = await getUserReferrer(details.user)
+            if (userReferrer) {
+              referrer = userReferrer
+            }
+          } catch (error) {
+            console.warn(`Could not fetch referrer for user ${details.user}:`, error)
+          }
+          
           cleanupList.push({
             ...details,
             id: BigInt(i),
             rejected: details.rejected || false,
-            referrer: '0x0000000000000000000000000000000000000000',
+            referrer,
             hasImpactForm: details.hasImpactForm || false,
             impactReportHash: details.impactFormDataHash || '',
           })
@@ -1141,7 +1153,10 @@ export default function VerifierPage() {
                           <span>{formatCoordinates(cleanup.latitude, cleanup.longitude)}</span>
                         </div>
                         {cleanup.referrer !== '0x0000000000000000000000000000000000000000' && (
-                          <div className="text-xs text-yellow-400">Referred by: {cleanup.referrer.slice(0, 10)}...</div>
+                          <div className="flex items-center gap-2 text-xs text-yellow-400">
+                            <Users className="h-3 w-3" />
+                            <span>Referred by: <span className="font-mono text-[10px]">{cleanup.referrer.slice(0, 6)}...{cleanup.referrer.slice(-4)}</span> (both will earn 3 $cDCU each when invitee claims their first level)</span>
+                          </div>
                         )}
                         <div className="text-xs">
                           <button

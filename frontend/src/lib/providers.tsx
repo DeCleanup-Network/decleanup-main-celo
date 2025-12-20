@@ -22,6 +22,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 60 * 1000, // 1 minute
             refetchOnWindowFocus: false,
+            retry: (failureCount, error: any) => {
+              // Don't retry on CORS errors (they won't succeed)
+              if (error?.message?.includes('CORS') || error?.message?.includes('Access-Control-Allow-Origin')) {
+                return false
+              }
+              return failureCount < 2
+            },
+            onError: (error: any) => {
+              // Suppress CORS errors in console (they're expected for ENS avatar fetching)
+              if (!error?.message?.includes('CORS') && !error?.message?.includes('Access-Control-Allow-Origin')) {
+                console.error('Query error:', error)
+              }
+            },
           },
         },
       })

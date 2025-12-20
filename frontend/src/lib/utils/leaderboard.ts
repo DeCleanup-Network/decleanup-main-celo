@@ -1,4 +1,4 @@
-import { Address } from 'viem'
+import { Address, formatEther } from 'viem'
 import { getDCUBalance, getCleanupCounter, getCleanupDetails } from '@/lib/blockchain/contracts'
 
 export interface LeaderboardUser {
@@ -57,12 +57,38 @@ export async function getLeaderboardData(): Promise<LeaderboardUser[]> {
         if (!userMap.has(user)) {
           // Get user's total DCU balance
           let totalDCU = 0
-        try {
-        const balance = await getDCUBalance(user)
-          totalDCU = Number(balance)
-        } catch (error) {
-          console.warn(`Failed to get DCU balance for ${user}:`, error)
-        }
+          try {
+            const balance = await getDCUBalance(user)
+            
+            // Ensure balance is a bigint
+            let balanceBigInt: bigint
+            if (typeof balance === 'bigint') {
+              balanceBigInt = balance
+            } else if (typeof balance === 'number') {
+              // If it's already a number, it might be in wei format - convert to bigint first
+              balanceBigInt = BigInt(Math.floor(balance))
+            } else {
+              balanceBigInt = BigInt(balance)
+            }
+            
+            // Convert from wei (bigint) to ether (number) using formatEther
+            // formatEther returns a string like "0.02", parse it to number
+            const balanceString = formatEther(balanceBigInt)
+            totalDCU = parseFloat(balanceString)
+            
+            // Safety check - if the number is unreasonably large, it means formatEther didn't work
+            // In that case, manually divide by 1e18
+            if (isNaN(totalDCU) || totalDCU > 1000000) {
+              // Fallback: manual conversion from wei
+              totalDCU = Number(balanceBigInt) / 1e18
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`DCU balance conversion issue for ${user}: using fallback. Raw: ${balanceBigInt.toString()}, Converted: ${totalDCU}`)
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to get DCU balance for ${user}:`, error)
+            totalDCU = 0
+          }
 
 
           userMap.set(user, {

@@ -15,17 +15,15 @@ This summarizes what’s left before launching `decleanup-main-celo`.
 
 ## 2. Contract deployment order (Ignition `DCUContracts.ts`)
 
-1. `DCUStorage`
-2. `DCUAccounting`
-3. `NFTCollection`
-4. `RewardLogic`
-5. `DCUToken`
-6. `DCURewardManager`
-7. `ImpactProductNFT`
-8. `Submission`
-9. `RecyclablesReward` (manual step, pass cRECY + submission address)
+**Current deployment (Celo Sepolia):**
 
-> Run `npx hardhat test` first. Then `npx hardhat ignition deploy ./ignition/modules/DCUContracts.ts --network celo-sepolia`.
+1. `DCUToken` - ERC20 token with minter role
+2. `DCURewardManager` - Reward distribution manager (initially with placeholder NFT address)
+3. `ImpactProductNFT` - ERC721 NFT contract
+4. `Submission` - Cleanup submission and verification contract
+5. `RecyclablesReward` - Deployed separately (see `contracts/scripts/`)
+
+> Run `npx hardhat test` first. Then `npx hardhat ignition deploy ./ignition/modules/DCUContracts.ts --network celoSepolia`.
 
 ## 3. Post-deploy script
 
@@ -51,14 +49,13 @@ Run `npx hardhat run scripts/setup-roles.ts --network celo-sepolia` with updated
 
 ## 5. Verification & testing
 
-- `npx hardhat verify --network celo-sepolia <address> ...`
-- Frontend smoke test:
-  - Wallet connect/disconnect.
-  - Submit cleanup (dummy data) → ensure Submission tx + IPFS upload succeed.
-  - Approve via verifier cabinet (or script) → check rewards available.
-  - Mint Impact Product + claim level.
-  - Trigger hypercert eligibility using seeded data → test mint + reward claim.
-  - Submit recyclables → ensure cRECY transfer event fires.
+- **Contract Verification**: Use `npx hardhat run scripts/verify-contracts.ts --network celoSepolia` or verify manually on [Celoscan](https://celoscan.io/)
+- **Frontend smoke test**:
+  - Wallet connect/disconnect
+  - Submit cleanup (with photos + optional impact data) → ensure Submission tx + IPFS upload succeed
+  - Approve via verifier cabinet (or script) → check rewards available
+  - Mint Impact Product + claim level
+  - Submit recyclables → ensure cRECY tracking (note: RecyclablesReward disabled on testnet)
 
 ## 6. Go-live checklist
 

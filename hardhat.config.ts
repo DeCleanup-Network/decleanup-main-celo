@@ -35,30 +35,10 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: { chainId: 1337 },
 
-    arbitrum: {
-      url: process.env.ARBITRUM_ONE_RPC_URL || "",
-      accounts: [PRIVATE_KEY],
-      chainId: 42161
-    },
-
-    arbitrumSepolia: {
-      url: process.env.ARBITRUM_SEPOLIA_RPC_URL || "",
-      accounts: [PRIVATE_KEY],
-      chainId: 421614
-    },
-
     celo: {
       url: process.env.CELO_RPC_URL || "https://forno.celo.org",
       accounts: [PRIVATE_KEY],
       chainId: 42220
-    },
-
-    celoAlfajores: {
-      url:
-        process.env.CELO_ALFAJORES_RPC_URL ||
-        "https://alfajores-forno.celo-testnet.org",
-      accounts: [PRIVATE_KEY],
-      chainId: 44787
     },
 
     celoSepolia: {
@@ -71,13 +51,8 @@ const config: HardhatUserConfig = {
   },
 
   etherscan: {
-    apiKey: {
-      arbitrum: process.env.ARBISCAN_API_KEY || "",
-      arbitrumSepolia: process.env.ARBISCAN_API_KEY || "",
-      celo: process.env.CELOSCAN_API_KEY || "",
-      celoAlfajores: process.env.CELOSCAN_API_KEY || "",
-      celoSepolia: process.env.CELOSCAN_API_KEY || ""
-    },
+    // Use single API key for V2 API (works with custom chains)
+    apiKey: process.env.CELOSCAN_API_KEY || "",
 
     customChains: [
       {
@@ -86,14 +61,6 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://api.celoscan.io/api",
           browserURL: "https://celoscan.io/"
-        }
-      },
-      {
-        network: "celoAlfajores",
-        chainId: 44787,
-        urls: {
-          apiURL: "https://api-alfajores.celoscan.io/api",
-          browserURL: "https://alfajores.celoscan.io/"
         }
       },
       {

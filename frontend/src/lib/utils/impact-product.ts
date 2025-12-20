@@ -86,10 +86,12 @@ export const LEVEL_PROGRESSION = [
 
 /**
  * Constant traits for Impact Products
+ * These match the attributes in the metadata JSON files
  */
 export const CONSTANT_TRAITS = {
-  type: 'DeCleanup Impact Product',
-  impact: 'Environmental',
-  category: 'Tokenized Cleanups',
+  type: 'Dynamic',
+  impact: 'Environment',
+  category: 'Cleanup NFT',
+  rarity: 'Unique',
 } as const
 

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
 import { useAccount } from 'wagmi'
 import { getHypercertEligibility } from '@/lib/blockchain/contracts'
-import { getLevelName, getImpactValueRange, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
+import { getLevelName, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 
 interface ImpactProductProps {
@@ -32,36 +32,42 @@ export function DashboardImpactProduct({
     const [showManualImport, setShowManualImport] = useState(false)
     const [showMetadata, setShowMetadata] = useState(false)
     const [copying, setCopying] = useState<string | null>(null)
-    const [cleanupsCompleted, setCleanupsCompleted] = useState<number>(0)
     const [hypercertsEarned, setHypercertsEarned] = useState<number>(0)
     const [loadingStats, setLoadingStats] = useState(false)
 
+    // Level = number of cleanups completed (each level represents one verified cleanup)
+    const cleanupsCompleted = level
+
     useEffect(() => {
         if (address && level > 0) {
-            loadStats()
+            loadHypercertStats()
         }
     }, [address, level])
 
-    const loadStats = async () => {
+    const loadHypercertStats = async () => {
         if (!address) return
         setLoadingStats(true)
         try {
             const eligibility = await getHypercertEligibility(address)
-            setCleanupsCompleted(Number(eligibility.cleanupCount))
             setHypercertsEarned(Number(eligibility.hypercertCount))
         } catch (error) {
-            console.error('Error loading stats:', error)
+            console.error('Error loading hypercert stats:', error)
         } finally {
             setLoadingStats(false)
         }
     }
 
     const levelName = getLevelName(level)
-    const impactValueRange = getImpactValueRange(level)
+    // Use specific level number for Impact Value, not a range
+    const impactValueToDisplay = impactValue || String(level)
     
-    // Prefer IPFS URLs from metadata, fallback to local paths
-    const imageUrlToUse = imageUrl || (level > 0 ? getImpactProductIPFSImageUrl(level, process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID) : null) || getImpactProductImagePath(level)
-    const animationUrlToUse = animationUrl || (level === 10 ? getImpactProductIPFSAnimationUrl(process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID) : null) || (level === 10 ? getImpactProductAnimationPath() : null)
+    // Prefer IPFS URLs from metadata, then try IPFS with CID, fallback to local paths only if no CID
+    const imagesCID = process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
+    const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+    
+    // Always use IPFS if we have a CID, even if imageUrl prop is empty
+    const imageUrlToUse = imageUrl || (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) || getImpactProductImagePath(level)
+    const animationUrlToUse = animationUrl || (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) || (level === 10 ? getImpactProductAnimationPath() : null)
 
     const handleCopy = async (value: string, label: string) => {
         try {
@@ -79,28 +85,35 @@ export function DashboardImpactProduct({
         : null
 
     return (
-        <div className="rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black p-3 flex flex-col h-full min-h-0 overflow-y-auto">
-            <div className="mb-2.5 flex items-center justify-between flex-shrink-0">
-                <h2 className="flex items-center gap-2 font-bebas text-2xl tracking-wider text-brand-green">
-                    <Award className="h-6 w-6" />
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col">
+            <div className="mb-4 flex items-center gap-2 flex-shrink-0">
+                <Award className="h-5 w-5 text-brand-green" />
+                <h2 className="font-bebas text-xl sm:text-2xl tracking-wider text-brand-green">
                     IMPACT PRODUCT
                 </h2>
             </div>
 
             {level > 0 ? (
-                <div className="space-y-3 flex-1 min-h-0 flex flex-col">
+                <div className="space-y-4 flex flex-col">
                     {/* NFT Display */}
-                    <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-brand-green/20 bg-gray-900 flex-shrink-0">
+                    <div className="w-full overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black flex-shrink-0 flex items-center justify-center p-4 sm:p-6 aspect-[3/4] max-h-[500px]">
                         {level === 10 && animationUrlToUse ? (
-                            <img
+                            <video
                                 src={animationUrlToUse}
-                                alt={`Level ${level} Impact Product Animation`}
-                                className="h-full w-full object-cover"
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="max-h-full max-w-full object-contain"
                                 onError={(e) => {
                                     // Fallback to static image if animation fails
-                                    const target = e.target as HTMLImageElement
-                                    if (imageUrlToUse) {
-                                        target.src = imageUrlToUse
+                                    const target = e.target as HTMLVideoElement
+                                    if (imageUrlToUse && target.parentElement) {
+                                        const img = document.createElement('img')
+                                        img.src = imageUrlToUse
+                                        img.className = 'max-h-full max-w-full object-contain'
+                                        img.alt = `Level ${level} Impact Product`
+                                        target.parentElement.replaceChild(img, target)
                                     }
                                 }}
                             />
@@ -108,7 +121,8 @@ export function DashboardImpactProduct({
                             <img
                                 src={imageUrlToUse}
                                 alt={`Level ${level} Impact Product`}
-                                className="h-full w-full object-cover"
+                                className="max-h-full max-w-full object-contain"
+                                loading="lazy"
                             />
                         ) : (
                             <div className="flex h-full items-center justify-center">
@@ -117,51 +131,50 @@ export function DashboardImpactProduct({
                         )}
                     </div>
 
-                    {/* Info Grid */}
-                    <div className="grid grid-cols-2 gap-2 flex-shrink-0">
-                        <div className="rounded-lg border border-brand-green/20 bg-black/50 p-2">
-                            <p className="mb-1 text-xs text-gray-400">Level</p>
-                            <p className="font-bebas text-2xl text-brand-green">Level {level}</p>
-                            <p className="text-[10px] text-brand-yellow mt-0.5">{levelName}</p>
+                    {/* Stats Grid - Compact - All Same Design */}
+                    <div className="grid grid-cols-4 gap-2">
+                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground uppercase mb-1">Level</p>
+                            <p className="font-bebas text-lg text-brand-green leading-none">{level}</p>
                         </div>
-                        <div className="rounded-lg border border-brand-green/20 bg-black/50 p-2">
-                            <p className="mb-1 text-xs text-gray-400">$cDCU Attached</p>
-                            <p className="font-bebas text-2xl text-brand-green">{dcuAttached}</p>
+                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground uppercase mb-1">$cDCU</p>
+                            <p className="font-bebas text-lg text-brand-green leading-none">{dcuAttached}</p>
                         </div>
-                    </div>
-
-                    {/* Dynamic Stats */}
-                    <div className="grid grid-cols-2 gap-2 flex-shrink-0">
-                        <div className="rounded-lg border border-brand-green/20 bg-black/50 p-2">
-                            <p className="mb-1 text-xs text-gray-400">Cleanups</p>
-                            <p className="font-bebas text-xl text-white">
-                                {loadingStats ? '...' : cleanupsCompleted}
-                            </p>
+                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground uppercase mb-1">Cleanups</p>
+                            <p className="font-bebas text-lg text-brand-green leading-none">{cleanupsCompleted}</p>
                         </div>
-                        <div className="rounded-lg border border-brand-green/20 bg-black/50 p-2">
-                            <p className="mb-1 text-xs text-gray-400">Hypercerts</p>
-                            <p className="font-bebas text-xl text-white">
-                                {loadingStats ? '...' : hypercertsEarned}
-                            </p>
+                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground uppercase mb-1">Hypercerts</p>
+                            <p className="font-bebas text-lg text-brand-green leading-none">{loadingStats ? '...' : hypercertsEarned}</p>
                         </div>
                     </div>
 
-                    {/* Impact Value */}
-                    <div className="rounded-lg border border-brand-green/20 bg-black/50 p-2 flex-shrink-0">
-                        <p className="mb-1 text-xs text-gray-400">Impact Value</p>
-                        <p className="font-bebas text-xl text-white">{impactValue || impactValueRange}</p>
-                    </div>
-
-                    {/* Metadata Toggle */}
+                    {/* Metadata & Actions - Compact */}
+                    <div className="flex gap-2">
                     <button
                         onClick={() => setShowMetadata(!showMetadata)}
-                        className="flex items-center justify-between rounded-lg border border-brand-green/20 bg-black/30 p-2.5 text-left transition-colors hover:bg-brand-green/5 flex-shrink-0"
+                            className="flex-1 flex items-center justify-between rounded-lg border border-border bg-background/50 p-2.5 text-left transition-colors hover:bg-brand-green/10 hover:border-brand-green/50"
                     >
-                        <span className="font-bebas text-sm tracking-wide text-gray-400">
-                            VIEW METADATA
+                            <span className="font-bebas text-xs tracking-wide text-muted-foreground">
+                                METADATA
                         </span>
-                        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showMetadata ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showMetadata ? 'rotate-180' : ''}`} />
                     </button>
+                        {explorerUrl && (
+                            <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full border-brand-green/30 font-bebas text-xs tracking-wider text-brand-green hover:bg-brand-green/10 hover:border-brand-green/50 h-auto py-2.5"
+                                >
+                                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                                    EXPLORER
+                                </Button>
+                            </a>
+                        )}
+                    </div>
 
                     {/* Metadata Panel */}
                     {showMetadata && (
@@ -182,6 +195,10 @@ export function DashboardImpactProduct({
                                         <span className="text-gray-400">Category:</span>
                                         <span className="text-white">{CONSTANT_TRAITS.category}</span>
                                     </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Rarity:</span>
+                                        <span className="text-white">{CONSTANT_TRAITS.rarity}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -191,7 +208,7 @@ export function DashboardImpactProduct({
                                 <div className="space-y-1.5 text-xs">
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Impact Value:</span>
-                                        <span className="text-white">{impactValue || impactValueRange}</span>
+                                        <span className="text-white">{impactValueToDisplay}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Level:</span>
@@ -199,7 +216,7 @@ export function DashboardImpactProduct({
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Cleanups Completed:</span>
-                                        <span className="text-white">{loadingStats ? '...' : cleanupsCompleted}</span>
+                                        <span className="text-white">{cleanupsCompleted}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Hypercerts Earned:</span>
@@ -235,29 +252,16 @@ export function DashboardImpactProduct({
                         </div>
                     )}
 
-                    {/* View on Explorer */}
-                    {explorerUrl && (
-                        <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                            <Button
-                                variant="outline"
-                                className="w-full border-brand-green/30 font-bebas tracking-wider text-brand-green hover:bg-brand-green/10"
-                            >
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                View on Celoscan
-                            </Button>
-                        </a>
-                    )}
-
                     {/* Manual Wallet Import */}
-                    <div className="rounded-lg border border-brand-green/20 bg-black/30 flex-shrink-0">
+                    <div className="rounded-lg border border-border bg-background/50">
                         <button
                             onClick={() => setShowManualImport(!showManualImport)}
-                            className="flex w-full items-center justify-between p-2.5 text-left transition-colors hover:bg-brand-green/5"
+                            className="flex w-full items-center justify-between p-2.5 text-left transition-colors hover:bg-brand-green/10 hover:border-brand-green/50 rounded-lg"
                         >
-                            <span className="font-bebas text-sm tracking-wide text-gray-400">
-                                MANUAL WALLET IMPORT
+                            <span className="font-bebas text-xs tracking-wide text-muted-foreground">
+                                WALLET IMPORT
                             </span>
-                            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showManualImport ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showManualImport ? 'rotate-180' : ''}`} />
                         </button>
 
                         {showManualImport && (
@@ -320,14 +324,14 @@ export function DashboardImpactProduct({
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <div className="mb-4 rounded-full border-4 border-brand-green/30 bg-brand-green/10 p-6">
-                        <Award className="h-16 w-16 text-brand-green/50" />
+                <div className="flex flex-1 flex-col items-center justify-center text-center py-8">
+                    <div className="mb-6 rounded-full border-4 border-brand-green/30 bg-brand-green/10 p-8 sm:p-10">
+                        <Award className="h-16 w-16 sm:h-20 sm:w-20 text-brand-green/50" />
                     </div>
-                    <h3 className="mb-2 font-bebas text-2xl tracking-wider text-gray-400">
+                    <h3 className="mb-3 font-bebas text-2xl sm:text-3xl tracking-wider text-muted-foreground">
                         NOT YET MINTED
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm sm:text-base text-muted-foreground max-w-xs">
                         Submit your first cleanup to claim Level 1
                     </p>
                 </div>

@@ -32,6 +32,7 @@ export interface CleanupDetails {
   recyclablesReceiptHash?: string
   approver?: Address
   rewarded?: boolean
+  referrer?: Address // Referrer address if user was referred
 }
 
 const SUBMISSION_ADDRESS =
@@ -450,6 +451,115 @@ export async function getUserSubmissions(user: Address): Promise<bigint[]> {
   }
 }
 
+/**
+ * Get verifier rewards count - counts how many cleanups the user has verified
+ * Each verification earns 1 $cDCU, so the count equals the DCU amount
+ */
+export async function getVerifierRewardsCount(verifierAddress: Address): Promise<number> {
+  if (!SUBMISSION_ADDRESS) {
+    return 0
+  }
+
+  try {
+    // Get total submission count
+    const totalSubmissions = await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'submissionCount',
+      args: [],
+    }) as bigint
+
+    if (totalSubmissions === 0n) {
+      return 0
+    }
+
+    // Normalize address for comparison
+    const normalizedVerifier = verifierAddress.toLowerCase()
+    
+    // Check each submission to see if this user verified it
+    let verifiedCount = 0
+    const batchSize = 100 // Increased batch size for better performance
+    const errors: Error[] = []
+    
+    for (let i = 0; i < Number(totalSubmissions); i += batchSize) {
+      const batchPromises = []
+      const end = Math.min(i + batchSize, Number(totalSubmissions))
+      
+      for (let j = i; j < end; j++) {
+        batchPromises.push(
+          getCleanupDetails(BigInt(j))
+            .then(details => {
+              // Check if this user verified this cleanup
+              // Must be verified AND approver must match (case-insensitive)
+              if (details.verified && details.approver) {
+                const approverNormalized = details.approver.toLowerCase()
+                if (approverNormalized === normalizedVerifier) {
+                  return 1
+                }
+              }
+              return 0
+            })
+            .catch((err) => {
+              // Log error but don't fail completely
+              errors.push(err as Error)
+              return 0
+            })
+        )
+      }
+      
+      const batchResults = await Promise.all(batchPromises)
+      verifiedCount += batchResults.reduce((sum, count) => sum + count, 0)
+    }
+
+    // Log if there were errors (but don't fail)
+    if (errors.length > 0 && process.env.NODE_ENV === 'development') {
+      console.warn(`[getVerifierRewardsCount] ${errors.length} errors while checking submissions (non-critical)`)
+    }
+
+    return verifiedCount
+  } catch (error) {
+    console.error('[getVerifierRewardsCount] Error getting verifier rewards count:', error)
+    return 0
+  }
+}
+
+/**
+ * Get the referrer address for a user from the contract
+ * Returns null if user was not referred
+ */
+export async function getUserReferrer(user: Address): Promise<Address | null> {
+  if (!REWARD_MANAGER_ADDRESS) {
+    return null
+  }
+
+  try {
+    const referrer = await readContract(config, {
+      address: REWARD_MANAGER_ADDRESS,
+      abi: [
+        {
+          type: 'function',
+          name: 'getReferrer',
+          stateMutability: 'view',
+          inputs: [{ name: 'invitee', type: 'address' }],
+          outputs: [{ name: '', type: 'address' }],
+        },
+      ] as const,
+      functionName: 'getReferrer',
+      args: [user],
+    }) as Address
+
+    // Return null if referrer is zero address
+    if (referrer === '0x0000000000000000000000000000000000000000') {
+      return null
+    }
+
+    return referrer
+  } catch (error) {
+    console.error('Error getting user referrer:', error)
+    return null
+  }
+}
+
 export async function findLatestClaimableCleanup(user: Address): Promise<bigint | null> {
   try {
     const submissionIds = await getUserSubmissions(user)
@@ -467,7 +577,8 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
     for (const submissionId of sortedIds) {
       try {
         const details = await getCleanupDetails(submissionId)
-        const localClaimed = typeof window !== 'undefined' ? (() => {
+        // Use let instead of const so we can update it after unmarking
+        let localClaimed = typeof window !== 'undefined' ? (() => {
           try {
             const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
             const claimedIds = localStorage.getItem(claimedKey)
@@ -480,12 +591,193 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
           return false
         })() : false
         
+        // Check if this is a pre-fix cleanup (rewarded=true but user has no balance)
+        // IMPORTANT: Check this EVEN IF marked as claimed, because we need to detect pre-fix cleanups
+        // that were incorrectly unmarked or never properly marked
+        let isPreFixCleanup = false
+        if (details.verified && details.rewarded && !details.rejected && REWARD_MANAGER_ADDRESS) {
+          try {
+            const balance = await readContract(config, {
+              address: REWARD_MANAGER_ADDRESS,
+              abi: [
+                {
+                  type: 'function',
+                  name: 'getBalance',
+                  stateMutability: 'view',
+                  inputs: [{ name: 'user', type: 'address' }],
+                  outputs: [{ name: '', type: 'uint256' }],
+                },
+              ] as const,
+              functionName: 'getBalance',
+              args: [user],
+            }) as bigint
+            
+            // Only mark as pre-fix if verified more than 1 hour ago
+            // This prevents false positives for newly verified cleanups
+            // Be very conservative - only block old cleanups that are definitely pre-fix
+            if (balance === 0n && details.timestamp) {
+              const now = BigInt(Math.floor(Date.now() / 1000))
+              const oneHourAgo = now - BigInt(3600) // 1 hour in seconds
+              const verifiedAgo = now - details.timestamp
+              
+              // Only mark as pre-fix if verified >1 hour ago and still has 0 balance
+              if (details.timestamp < oneHourAgo) {
+                // Check if user has the corresponding NFT level - if not, allow claiming
+                // This allows users to claim pre-fix cleanups to get their NFT
+                try {
+                  const userLevel = await getUserLevel(user)
+                  // If user has no NFT (level 0), allow claiming this cleanup to mint their first NFT
+                  if (userLevel === 0) {
+                    console.log(`[findLatestClaimableCleanup] Pre-fix cleanup ${submissionId.toString()} detected, but user has no NFT (level 0) - allowing claim to mint NFT`)
+                    isPreFixCleanup = false // Don't block it
+                    // Also unmark it from localStorage if it was previously marked as claimed
+                    if (localClaimed && typeof window !== 'undefined') {
+                      try {
+                        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+                        const claimedIds = localStorage.getItem(claimedKey)
+                        if (claimedIds) {
+                          const parsed = JSON.parse(claimedIds) as string[]
+                          const filtered = parsed.filter(id => id !== submissionId.toString())
+                          if (filtered.length === 0) {
+                            localStorage.removeItem(claimedKey)
+                          } else {
+                            localStorage.setItem(claimedKey, JSON.stringify(filtered))
+                          }
+                          console.log(`[findLatestClaimableCleanup] ✅ Unmarked pre-fix cleanup ${submissionId.toString()} from claimed list - user needs to claim it to mint NFT`)
+                          localClaimed = false // Update so it can be returned
+                        }
+                      } catch (e) {
+                        console.warn('[findLatestClaimableCleanup] Could not unmark cleanup:', e)
+                      }
+                    }
+                  } else {
+                    isPreFixCleanup = true
+                    console.warn(`[findLatestClaimableCleanup] ⚠️ Pre-fix cleanup detected: ${submissionId.toString()} (rewarded=true but balance=0, verified ${verifiedAgo.toString()}s ago, >1h, user has NFT level ${userLevel})`)
+                    // Automatically mark it as claimed to prevent it from being found again
+                    if (typeof window !== 'undefined') {
+                      try {
+                        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+                        const claimedIds = localStorage.getItem(claimedKey)
+                        const parsed = claimedIds ? JSON.parse(claimedIds) as string[] : []
+                        if (!parsed.includes(submissionId.toString())) {
+                          parsed.push(submissionId.toString())
+                          localStorage.setItem(claimedKey, JSON.stringify(parsed))
+                          console.log(`[findLatestClaimableCleanup] ✅ Auto-marked pre-fix cleanup ${submissionId.toString()} as claimed`)
+                          // Update localClaimed so it's skipped
+                          localClaimed = true
+                        }
+                      } catch (e) {
+                        console.warn('[findLatestClaimableCleanup] Could not mark cleanup as claimed:', e)
+                      }
+                    }
+                  }
+                } catch (error) {
+                  // If we can't check NFT level, be conservative and allow claiming
+                  console.warn(`[findLatestClaimableCleanup] Could not check user NFT level for cleanup ${submissionId.toString()}, allowing claim:`, error)
+                  isPreFixCleanup = false
+                  // Also unmark from localStorage if marked
+                  if (localClaimed && typeof window !== 'undefined') {
+                    try {
+                      const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+                      const claimedIds = localStorage.getItem(claimedKey)
+                      if (claimedIds) {
+                        const parsed = JSON.parse(claimedIds) as string[]
+                        const filtered = parsed.filter(id => id !== submissionId.toString())
+                        if (filtered.length === 0) {
+                          localStorage.removeItem(claimedKey)
+                        } else {
+                          localStorage.setItem(claimedKey, JSON.stringify(filtered))
+                        }
+                        localClaimed = false
+                      }
+                    } catch (e) {
+                      // Ignore
+                    }
+                  }
+                }
+              } else {
+                console.log(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} verified recently (${verifiedAgo.toString()}s ago, <1h). Allowing claim - not marking as pre-fix.`)
+              }
+            } else if (balance > 0n) {
+              console.log(`[findLatestClaimableCleanup] User has balance for cleanup ${submissionId.toString()}:`, balance.toString(), '- not a pre-fix cleanup')
+            } else if (!details.timestamp) {
+              console.warn(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} has no timestamp - cannot determine if pre-fix`)
+            }
+          } catch (error) {
+            console.warn(`[findLatestClaimableCleanup] Could not check balance for cleanup ${submissionId.toString()}:`, error)
+          }
+        }
+        
+        // If cleanup is verified but marked as claimed in localStorage, check if it was actually claimed
+        // Sometimes cleanups get incorrectly marked as claimed (e.g., if claim failed)
+        // Do this BEFORE checking isClaimable so we can unmark it and make it claimable
+        if (details.verified && !details.rejected && localClaimed && !isPreFixCleanup && REWARD_MANAGER_ADDRESS) {
+          console.warn(`[findLatestClaimableCleanup] ⚠️ Cleanup ${submissionId.toString()} is verified but marked as claimed in localStorage`)
+          console.warn(`[findLatestClaimableCleanup] Checking if it was actually claimed...`)
+          
+          // Check if user actually has rewards or if this was a failed claim
+          try {
+            const balance = await readContract(config, {
+              address: REWARD_MANAGER_ADDRESS,
+              abi: [
+                {
+                  type: 'function',
+                  name: 'getBalance',
+                  stateMutability: 'view',
+                  inputs: [{ name: 'user', type: 'address' }],
+                  outputs: [{ name: '', type: 'uint256' }],
+                },
+              ] as const,
+              functionName: 'getBalance',
+              args: [user],
+            }) as bigint
+            
+            // If user has no balance and cleanup is verified, it might not have been actually claimed
+            // Only unmark if cleanup was verified recently (< 1 hour ago) to avoid unmarking old claimed cleanups
+            if (balance === 0n && details.timestamp) {
+              const now = BigInt(Math.floor(Date.now() / 1000))
+              const oneHourAgo = now - BigInt(3600)
+              const verifiedAgo = now - details.timestamp
+              
+              if (details.timestamp > oneHourAgo) {
+                console.warn(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} verified recently (${verifiedAgo.toString()}s ago) but marked as claimed and balance is 0`)
+                console.warn(`[findLatestClaimableCleanup] This might be a failed claim - unmarking from localStorage to allow retry`)
+                
+                // Unmark from localStorage to allow claiming
+                if (typeof window !== 'undefined') {
+                  try {
+                    const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+                    const claimedIds = localStorage.getItem(claimedKey)
+                    if (claimedIds) {
+                      const parsed = JSON.parse(claimedIds) as string[]
+                      const filtered = parsed.filter(id => id !== submissionId.toString())
+                      if (filtered.length === 0) {
+                        localStorage.removeItem(claimedKey)
+                      } else {
+                        localStorage.setItem(claimedKey, JSON.stringify(filtered))
+                      }
+                      console.log(`[findLatestClaimableCleanup] ✅ Unmarked cleanup ${submissionId.toString()} from claimed list - can now be claimed`)
+                      // Update localClaimed to false so it can be returned
+                      localClaimed = false
+                    }
+                  } catch (e) {
+                    console.warn('[findLatestClaimableCleanup] Could not unmark cleanup:', e)
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`[findLatestClaimableCleanup] Could not check if cleanup should be unmarked:`, error)
+          }
+        }
+        
         const isClaimable = 
           details.user.toLowerCase() === user.toLowerCase() &&
           details.verified &&
           !details.rejected &&
           !details.claimed &&
-          !localClaimed
+          !localClaimed &&
+          !isPreFixCleanup
         
         if (isClaimable) {
           console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`, {
@@ -493,6 +785,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
             rejected: details.rejected,
             claimed: details.claimed,
             localClaimed,
+            isPreFixCleanup,
           })
           console.log(`[findLatestClaimableCleanup] Returning cleanup ID: ${submissionId.toString()}`)
           return submissionId
@@ -502,7 +795,9 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
             rejected: details.rejected,
             claimed: details.claimed,
             localClaimed,
+            isPreFixCleanup,
             userMatch: details.user.toLowerCase() === user.toLowerCase(),
+            rewarded: details.rewarded,
           })
         }
       } catch (error) {
@@ -1063,271 +1358,211 @@ export async function claimImpactProductFromVerification(
   console.log('Cleanup verified:', cleanupDetails.verified)
   console.log('Cleanup rewarded (from contract):', cleanupDetails.rewarded)
 
-  if (balance === 0n) {
-    let defaultRewardAmount: bigint | null = null
-    try {
-      const SUBMISSION_DEFAULT_REWARD_ABI = [
-        {
-          type: 'function',
-          name: 'defaultRewardAmount',
-          stateMutability: 'view',
-          inputs: [],
-          outputs: [{ name: '', type: 'uint256' }],
-        },
-      ] as const
-      defaultRewardAmount = await readContract(config, {
-        address: SUBMISSION_ADDRESS,
-        abi: SUBMISSION_DEFAULT_REWARD_ABI,
-        functionName: 'defaultRewardAmount',
-      }) as bigint
-      console.log('Default reward amount in Submission contract:', defaultRewardAmount.toString())
-    } catch (error) {
-      console.error('Error reading default reward amount:', error)
-    }
-    
-    if (cleanupDetails.rewarded === false) {
-      console.error('DIAGNOSTIC: Submission contract shows rewarded=false. Rewards were NOT distributed during verification.')
-      console.error('This indicates the rewardManager.distributeRewards() call failed or was skipped.')
-    } else {
-      console.warn('DIAGNOSTIC: Submission contract shows rewarded=true, but user balance is 0.')
-      console.warn('This indicates rewards were marked as distributed but not added to user balance.')
-      console.warn('This cleanup was likely verified BEFORE the contract fix was deployed.')
-      if (defaultRewardAmount) {
-        console.warn(`Expected reward amount: ${(Number(defaultRewardAmount) / 1e18).toFixed(2)} cDCU tokens`)
-      }
-    }
-    const REWARD_STATS_ABI = [
-      {
-        type: 'function',
-        name: 'getRewardsBreakdown',
-        stateMutability: 'view',
-        inputs: [{ name: 'user', type: 'address' }],
-        outputs: [
-          { name: 'claimReward', type: 'uint256' },
-          { name: 'streakRewardAmount', type: 'uint256' },
-          { name: 'referralRewardAmount', type: 'uint256' },
-          { name: 'currentBalance', type: 'uint256' },
-          { name: 'claimedRewards', type: 'uint256' },
-        ],
-      },
-    ] as const
+  // Rewards are now distributed when NFT is minted/upgraded (via rewardImpactProductClaim)
+  // The 10 $cDCU cleanup reward, referral rewards, and impact report rewards are all
+  // distributed during the claim flow when the NFT is minted/upgraded
+  // So we always proceed to NFT mint/upgrade, which will trigger reward distribution
+  
+  console.log('✅ Cleanup is verified - proceeding to claim flow')
+  console.log('Rewards will be distributed when NFT is minted/upgraded:')
+  console.log('  - 10 $cDCU for cleanup (via rewardImpactProductClaim)')
+  console.log('  - 5 $cDCU for impact report (if submitted, already distributed during verification)')
+  console.log('  - 3 $cDCU each for referral (if referred, distributed during NFT claim)')
+  
+  // Check if this is a pre-fix cleanup (verified before this fix was deployed)
+  // These might have balance > 0 from old distributeRewards call
+  if (balance > 0n) {
+    console.log(`User has existing balance: ${(Number(balance) / 1e18).toFixed(2)} $cDCU`)
+    console.log('This may include rewards from previous verification flow')
+    console.log('Proceeding with claim - NFT mint/upgrade will add additional rewards')
+  } else {
+    console.log('User balance is 0 - all rewards will be distributed during NFT claim')
+  }
+  
+  // Always proceed to claim - no need to check balance or throw errors
+  // The NFT mint/upgrade will handle reward distribution
 
-    let verificationTxHash: string | null = null
+  // Initialize variables for claim flow
+  let hash: `0x${string}` | null = null
+  let receipt: any = null
+  
+  try {
+  // Claim flow:
+  // 1. If user has existing balance (from old cleanups or impact reports), claim it first
+  // 2. Then proceed to NFT mint/upgrade which will:
+  //    - Distribute 10 $cDCU for cleanup (via rewardImpactProductClaim)
+  //    - Distribute referral rewards (3 $cDCU each if referred)
+  //    - Mint/upgrade NFT
+  
+  if (balance > 0n) {
+    // User has existing balance - claim it first (might be from old cleanups or impact reports)
+    console.log(`Claiming existing balance: ${(Number(balance) / 1e18).toFixed(2)} $cDCU`)
     try {
-      const publicClient = getPublicClient(config)
-      if (publicClient) {
-        const SUBMISSION_APPROVED_EVENT_ABI = {
-          type: 'event',
-          name: 'SubmissionApproved',
-          inputs: [
-            { name: 'submissionId', type: 'uint256', indexed: true },
-            { name: 'approver', type: 'address', indexed: true },
-            { name: 'timestamp', type: 'uint256', indexed: false },
-          ],
-        } as const
-
-        const logs = await viemGetLogs(publicClient, {
-          address: SUBMISSION_ADDRESS,
-          event: SUBMISSION_APPROVED_EVENT_ABI,
-          args: {
-            submissionId: cleanupId,
-          },
-          fromBlock: 'earliest',
-        })
-
-        if (logs && logs.length > 0) {
-          const latestLog = logs[logs.length - 1]
-          verificationTxHash = latestLog.transactionHash
-          console.log('Found verification transaction hash:', verificationTxHash)
-        }
-      }
-    } catch (error) {
-      console.error('Error querying verification transaction:', error)
-    }
-    let hasAlreadyClaimed = false
-    let claimedAmount = 0n
-    try {
-      const stats = await readContract(config, {
+      hash = await writeContract(config, {
         address: REWARD_MANAGER_ADDRESS,
-        abi: REWARD_STATS_ABI,
-        functionName: 'getRewardsBreakdown',
-        args: [account.address],
-      }) as [bigint, bigint, bigint, bigint, bigint]
-
-      console.log('Reward breakdown:', {
-        claimReward: stats[0].toString(),
-        streakReward: stats[1].toString(),
-        referralReward: stats[2].toString(),
-        currentBalance: stats[3].toString(),
-        claimedRewards: stats[4].toString(),
+        abi: REWARD_MANAGER_ABI,
+        functionName: 'claimRewards',
+        args: [balance],
+        account: account.address,
       })
 
-      if (stats[4] > 0n) {
-        hasAlreadyClaimed = true
-        claimedAmount = stats[4]
-      }
-    } catch (error) {
-      console.error('Error checking reward breakdown:', error)
-    }
+      console.log('✅ Claim transaction hash:', hash)
+      console.log('Waiting for transaction receipt...')
 
-    if (hasAlreadyClaimed) {
-      const localClaimed = typeof window !== 'undefined' && 
-        localStorage.getItem(`claimed_cleanup_${account.address.toLowerCase()}_${cleanupId.toString()}`)
-      
-      if (localClaimed) {
-        const formattedAmount = (Number(claimedAmount) / 1e18).toFixed(2)
-        throw new Error(
-          `You have already claimed rewards for this cleanup.\n\n` +
-          `Total claimed from all cleanups: ${formattedAmount} cDCU tokens.\n\n` +
-          `You will receive new rewards when your next cleanup is verified.`
-        )
+      receipt = await waitForTransactionReceipt(config, {
+        hash,
+        confirmations: 1,
+        pollingInterval: 2000,
+        timeout: 120000,
+      })
+
+      console.log('Claim transaction confirmed:', receipt)
+
+      if (receipt.status === 'reverted' || receipt.status === 0) {
+        throw new Error('Transaction reverted on chain. DCURewardManager may not have MINTER_ROLE on DCUToken.')
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000))
+    } catch (claimError: any) {
+      const errorMsg = claimError?.message || String(claimError)
+      if (errorMsg.includes('REWARD__InsufficientBalance')) {
+        console.warn('Balance changed - proceeding to NFT mint/upgrade')
+        hash = null // Continue to NFT operations
       } else {
-        const formattedAmount = (Number(claimedAmount) / 1e18).toFixed(2)
-        console.warn(`User has claimed ${formattedAmount} tokens before, but this cleanup (${cleanupId.toString()}) hasn't been claimed yet.`)
-        console.warn('This suggests rewards for this cleanup were not distributed to the balance.')
+        throw claimError
       }
     }
-    if (defaultRewardAmount === null) {
-      try {
-        const SUBMISSION_DEFAULT_REWARD_ABI = [
-          {
-            type: 'function',
-            name: 'defaultRewardAmount',
-            stateMutability: 'view',
-            inputs: [],
-            outputs: [{ name: '', type: 'uint256' }],
-          },
-        ] as const
-        defaultRewardAmount = await readContract(config, {
-          address: SUBMISSION_ADDRESS,
-          abi: SUBMISSION_DEFAULT_REWARD_ABI,
-          functionName: 'defaultRewardAmount',
-        }) as bigint
-      } catch (error) {
-        console.error('Error reading default reward amount:', error)
-      }
-    }
-
-    let errorMessage = 'No rewards available to claim. Rewards are distributed when your cleanup is verified. ' +
-      'If your cleanup was verified but you see this message, the reward distribution may have failed.\n\n'
-    if (cleanupDetails.rewarded === false) {
-      errorMessage += '⚠️ DIAGNOSTIC: The submission contract shows rewards were NOT distributed during verification.\n\n' +
-        'This means the rewardManager.distributeRewards() call failed or was skipped.\n\n' +
-        'Possible fixes:\n' +
-        '1. Check if DCURewardManager contract address is correctly set in Submission contract\n' +
-        '2. Check if the default reward amount is > 0 in Submission contract\n' +
-        '3. Check the verification transaction logs for errors\n\n'
-    } else {
-      const rewardAmount = defaultRewardAmount ? (Number(defaultRewardAmount) / 1e18).toFixed(2) : '10'
-      errorMessage += '⚠️ DIAGNOSTIC: Rewards were marked as distributed, but your balance is 0.\n\n' +
-        'This cleanup was verified BEFORE the contract fix was deployed.\n' +
-        'The old contract code set "rewarded=true" before calling distributeRewards(),\n' +
-        'so if the distribution failed, the flag was already set.\n\n' +
-        `Expected reward: ${rewardAmount} cDCU tokens\n\n`
-    }
-    
-    if (verificationTxHash) {
-      const explorerUrl = `${REQUIRED_BLOCK_EXPLORER_URL}/tx/${verificationTxHash}`
-      errorMessage += `View your verification transaction:\n${explorerUrl}\n\n` +
-        'Check the transaction logs for:\n' +
-        '- "RewardAvailable" event (confirms reward distribution was attempted)\n' +
-        '- "RewardAccrued" event in DCURewardManager (confirms reward was added to balance)\n' +
-        '- Any error messages or failed internal transactions'
-    } else {
-      errorMessage += 'Please check the block explorer for your verification transaction or contact support.'
-    }
-
-    throw new Error(errorMessage)
+  } else {
+    // Balance is 0 - rewards will be distributed when NFT is minted/upgraded
+    console.log('Balance is 0 - rewards will be distributed during NFT mint/upgrade')
   }
-
-  try {
-    const hash = await writeContract(config, {
-      address: REWARD_MANAGER_ADDRESS,
-      abi: REWARD_MANAGER_ABI,
-      functionName: 'claimRewards',
-      args: [balance],
-      account: account.address,
-    })
-
-    console.log('Claim transaction hash:', hash)
-    console.log('Waiting for transaction receipt...')
-
-    const receipt = await waitForTransactionReceipt(config, {
-      hash,
-      confirmations: 1,
-      pollingInterval: 2000,
-      timeout: 120000,
-    })
-
-    console.log('Claim transaction confirmed:', receipt)
-
-    if (receipt.status === 'reverted' || receipt.status === 0) {
-      throw new Error('Transaction reverted on chain. DCURewardManager may not have MINTER_ROLE on DCUToken.')
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 3000))
 
     let claimVerified = false
     let claimedAmount = 0n
-    const publicClient = getPublicClient(config)
     
-    if (publicClient) {
-      try {
-        const REWARDS_CLAIMED_EVENT_ABI = {
-          type: 'event',
-          name: 'RewardsClaimed',
-          inputs: [
-            { name: 'user', type: 'address', indexed: true },
-            { name: 'amount', type: 'uint256', indexed: false },
-            { name: 'timestamp', type: 'uint256', indexed: false },
-          ],
-        } as const
+    // Only check for RewardsClaimed event if we actually called claimRewards
+    if (hash && receipt) {
+      const publicClient = getPublicClient(config)
+      
+      if (publicClient) {
+        try {
+          const REWARDS_CLAIMED_EVENT_ABI = {
+            type: 'event',
+            name: 'RewardsClaimed',
+            inputs: [
+              { name: 'user', type: 'address', indexed: true },
+              { name: 'amount', type: 'uint256', indexed: false },
+              { name: 'timestamp', type: 'uint256', indexed: false },
+            ],
+          } as const
 
-        const logs = await viemGetLogs(publicClient, {
-          address: REWARD_MANAGER_ADDRESS,
-          event: REWARDS_CLAIMED_EVENT_ABI,
-          args: {
-            user: account.address,
-          },
-          fromBlock: receipt.blockNumber,
-          toBlock: receipt.blockNumber,
-        })
+          const logs = await viemGetLogs(publicClient, {
+            address: REWARD_MANAGER_ADDRESS,
+            event: REWARDS_CLAIMED_EVENT_ABI,
+            args: {
+              user: account.address,
+            },
+            fromBlock: receipt.blockNumber,
+            toBlock: receipt.blockNumber,
+          })
 
-        if (logs && logs.length > 0) {
-          const claimLog = logs.find(log => log.transactionHash === hash)
-          if (claimLog && claimLog.args.amount) {
-            claimVerified = true
-            claimedAmount = claimLog.args.amount as bigint
-            console.log('✅ RewardsClaimed event found in transaction:', {
-              user: claimLog.args.user,
-              amount: claimedAmount.toString(),
-              timestamp: claimLog.args.timestamp?.toString(),
-            })
+          if (logs && logs.length > 0) {
+            const claimLog = logs.find(log => log.transactionHash === hash)
+            if (claimLog && claimLog.args.amount) {
+              claimVerified = true
+              claimedAmount = claimLog.args.amount as bigint
+              console.log('✅ RewardsClaimed event found in transaction:', {
+                user: claimLog.args.user,
+                amount: claimedAmount.toString(),
+                timestamp: claimLog.args.timestamp?.toString(),
+              })
+            }
           }
+        } catch (logError) {
+          console.error('Error checking transaction logs:', logError)
         }
-      } catch (logError) {
-        console.error('Error checking transaction logs:', logError)
       }
+    } else {
+      console.log('Skipping RewardsClaimed event check - claimRewards was not called (balance was 0)')
     }
 
-    let tokensMinted = false
-    try {
-      const REWARD_MANAGER_DCU_ABI = [
-        {
-          type: 'function',
-          name: 'dcuToken',
-          stateMutability: 'view',
-          inputs: [],
-          outputs: [{ name: '', type: 'address' }],
-        },
-      ] as const
+    // Only verify claim if we actually called claimRewards
+    if (hash && receipt) {
+      let tokensMinted = false
+      try {
+        const REWARD_MANAGER_DCU_ABI = [
+          {
+            type: 'function',
+            name: 'dcuToken',
+            stateMutability: 'view',
+            inputs: [],
+            outputs: [{ name: '', type: 'address' }],
+          },
+        ] as const
 
-      const dcuTokenAddress = await readContract(config, {
+        const dcuTokenAddress = await readContract(config, {
+          address: REWARD_MANAGER_ADDRESS,
+          abi: REWARD_MANAGER_DCU_ABI,
+          functionName: 'dcuToken',
+        }) as Address
+
+        const DCU_TOKEN_ABI = [
+          {
+            type: 'function',
+            name: 'balanceOf',
+            stateMutability: 'view',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [{ name: '', type: 'uint256' }],
+          },
+        ] as const
+
+        const dcuBalanceAfter = await readContract(config, {
+          address: dcuTokenAddress,
+          abi: DCU_TOKEN_ABI,
+          functionName: 'balanceOf',
+          args: [account.address],
+        }) as bigint
+
+        console.log('cDCU token balance after claim:', dcuBalanceAfter.toString())
+        console.log('Expected cDCU tokens to increase by:', balance.toString())
+        
+        if (dcuBalanceAfter > 0n && balance > 0n) {
+          tokensMinted = true
+          console.log('✅ cDCU tokens were minted successfully')
+        }
+      } catch (checkError) {
+        console.error('Error checking DCU token balance:', checkError)
+      }
+      const balanceAfter = await readContract(config, {
         address: REWARD_MANAGER_ADDRESS,
-        abi: REWARD_MANAGER_DCU_ABI,
-        functionName: 'dcuToken',
-      }) as Address
+        abi: REWARD_MANAGER_ABI,
+        functionName: 'getBalance',
+        args: [account.address],
+      }) as bigint
 
+      console.log('RewardManager balance before claim:', balance.toString())
+      console.log('RewardManager balance after claim:', balanceAfter.toString())
+
+      if (claimVerified || tokensMinted) {
+        console.log('✅ Claim verified via transaction logs or token minting')
+        if (balanceAfter >= balance) {
+          console.warn('⚠️ Balance check shows no decrease, but claim was verified via logs/tokens. This may be an RPC caching issue.')
+        }
+      } else if (balanceAfter >= balance) {
+        console.warn('WARNING: Balance did not decrease after claim and no RewardsClaimed event found.')
+        throw new Error(
+          'Claim transaction completed but balance was not reduced and no RewardsClaimed event found. ' +
+          'This may indicate that DCURewardManager does not have MINTER_ROLE on DCUToken, ' +
+          'or the mint() call failed. ' +
+          'Please check the transaction on the block explorer: ' +
+          `${REQUIRED_BLOCK_EXPLORER_URL}/tx/${hash}`
+        )
+      }
+    } else {
+      console.log('Skipping claim verification - proceeding directly to NFT mint/upgrade')
+    }
+    // Only check DCU token balance if we actually called claimRewards
+    if (hash && balance > 0n) {
       const DCU_TOKEN_ABI = [
         {
           type: 'function',
@@ -1338,97 +1573,48 @@ export async function claimImpactProductFromVerification(
         },
       ] as const
 
-      const dcuBalanceAfter = await readContract(config, {
-        address: dcuTokenAddress,
-        abi: DCU_TOKEN_ABI,
-        functionName: 'balanceOf',
-        args: [account.address],
-      }) as bigint
+      try {
+        // Get cDCU token address from RewardManager
+        const REWARD_MANAGER_DCU_ABI = [
+          {
+            type: 'function',
+            name: 'dcuToken',
+            stateMutability: 'view',
+            inputs: [],
+            outputs: [{ name: '', type: 'address' }],
+          },
+        ] as const
 
-      console.log('cDCU token balance after claim:', dcuBalanceAfter.toString())
-      console.log('Expected cDCU tokens to increase by:', balance.toString())
-      
-      if (dcuBalanceAfter > 0n && balance > 0n) {
-        tokensMinted = true
-        console.log('✅ cDCU tokens were minted successfully')
+        const dcuTokenAddress = await readContract(config, {
+          address: REWARD_MANAGER_ADDRESS,
+          abi: REWARD_MANAGER_DCU_ABI,
+          functionName: 'dcuToken',
+        }) as Address
+
+        const dcuBalance = await readContract(config, {
+          address: dcuTokenAddress,
+          abi: DCU_TOKEN_ABI,
+          functionName: 'balanceOf',
+          args: [account.address],
+        }) as bigint
+
+        console.log('cDCU token balance after claim:', dcuBalance.toString())
+        console.log('Expected increase:', balance.toString())
+
+        if (dcuBalance === 0n && balance > 0n) {
+          throw new Error(
+            'Claim transaction completed but no cDCU tokens were minted. ' +
+            'DCURewardManager may not have MINTER_ROLE on DCUToken. ' +
+            'Transaction hash: ' + hash + '. Please contact support.'
+          )
+        }
+      } catch (error) {
+        console.error('Error checking DCU token balance:', error)
       }
-    } catch (checkError) {
-      console.error('Error checking DCU token balance:', checkError)
-    }
-    const balanceAfter = await readContract(config, {
-      address: REWARD_MANAGER_ADDRESS,
-      abi: REWARD_MANAGER_ABI,
-      functionName: 'getBalance',
-      args: [account.address],
-    }) as bigint
-
-    console.log('RewardManager balance before claim:', balance.toString())
-    console.log('RewardManager balance after claim:', balanceAfter.toString())
-
-    if (claimVerified || tokensMinted) {
-      console.log('✅ Claim verified via transaction logs or token minting')
-      if (balanceAfter >= balance) {
-        console.warn('⚠️ Balance check shows no decrease, but claim was verified via logs/tokens. This may be an RPC caching issue.')
-      }
-    } else if (balanceAfter >= balance) {
-      console.warn('WARNING: Balance did not decrease after claim and no RewardsClaimed event found.')
-      throw new Error(
-        'Claim transaction completed but balance was not reduced and no RewardsClaimed event found. ' +
-        'This may indicate that DCURewardManager does not have MINTER_ROLE on DCUToken, ' +
-        'or the mint() call failed. ' +
-        'Please check the transaction on the block explorer: ' +
-        `${REQUIRED_BLOCK_EXPLORER_URL}/tx/${hash}`
-      )
-    }
-    const DCU_TOKEN_ABI = [
-      {
-        type: 'function',
-        name: 'balanceOf',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ name: '', type: 'uint256' }],
-      },
-    ] as const
-
-    try {
-      // Get cDCU token address from RewardManager
-      const REWARD_MANAGER_DCU_ABI = [
-        {
-          type: 'function',
-          name: 'dcuToken',
-          stateMutability: 'view',
-          inputs: [],
-          outputs: [{ name: '', type: 'address' }],
-        },
-      ] as const
-
-      const dcuTokenAddress = await readContract(config, {
-        address: REWARD_MANAGER_ADDRESS,
-        abi: REWARD_MANAGER_DCU_ABI,
-        functionName: 'dcuToken',
-      }) as Address
-
-      const dcuBalance = await readContract(config, {
-        address: dcuTokenAddress,
-        abi: DCU_TOKEN_ABI,
-        functionName: 'balanceOf',
-        args: [account.address],
-      }) as bigint
-
-      console.log('cDCU token balance after claim:', dcuBalance.toString())
-      console.log('Expected increase:', balance.toString())
-
-      if (dcuBalance === 0n && balance > 0n) {
-        throw new Error(
-          'Claim transaction completed but no cDCU tokens were minted. ' +
-          'DCURewardManager may not have MINTER_ROLE on DCUToken. ' +
-          'Transaction hash: ' + hash + '. Please contact support.'
-        )
-      }
-    } catch (error) {
-      console.error('Error checking DCU token balance:', error)
     }
 
+    // Always attempt NFT mint/upgrade - this will trigger rewardImpactProductClaim which distributes rewards
+    // This is especially important when balance was 0 (newly verified cleanup)
     if (CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
       try {
         const IMPACT_PRODUCT_ABI = [
@@ -1443,14 +1629,35 @@ export async function claimImpactProductFromVerification(
 
         let isVerifiedPOI = false
         try {
-          await new Promise(resolve => setTimeout(resolve, 3000))
+          // Wait longer for POI verification to propagate (Submission contract calls verifyPOI when cleanup is approved)
+          await new Promise(resolve => setTimeout(resolve, 5000))
           
-          isVerifiedPOI = await readContract(config, {
-            address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-            abi: IMPACT_PRODUCT_ABI,
-            functionName: 'verifiedPOI',
-            args: [account.address],
-          }) as boolean
+          // Try multiple times in case of RPC sync delay
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              isVerifiedPOI = await readContract(config, {
+                address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+                abi: IMPACT_PRODUCT_ABI,
+                functionName: 'verifiedPOI',
+                args: [account.address],
+              }) as boolean
+              
+              if (isVerifiedPOI) {
+                console.log('✅ POI verification confirmed on attempt', attempt + 1)
+                break
+              }
+              
+              if (attempt < 2) {
+                console.log(`POI not verified yet, waiting 2s before retry ${attempt + 2}/3...`)
+                await new Promise(resolve => setTimeout(resolve, 2000))
+              }
+            } catch (retryError) {
+              console.warn(`POI check attempt ${attempt + 1} failed:`, retryError)
+              if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 2000))
+              }
+            }
+          }
           
           console.log('POI verification status:', isVerifiedPOI)
         } catch (poiError: any) {
@@ -1464,54 +1671,83 @@ export async function claimImpactProductFromVerification(
           }
         }
 
-        if (!isVerifiedPOI) {
-          console.log('User is not verifiedPOI yet - NFT minting/upgrade will be skipped')
-          console.log('Note: POI should be automatically verified when cleanup is approved')
-          console.log('If this cleanup was verified before automatic POI was enabled, POI may need manual verification')
-          return hash
-        }
+        // Always attempt NFT mint/upgrade even if POI is not verified yet
+        // The contract will revert if POI is not verified, but at least we tried
+        // This ensures there's always a transaction hash returned
 
         const currentTokenId = await getUserTokenId(account.address)
         const currentLevel = await getUserLevel(account.address)
         
+        console.log('Current NFT state:', { tokenId: currentTokenId?.toString() || 'null', level: currentLevel })
+        
         if (currentTokenId === null && currentLevel === 0) {
           try {
             console.log('Attempting to mint Impact Product NFT...')
-            await mintImpactProductNFT()
-            console.log('Impact Product NFT minted successfully')
+            console.log('This will trigger rewardImpactProductClaim which distributes rewards')
+            const mintHash = await mintImpactProductNFT()
+            console.log('✅ Impact Product NFT minted successfully:', mintHash)
+            // Return the mint hash if we don't have a claim hash
+            if (!hash) {
+              hash = mintHash
+            }
           } catch (mintError: any) {
             const errorMsg = mintError?.message || String(mintError)
             if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
               console.log('⚠️ RPC error during NFT mint - user can mint manually later')
             } else {
-              console.log('Could not mint Impact Product NFT:', errorMsg)
+              console.error('Could not mint Impact Product NFT:', errorMsg)
+              // If balance was 0 and NFT mint fails, we need to throw an error
+              if (balance === 0n) {
+                throw new Error(`Failed to mint NFT and distribute rewards: ${errorMsg}. Please try again or contact support.`)
+              }
             }
           }
         } else if (currentTokenId !== null && currentLevel > 0 && currentLevel < 10) {
           try {
             console.log(`Attempting to upgrade Impact Product NFT from level ${currentLevel} to ${currentLevel + 1}...`)
-            await upgradeImpactProductNFT(currentTokenId)
-            console.log('Impact Product NFT upgraded successfully')
+            console.log('This will trigger rewardImpactProductClaim which distributes rewards')
+            const upgradeHash = await upgradeImpactProductNFT(currentTokenId)
+            console.log('✅ Impact Product NFT upgraded successfully:', upgradeHash)
+            // Return the upgrade hash if we don't have a claim hash
+            if (!hash) {
+              hash = upgradeHash
+            }
           } catch (upgradeError: any) {
             const errorMsg = upgradeError?.message || String(upgradeError)
             if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
               console.log('⚠️ RPC error during NFT upgrade - user can upgrade manually later')
             } else {
-              console.log('Could not upgrade Impact Product NFT:', errorMsg)
+              console.error('Could not upgrade Impact Product NFT:', errorMsg)
+              // If balance was 0 and NFT upgrade fails, we need to throw an error
+              if (balance === 0n) {
+                throw new Error(`Failed to upgrade NFT and distribute rewards: ${errorMsg}. Please try again or contact support.`)
+              }
             }
           }
+        } else {
+          console.log('User already has max level NFT - no upgrade needed')
         }
       } catch (nftError: any) {
         const errorMsg = nftError?.message || String(nftError)
         if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
           console.log('⚠️ RPC error during NFT check - skipping NFT operations')
         } else {
-          console.log('NFT operation skipped:', errorMsg)
+          console.error('NFT operation error:', errorMsg)
+          // If balance was 0, we need NFT operations to succeed to distribute rewards
+          if (balance === 0n) {
+            throw nftError
+          }
         }
+      }
+    } else {
+      console.warn('Impact Product NFT contract not configured - NFT mint/upgrade skipped')
+      if (balance === 0n) {
+        throw new Error('Cannot distribute rewards: Impact Product NFT contract not configured and balance is 0. Please contact support.')
       }
     }
 
-    return hash
+    // Return the hash (either from claimRewards or from NFT mint/upgrade)
+    return hash || ('0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`)
   } catch (error: any) {
     console.error('Error claiming rewards:', error)
     
@@ -1621,6 +1857,49 @@ export async function getTokenURIForLevel(level: number): Promise<string> {
   return ''
 }
 
+export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> {
+  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+    return { fee: 0n, enabled: false }
+  }
+
+  try {
+    const IMPACT_PRODUCT_ABI = [
+      {
+        type: 'function',
+        name: 'claimFee',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+      },
+      {
+        type: 'function',
+        name: 'feeEnabled',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'bool' }],
+      },
+    ] as const
+
+    const [fee, enabled] = await Promise.all([
+      readContract(config, {
+        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        abi: IMPACT_PRODUCT_ABI,
+        functionName: 'claimFee',
+      }) as Promise<bigint>,
+      readContract(config, {
+        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        abi: IMPACT_PRODUCT_ABI,
+        functionName: 'feeEnabled',
+      }) as Promise<boolean>,
+    ])
+
+    return { fee, enabled }
+  } catch (error) {
+    console.warn('Failed to fetch claim fee:', error)
+    return { fee: 0n, enabled: false }
+  }
+}
+
 export async function mintImpactProductNFT(): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
@@ -1631,11 +1910,15 @@ export async function mintImpactProductNFT(): Promise<`0x${string}`> {
     throw new Error('Wallet not connected')
   }
 
+  // Get claim fee
+  const { fee, enabled } = await getClaimFee()
+  const value = enabled ? fee : 0n
+
   const IMPACT_PRODUCT_ABI = [
     {
       type: 'function',
       name: 'safeMint',
-      stateMutability: 'nonpayable',
+      stateMutability: 'payable',
       inputs: [],
       outputs: [],
     },
@@ -1647,6 +1930,7 @@ export async function mintImpactProductNFT(): Promise<`0x${string}`> {
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'safeMint',
       account: account.address,
+      value: value,
     })
 
     await waitForTransactionReceipt(config, {
@@ -1676,11 +1960,15 @@ export async function upgradeImpactProductNFT(tokenId: bigint): Promise<`0x${str
     throw new Error('Wallet not connected')
   }
 
+  // Get claim fee
+  const { fee, enabled } = await getClaimFee()
+  const value = enabled ? fee : 0n
+
   const IMPACT_PRODUCT_ABI = [
     {
       type: 'function',
       name: 'upgradeNFT',
-      stateMutability: 'nonpayable',
+      stateMutability: 'payable',
       inputs: [{ name: 'tokenId', type: 'uint256' }],
       outputs: [],
     },
@@ -1693,6 +1981,7 @@ export async function upgradeImpactProductNFT(tokenId: bigint): Promise<`0x${str
       functionName: 'upgradeNFT',
       args: [tokenId],
       account: account.address,
+      value: value,
     })
 
     await waitForTransactionReceipt(config, {

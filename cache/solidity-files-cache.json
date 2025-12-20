@@ -1129,8 +1129,8 @@
       ]
     },
     "/Users/luminaenvision/DCUCELOMVP/contracts/contracts/tokens/ImpactProductNFT.sol": {
-      "lastModificationDate": 1766032632392,
-      "contentHash": "9878298cc2c02c535cf173646f05a603",
+      "lastModificationDate": 1766170529312,
+      "contentHash": "5a6db4a9a35cb8725b32a0bb6854faae",
       "sourceName": "contracts/contracts/tokens/ImpactProductNFT.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -1449,8 +1449,8 @@
       ]
     },
     "/Users/luminaenvision/DCUCELOMVP/contracts/contracts/Submission.sol": {
-      "lastModificationDate": 1765986941549,
-      "contentHash": "1a1718a4dd24d4cd2dda021d1ad3dbbf",
+      "lastModificationDate": 1766171909428,
+      "contentHash": "94e971513aadfa57c375270184f77cb5",
       "sourceName": "contracts/contracts/Submission.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -1494,8 +1494,8 @@
       ]
     },
     "/Users/luminaenvision/DCUCELOMVP/contracts/contracts/DCURewardManager.sol": {
-      "lastModificationDate": 1766032632392,
-      "contentHash": "39cb4cdf235a3153efccd08c0bced442",
+      "lastModificationDate": 1766170963215,
+      "contentHash": "2e873db8cd4e7e136b7777b8c2c277df",
       "sourceName": "contracts/contracts/DCURewardManager.sol",
       "solcConfig": {
         "version": "0.8.28",

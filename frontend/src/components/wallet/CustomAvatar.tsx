@@ -9,10 +9,13 @@ import { useEffect, useState } from 'react'
  */
 export const CustomAvatar: AvatarComponent = ({ address, ensImage, size }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(ensImage || null)
+  const [imageError, setImageError] = useState(false)
 
   // Generate a colorful gradient avatar based on address if no ENS image
   useEffect(() => {
-    if (ensImage) {
+    // Reset error state when ensImage changes
+    if (ensImage && !imageError) {
+      setImageError(false)
       setAvatarUrl(ensImage)
       return
     }
@@ -22,8 +25,7 @@ export const CustomAvatar: AvatarComponent = ({ address, ensImage, size }) => {
       return
     }
 
-    // Generate a deterministic color gradient based on address
-    // This creates a unique, colorful avatar for each address
+    // Generate fallback avatar if no ENS image or if ENS image failed
     const hash = address.slice(2, 10) // Use first 8 hex chars
     const hue = parseInt(hash, 16) % 360
     const saturation = 60 + (parseInt(hash.slice(0, 2), 16) % 20) // 60-80%
@@ -53,7 +55,7 @@ export const CustomAvatar: AvatarComponent = ({ address, ensImage, size }) => {
         URL.revokeObjectURL(url)
       }
     }
-  }, [address, ensImage, size])
+  }, [address, ensImage, size, imageError])
 
   if (!avatarUrl) {
     return (
@@ -77,6 +79,49 @@ export const CustomAvatar: AvatarComponent = ({ address, ensImage, size }) => {
     )
   }
 
+  // If we have an ENS image URL, try to load it with error handling
+  if (avatarUrl && ensImage && !imageError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={address || 'Avatar'}
+        width={size}
+        height={size}
+        style={{
+          borderRadius: '50%',
+          objectFit: 'cover',
+        }}
+        onError={() => {
+          // Silently fall back to generated avatar if ENS image fails to load
+          setImageError(true)
+        }}
+      />
+    )
+  }
+
+  // Fallback: generated gradient avatar or placeholder
+  if (!avatarUrl || imageError) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          backgroundColor: '#58B12F',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'black',
+          fontSize: size * 0.4,
+          fontWeight: 'bold',
+          fontFamily: 'system-ui, sans-serif',
+        }}
+      >
+        {address ? address.slice(2, 4).toUpperCase() : '?'}
+      </div>
+    )
+  }
+
   return (
     <img
       src={avatarUrl}
@@ -86,6 +131,9 @@ export const CustomAvatar: AvatarComponent = ({ address, ensImage, size }) => {
       style={{
         borderRadius: '50%',
         objectFit: 'cover',
+      }}
+      onError={() => {
+        setImageError(true)
       }}
     />
   )

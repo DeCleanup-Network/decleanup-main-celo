@@ -22,13 +22,19 @@
   - `lib/utils/hypercert-image-generator.ts` builds collage/logo/banner images in-browser before uploading to IPFS.
   - `app/api/ipfs/upload` proxies Pinata uploads server-side so API keys stay private.
 
-### Smart contracts
-- `Submission.sol` – receives cleanup submissions, stores IPFS hashes, approval status, location, impact/recyclables metadata, assigns rewards, and tracks hypercert eligibility every 10 approvals.
-- `DCURewardManager.sol` – accrues DCU rewards for impact claims, streaks, referrals, impact reports, verifiers, recyclables, and Hypercert milestones. Users claim aggregated balances when ready. Includes `claimHypercertReward` with eligibility guard and `rewardHypercertMint` hook.
-- `RecyclablesReward.sol` – cRECY ERC20 reserve (5000 limit) that `Submission` calls once per eligible cleanup.
-- `DCUToken.sol`, `RewardLogic.sol`, `ImpactProductNFT.sol`, `NFTCollection.sol`, `DCUStorage.sol`, `DCUAccounting.sol` – supporting contracts for mint/burn, NFT metadata, storage, and accounting.
+### Smart contracts (Deployed on Celo Sepolia)
 
-### Hypercert workflow
+- `DCUToken.sol` (ERC20) – `0xa282c26245d116aB5600fBF7901f2E4827c16B7A` – Main reward token with minter role for DCURewardManager
+- `ImpactProductNFT.sol` (ERC721) – `0x97448790fd64dd36504d7f5ce7c2d27794b01959` – Dynamic Impact Product NFTs that level up based on verified cleanups
+- `DCURewardManager.sol` – `0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a` – Accrues DCU rewards for impact claims, streaks, referrals, impact reports, verifiers, and recyclables. Users claim aggregated balances when ready.
+- `Submission.sol` – `0x1e355123f9dec3939552d80ad1a24175fd10688f` – Receives cleanup submissions, stores IPFS hashes, approval status, location, impact/recyclables metadata, assigns rewards, and tracks verification workflow
+- `RecyclablesReward.sol` – `0xf8f9db39f83ea40d4f9aca72cdbec74b8f5a2900` – cRECY ERC20 reserve (5000 limit) that `Submission` calls once per eligible cleanup (disabled on testnet, uses mainnet cRecyToken address)
+
+### Hypercert workflow (Future Implementation)
+
+**Note**: Hypercerts integration has been intentionally postponed for future work. The frontend includes helper code for image generation and metadata, but Hypercert minting is not wired into the live flow.
+
+Planned workflow (when implemented):
 1. User reaches 10 verified cleanups (Submission increments `userHypercertCount`).
 2. Frontend fetches the last 10 cleanups, pulls impact reports from IPFS, and aggregates stats (weight, area, hours, waste types, contributors).
 3. Canvas utility builds collage/banner/logo → uploads to IPFS.
@@ -50,8 +56,8 @@
 
 ## Dev/test paths
 - `frontend`: `npm run dev` (Next.js), `npm run build`, `npm run test`.
-- `contracts`: `npx hardhat test`, `npx hardhat run scripts/setup-roles.ts --network celo-sepolia`.
-- `contracts/ignition/modules/DCUContracts.ts` defines the deployment graph (Storage → Accounting → NFT → RewardLogic → Token → RewardManager → ImpactProductNFT → Submission).
+- `contracts`: `npx hardhat test`, `npx hardhat run scripts/setup-roles.ts --network celoSepolia`.
+- `contracts/ignition/modules/DCUContracts.ts` defines the deployment graph (DCUToken → DCURewardManager → ImpactProductNFT → Submission).
 
 ## Pending improvements
 - Fine-tune dashboard spacing once real data is live.

@@ -545,10 +545,10 @@ useEffect(() => {
                   const newStatus = await getUserCleanupStatus(address as Address)
                   console.log('[Profile] New cleanup status:', newStatus)
                   setCleanupStatus(newStatus ? {
-                    cleanupId: newStatus.cleanupId,
-                    verified: newStatus.verified,
-                    claimed: newStatus.claimed,
-                    level: newStatus.canClaim ? 1 : 0,
+                    cleanupId: newStatus.cleanupId ?? null,
+                    verified: newStatus.hasPendingCleanup && !newStatus.canSubmit,
+                    claimed: !newStatus.canClaim && newStatus.hasPendingCleanup,
+                    level: newStatus.level || (newStatus.canClaim ? 1 : 0),
                     loading: false,
                   } : null)
                 }

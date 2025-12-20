@@ -203,6 +203,17 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
             if (referrers[msg.sender] == address(0)) {
                 referrers[msg.sender] = referrer;
                 emit ReferralRegistered(referrer, msg.sender);
+                
+                // Also register referral in DCURewardManager so referral rewards can be distributed
+                // when the user claims their first Impact Product NFT
+                if (address(rewardManager) != address(0)) {
+                    try rewardManager.registerReferral(msg.sender, referrer) {
+                        // Referral registered successfully in reward manager
+                    } catch {
+                        // If registration fails, log but don't revert (best-effort)
+                        // The referral is still stored in Submission contract for tracking
+                    }
+                }
             }
         }
 
@@ -288,19 +299,11 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         // Legacy counter preserved for compatibility (not used for eligibility)
         userCleanupCount[s.submitter]++;
 
-        // Reward flow through unified manager
-        if (!s.rewarded) {
-            // Distribute rewards first, then mark as rewarded only if successful
-            // This ensures the rewarded flag accurately reflects whether rewards were actually distributed
-            try rewardManager.distributeRewards(s.submitter, defaultRewardAmount) {
+        // Mark as rewarded - the actual 10 $cDCU cleanup reward will be distributed
+        // when user claims their Impact Product NFT (via rewardImpactProductClaim)
+        // This ensures cleanup reward is only distributed once, when NFT is minted/upgraded
                 s.rewarded = true;
                 emit RewardAvailable(s.submitter, defaultRewardAmount, submissionId, block.timestamp);
-            } catch {
-                // If reward distribution fails, don't set rewarded flag
-                // This allows retry or manual distribution later
-                emit RewardAvailable(s.submitter, 0, submissionId, block.timestamp);
-            }
-        }
 
         // Reward verifier (best-effort)
         try rewardManager.rewardVerifier(msg.sender) {
@@ -309,9 +312,11 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         }
 
         // Reward impact report (best-effort)
-        if (s.hasImpactForm && userImpactFormCount[s.submitter] > 0) {
+        // If submission has impact form, reward the user (userImpactFormCount is already incremented during submission)
+        if (s.hasImpactForm) {
             try rewardManager.rewardImpactReports(s.submitter, 1) {
             } catch {
+                // Log error but don't revert - impact report reward is best-effort
             }
         }
 

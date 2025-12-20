@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
 import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -89,47 +89,83 @@ function CleanupContent() {
   }, [])
 
   // Read referrer from URL params and persist it
+  // IMPORTANT: Only allow referral if user hasn't submitted yet (one-time chance)
   const [showReferralNotification, setShowReferralNotification] = useState(false)
 
   useEffect(() => {
-    if (mounted && searchParams) {
-      const ref = searchParams.get('ref')
-      if (ref && /^0x[a-fA-F0-9]{40}$/.test(ref)) {
-        const referrerAddr = ref as Address
-        setReferrerAddress(referrerAddr)
-        // Show notification to user that they were referred
-        setShowReferralNotification(true)
-        // Persist referrer in localStorage so it's available when user submits
-        if (typeof window !== 'undefined') {
-          // Store referrer even before address is available
-          const referrerKey = `referrer_pending`
-          localStorage.setItem(referrerKey, referrerAddr)
-          console.log('Referrer address from URL saved:', referrerAddr)
+    if (!mounted || !address) return
 
-          // If address is available, also store it scoped to address
-          if (address) {
-            const referrerKeyScoped = `referrer_${address.toLowerCase()}`
-            localStorage.setItem(referrerKeyScoped, referrerAddr)
+    const loadReferrer = async () => {
+      try {
+        // First, check if user has already submitted - if yes, they can't be referred again
+        const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
+        const submissions = await getUserSubmissions(address)
+        const hasSubmitted = submissions.length > 0
+
+        if (hasSubmitted) {
+          // User has already submitted - ignore referral links (one-time chance used)
+          console.log('[Cleanup] User has already submitted - referral links are ignored')
+          setReferrerAddress(null)
+          setShowReferralNotification(false)
+          
+          // Clear any pending referral
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('referrer_pending')
+            const referrerKey = `referrer_${address.toLowerCase()}`
+            localStorage.removeItem(referrerKey)
           }
-        }
-      } else if (typeof window !== 'undefined') {
-        // If no ref in URL, check localStorage for saved referrer
-        const referrerKeyPending = localStorage.getItem('referrer_pending')
-        if (referrerKeyPending && /^0x[a-fA-F0-9]{40}$/.test(referrerKeyPending)) {
-          setReferrerAddress(referrerKeyPending as Address)
-          console.log('Referrer address from localStorage (pending):', referrerKeyPending)
+          return
         }
 
-        if (address) {
+        // User hasn't submitted yet - check for referral link
+        let ref: string | null = null
+        if (searchParams) {
+          ref = searchParams.get('ref')
+        }
+
+        if (!ref && typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search)
+          ref = urlParams.get('ref')
+        }
+
+        if (ref && /^0x[a-fA-F0-9]{40}$/.test(ref)) {
+          const referrerAddr = ref as Address
+          console.log('[Cleanup] Referral link in URL for new user, saving:', referrerAddr)
+          setReferrerAddress(referrerAddr)
+          setShowReferralNotification(true)
+          
+          // Persist referrer in localStorage so it's available when user submits
+          if (typeof window !== 'undefined') {
+            const referrerKey = `referrer_${address.toLowerCase()}`
+            localStorage.setItem(referrerKey, referrerAddr)
+            localStorage.setItem('referrer_pending', referrerAddr)
+          }
+        } else if (typeof window !== 'undefined') {
+          // If no ref in URL, check localStorage for saved referrer (from previous visit)
           const referrerKey = `referrer_${address.toLowerCase()}`
           const savedReferrer = localStorage.getItem(referrerKey)
           if (savedReferrer && /^0x[a-fA-F0-9]{40}$/.test(savedReferrer)) {
+            console.log('[Cleanup] Found saved referrer from previous visit:', savedReferrer)
             setReferrerAddress(savedReferrer as Address)
-            console.log('Referrer address from localStorage:', savedReferrer)
+            setShowReferralNotification(true)
+          } else {
+            // Check pending referrer (for cases where address wasn't available)
+            const referrerPending = localStorage.getItem('referrer_pending')
+            if (referrerPending && /^0x[a-fA-F0-9]{40}$/.test(referrerPending)) {
+              console.log('[Cleanup] Found pending referrer from previous visit:', referrerPending)
+              setReferrerAddress(referrerPending as Address)
+              // Save it scoped to address now that we have it
+              localStorage.setItem(referrerKey, referrerPending)
+              setShowReferralNotification(true)
+            }
           }
         }
+      } catch (error) {
+        console.error('[Cleanup] Error loading referrer:', error)
       }
     }
+
+    loadReferrer()
   }, [mounted, searchParams, address])
 
   // Impact Report form data
@@ -487,64 +523,171 @@ function CleanupContent() {
     console.log('Skipped impact report, navigating to recyclables step')
   }
 
-  // Check if impact form is valid (all required fields filled)
-  const isImpactFormValid = () => {
-    // Required fields: locationType and at least one wasteType
-    const hasLocationType = enhancedData.locationType && enhancedData.locationType.trim() !== ''
-    const hasWasteTypes = enhancedData.wasteTypes.length > 0
+  // Check if impact form is valid
+  // If user started filling any field (except notes), ALL fields become required (except notes)
+  // If no fields are started, user can skip
+  // Memoize validation to avoid recalculating on every render
+  const validation = useMemo(() => {
+    // Helper to check if a string field has a meaningful value
+    const hasValue = (value: string | null | undefined) => {
+      if (value === null || value === undefined) return false
+      return typeof value === 'string' && value.trim() !== ''
+    }
     
-    // Check if any optional fields have values
-    const hasOptionalFields = 
-      enhancedData.area ||
-      enhancedData.weight ||
-      enhancedData.bags ||
-      enhancedData.hours ||
-      enhancedData.minutes ||
-      enhancedData.contributors.length > 0 ||
-      enhancedData.rightsAssignment ||
-      enhancedData.environmentalChallenges ||
-      enhancedData.preventionIdeas ||
-      enhancedData.additionalNotes
+    // Helper to check if a number field has a meaningful value
+    // For validation: must be > 0 (or >= 0 if allowZero)
+    // For "started filling": must have a non-empty value (0 counts as "started" if explicitly entered)
+    const hasNumberValue = (value: string | null | undefined, allowZero: boolean = false) => {
+      if (!value || typeof value !== 'string') return false
+      const trimmed = value.trim()
+      if (trimmed === '') return false
+      const num = Number(trimmed)
+      if (isNaN(num)) return false
+      return allowZero ? num >= 0 : num > 0
+    }
     
-    // Form is valid if: all required fields are filled
-    const isValid = hasLocationType && hasWasteTypes
+    // Helper to check if a number field has been touched/started (even if 0)
+    const hasNumberStarted = (value: string | null | undefined) => {
+      if (!value || typeof value !== 'string') return false
+      const trimmed = value.trim()
+      if (trimmed === '') return false
+      const num = Number(trimmed)
+      return !isNaN(num) && num >= 0
+    }
     
-    // Form is partially filled if: some fields have values but not all required
-    const isPartiallyFilled = (hasLocationType || hasWasteTypes || hasOptionalFields) && !isValid
+    // Auto-fill minutes with "0" if empty for validation purposes
+    const minutesValue = enhancedData.minutes && enhancedData.minutes.trim() !== '' 
+      ? enhancedData.minutes 
+      : '0'
     
-    // Form is completely empty
-    const isEmpty = !hasLocationType && !hasWasteTypes && !hasOptionalFields
+    // Check each field for validation (must be filled and valid)
+    const hasLocationType = hasValue(enhancedData.locationType)
+    const hasWasteTypes = Array.isArray(enhancedData.wasteTypes) && enhancedData.wasteTypes.length > 0
+    const hasArea = hasNumberValue(enhancedData.area, false)
+    const hasWeight = hasNumberValue(enhancedData.weight, false)
+    const hasBags = hasNumberValue(enhancedData.bags, false)
+    const hasHours = hasNumberValue(enhancedData.hours, true) // Hours can be 0 for validation
+    const hasMinutes = hasNumberValue(minutesValue, true) // Minutes auto-filled to 0 if empty
+    const hasRightsAssignment = hasValue(enhancedData.rightsAssignment)
+    const hasEnvironmentalChallenges = hasValue(enhancedData.environmentalChallenges)
+    const hasPreventionIdeas = hasValue(enhancedData.preventionIdeas)
     
-    return { isValid, isPartiallyFilled, isEmpty }
-  }
+    // Check if user has started filling any field (except notes)
+    // For hours/minutes, use hasNumberStarted so 0 counts as "started" if user entered it
+    const hasStartedFilling = hasLocationType || 
+                              hasWasteTypes || 
+                              hasArea || 
+                              hasWeight || 
+                              hasBags || 
+                              hasNumberStarted(enhancedData.hours) || 
+                              hasNumberStarted(enhancedData.minutes) || 
+                              hasRightsAssignment || 
+                              hasEnvironmentalChallenges || 
+                              hasPreventionIdeas
+    
+    // If user started filling, ALL fields are required (except notes)
+    // If user hasn't started, form is valid (can skip)
+    const isValid = !hasStartedFilling || (
+      hasLocationType && 
+      hasWasteTypes && 
+      hasArea && 
+      hasWeight && 
+      hasBags && 
+      hasHours && 
+      hasMinutes && 
+      hasRightsAssignment && 
+      hasEnvironmentalChallenges && 
+      hasPreventionIdeas
+    )
+    
+    return { 
+      isValid, 
+      hasStartedFilling,
+      // Include field-level validation for debugging
+      fields: {
+        hasLocationType,
+        hasWasteTypes,
+        hasArea,
+        hasWeight,
+        hasBags,
+        hasHours,
+        hasMinutes,
+        hasRightsAssignment,
+        hasEnvironmentalChallenges,
+        hasPreventionIdeas,
+      }
+    }
+  }, [enhancedData])
+
+  // Log validation changes only when state actually changes (not on every render)
+  const prevValidationRef = useRef<{ isValid: boolean; hasStartedFilling: boolean } | null>(null)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const prev = prevValidationRef.current
+      const hasChanged = !prev || 
+        prev.isValid !== validation.isValid || 
+        prev.hasStartedFilling !== validation.hasStartedFilling
+      
+      if (hasChanged) {
+        console.log('[Impact Form Validation]', {
+          hasStartedFilling: validation.hasStartedFilling,
+          isValid: validation.isValid,
+          isDisabled: validation.hasStartedFilling && !validation.isValid,
+          fields: validation.fields,
+          formData: {
+            locationType: enhancedData.locationType || '(empty)',
+            wasteTypes: enhancedData.wasteTypes?.length || 0,
+            area: enhancedData.area || '(empty)',
+            weight: enhancedData.weight || '(empty)',
+            bags: enhancedData.bags || '(empty)',
+            hours: enhancedData.hours || '(empty)',
+            minutes: enhancedData.minutes || '(empty)',
+            rightsAssignment: enhancedData.rightsAssignment || '(empty)',
+            environmentalChallenges: enhancedData.environmentalChallenges || '(empty)',
+            preventionIdeas: enhancedData.preventionIdeas || '(empty)',
+          }
+        })
+        prevValidationRef.current = {
+          isValid: validation.isValid,
+          hasStartedFilling: validation.hasStartedFilling
+        }
+      }
+    }
+  }, [validation, enhancedData])
 
   const handleEnhancedNext = () => {
-    const validation = isImpactFormValid()
+    // Auto-fill minutes with "0" if empty (validation already handles this, but ensure state is updated)
+    const finalData = {
+      ...enhancedData,
+      minutes: enhancedData.minutes && enhancedData.minutes.trim() !== '' ? enhancedData.minutes : '0'
+    }
     
-    // If form is completely empty, allow skip but show message
-    if (validation.isEmpty) {
-      alert('Please fill all required fields to submit the impact report:\n\n' +
-        '• Location Type (required)\n' +
-        '• At least one Waste Type (required)\n\n' +
-        'Or click "Skip" to skip the impact report entirely.')
+    // Update state if minutes was empty
+    if (finalData.minutes !== enhancedData.minutes) {
+      setEnhancedData(finalData)
+    }
+    
+    // Validation already accounts for auto-filled minutes, so use existing validation
+    // If user started filling but form is incomplete, don't proceed
+    if (validation.hasStartedFilling && !validation.isValid) {
+      const missingFields = Object.entries(validation.fields)
+        .filter(([_, isValid]) => !isValid)
+        .map(([field]) => field)
+      
+      console.warn('[Impact Form] Form is incomplete. Missing fields:', missingFields)
+      console.log('[Impact Form] Full validation state:', {
+        validation,
+        formData: finalData,
+        missingFields
+      })
+      
+      // Show user-friendly error
+      alert(`Please fill all required fields. Missing: ${missingFields.join(', ')}`)
       return
     }
     
-    // If form is partially filled but not complete, show error and only allow skip
-    if (validation.isPartiallyFilled) {
-      alert(
-        '⚠️ All fields required for submission\n\n' +
-        'Click "Skip" to continue without the impact report.'
-      )
-      return
-    }
-    
-    // Only proceed if form is completely valid
-    if (!validation.isValid) {
-      return
-    }
-    
-    setHasImpactForm(true)
+    // If user filled the form (or skipped it), proceed
+    setHasImpactForm(validation.hasStartedFilling && validation.isValid)
     // Go to recyclables step
     setStep('recyclables')
   }
@@ -991,7 +1134,7 @@ function CleanupContent() {
               🎉 You Were Invited!
             </h3>
             <p className="text-sm text-gray-300">
-              You've been referred to DeCleanup Rewards! When you submit your first cleanup, get it verified, and claim your first Impact Product level, both you and your referrer will earn <strong className="text-white">3 $cDCU</strong> each.
+              You've been referred to DeCleanup Rewards! When you submit your first cleanup, get it verified, and claim your first Impact Product level, both you and your referrer will earn <strong className="text-white">3 $cDCU</strong> each as referral rewards. You'll also receive <strong className="text-white">10 $cDCU</strong> for claiming your first level.
             </p>
             <p className="mt-2 text-xs text-gray-400">
               Submit a cleanup below to get started and claim your referral reward!
@@ -1426,10 +1569,14 @@ function CleanupContent() {
           <div 
             className="mb-6 space-y-4 max-h-[70vh] overflow-y-auto pr-2"
             onWheel={(e) => {
-              // Close any open select dropdowns when scrolling
+              // Close any open select dropdowns and blur number inputs when scrolling
               const activeElement = document.activeElement
-              if (activeElement && activeElement.tagName === 'SELECT' && activeElement instanceof HTMLElement) {
-                activeElement.blur()
+              if (activeElement) {
+                if (activeElement.tagName === 'SELECT' && activeElement instanceof HTMLElement) {
+                  activeElement.blur()
+                } else if (activeElement.tagName === 'INPUT' && activeElement instanceof HTMLInputElement && activeElement.type === 'number') {
+                  activeElement.blur()
+                }
               }
             }}
           >
@@ -1482,6 +1629,10 @@ function CleanupContent() {
                   type="number"
                   value={enhancedData.area}
                   onChange={(e) => setEnhancedData({ ...enhancedData, area: e.target.value })}
+                  onWheel={(e) => {
+                    // Prevent scroll from changing input value
+                    e.currentTarget.blur()
+                  }}
                   className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500"
                   placeholder="50"
                   min="0"
@@ -1515,6 +1666,10 @@ function CleanupContent() {
                   type="number"
                   value={enhancedData.weight}
                   onChange={(e) => setEnhancedData({ ...enhancedData, weight: e.target.value })}
+                  onWheel={(e) => {
+                    // Prevent scroll from changing input value
+                    e.currentTarget.blur()
+                  }}
                   className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500"
                   placeholder="5"
                   min="0"
@@ -1548,6 +1703,10 @@ function CleanupContent() {
                 type="number"
                 value={enhancedData.bags}
                 onChange={(e) => setEnhancedData({ ...enhancedData, bags: e.target.value })}
+                onWheel={(e) => {
+                  // Prevent scroll from changing input value
+                  e.currentTarget.blur()
+                }}
                 className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500"
                 placeholder="2"
                 min="0"
@@ -1564,6 +1723,10 @@ function CleanupContent() {
                   type="number"
                   value={enhancedData.hours}
                   onChange={(e) => setEnhancedData({ ...enhancedData, hours: e.target.value })}
+                  onWheel={(e) => {
+                    // Prevent scroll from changing input value
+                    e.currentTarget.blur()
+                  }}
                   className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500"
                   placeholder="1"
                   min="0"
@@ -1573,6 +1736,10 @@ function CleanupContent() {
                   type="number"
                   value={enhancedData.minutes}
                   onChange={(e) => setEnhancedData({ ...enhancedData, minutes: e.target.value })}
+                  onWheel={(e) => {
+                    // Prevent scroll from changing input value
+                    e.currentTarget.blur()
+                  }}
                   className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500"
                   placeholder="30"
                   min="0"
@@ -1778,29 +1945,6 @@ function CleanupContent() {
             />
           )}
 
-          {/* Validation warning for partially filled form */}
-          {(() => {
-            const validation = isImpactFormValid()
-            if (validation.isPartiallyFilled) {
-              return (
-                <div className="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 flex-shrink-0 text-yellow-400 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-400 mb-1">
-                        All fields required for submission
-                      </p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        Click "Skip" to continue without the impact report.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-            return null
-          })()}
-
           <div className="flex gap-4">
             <Button
               variant="outline"
@@ -1811,13 +1955,16 @@ function CleanupContent() {
               Skip
             </Button>
             <Button
-              onClick={handleEnhancedNext}
-              disabled={(() => {
-                if (isSubmitting) return true
-                const validation = isImpactFormValid()
-                // Disable if partially filled (can only skip, not submit)
-                return validation.isPartiallyFilled === true
-              })()}
+              onClick={() => {
+                console.log('[Submit Button Clicked]', {
+                  isSubmitting,
+                  validation,
+                  disabled: isSubmitting || (validation.hasStartedFilling && !validation.isValid),
+                  formData: enhancedData
+                })
+                handleEnhancedNext()
+              }}
+              disabled={isSubmitting || (validation.hasStartedFilling && !validation.isValid)}
               className="flex-1 gap-2 bg-brand-yellow text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
@@ -1827,7 +1974,7 @@ function CleanupContent() {
                 </>
               ) : (
                 <>
-                  Next
+                  {validation.hasStartedFilling ? 'Submit' : 'Continue'}
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

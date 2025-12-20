@@ -25,6 +25,12 @@ contract ImpactProductNFT is ERC721, Ownable {
     address public submissionContract; // Submission contract can auto-verify POI
     uint256 private _tokenIdCounter;
 
+    // Claim fee state
+    uint256 public claimFee = 0; // Fee for minting/upgrading NFT (in wei)
+    bool public feeEnabled = false; // Fee enabled flag
+    address payable public treasury = payable(address(0));
+    uint256 public totalFeesCollected;
+
     mapping(address => bool) public verifiedPOI;
     mapping(address => bool) public _userHasMinted;
     mapping(address => uint256) public userLevel;
@@ -43,6 +49,9 @@ contract ImpactProductNFT is ERC721, Ownable {
     event TransferAuthorized(uint256 indexed tokenId, address indexed recipient);
     event TransferAuthorizationRevoked(uint256 indexed tokenId);
     event RewardDistributed(address indexed user, uint256 indexed level);
+    event ClaimFeeUpdated(uint256 oldFee, uint256 newFee);
+    event FeeEnabledUpdated(bool enabled);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     constructor(address _rewardsContract) ERC721("Impact Product NFT", "IMPACT") Ownable(msg.sender) {
         require(_rewardsContract != address(0), "Invalid rewards contract address");
@@ -100,9 +109,44 @@ contract ImpactProductNFT is ERC721, Ownable {
         submissionContract = newSubmissionContract;
     }
 
+    function setClaimFee(uint256 newFee) external onlyOwner {
+        uint256 oldFee = claimFee;
+        claimFee = newFee;
+        emit ClaimFeeUpdated(oldFee, newFee);
+    }
+
+    function setFeeEnabled(bool enabled) external onlyOwner {
+        feeEnabled = enabled;
+        emit FeeEnabledUpdated(enabled);
+    }
+
+    function setTreasury(address payable newTreasury) external onlyOwner {
+        address oldTreasury = treasury;
+        treasury = newTreasury;
+        emit TreasuryUpdated(oldTreasury, newTreasury);
+    }
+
+    function withdrawFees() external onlyOwner {
+        require(treasury != address(0), "Treasury not set");
+        uint256 amount = address(this).balance;
+        require(amount > 0, "No fees to withdraw");
+        (bool success, ) = treasury.call{value: amount}("");
+        require(success, "Fee withdrawal failed");
+    }
+
     // --- Minting ---
 
-    function safeMint() external {
+    function safeMint() external payable {
+        // Validate and collect fee if enabled
+        if (feeEnabled) {
+            require(msg.value >= claimFee, "Insufficient claim fee");
+            totalFeesCollected += msg.value;
+            // Transfer fee to treasury if set
+            if (treasury != address(0) && msg.value > 0) {
+                (bool success, ) = treasury.call{value: msg.value}("");
+                require(success, "Fee transfer failed");
+            }
+        }
         _requireVerified(msg.sender);
         _mintTo(msg.sender);
     }
@@ -137,7 +181,17 @@ contract ImpactProductNFT is ERC721, Ownable {
 
     // --- Upgrades & Impact ---
 
-    function upgradeNFT(uint256 tokenId) external {
+    function upgradeNFT(uint256 tokenId) external payable {
+        // Validate and collect fee if enabled
+        if (feeEnabled) {
+            require(msg.value >= claimFee, "Insufficient claim fee");
+            totalFeesCollected += msg.value;
+            // Transfer fee to treasury if set
+            if (treasury != address(0) && msg.value > 0) {
+                (bool success, ) = treasury.call{value: msg.value}("");
+                require(success, "Fee transfer failed");
+            }
+        }
         _requireTokenOwned(tokenId);
         require(ownerOf(tokenId) == msg.sender, "You don't own this token");
         _requireVerified(msg.sender);
