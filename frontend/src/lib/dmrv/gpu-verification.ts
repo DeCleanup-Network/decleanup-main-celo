@@ -35,6 +35,8 @@ export interface VerificationScore {
   verdict: 'AUTO_VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
   modelVersion: string
   timestamp: number
+  confidenceVariance?: number // Optional: add for debugging/transparency
+  isStable?: boolean // Optional: add for debugging/transparency
 }
 
 /**
@@ -131,31 +133,33 @@ export function computeVerificationScore(
   // Calculate mean confidence from both results
   const meanConfidence = (beforeResult.meanConfidence + afterResult.meanConfidence) / 2
   
-  // Verification score formula
-  // 40% weight on confidence, 60% weight on trash reduction
-  // More weight on actual cleanup (delta) than detection confidence
-  const score = (meanConfidence * 0.4) + (normalizedTrashDelta * 0.6)
+  // Base score with equal weighting
+  const score = (meanConfidence * 0.5) + (normalizedTrashDelta * 0.5)
+
+  // Stability check for verdict logic
+  const confidenceVariance = Math.abs(beforeResult.meanConfidence - afterResult.meanConfidence)
+  const isStable = confidenceVariance < 0.15
   
-  // Classification - More lenient thresholds
-  // Lowered thresholds to reduce false rejections
+  // Stability-aware verdict logic
   let verdict: 'AUTO_VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
-  if (score >= 0.5) {
-    // Lowered from 0.7 to 0.5 for AUTO_VERIFIED
+
+  // Base verdict from score only
+  if (score >= 0.6) {
     verdict = 'AUTO_VERIFIED'
-  } else if (score >= 0.25) {
-    // Lowered from 0.4 to 0.25 for NEEDS_REVIEW
+  } else if (score >= 0.3) {
     verdict = 'NEEDS_REVIEW'
   } else {
-    // Only reject if score is very low (< 0.25)
     verdict = 'REJECTED'
   }
-  
-  // Special case: If before has objects and after has fewer, always mark as NEEDS_REVIEW at minimum
-  // This handles cases where detection might be imperfect but cleanup likely occurred
-  if (beforeCount > 0 && afterCount < beforeCount && delta > 0) {
-    if (verdict === 'REJECTED') {
-      verdict = 'NEEDS_REVIEW' // Upgrade from REJECTED to NEEDS_REVIEW
-    }
+
+  // Stability override (downgrade unstable auto-verified candidates)
+  if (verdict === 'AUTO_VERIFIED' && !isStable && delta >= 0) {
+    verdict = 'NEEDS_REVIEW'
+  }
+
+  // Protection: never reject positive delta cleanups due to variance/low score alone
+  if (verdict === 'REJECTED' && delta > 0) {
+    verdict = 'NEEDS_REVIEW'
   }
   
   return {
@@ -167,6 +171,8 @@ export function computeVerificationScore(
     verdict,
     modelVersion: beforeResult.modelVersion,
     timestamp: Date.now(),
+    confidenceVariance,
+    isStable,
   }
 }
 
