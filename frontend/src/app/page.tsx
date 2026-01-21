@@ -19,6 +19,7 @@ import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { markCleanupAsClaimed, clearPendingCleanup } from '@/lib/blockchain/verification'
 import { resetCleanupState, resetAllCleanupState } from '@/lib/utils/reset-cleanup'
 import { generateReferralLink } from '@/lib/utils/sharing'
+import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import type { Address } from 'viem'
 
 interface ImpactAttribute {
@@ -118,9 +119,10 @@ function HomeContent() {
   } | null>(null)
   const [showEarnModal, setShowEarnModal] = useState(false)
   const [hypercertEligibility, setHypercertEligibility] = useState<{
-    cleanupCount: bigint
-    hypercertCount: bigint
+    cleanupCount: number
+    hypercertCount: number
     isEligible: boolean
+    testingOverride?: boolean
   } | null>(null)
   const [dcuBalance, setDcuBalance] = useState<bigint>(BigInt(0))
   const [crecyBalance, setCrecyBalance] = useState<number>(0)
@@ -298,9 +300,31 @@ function HomeContent() {
     async function checkStatus() {
       if (!address) return
       try {
-        const [status, eligibility, balance, rewardStatsData, level, tokenId, feeInfo] = await Promise.all([
+        // Calculate verified cleanups and reports
+        const submissions = await getUserSubmissions(address)
+        let verifiedCleanupsCount = 0
+        let impactReportsCount = 0
+        for (const id of submissions) {
+          try {
+            const details = await getCleanupDetails(id)
+            if (details.verified) {
+              verifiedCleanupsCount++
+              if (details.hasImpactForm) impactReportsCount++
+            }
+          } catch (error) {
+            // ignore
+          }
+        }
+        const eligibilityResult = checkHypercertEligibility({ cleanupsCount: verifiedCleanupsCount, reportsCount: impactReportsCount })
+        const eligibility = {
+          isEligible: eligibilityResult.eligible,
+          cleanupCount: eligibilityResult.cleanupsCount,
+          hypercertCount: 0, // for now, not using
+          testingOverride: eligibilityResult.testingOverride
+        }
+
+        const [status, balance, rewardStatsData, level, tokenId, feeInfo] = await Promise.all([
           getUserCleanupStatus(address),
-          getHypercertEligibility(address),
           getDCUBalance(address),
           getUserRewardStats(address),
           getUserLevel(address),
@@ -644,8 +668,28 @@ function HomeContent() {
 
       alert(message)
 
-      // Refresh eligibility
-      const newEligibility = await getHypercertEligibility(address)
+      // Recalculate eligibility
+      const submissions = await getUserSubmissions(address)
+      let verifiedCleanupsCount = 0
+      let impactReportsCount = 0
+      for (const id of submissions) {
+        try {
+          const details = await getCleanupDetails(id)
+          if (details.verified) {
+            verifiedCleanupsCount++
+            if (details.hasImpactForm) impactReportsCount++
+          }
+        } catch (error) {
+          // ignore
+        }
+      }
+      const eligibilityResult = checkHypercertEligibility({ cleanupsCount: verifiedCleanupsCount, reportsCount: impactReportsCount })
+      const newEligibility = {
+        isEligible: eligibilityResult.eligible,
+        cleanupCount: eligibilityResult.cleanupsCount,
+        hypercertCount: 0,
+        testingOverride: eligibilityResult.testingOverride
+      }
       setHypercertEligibility(newEligibility)
     } catch (error) {
       console.error('Error minting hypercert:', error)
@@ -953,6 +997,9 @@ function HomeContent() {
                   <Heart className="h-5 w-5 text-brand-yellow mb-2" />
                   <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
                     HYPERCERT
+                    {hypercertEligibility.testingOverride && (
+                      <span className="ml-2 text-xs text-brand-yellow/70 font-normal">(Sepolia Testnet)</span>
+                    )}
                   </h3>
                 <Button
                   onClick={handleMintHypercert}
@@ -1119,14 +1166,34 @@ Clean up, prove impact, earn Impact Products, build reputation, and soon vote on
                       // After claiming, the cleanup should be marked as claimed, so status should be null
                       if (address) {
                         console.log('[Home] Refreshing cleanup status and reward stats after claim...')
-                        const [status, eligibility] = await Promise.all([
-                          getUserCleanupStatus(address as Address),
-                          getHypercertEligibility(address),
-                        ])
+                        const status = await getUserCleanupStatus(address as Address)
                         console.log('[Home] New cleanup status after claim:', status)
                         // After claiming, status should be null or canClaim should be false
                         // This prevents showing claim button for other cleanups immediately after claiming
                         setCleanupStatus(status)
+
+                        // Recalculate eligibility
+                        const submissions = await getUserSubmissions(address)
+                        let verifiedCleanupsCount = 0
+                        let impactReportsCount = 0
+                        for (const id of submissions) {
+                          try {
+                            const details = await getCleanupDetails(id)
+                            if (details.verified) {
+                              verifiedCleanupsCount++
+                              if (details.hasImpactForm) impactReportsCount++
+                            }
+                          } catch (error) {
+                            // ignore
+                          }
+                        }
+                        const eligibilityResult = checkHypercertEligibility({ cleanupsCount: verifiedCleanupsCount, reportsCount: impactReportsCount })
+                        const eligibility = {
+                          isEligible: eligibilityResult.eligible,
+                          cleanupCount: eligibilityResult.cleanupsCount,
+                          hypercertCount: 0,
+                          testingOverride: eligibilityResult.testingOverride
+                        }
                         setHypercertEligibility(eligibility)
                         
                         // Refresh reward stats to show updated breakdown (cleanupsDCU should now show 10)
