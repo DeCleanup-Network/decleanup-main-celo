@@ -41,3 +41,17 @@ This file tracks all changes made during the Hypercerts v1 test milestone implem
   - Metadata includes: user address, cleanup references with timestamps, aggregated summary, issuer info, static narrative
 
 **Why**: STEP 3 (metadata builder) was already implemented in v1 skeleton. STEP 4 wires it into the existing mint flow to ensure every mint attempt generates traceable metadata. No changes to mint authority or contract logic, but full metadata generation for auditability.
+
+### STEP 5 — Hypercerts test UI (2026-01-22)
+
+**Added**
+- `frontend/src/app/hypercerts/page.tsx`: New test page exposing all existing Hypercert logic
+  - Displays wallet address and network detection
+  - Shows eligibility status with testnet/production rule indication
+  - Presents aggregated impact summary (cleanups count, reports count, timeframe, cleanup IDs)
+  - Renders metadata preview in JSON format
+  - Allows simulated mint button with console logging and UI feedback
+  - Minimal, debug-focused UI without styling work
+- `frontend/src/app/page.tsx`: Added conditional navigation link to Hypercerts test page visible only on Celo Sepolia testnet
+
+**Why**: Creates a "truth window" into the Hypercerts system for stakeholders to see what already works. Exposes eligibility computation, aggregation, metadata building, and mint simulation without changing any core logic. Page is test-only and not production UI.
