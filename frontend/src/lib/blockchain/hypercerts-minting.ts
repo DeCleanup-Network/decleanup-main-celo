@@ -3,8 +3,6 @@
 // Generates metadata for traceability, but minting remains simulated for now.
 // ---------------------------------------------------------------------------
 
-'use client'
-
 import { getAccount } from 'wagmi/actions'
 import { config } from './wagmi'
 import { getUserSubmissions, getCleanupDetails } from './contracts'
