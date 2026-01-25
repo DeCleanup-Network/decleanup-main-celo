@@ -161,3 +161,8 @@ frontend/node_modules/
 frontend/.next/
 frontend/.turbo/
 frontend/coverage/
+docs/CHANGELOG.md.bak
+docs/hypercerts/Estrutura Final (v1 – Test Milestone).md
+docs/hypercerts/HYPERCERTS_IMPLEMENTATION_GUIDE_FOR_IDE_AI.md
+docs/hypercerts/Implementação técnica hypercerts.md
+docs/hypercerts/Plano de implementação hypercerts.md

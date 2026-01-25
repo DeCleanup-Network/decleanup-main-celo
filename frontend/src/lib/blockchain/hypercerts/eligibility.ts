@@ -5,12 +5,27 @@ import { HypercertEligibilityResult } from './types'
 export function checkHypercertEligibility(params: {
   cleanupsCount: number
   reportsCount: number
+  chainId?: number
 }): HypercertEligibilityResult {
-  const testing = isTestingMode()
+  console.log('🔍 [Eligibility Debug]', {
+    chainId: params.chainId,
+    chainIdType: typeof params.chainId,
+    cleanupsCount: params.cleanupsCount,
+    reportsCount: params.reportsCount
+  })
+  
+  const testing = isTestingMode(params.chainId)
+  
+  console.log('🔍 [Testing Mode]', {
+    testing,
+    willUse: testing ? 'TESTNET thresholds' : 'MAINNET thresholds'
+  })
 
   const thresholds = testing
     ? HYPERCERTS_CONFIG.thresholds.testing
     : HYPERCERTS_CONFIG.thresholds.production
+
+  console.log('🔍 [Thresholds]', thresholds)
 
   const eligible =
     params.cleanupsCount >= thresholds.minCleanups &&
@@ -20,7 +35,7 @@ export function checkHypercertEligibility(params: {
     eligible,
     cleanupsCount: params.cleanupsCount,
     reportsCount: params.reportsCount,
-    testingOverride: testing || undefined,
+    testingOverride: testing ? true : undefined,
     reason: eligible
       ? undefined
       : `Requires ${thresholds.minCleanups} cleanups and ${thresholds.minReports} impact report(s)`,

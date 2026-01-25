@@ -965,7 +965,7 @@ function HomeContent() {
             </div>
 
             {/* Quick Actions */}
-            <div className={`grid gap-3 ${chainId === 44787 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="grid gap-3 grid-cols-3">
             <Link href="/leaderboard" className="block">
                 <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
                   <Trophy className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
@@ -992,19 +992,17 @@ function HomeContent() {
             </Link>
               )}
 
-              {chainId === 44787 && (
-                <Link href="/hypercerts" className="block">
-                  <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4 hover:border-brand-yellow/50 transition-all group">
-                    <Heart className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
-                    <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
-                      HYPERCERTS TEST
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Test page
-                    </p>
-                  </div>
-                </Link>
-              )}
+              <Link href="/hypercerts" className="block">
+                <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
+                  <Heart className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
+                    HYPERCERTS
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    View eligibility
+                  </p>
+                </div>
+              </Link>
 
             {hypercertEligibility?.isEligible && (
                 <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
