@@ -14,6 +14,7 @@ export function buildHypercertMetadata(input: HypercertMetadataInput) {
       summary: input.summary,
     },
 
+    branding: input.branding ?? null,
     narrative: input.narrative ?? null,
 
     generatedAt: Date.now(),

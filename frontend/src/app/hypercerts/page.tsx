@@ -7,6 +7,7 @@ import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibili
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { buildHypercertMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
+import { submitHypercertRequest, getHypercertRequestsByUser, updateRequestWithHypercertId } from '@/lib/blockchain/hypercerts/requests'
 
 export default function HypercertsTestPage() {
   const { address, isConnected } = useAccount()
@@ -26,7 +27,7 @@ export default function HypercertsTestPage() {
   const [eligibility, setEligibility] = useState<any>(null)
   const [aggregatedData, setAggregatedData] = useState<any>(null)
   const [metadata, setMetadata] = useState<any>(null)
-  const [mintResult, setMintResult] = useState<string>('')
+  const [submitResult, setSubmitResult] = useState<string>('')
 
   useEffect(() => {
     if (!address || !isConnected) return
@@ -107,17 +108,78 @@ export default function HypercertsTestPage() {
     loadData()
   }, [address, isConnected])
 
-  const handleSimulateMint = async () => {
+  const [userRequests, setUserRequests] = useState<any[]>([])
+
+  // Load user's existing requests
+  useEffect(() => {
+    if (!address) return
+    
+    const requests = getHypercertRequestsByUser(address)
+    setUserRequests(requests)
+    console.log('📋 User Hypercert requests:', requests)
+  }, [address, submitResult]) // Refresh when new request is submitted
+
+  const handleSubmitRequest = async () => {
+    if (!address || !metadata) return
+
+    setSubmitResult('Submitting request...')
+    try {
+      // Submit Hypercert request for verifier review
+      const request = submitHypercertRequest({
+        requester: address,
+        metadata: metadata,
+      })
+
+      console.log('✅ Hypercert request submitted:', request)
+      
+      setSubmitResult(
+        `Request submitted successfully!\n\n` +
+        `Request ID: ${request.id}\n` +
+        `Status: ${request.status}\n\n` +
+        `Your Hypercert is now pending verifier approval. ` +
+        `You will be notified once a verifier reviews your submission.`
+      )
+    } catch (error) {
+      console.error('Error submitting Hypercert request:', error)
+      setSubmitResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  const handleMintApprovedRequest = async (requestId: string) => {
     if (!address) return
 
-    setMintResult('Simulating...')
+    const request = userRequests.find(r => r.id === requestId)
+    if (!request || request.status !== 'APPROVED') {
+      setSubmitResult('Error: Request not found or not approved')
+      return
+    }
+
+    setSubmitResult('Minting Hypercert...')
     try {
-      const result = await mintHypercert(address)
-      console.log('Mint simulation result:', result)
-      setMintResult(`Success! Hypercert ID: ${result.hypercertId}, Tx: ${result.txHash}`)
+      console.log('🪙 Minting approved request:', requestId)
+
+      // Mint Hypercert with the approved metadata
+      const result = await mintHypercert(address, request.metadata)
+
+      console.log('✅ Hypercert minted:', result)
+
+      // Update request with hypercert ID
+      updateRequestWithHypercertId(requestId, result.hypercertId)
+
+      // Refresh requests list
+      const updatedRequests = getHypercertRequestsByUser(address)
+      setUserRequests(updatedRequests)
+
+      setSubmitResult(
+        `Hypercert minted successfully!\n\n` +
+        `Transaction: ${result.txHash}\n` +
+        `Hypercert ID: ${result.hypercertId}\n` +
+        `Metadata CID: ${result.metadataCid}\n\n` +
+        `Your Hypercert is now on-chain!`
+      )
     } catch (error) {
-      console.error('Mint simulation error:', error)
-      setMintResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      console.error('Error minting Hypercert:', error)
+      setSubmitResult(`Minting failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -138,10 +200,10 @@ export default function HypercertsTestPage() {
           <div className="flex items-center justify-between flex-shrink-0 mb-2">
             <div>
               <h1 className="font-bebas text-3xl sm:text-4xl lg:text-5xl tracking-wider text-foreground">
-                HYPERCERTS TEST
+                CREATE HYPERCERT
               </h1>
               <p className="mt-1.5 text-sm sm:text-base text-muted-foreground">
-                Test the Hypercerts v1 eligibility and metadata system
+                Aggregate your verified cleanups into an environmental impact certificate
               </p>
             </div>
           </div>
@@ -173,10 +235,10 @@ export default function HypercertsTestPage() {
         <div className="flex items-center justify-between flex-shrink-0 mb-2">
           <div>
             <h1 className="font-bebas text-3xl sm:text-4xl lg:text-5xl tracking-wider text-foreground">
-              HYPERCERTS TEST
+              CREATE HYPERCERT
             </h1>
             <p className="mt-1.5 text-sm sm:text-base text-muted-foreground">
-              Test the Hypercerts v1 eligibility and metadata system
+              Aggregate your verified cleanups into an environmental impact certificate
             </p>
           </div>
         </div>
@@ -191,6 +253,34 @@ export default function HypercertsTestPage() {
             <span className="font-medium">Wallet:</span>
             <span className="px-2 py-1 bg-muted rounded text-xs font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
           </div>
+        </div>
+
+        {/* How It Works Section */}
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-5 w-5 rounded-full bg-brand-blue"></div>
+            <h2 className="font-bebas text-lg sm:text-xl tracking-wider text-foreground">
+              HOW IT WORKS
+            </h2>
+          </div>
+          <ol className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">1.</span>
+              <span>Your verified cleanups and reports are aggregated</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">2.</span>
+              <span>You submit a Hypercert creation request</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">3.</span>
+              <span>Verifiers review your impact</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">4.</span>
+              <span>Hypercert is minted after approval</span>
+            </li>
+          </ol>
         </div>
 
         {/* Main Content Grid */}
@@ -243,14 +333,6 @@ export default function HypercertsTestPage() {
                 <p className="text-sm text-muted-foreground">No eligibility data available.</p>
               )}
             </div>
-                  <div className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-                    <p className="mb-1 font-medium text-foreground">ℹ️ Levels vs Hypercerts</p>
-                  <p>
-                    Levels are Impact Products earned per verified cleanup.
-                    Hypercerts are minted separately and require a minimum number of
-                    verified cleanups <strong>with impact reports</strong>.
-                  </p>
-            </div>
             {/* Levels vs Hypercerts Explanation */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-2">
@@ -265,25 +347,78 @@ export default function HypercertsTestPage() {
                 across multiple verified cleanups with impact reports.
               </p>
             </div>
-            {/* Mint Simulation */}
+            {/* User's Requests */}
+            {userRequests.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-5 w-5 rounded-full bg-brand-blue"></div>
+                  <h2 className="font-bebas text-lg sm:text-xl tracking-wider text-foreground">
+                    YOUR REQUESTS
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {userRequests.map((request) => (
+                    <div key={request.id} className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-mono text-muted-foreground">{request.id}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          request.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500' :
+                          request.status === 'APPROVED' ? 'bg-brand-green/20 text-brand-green' :
+                          'bg-red-500/20 text-red-500'
+                        }`}>
+                          {request.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Submitted: {new Date(request.submittedAt).toLocaleDateString()}
+                      </div>
+                      {request.reviewedAt && (
+                        <div className="text-xs text-muted-foreground">
+                          Reviewed: {new Date(request.reviewedAt).toLocaleDateString()}
+                        </div>
+                      )}
+                      {request.hypercertId && (
+                        <div className="text-xs text-brand-green mt-2">
+                          ✅ Minted: {request.hypercertId}
+                        </div>
+                      )}
+                      {request.status === 'APPROVED' && !request.hypercertId && (
+                        <button
+                          onClick={() => handleMintApprovedRequest(request.id)}
+                          className="mt-2 w-full gap-2 bg-brand-green py-2 font-bebas text-sm tracking-wider text-black hover:bg-brand-green/80 rounded-md transition-all flex items-center justify-center"
+                        >
+                          🪙 MINT HYPERCERT
+                        </button>
+                      )}
+                      {request.status === 'REJECTED' && request.rejectionReason && (
+                        <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
+                          Reason: {request.rejectionReason}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Submit for Review */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-5 w-5 rounded-full bg-brand-yellow"></div>
                 <h2 className="font-bebas text-lg sm:text-xl tracking-wider text-foreground">
-                  MINT SIMULATION
+                  SUBMIT FOR REVIEW
                 </h2>
               </div>
               <div className="space-y-3">
                 <button
-                  onClick={handleSimulateMint}
+                  onClick={handleSubmitRequest}
                   disabled={!eligibility?.eligible}
                   className="w-full gap-2 bg-brand-yellow py-3 sm:py-4 font-bebas text-sm sm:text-base tracking-wider text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-all flex items-center justify-center"
                 >
-                  SIMULATE HYPERCERT MINT
+                  SUBMIT HYPERCERT FOR REVIEW
                 </button>
-                {mintResult && (
+                {submitResult && (
                   <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-sm font-mono">{mintResult}</p>
+                    <p className="text-sm font-mono whitespace-pre-line">{submitResult}</p>
                   </div>
                 )}
               </div>

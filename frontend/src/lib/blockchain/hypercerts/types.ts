@@ -12,6 +12,13 @@ export interface HypercertImpactSummary {
   timeframeEnd: number
 }
 
+export interface HypercertBranding {
+  logoImageCid?: string
+  bannerImageCid?: string
+  title?: string
+  description?: string
+}
+
 export interface HypercertEligibilityResult {
   eligible: boolean
   reason?: string
@@ -26,6 +33,7 @@ export interface HypercertMetadataInput {
   summary: HypercertImpactSummary
   issuer: string
   version: string
+  branding?: HypercertBranding
   narrative?: {
     description?: string
     locations?: string[]
@@ -33,4 +41,19 @@ export interface HypercertMetadataInput {
     challenges?: string
     preventionIdeas?: string
   }
+}
+
+export type HypercertRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface HypercertRequest {
+  id: string
+  requester: string
+  metadata: any
+  metadataCid?: string
+  hypercertId?: string  // 🆕 ID do Hypercert mintado on-chain
+  status: HypercertRequestStatus
+  submittedAt: number
+  reviewedAt?: number
+  reviewedBy?: string
+  rejectionReason?: string
 }

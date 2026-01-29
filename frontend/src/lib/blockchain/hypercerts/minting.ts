@@ -1,16 +1,175 @@
-import { HypercertMetadataInput } from './types'
-import { buildHypercertMetadata } from './metadata'
+// ---------------------------------------------------------------------------
+// Hypercerts Minting – Real minting via Hypercerts SDK
+// ---------------------------------------------------------------------------
 
-export async function mintHypercertAsVerifier(params: {
-  verifierAddress: string
-  metadata: HypercertMetadataInput
-}) {
-  // v1 intentionally manual / script-based
-  const metadataPayload = buildHypercertMetadata(params.metadata)
+import { HypercertClient } from '@hypercerts-org/sdk'
+import { getAccount, getWalletClient } from 'wagmi/actions'
+import { config } from './wagmi'
+import { getUserSubmissions, getCleanupDetails } from './contracts'
+import { aggregateUserCleanups } from './hypercerts/aggregation'
+import { buildHypercertMetadata } from './hypercerts/metadata'
+import { uploadHypercertMetadataToIPFS } from './ipfs'
+import { HYPERCERTS_CONFIG } from './hypercerts/config'
 
-  return {
-    mintedBy: params.verifierAddress,
-    metadata: metadataPayload,
-    timestamp: Date.now(),
+/**
+ * Initialize Hypercerts SDK client
+ */
+async function getHypercertClient() {
+  const walletClient = await getWalletClient(config)
+  
+  if (!walletClient) {
+    throw new Error('No wallet client available')
+  }
+
+  // Initialize Hypercerts SDK
+  const client = new HypercertClient({
+    chain: { id: HYPERCERTS_CONFIG.contract.chainId },
+    walletClient: walletClient as any,
+  })
+
+  return client
+}
+
+/**
+ * Mint Hypercert on-chain via Hypercerts SDK
+ * @param userAddress User's wallet address
+ * @param metadataUri IPFS URI of the metadata (ipfs://CID or https://gateway/ipfs/CID)
+ * @returns Transaction result with Hypercert ID
+ */
+export async function mintHypercertOnChain(
+  userAddress: string,
+  metadataUri: string
+): Promise<{ txHash: string; hypercertId: string }> {
+  try {
+    console.log('🪙 Minting Hypercert on-chain...')
+    console.log('  User:', userAddress)
+    console.log('  Metadata URI:', metadataUri)
+
+    const client = await getHypercertClient()
+
+    // Ensure metadataUri is in ipfs:// format
+    let ipfsUri = metadataUri
+    if (metadataUri.includes('/ipfs/')) {
+      const cid = metadataUri.split('/ipfs/')[1].split('?')[0]
+      ipfsUri = `ipfs://${cid}`
+    }
+
+    console.log('  IPFS URI:', ipfsUri)
+
+    // Mint the Hypercert
+    // SDK will handle the contract interaction
+    const result = await client.mintClaim({
+      metaData: ipfsUri,
+      totalUnits: BigInt(10000), // Standard: 10,000 units (100% = 10000)
+      transferRestriction: 'AllowAll', // or 'DisallowAll' / 'FromCreatorOnly'
+    })
+
+    console.log('✅ Hypercert minted successfully!')
+    console.log('  Transaction:', result)
+
+    // Extract hypercert ID from result
+    // The SDK returns the claim ID which is the hypercert ID
+    const hypercertId = result.claimId || result.id || 'unknown'
+
+    return {
+      txHash: result.txHash || '',
+      hypercertId: hypercertId.toString(),
+    }
+  } catch (error) {
+    console.error('❌ Failed to mint Hypercert:', error)
+    throw error
+  }
+}
+
+/**
+ * Complete Hypercert minting flow
+ * This is called by the user after their request is APPROVED
+ * 
+ * @param userAddress User's wallet address
+ * @param metadata Pre-built metadata from the approved request
+ * @returns Minting result with transaction hash and Hypercert ID
+ */
+export async function mintHypercert(
+  userAddress: string,
+  metadata?: any
+): Promise<{ txHash: string; hypercertId: string; metadataCid: string }> {
+  try {
+    console.log('🎯 Starting Hypercert minting flow...')
+
+    // If metadata not provided, build it from user's cleanups
+    let finalMetadata = metadata
+    
+    if (!finalMetadata) {
+      console.log('📊 Building metadata from user cleanups...')
+      
+      const submissions = await getUserSubmissions(userAddress as `0x${string}`)
+      const verifiedCleanups = []
+      let totalReports = 0
+
+      for (const id of submissions) {
+        try {
+          const details = await getCleanupDetails(id)
+          if (details.verified) {
+            verifiedCleanups.push({
+              cleanupId: id.toString(),
+              verifiedAt: Number(details.timestamp),
+            })
+            if (details.hasImpactForm) totalReports++
+          }
+        } catch (error) {
+          console.warn('Error fetching cleanup details:', error)
+        }
+      }
+
+      // Aggregate cleanups
+      const summary = aggregateUserCleanups(verifiedCleanups)
+
+      // Build metadata
+      const metadataInput = {
+        userAddress,
+        cleanups: verifiedCleanups,
+        summary: {
+          totalCleanups: summary.totalCleanups,
+          totalReports,
+          timeframeStart: summary.timeframeStart,
+          timeframeEnd: summary.timeframeEnd,
+        },
+        issuer: 'DeCleanup Network',
+        version: 'v1',
+        narrative: {
+          description: 'Environmental cleanup impact certificate from DeCleanup Network.',
+          locations: [],
+          wasteTypes: [],
+          challenges: 'Community-driven environmental restoration',
+          preventionIdeas: 'Continued environmental education and cleanup initiatives',
+        },
+      }
+
+      finalMetadata = buildHypercertMetadata(metadataInput)
+    }
+
+    // 1. Upload metadata to IPFS
+    console.log('📤 Uploading metadata to IPFS...')
+    const ipfsResult = await uploadHypercertMetadataToIPFS(finalMetadata, userAddress)
+    const metadataCid = ipfsResult.hash
+
+    console.log('✅ Metadata uploaded:', metadataCid)
+
+    // 2. Mint Hypercert on-chain with metadata URI
+    console.log('🪙 Minting Hypercert on-chain...')
+    const mintResult = await mintHypercertOnChain(userAddress, ipfsResult.url)
+
+    console.log('🎉 Hypercert minting complete!')
+    console.log('  Metadata CID:', metadataCid)
+    console.log('  Hypercert ID:', mintResult.hypercertId)
+    console.log('  Transaction:', mintResult.txHash)
+
+    return {
+      ...mintResult,
+      metadataCid,
+    }
+  } catch (error) {
+    console.error('❌ Hypercert minting failed:', error)
+    throw error
   }
 }
