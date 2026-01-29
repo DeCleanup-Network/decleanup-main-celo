@@ -660,11 +660,10 @@ function HomeContent() {
       const result = await mintHypercert(address, hypercertNumber)
 
       const message =
-        `✅ Hypercert eligibility registered successfully!\n\n` +
         `Transaction: ${result.txHash}\n` +
         `Hypercert ID: ${result.hypercertId}\n` +
-        `Owner: ${result.owner}\n\n` +
-        `ℹ️ Hypercert metadata & claiming will be enabled in a future milestone.`
+        `Metadata CID: ${result.metadataCid}\n\n` +
+        `ℹ️ Your Hypercert is now on-chain!`
 
       alert(message)
 
