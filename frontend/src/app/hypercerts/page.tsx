@@ -7,6 +7,7 @@ import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibili
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { buildHypercertMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
+import { uploadToIPFS } from '@/lib/blockchain/ipfs'
 import { submitHypercertRequest, getHypercertRequestsByUser, updateRequestWithHypercertId } from '@/lib/blockchain/hypercerts/requests'
 
 export default function HypercertsTestPage() {
@@ -32,6 +33,11 @@ export default function HypercertsTestPage() {
   useEffect(() => {
     if (!address || !isConnected) return
 
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [brandingTitle, setBrandingTitle] = useState<string>('')
+  const [brandingDescription, setBrandingDescription] = useState<string>('')
+  const [brandingCids, setBrandingCids] = useState<{ logoImageCid?: string; bannerImageCid?: string } | null>(null)
     async function loadData() {
       setLoading(true)
       try {
