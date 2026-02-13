@@ -334,3 +334,44 @@ The schema change from nested {impact: {summary}} to Hypercert standard {hyperce
 4. **User transparency**: Upload progress and CIDs are shown in real-time, giving users confidence data is persisted
 
 The branding section is placed before submission to ensure users finalize all customizations before sending request to verifiers, avoiding need for resubmission due to missing branding.
+
+### STEP 15 — Verifier context expansion (Phase 4 complete) (2026-02-13)
+
+**Added**
+- `frontend/src/lib/blockchain/hypercerts/aggregation.ts`:
+  - New `buildVerifierContext()` function to aggregate impact data across all Hypercert requests
+  - Calculates: total requests, total cleanups, total reports, status breakdown (PENDING/APPROVED/REJECTED)
+  - Extracts impact metrics from request metadata properties (trait_type matching)
+  - Provides date range of submission/review activity
+  - Returns structured context object for verifier dashboard visualization
+
+**Changed**
+- `frontend/src/lib/blockchain/hypercerts/index.ts`:
+  - Added export of `buildVerifierContext` function
+
+- `frontend/src/features/verifier/pages/page.tsx`:
+  - Added import of `buildVerifierContext`
+  - Added `verifierContext` state to store aggregated impact data
+  - Updated `loadHypercertRequests()` to call `buildVerifierContext(pending)` after loading requests
+  - Added visual context card (green accent) showing:
+    - Total Requests count
+    - Total Cleanups aggregated across all requests
+    - Total Reports aggregated across all requests
+    - Pending vs Approved request breakdown
+  - Context card displays in 2-column grid (mobile) / 4-column grid (desktop)
+  - Card appears before individual request list for quick overview
+
+- `frontend/src/app/verifier/page.tsx`:
+  - Added import of `buildVerifierContext`
+  - Added `verifierContext` state (matching features/verifier structure)
+  - Updated request loading to calculate context
+  - Added matching visual context card in same location/style
+  - Ensures consistency across both verifier entry points
+
+**Why**: Implements Phase 4 of mainnet readiness plan - provides verifiers with high-level impact overview before reviewing individual requests. The aggregated context helps verifiers:
+1. **Quickly assess total impact**: See cumulative cleanups and reports at a glance
+2. **Track approval progress**: Monitor pending vs approved requests
+3. **Understand workload**: Total requests shows volume of submissions
+4. **Make informed decisions**: Context informs individual request review
+
+The card is placed above individual requests to encourage verifiers to understand overall impact before diving into details. This is crucial for mainnet where verifier load may be high and they need quick decision-making support. Both verifier pages have identical context logic to avoid routing confusion.
