@@ -24,6 +24,7 @@ import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
 import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
 import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
+import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -973,23 +974,23 @@ export default function VerifierPage() {
                       <div>
                         <span className="text-gray-400">Cleanups:</span>
                         <span className="ml-2 font-bold text-white">
-                          {request.metadata?.impact?.summary?.totalCleanups || 0}
+                          {extractImpactSummaryFromMetadata(request.metadata)?.totalCleanups || 0}
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-400">Reports:</span>
                         <span className="ml-2 font-bold text-white">
-                          {request.metadata?.impact?.summary?.totalReports || 0}
+                          {extractImpactSummaryFromMetadata(request.metadata)?.totalReports || 0}
                         </span>
                       </div>
                       <div className="col-span-2">
                         <span className="text-gray-400">Timeframe:</span>
                         <span className="ml-2 text-white">
-                          {request.metadata?.impact?.summary?.timeframeStart && 
-                            new Date(request.metadata.impact.summary.timeframeStart).toLocaleDateString()
+                          {extractImpactSummaryFromMetadata(request.metadata)?.timeframeStart && 
+                            new Date(extractImpactSummaryFromMetadata(request.metadata)?.timeframeStart).toLocaleDateString()
                           } - {
-                            request.metadata?.impact?.summary?.timeframeEnd &&
-                            new Date(request.metadata.impact.summary.timeframeEnd).toLocaleDateString()
+                            extractImpactSummaryFromMetadata(request.metadata)?.timeframeEnd &&
+                            new Date(extractImpactSummaryFromMetadata(request.metadata)?.timeframeEnd).toLocaleDateString()
                           }
                         </span>
                       </div>

@@ -18,6 +18,7 @@ import { REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/wagmi'
 import { ImpactReportDetails } from '@/components/verifier/ImpactReportDetails'
 import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
+import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -579,13 +580,13 @@ export default function VerifierPage() {
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-400">Cleanups:</span>
                                                     <span className="font-bold text-foreground">
-                                                        {request.metadata?.impact?.summary?.totalCleanups || 0}
+                                                        {extractImpactSummaryFromMetadata(request.metadata)?.totalCleanups || 0}
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-400">Reports:</span>
                                                     <span className="font-bold text-foreground">
-                                                        {request.metadata?.impact?.summary?.totalReports || 0}
+                                                        {extractImpactSummaryFromMetadata(request.metadata)?.totalReports || 0}
                                                     </span>
                                                 </div>
                                             </div>
