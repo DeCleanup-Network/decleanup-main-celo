@@ -303,3 +303,34 @@ Why: Implements the verifier-side approval flow for Hypercert creation requests.
 5. **Mainnet readiness**: Metadata structure is identical for testnet (Sepolia) and mainnet (Celo) - no refactoring needed when migrating
 
 The schema change from nested {impact: {summary}} to Hypercert standard {hypercert: {work_scope, impact_scope, ...}} is abstracted via `extractImpactSummaryFromMetadata()` to avoid breaking verifier UI. This completes the metadata standardization required before mainnet deployment.
+
+### STEP 14 — Branding upload system (Phase 3 complete) (2026-02-13)
+
+**Added**
+- `frontend/src/app/hypercerts/page.tsx`:
+  - New branding upload UI section with optional fields
+  - Logo and banner file input with individual upload buttons
+  - Title and description text inputs for branding
+  - Visual feedback showing uploaded IPFS CIDs (truncated for display)
+  - `handleBrandingUpload()` function to upload files to IPFS via `uploadToIPFS()`
+  - Proper file state management with `logoFile`, `bannerFile`, `logoImageCid`, `bannerImageCid`
+
+**Changed**
+- `frontend/src/app/hypercerts/page.tsx`:
+  - Moved branding states OUT of useEffect and into component root (line 36-40)
+  - Added branding states: `logoFile`, `bannerFile`, `brandingTitle`, `brandingDescription`, `brandingCids`, `userRequests`
+  - Updated `metadataInput` object to include `branding` field with conditional population:
+    - Includes `logoImageCid`, `bannerImageCid`, `title`, `description` when CIDs are available
+    - Falls back to `undefined` if no branding uploaded yet
+  - Updated useEffect dependencies to include `brandingCids`, `brandingTitle`, `brandingDescription` for reactive metadata updates
+  - Added BRANDING section (purple accent) between metadata preview and submit button
+  - Branding section appears before SUBMIT FOR REVIEW to allow customization before submission
+  - File inputs show upload progress and success messages via `submitResult` state
+
+**Why**: Implements Phase 3 of mainnet readiness plan - allows users to customize Hypercert presentation with logo, banner, and text before submitting for verifier review. Branding is optional but enhances visual representation of the impact claim. Files are uploaded to IPFS before metadata is generated, ensuring CIDs are embedded in the final Hypercert metadata. This enables:
+1. **Custom branding**: Each Hypercert can have unique logo/banner reflecting the user/project identity
+2. **IPFS integration**: Images are stored on IPFS for decentralized, permanent storage
+3. **Reactive metadata**: Metadata automatically regenerates when branding changes, keeping it in sync
+4. **User transparency**: Upload progress and CIDs are shown in real-time, giving users confidence data is persisted
+
+The branding section is placed before submission to ensure users finalize all customizations before sending request to verifiers, avoiding need for resubmission due to missing branding.
