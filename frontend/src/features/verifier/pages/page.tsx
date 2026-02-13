@@ -25,6 +25,7 @@ import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
 import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
+import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
 
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -81,6 +82,7 @@ export default function VerifierPage() {
   const [searchResults, setSearchResults] = useState<Array<{ cleanupId: bigint; verified: boolean; claimed: boolean; level: number; user: Address }>>([])
   const [isLoadingCleanups, setIsLoadingCleanups] = useState(false)
   const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
+  const [verifierContext, setVerifierContext] = useState<any>(null)
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
 
   const { signMessageAsync, isPending: isSigning } = useSignMessage()
@@ -452,6 +454,7 @@ export default function VerifierPage() {
       const pending = getHypercertRequestsByStatus('PENDING')
       console.log('📋 Pending Hypercert requests:', pending.length)
       setHypercertRequests(pending)
+      setVerifierContext(buildVerifierContext(pending))
     } catch (error) {
       console.error('Error loading Hypercert requests:', error)
     }
@@ -931,6 +934,31 @@ export default function VerifierPage() {
       </div>
     )
   }
+
+          {/* Hypercert Impact Context */}
+          {verifierContext && (
+            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
+              <h3 className="mb-4 font-bold text-green-400">📊 HYPERCERT IMPACT CONTEXT</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                <div>
+                  <p className="text-gray-400">Total Requests</p>
+                  <p className="text-2xl font-bold text-white">{verifierContext.totalRequests}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Total Cleanups</p>
+                  <p className="text-2xl font-bold text-brand-green">{verifierContext.totalCleanups}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Total Reports</p>
+                  <p className="text-2xl font-bold text-brand-yellow">{verifierContext.totalReports}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Pending/Approved</p>
+                  <p className="text-2xl font-bold text-white">{verifierContext.status.PENDING}/{verifierContext.status.APPROVED}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
   {/* Pending Hypercert Requests */}
         <div className="mb-8">
