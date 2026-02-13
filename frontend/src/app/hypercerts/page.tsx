@@ -29,19 +29,19 @@ export default function HypercertsTestPage() {
   const [aggregatedData, setAggregatedData] = useState<any>(null)
   const [metadata, setMetadata] = useState<any>(null)
   const [submitResult, setSubmitResult] = useState<string>('')
-
-  useEffect(() => {
-    if (!address || !isConnected) return
-
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [brandingTitle, setBrandingTitle] = useState<string>('')
   const [brandingDescription, setBrandingDescription] = useState<string>('')
   const [brandingCids, setBrandingCids] = useState<{ logoImageCid?: string; bannerImageCid?: string } | null>(null)
+  const [userRequests, setUserRequests] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!address || !isConnected) return
+
     async function loadData() {
       setLoading(true)
       try {
-        // Get user's verified cleanups
         const submissions = await getUserSubmissions(address as `0x${string}`)
         const verifiedCleanups = []
         let impactReportsCount = 0
@@ -61,8 +61,7 @@ export default function HypercertsTestPage() {
           }
         }
 
-        // Check eligibility - fix chainId if corrupted
-        const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787 // default to Sepolia
+        const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787
         console.log('🔍 [Using ChainId]', validChainId)
         
         const eligibilityResult = checkHypercertEligibility({
@@ -72,7 +71,6 @@ export default function HypercertsTestPage() {
         })
         setEligibility(eligibilityResult)
 
-        // Aggregate data
         if (verifiedCleanups.length > 0) {
           const aggregated = aggregateUserCleanups(verifiedCleanups)
           setAggregatedData({
@@ -81,7 +79,6 @@ export default function HypercertsTestPage() {
             cleanupIds: verifiedCleanups.map(c => c.cleanupId)
           })
 
-          // Build metadata
           const metadataInput = {
             userAddress: address as `0x${string}`,
             cleanups: verifiedCleanups,
@@ -93,6 +90,12 @@ export default function HypercertsTestPage() {
             },
             issuer: 'DeCleanup Network',
             version: 'v1',
+            branding: brandingCids ? { 
+              logoImageCid: brandingCids.logoImageCid, 
+              bannerImageCid: brandingCids.bannerImageCid, 
+              title: brandingTitle, 
+              description: brandingDescription 
+            } : undefined,
             narrative: {
               description: 'Environmental cleanup impact certificate from DeCleanup Network test milestone.',
               locations: [],
@@ -112,25 +115,43 @@ export default function HypercertsTestPage() {
     }
 
     loadData()
-  }, [address, isConnected])
+  }, [address, isConnected, brandingCids, brandingTitle, brandingDescription])
 
-  const [userRequests, setUserRequests] = useState<any[]>([])
-
-  // Load user's existing requests
   useEffect(() => {
     if (!address) return
-    
     const requests = getHypercertRequestsByUser(address)
     setUserRequests(requests)
     console.log('📋 User Hypercert requests:', requests)
-  }, [address, submitResult]) // Refresh when new request is submitted
+  }, [address, submitResult])
+
+  const handleBrandingUpload = async (type: 'logo' | 'banner') => {
+    try {
+      const file = type === 'logo' ? logoFile : bannerFile
+      if (!file) {
+        setSubmitResult(`No ${type} file selected`)
+        return
+      }
+
+      setSubmitResult(`Uploading ${type}...`)
+      const result = await uploadToIPFS(file)
+
+      if (type === 'logo') {
+        setBrandingCids(prev => ({ ...prev, logoImageCid: result.hash }))
+        setSubmitResult(`Logo uploaded: ${result.hash}`)
+      } else {
+        setBrandingCids(prev => ({ ...prev, bannerImageCid: result.hash }))
+        setSubmitResult(`Banner uploaded: ${result.hash}`)
+      }
+    } catch (error) {
+      setSubmitResult(`Upload failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
 
   const handleSubmitRequest = async () => {
     if (!address || !metadata) return
 
     setSubmitResult('Submitting request...')
     try {
-      // Submit Hypercert request for verifier review
       const request = submitHypercertRequest({
         requester: address,
         metadata: metadata,
@@ -164,15 +185,12 @@ export default function HypercertsTestPage() {
     try {
       console.log('🪙 Minting approved request:', requestId)
 
-      // Mint Hypercert with the approved metadata
       const result = await mintHypercert(address, request.metadata)
 
       console.log('✅ Hypercert minted:', result)
 
-      // Update request with hypercert ID
       updateRequestWithHypercertId(requestId, result.hypercertId)
 
-      // Refresh requests list
       const updatedRequests = getHypercertRequestsByUser(address)
       setUserRequests(updatedRequests)
 
@@ -190,19 +208,16 @@ export default function HypercertsTestPage() {
   }
 
   const getNetworkName = () => {
-  // Use o chainId corrigido
-  const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787
-  
-  if (validChainId === 44787) return 'Celo Sepolia (Testnet)'
-  if (validChainId === 42220) return 'Celo Mainnet'
-  return `Chain ID: ${validChainId} (corrected from ${chainId})`
-}
+    const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787
+    if (validChainId === 44787) return 'Celo Sepolia (Testnet)'
+    if (validChainId === 42220) return 'Celo Mainnet'
+    return `Chain ID: ${validChainId} (corrected from ${chainId})`
+  }
 
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background">
         <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 sm:gap-6 px-4 py-4 sm:px-6 sm:py-6">
-          {/* Header Section */}
           <div className="flex items-center justify-between flex-shrink-0 mb-2">
             <div>
               <h1 className="font-bebas text-3xl sm:text-4xl lg:text-5xl tracking-wider text-foreground">
@@ -235,10 +250,9 @@ export default function HypercertsTestPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 sm:gap-6 px-4 py-4 sm:px-6 sm:py-6">
-        {/* Header Section */}
-        <div className="flex items-center justify-between flex-shrink-0 mb-2">
+        <div className="flex items-center justify-between shrink-0 mb-2">
           <div>
             <h1 className="font-bebas text-3xl sm:text-4xl lg:text-5xl tracking-wider text-foreground">
               CREATE HYPERCERT
@@ -249,7 +263,6 @@ export default function HypercertsTestPage() {
           </div>
         </div>
 
-        {/* Network & Wallet Info */}
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="font-medium">Network:</span>
@@ -261,7 +274,6 @@ export default function HypercertsTestPage() {
           </div>
         </div>
 
-        {/* How It Works Section */}
         <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-5 w-5 rounded-full bg-brand-blue"></div>
@@ -289,11 +301,8 @@ export default function HypercertsTestPage() {
           </ol>
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-          {/* Left Column */}
           <div className="flex flex-col gap-4 sm:gap-6">
-            {/* Eligibility Status */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-5 w-5 rounded-full bg-brand-green"></div>
@@ -339,7 +348,7 @@ export default function HypercertsTestPage() {
                 <p className="text-sm text-muted-foreground">No eligibility data available.</p>
               )}
             </div>
-            {/* Levels vs Hypercerts Explanation */}
+
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-2">
                 <div className="h-4 w-4 rounded-full bg-muted-foreground"></div>
@@ -353,7 +362,7 @@ export default function HypercertsTestPage() {
                 across multiple verified cleanups with impact reports.
               </p>
             </div>
-            {/* User's Requests */}
+
             {userRequests.length > 0 && (
               <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -406,7 +415,76 @@ export default function HypercertsTestPage() {
                 </div>
               </div>
             )}
-            {/* Submit for Review */}
+
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-5 w-5 rounded-full bg-purple-500"></div>
+                <h2 className="font-bebas text-lg sm:text-xl tracking-wider text-foreground">
+                  BRANDING (OPTIONAL)
+                </h2>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Title</label>
+                  <input
+                    type="text"
+                    value={brandingTitle}
+                    onChange={(e) => setBrandingTitle(e.target.value)}
+                    placeholder="Hypercert title"
+                    className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Description</label>
+                  <textarea
+                    value={brandingDescription}
+                    onChange={(e) => setBrandingDescription(e.target.value)}
+                    placeholder="Hypercert description"
+                    className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground resize-none"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Logo Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-muted-foreground"
+                  />
+                  <button
+                    onClick={() => handleBrandingUpload('logo')}
+                    disabled={!logoFile}
+                    className="mt-2 w-full px-3 py-2 bg-brand-blue text-xs font-medium text-white rounded-md hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    📤 Upload Logo
+                  </button>
+                  {brandingCids?.logoImageCid && (
+                    <p className="mt-2 text-xs text-brand-green">✅ Logo: {brandingCids.logoImageCid.slice(0, 10)}...</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Banner Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setBannerFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-muted-foreground"
+                  />
+                  <button
+                    onClick={() => handleBrandingUpload('banner')}
+                    disabled={!bannerFile}
+                    className="mt-2 w-full px-3 py-2 bg-brand-blue text-xs font-medium text-white rounded-md hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    📤 Upload Banner
+                  </button>
+                  {brandingCids?.bannerImageCid && (
+                    <p className="mt-2 text-xs text-brand-green">✅ Banner: {brandingCids.bannerImageCid.slice(0, 10)}...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-5 w-5 rounded-full bg-brand-yellow"></div>
@@ -431,9 +509,7 @@ export default function HypercertsTestPage() {
             </div>
           </div>
 
-          {/* Right Column */}
           <div className="flex flex-col gap-4 sm:gap-6">
-            {/* Aggregated Impact Summary */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-5 w-5 rounded-full bg-brand-blue"></div>
@@ -477,7 +553,6 @@ export default function HypercertsTestPage() {
               )}
             </div>
 
-            {/* Metadata Preview */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-5 w-5 rounded-full bg-purple-500"></div>
