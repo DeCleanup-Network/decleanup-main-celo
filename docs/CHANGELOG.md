@@ -243,3 +243,63 @@ Why: Implements the verifier-side approval flow for Hypercert creation requests.
   - Refreshes request list after successful minting
 
 **Why**: Implements the final step of the Hypercert flow - actual on-chain minting via the Hypercerts SDK. Users can now mint their approved requests to the blockchain, completing the full workflow: submit → verifier approval → user mints on-chain. The separation of "approval" (verifier) and "minting" (user) ensures quality control while keeping minting costs on the user. Metadata is uploaded to IPFS first, then referenced in the on-chain Hypercert. This completes Phase 0-1 of the Hypercert implementation plan with real blockchain interaction on Celo Sepolia testnet.
+
+### STEP 13 — Hypercert metadata alignment to ERC-1155 standard (2026-02-13)
+
+**Added**
+- `frontend/src/lib/blockchain/hypercerts/metadata.ts`:
+  - New `extractImpactSummaryFromMetadata()` function to extract impact data from new Hypercert metadata format
+  - Used by verifier UI for backward compatibility with old access patterns
+  - Enables seamless transition from old {impact: {summary}} to new Hypercert standard schema
+
+**Changed**
+- `frontend/src/lib/blockchain/hypercerts/types.ts`:
+  - Completely restructured to follow official Hypercerts.org ERC-1155 + Hypercerts specification
+  - Added `HypercertDimension<T>` interface for standard hypercert dimensions (work_scope, impact_scope, work_timeframe, impact_timeframe, contributors, rights)
+  - Replaced old `HypercertMetadata` with new structure:
+    - Standard ERC-1155 fields: `name`, `description`, `image`, `external_url`, `properties`
+    - Required Hypercert dimensions: `hypercert` object containing all 6 mandatory dimensions
+    - Metadata generation timestamp: `generated_at`
+  - Added `branding` field to `HypercertMetadata` (logo, banner, title, description)
+  - Expanded `HypercertMetadataInput.impactData` with all cleanup report fields: `bags`, `hours`, `minutes`
+  - Updated `HypercertRequest.metadata` type to use new `HypercertMetadata` interface
+
+- `frontend/src/lib/blockchain/hypercerts/metadata.ts`:
+  - **Complete rewrite**: Replaced simple metadata builder with full Hypercert standard implementation
+  - Added 6 builder functions for Hypercert dimensions:
+    - `buildWorkScope()`: from locationType + scopeOfWork
+    - `buildImpactScope()`: from wasteTypes (defaults to "All" if empty)
+    - `buildWorkTimeframe()`: from cleanup timeframe with formatted date display
+    - `buildImpactTimeframe()`: with indefinite upper bound (0 = indefinite)
+    - `buildContributors()`: from impactData contributors list
+    - `buildRights()`: hardcoded to "Public Display" (v1 only)
+  - Added `buildProperties()`: generates ERC-1155 properties/attributes from impact data
+    - Total Cleanups, Impact Reports, Area Cleaned, Weight Removed, Bags Collected, Time Spent
+    - Properly typed to accept both string and number values
+  - Updated `buildHypercertMetadata()` to generate complete Hypercert-standard metadata
+    - Maps all user impact data to official dimensions
+    - Includes branding as optional presentation layer
+    - Returns fully structured metadata compatible with Hypercerts.org viewers
+
+- `frontend/src/lib/blockchain/hypercerts/index.ts`:
+  - Added export of `extractImpactSummaryFromMetadata` function
+
+- `frontend/src/app/verifier/page.tsx`:
+  - Added import of `extractImpactSummaryFromMetadata`
+  - Updated line 583: replaced `request.metadata?.impact?.summary?.totalCleanups` with call to helper function
+  - Updated line 589: replaced `request.metadata?.impact?.summary?.totalReports` with call to helper function
+  - Verifier UI now compatible with new metadata structure
+
+- `frontend/src/features/verifier/pages/page.tsx`:
+  - Added import of `extractImpactSummaryFromMetadata`
+  - Updated lines 977, 983, 989-994: replaced all `request.metadata.impact` references with calls to helper function
+  - All timeframe display logic now uses new metadata format
+
+**Why**: Implements Phase 2 of mainnet readiness plan - ensures all Hypercert metadata strictly follows the official ERC-1155 + Hypercerts.org specification. This is critical for:
+1. **External compatibility**: Metadata can now be rendered by any Hypercerts.org viewer, marketplace, or tool
+2. **Standards compliance**: All 6 required dimensions are present and properly formatted
+3. **Impact data mapping**: Cleanup reports are automatically mapped to work_scope, impact_scope, and properties
+4. **Branding support**: Logo, banner, title, description are now first-class metadata fields
+5. **Mainnet readiness**: Metadata structure is identical for testnet (Sepolia) and mainnet (Celo) - no refactoring needed when migrating
+
+The schema change from nested {impact: {summary}} to Hypercert standard {hypercert: {work_scope, impact_scope, ...}} is abstracted via `extractImpactSummaryFromMetadata()` to avoid breaking verifier UI. This completes the metadata standardization required before mainnet deployment.
