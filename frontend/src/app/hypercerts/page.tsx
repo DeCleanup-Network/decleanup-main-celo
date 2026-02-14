@@ -14,7 +14,6 @@ export default function HypercertsTestPage() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
 
-  // Debug e correção do chainId
   useEffect(() => {
     console.log('🔍 [ChainId Raw]', {
       chainId,
@@ -189,7 +188,7 @@ export default function HypercertsTestPage() {
 
       console.log('✅ Hypercert minted:', result)
 
-      updateRequestWithHypercertId(requestId, result.hypercertId)
+      updateRequestWithHypercertId(requestId, result.hypercertId, result.txHash, result.metadataCid)
 
       const updatedRequests = getHypercertRequestsByUser(address)
       setUserRequests(updatedRequests)
@@ -393,8 +392,21 @@ export default function HypercertsTestPage() {
                         </div>
                       )}
                       {request.hypercertId && (
-                        <div className="text-xs text-brand-green mt-2">
-                          ✅ Minted: {request.hypercertId}
+                        <div className="mt-3 space-y-2 rounded border border-brand-green/30 bg-brand-green/5 p-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-brand-green">✅ MINTED</span>
+                            <span className="text-xs font-mono text-muted-foreground">{request.hypercertId}</span>
+                          </div>
+                          {request.txHash && (
+                            <a href={`https://celo-sepolia.blockscout.com/tx/${request.txHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-blue hover:underline block">
+                              🔗 View on Explorer
+                            </a>
+                          )}
+                          {request.metadataCid && (
+                            <a href={`https://gateway.pinata.cloud/ipfs/${request.metadataCid}`} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-blue hover:underline block">
+                              📄 View Metadata
+                            </a>
+                          )}
                         </div>
                       )}
                       {request.status === 'APPROVED' && !request.hypercertId && (

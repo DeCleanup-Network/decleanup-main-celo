@@ -111,6 +111,7 @@ export interface HypercertRequest {
   metadata: HypercertMetadata
   metadataCid?: string
   hypercertId?: string
+  txHash?: string
   status: HypercertRequestStatus
   submittedAt: number
   reviewedAt?: number

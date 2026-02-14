@@ -106,7 +106,9 @@ export function rejectHypercertRequest(params: {
 // Update a request with minted Hypercert ID (user action after minting)
 export function updateRequestWithHypercertId(
   requestId: string,
-  hypercertId: string
+  hypercertId: string,
+  txHash?: string,
+  metadataCid?: string
 ): HypercertRequest | null {
   const requests = getAllHypercertRequests()
   const request = requests.find(req => req.id === requestId)
@@ -115,16 +117,20 @@ export function updateRequestWithHypercertId(
     console.error('Request not found:', requestId)
     return null
   }
-
+  
   request.hypercertId = hypercertId
-
+  if (txHash) request.txHash = txHash
+  if (metadataCid) request.metadataCid = metadataCid
+  
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(requests))
   }
-
+  
   console.log('✅ Request updated with Hypercert ID:', {
     requestId,
     hypercertId,
+    txHash,
+    metadataCid,
   })
   
   return request
