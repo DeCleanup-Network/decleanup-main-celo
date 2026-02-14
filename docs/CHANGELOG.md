@@ -375,3 +375,35 @@ The branding section is placed before submission to ensure users finalize all cu
 4. **Make informed decisions**: Context informs individual request review
 
 The card is placed above individual requests to encourage verifiers to understand overall impact before diving into details. This is crucial for mainnet where verifier load may be high and they need quick decision-making support. Both verifier pages have identical context logic to avoid routing confusion.
+
+### STEP 16 — Post-mint UX (Phase 5 complete) (2026-02-13)
+
+**Added**
+- `frontend/src/lib/blockchain/hypercerts/requests.ts`:
+  - Expanded `updateRequestWithHypercertId()` to accept optional `txHash` and `metadataCid` parameters
+  - Persists all three fields (hypercertId, txHash, metadataCid) to localStorage
+  - Enables full traceability of minted Hypercerts from submission to on-chain
+
+**Changed**
+- `frontend/src/lib/blockchain/hypercerts/types.ts`:
+  - Added `txHash?: string` field to `HypercertRequest` interface
+  - Enables tracking of minting transaction hash for explorer links
+
+- `frontend/src/app/hypercerts/page.tsx`:
+  - Updated `handleMintApprovedRequest()` to pass `result.txHash` and `result.metadataCid` to update function
+  - Expanded post-mint UI with clickable explorer and IPFS links:
+    - 🔗 View on Explorer: Links to Celo Sepolia BlockScout (tx hash)
+    - 📄 View Metadata: Links to IPFS Gateway (metadata CID)
+  - Replaced simple text display with green-accented card showing:
+    - MINTED status badge
+    - Hypercert ID (truncated)
+    - External links for verification
+    - Explanatory text about on-chain availability
+
+**Why**: Implements Phase 5 of mainnet readiness plan - provides users with clear post-mint experience and external verification paths. Users can now:
+1. **Verify transaction**: Click explorer link to see on-chain confirmation
+2. **Inspect metadata**: View raw IPFS metadata to understand what was minted
+3. **Share proof**: Links enable users to prove ownership and impact claims
+4. **External discovery**: Hypercert is discoverable on Hypercerts.org, OpenSea, and other marketplaces
+
+The persistent storage of txHash and metadataCid ensures that even if users close and reopen the app, they have permanent links to their minted Hypercert. This completes the full user journey: submit → review → mint → verify → share.
