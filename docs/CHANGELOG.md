@@ -407,3 +407,8 @@ The card is placed above individual requests to encourage verifiers to understan
 4. **External discovery**: Hypercert is discoverable on Hypercerts.org, OpenSea, and other marketplaces
 
 The persistent storage of txHash and metadataCid ensures that even if users close and reopen the app, they have permanent links to their minted Hypercert. This completes the full user journey: submit → review → mint → verify → share.
+
+**Additional Notes**
+- Request status automatically transitions to "MINTED" after successful on-chain mint
+- Mint button conditionally rendered only when status === 'APPROVED' and hypercertId is not set
+- Prevents accidental double-minting through UI state management
