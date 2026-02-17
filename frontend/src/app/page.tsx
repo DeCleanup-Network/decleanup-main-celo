@@ -13,6 +13,7 @@ import { getCrecyBalance } from '@/lib/utils/crecy-tracking'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
+import { VerifierApplyCard } from '@/components/dashboard/VerifierApplyCard'
 import { useIsVerifier } from '@/hooks/useIsVerifier'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
@@ -881,6 +882,9 @@ function HomeContent() {
             </div>
           )}
         </div>
+
+        {/* Verifier Apply Card */}
+        <VerifierApplyCard />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
