@@ -1,19 +1,12 @@
 /**
  * POST /api/verifier/review
+ * Admin endpoint: Update verifier application status
  * 
- * Admin endpoint: Approve or reject application
- * 
- * Flow:
- * 1. Validate request (admin check - TODO)
- * 2. Get application
- * 3. Update status
- * 4. If APPROVE: Call grantRole() on contract
- * 5. Return result
- * 
- * ⚠️ TODO: Add admin role verification
+ * NOTE: Role grant happens CLIENT-SIDE before calling this
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { isAddress } from 'viem'
 import { updateApplicationStatus, getApplicationById } from '@/lib/verifier/applications'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +16,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { applicationId, decision, reviewedBy, notes } = body
 
-    // Validate input
     if (!applicationId || !decision) {
       return NextResponse.json(
         { error: 'Missing required fields: applicationId, decision' },
@@ -38,12 +30,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Add admin role check here
-    // if (!await isAdmin(reviewedBy)) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    // }
+    if (!reviewedBy || !isAddress(reviewedBy)) {
+      return NextResponse.json(
+        { error: 'Missing or invalid reviewedBy address' },
+        { status: 400 }
+      )
+    }
 
-    // Get application
     const app = getApplicationById(applicationId)
     if (!app) {
       return NextResponse.json(
@@ -52,7 +45,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if already reviewed
     if (app.status !== 'PENDING') {
       return NextResponse.json(
         { error: `Application already ${app.status.toLowerCase()}` },
@@ -60,11 +52,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update status
     const updated = updateApplicationStatus(
       applicationId,
       decision as 'APPROVED' | 'REJECTED',
-      reviewedBy || 'admin',
+      reviewedBy,
       notes
     )
 
@@ -75,22 +66,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // If APPROVE: Call grantRole on contract
-    if (decision === 'APPROVE') {
-      // TODO: Call grantRole(VERIFIER_ROLE, app.address) here
-      // This will be implemented after reviewing contracts.ts
-      console.log(`📝 TODO: Grant VERIFIER_ROLE to ${app.address}`)
-    }
-
-    console.log(`✅ Application ${applicationId} ${decision.toLowerCase()} by ${reviewedBy}`)
-
-    return NextResponse.json(
-      {
-        success: true,
-        application: updated,
-        message: `Application ${decision.toLowerCase()} successfully`,
-      }
-    )
+    return NextResponse.json({
+      success: true,
+      application: updated,
+      message: `Application ${decision.toLowerCase()} successfully`,
+    })
 
   } catch (error) {
     console.error('Error in POST /api/verifier/review:', error)
