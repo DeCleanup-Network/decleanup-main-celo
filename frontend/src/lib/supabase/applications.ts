@@ -1,51 +1,60 @@
+import { getSupabase } from './client'
 /**
  * Verifier Applications Repository (Supabase)
- * Replaces in-memory storage with persistent database
+ * Production-grade with full type safety
  */
 
 import { supabase } from './client'
-import { VerifierApplication } from './types'
-import { Address } from 'viem'
+import { VerifierApplication } from '../verifier/types'
+import type { Database } from './database.types'
+
+type Tables = Database['public']['Tables']
+type VerifierAppRow = Tables['verifier_applications']['Row']
+type VerifierAppInsert = Tables['verifier_applications']['Insert']
+type VerifierAppUpdate = Tables['verifier_applications']['Update']
 
 /**
  * Create new application in database
  */
 export async function createApplication(address: string): Promise<VerifierApplication> {
-  const { data, error } = await supabase
+  const insertData: VerifierAppInsert = {
+    address: address.toLowerCase(),
+    applied_at: Date.now(),
+    status: 'PENDING',
+    processing: false,
+  }
+
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
-    .insert({
-      address: address.toLowerCase(),
-      applied_at: Date.now(),
-      status: 'PENDING',
-      processing: false,
-    })
+    .insert([insertData])
     .select()
     .single()
 
   if (error) throw new Error(`Failed to create application: ${error.message}`)
-
-  return data
+  return mapRowToApplication(data as VerifierAppRow)
 }
 
 /**
  * Get application by ID
  */
 export async function getApplicationById(id: string): Promise<VerifierApplication | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
     .select()
     .eq('id', id)
     .single()
 
   if (error && error.code !== 'PGRST116') throw error
-  return data || null
+  if (!data) return null
+
+  return mapRowToApplication(data as VerifierAppRow)
 }
 
 /**
  * Get latest application by address
  */
 export async function getLatestApplicationByAddress(address: string): Promise<VerifierApplication | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
     .select()
     .eq('address', address.toLowerCase())
@@ -54,20 +63,22 @@ export async function getLatestApplicationByAddress(address: string): Promise<Ve
     .single()
 
   if (error && error.code !== 'PGRST116') throw error
-  return data || null
+  if (!data) return null
+
+  return mapRowToApplication(data as VerifierAppRow)
 }
 
 /**
  * Get all applications (admin)
  */
 export async function getAllApplications(): Promise<VerifierApplication[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
     .select()
     .order('applied_at', { ascending: false })
 
   if (error) throw new Error(`Failed to fetch applications: ${error.message}`)
-  return data || []
+  return (data as VerifierAppRow[] | null)?.map(mapRowToApplication) || []
 }
 
 /**
@@ -79,32 +90,33 @@ export async function updateApplicationStatus(
   reviewedBy: string,
   notes?: string
 ): Promise<VerifierApplication | null> {
-  const { data, error } = await supabase
+  const updateData: VerifierAppUpdate = {
+    status,
+    reviewed_by: reviewedBy.toLowerCase(),
+    reviewed_at: Date.now(),
+    notes,
+    processing: false,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
-    .update({
-      status,
-      reviewed_by: reviewedBy.toLowerCase(),
-      reviewed_at: Date.now(),
-      notes,
-      processing: false,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', id)
     .select()
     .single()
 
   if (error) throw new Error(`Failed to update application: ${error.message}`)
-  return data
+  return mapRowToApplication(data as VerifierAppRow)
 }
 
 /**
  * Lock application for processing
- * Returns true if lock succeeded, false if already locked
  */
 export async function lockApplication(id: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
-    .update({ processing: true })
+    .update({ processing: true } as VerifierAppUpdate)
     .eq('id', id)
     .eq('processing', false)
     .select()
@@ -114,16 +126,16 @@ export async function lockApplication(id: string): Promise<boolean> {
     return false
   }
 
-  return data && data.length > 0
+  return ((data as VerifierAppRow[] | null)?.length ?? 0) > 0
 }
 
 /**
  * Unlock application
  */
 export async function unlockApplication(id: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('verifier_applications')
-    .update({ processing: false })
+    .update({ processing: false } as VerifierAppUpdate)
     .eq('id', id)
 
   if (error) {
@@ -135,7 +147,7 @@ export async function unlockApplication(id: string): Promise<void> {
  * Check if has pending application
  */
 export async function hasPendingApplication(address: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
     .select('id')
     .eq('address', address.toLowerCase())
@@ -147,14 +159,14 @@ export async function hasPendingApplication(address: string): Promise<boolean> {
     return false
   }
 
-  return data && data.length > 0
+  return ((data as VerifierAppRow[] | null)?.length ?? 0) > 0
 }
 
 /**
  * Check if has approved application
  */
 export async function hasApprovedApplication(address: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
     .select('id')
     .eq('address', address.toLowerCase())
@@ -166,7 +178,7 @@ export async function hasApprovedApplication(address: string): Promise<boolean> 
     return false
   }
 
-  return data && data.length > 0
+  return ((data as VerifierAppRow[] | null)?.length ?? 0) > 0
 }
 
 /**
@@ -178,7 +190,7 @@ export async function getApplicationStats(): Promise<{
   approved: number
   rejected: number
 }> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('verifier_applications')
     .select('status')
 
@@ -187,14 +199,14 @@ export async function getApplicationStats(): Promise<{
     return { total: 0, pending: 0, approved: 0, rejected: 0 }
   }
 
-  const stats = {
-    total: data?.length || 0,
-    pending: data?.filter(d => d.status === 'PENDING').length || 0,
-    approved: data?.filter(d => d.status === 'APPROVED').length || 0,
-    rejected: data?.filter(d => d.status === 'REJECTED').length || 0,
-  }
+  const rows = (data as VerifierAppRow[] | null) || []
 
-  return stats
+  return {
+    total: rows.length,
+    pending: rows.filter(r => r.status === 'PENDING').length,
+    approved: rows.filter(r => r.status === 'APPROVED').length,
+    rejected: rows.filter(r => r.status === 'REJECTED').length,
+  }
 }
 
 /**
@@ -206,16 +218,35 @@ export async function logAuditEvent(
   actor: string,
   details?: Record<string, any>
 ): Promise<void> {
-  const { error } = await supabase
+  type AuditInsert = Tables['verifier_audit_log']['Insert']
+  
+  const insertData: AuditInsert = {
+    application_id: applicationId,
+    action,
+    actor_address: actor.toLowerCase(),
+    details: (details || {}) as any,
+  }
+
+  const { error } = await getSupabase()
     .from('verifier_audit_log')
-    .insert({
-      application_id: applicationId,
-      action,
-      actor_address: actor.toLowerCase(),
-      details: details || {},
-    })
+    .insert([insertData])
 
   if (error) {
     console.error('Failed to log audit:', error)
+  }
+}
+
+/**
+ * Map database row to VerifierApplication type
+ */
+function mapRowToApplication(row: VerifierAppRow): VerifierApplication {
+  return {
+    id: row.id,
+    address: row.address,
+    appliedAt: row.applied_at,
+    status: row.status,
+    reviewedBy: row.reviewed_by || undefined,
+    reviewedAt: row.reviewed_at || undefined,
+    notes: row.notes || undefined,
   }
 }

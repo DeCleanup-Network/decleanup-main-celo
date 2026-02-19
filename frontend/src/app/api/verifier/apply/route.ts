@@ -2,67 +2,55 @@
  * POST /api/verifier/apply
  * 
  * User applies to become verifier
- * 
- * Flow:
- * 1. Validate wallet signature
- * 2. Check eligibility
- * 3. Check if already has pending/approved
- * 4. Create application
- * 5. Return result
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { isAddress } from 'viem'
 import { checkEligibility } from '@/lib/verifier/eligibility'
-import { 
-  createApplication, 
-  hasPendingApplication, 
-  hasApprovedApplication 
-} from '@/lib/verifier/applications'
+import { createApplication, hasPendingApplication, hasApprovedApplication } from '@/lib/supabase/applications'
 import { VerifierMetrics } from '@/lib/verifier/types'
+import { validateInput, VerifierApplySchema } from '@/lib/validation/verifier-schemas'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { address, metrics } = body
 
-    // Validate address
-    if (!address || !isAddress(address)) {
+    // STEP 1: Validate input with Zod
+    const validation = validateInput(VerifierApplySchema, body)
+    
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Invalid wallet address' },
+        {
+          error: 'Invalid input',
+          details: validation.errors.flatten(),
+        },
         { status: 400 }
       )
     }
 
-    // Validate metrics
-    if (!metrics || typeof metrics.level !== 'number' || typeof metrics.dcuBalance !== 'number' || typeof metrics.approvedCleanups !== 'number') {
-      return NextResponse.json(
-        { error: 'Invalid metrics provided' },
-        { status: 400 }
-      )
-    }
+    const { address, metrics } = validation.data
 
-    // Check if already has pending application
-    if (hasPendingApplication(address)) {
+    // STEP 2: Check if already has pending application
+    const hasPending = await hasPendingApplication(address)
+    if (hasPending) {
       return NextResponse.json(
         { error: 'You already have a pending application' },
         { status: 409 }
       )
     }
 
-    // Check if already approved
-    if (hasApprovedApplication(address)) {
+    // STEP 3: Check if already approved
+    const hasApproved = await hasApprovedApplication(address)
+    if (hasApproved) {
       return NextResponse.json(
         { error: 'You are already an approved verifier' },
         { status: 409 }
       )
     }
 
-    // Check eligibility
+    // STEP 4: Check eligibility
     const eligibility = checkEligibility(metrics as VerifierMetrics)
-
     if (!eligibility.eligible) {
       return NextResponse.json(
         {
@@ -73,8 +61,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create application
-    const application = createApplication(address)
+    // STEP 5: Create application in Supabase
+    const application = await createApplication(address)
 
     console.log(`✅ Verifier application created: ${application.id} for ${address}`)
 

@@ -1,36 +1,27 @@
 /**
  * Admin Role Verification
  * Checks on-chain if address has DEFAULT_ADMIN_ROLE
+ * LAZY: Only executes at runtime, not build time
  */
 
-import { readContract } from 'wagmi/actions'
-import { config } from '@/lib/blockchain/wagmi'
 import { Address } from 'viem'
 
-const SUBMISSION_ADDRESS = process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT as Address | undefined
+let wagmiConfigLoaded = false
+let config: any = null
 
-/**
- * Minimal ABI for role checking
- */
-const ROLE_CHECK_ABI = [
-  {
-    type: 'function',
-    name: 'DEFAULT_ADMIN_ROLE',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ type: 'bytes32' }],
-  },
-  {
-    type: 'function',
-    name: 'hasRole',
-    stateMutability: 'view',
-    inputs: [
-      { type: 'bytes32', name: 'role' },
-      { type: 'address', name: 'account' },
-    ],
-    outputs: [{ type: 'bool' }],
-  },
-] as const
+async function getWagmiConfig() {
+  if (!wagmiConfigLoaded) {
+    try {
+      const { config: wagmiConfig } = await import('@/lib/blockchain/wagmi')
+      config = wagmiConfig
+      wagmiConfigLoaded = true
+    } catch (e) {
+      console.error('Failed to load wagmi config:', e)
+      return null
+    }
+  }
+  return config
+}
 
 /**
  * Check if address has DEFAULT_ADMIN_ROLE on-chain
@@ -42,22 +33,47 @@ export async function isAdminOnChain(address: string | Address): Promise<boolean
     return false
   }
 
-  if (!SUBMISSION_ADDRESS) {
+  const submissionAddress = process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT as Address | undefined
+
+  if (!submissionAddress) {
     console.error('SUBMISSION_ADDRESS not configured')
     return false
   }
 
   try {
-    // Get DEFAULT_ADMIN_ROLE constant from contract
-    const adminRole = (await readContract(config, {
-      address: SUBMISSION_ADDRESS,
+    const cfg = await getWagmiConfig()
+    if (!cfg) return false
+
+    const { readContract } = await import('wagmi/actions')
+
+    const ROLE_CHECK_ABI = [
+      {
+        type: 'function',
+        name: 'DEFAULT_ADMIN_ROLE',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'bytes32' }],
+      },
+      {
+        type: 'function',
+        name: 'hasRole',
+        stateMutability: 'view',
+        inputs: [
+          { type: 'bytes32', name: 'role' },
+          { type: 'address', name: 'account' },
+        ],
+        outputs: [{ type: 'bool' }],
+      },
+    ] as const
+
+    const adminRole = (await readContract(cfg, {
+      address: submissionAddress,
       abi: ROLE_CHECK_ABI,
       functionName: 'DEFAULT_ADMIN_ROLE',
     })) as `0x${string}`
 
-    // Check if address has admin role
-    const isAdmin = (await readContract(config, {
-      address: SUBMISSION_ADDRESS,
+    const isAdmin = (await readContract(cfg, {
+      address: submissionAddress,
       abi: ROLE_CHECK_ABI,
       functionName: 'hasRole',
       args: [adminRole, address as Address],

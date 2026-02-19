@@ -38,9 +38,16 @@ export const VerifierReviewSchema = z.object({
 export type VerifierReviewInput = z.infer<typeof VerifierReviewSchema>
 
 /**
- * Validation helper
+ * Validation result type
  */
-export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { success: boolean; data?: T; errors?: z.ZodError } {
+type ValidationSuccess<T> = { success: true; data: T }
+type ValidationError = { success: false; errors: z.ZodError }
+type ValidationResult<T> = ValidationSuccess<T> | ValidationError
+
+/**
+ * Validation helper with proper typing
+ */
+export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): ValidationResult<T> {
   const result = schema.safeParse(data)
   
   if (!result.success) {

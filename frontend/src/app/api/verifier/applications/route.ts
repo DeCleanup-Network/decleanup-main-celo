@@ -2,25 +2,27 @@
  * GET /api/verifier/applications
  * 
  * Admin endpoint: Get all applications
- * Returns: VerifierApplication[]
- * 
- * Future: Add role check (admin only)
+ * Returns list of applications + stats
  */
 
 import { NextResponse } from 'next/server'
-import { getAllApplications, getApplicationStats } from '@/lib/verifier/applications'
+import { getAllApplications, getApplicationStats } from '@/lib/supabase/applications'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const applications = getAllApplications()
-    const stats = getApplicationStats()
+    // Fetch applications and stats
+    const [applications, stats] = await Promise.all([
+      getAllApplications(),
+      getApplicationStats(),
+    ])
 
     console.log(`📊 Fetched ${applications.length} verifier applications`)
 
     return NextResponse.json(
       {
+        success: true,
         applications,
         stats,
       },
