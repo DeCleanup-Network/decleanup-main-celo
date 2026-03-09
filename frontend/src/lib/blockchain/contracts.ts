@@ -198,6 +198,26 @@ const SUBMISSION_ABI = [
     inputs: [{ name: 'user', type: 'address' }],
     outputs: [{ name: '', type: 'uint256[]' }],
   },
+  {
+    type: "function",
+    name: "grantRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" }
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "revokeRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" }
+    ],
+    outputs: [],
+  },
 ] as const
 
 export async function submitCleanup(
@@ -2052,3 +2072,51 @@ export async function attachRecyclablesToSubmission(
   }
 }
 
+
+/* -------------------------------------------------------------------------- */
+/*                            VERIFIER ROLE MANAGEMENT                        */
+/* -------------------------------------------------------------------------- */
+
+export async function grantVerifierRole(targetAddress: Address): Promise<`0x${string}`> {
+  if (!SUBMISSION_ADDRESS) {
+    throw new Error('Submission contract address not configured')
+  }
+
+  const account = getAccount(config)
+  if (!account.address) {
+    throw new Error('Wallet not connected')
+  }
+
+  if (!targetAddress || targetAddress === '0x0000000000000000000000000000000000000000') {
+    throw new Error('Invalid target address')
+  }
+
+  try {
+    const verifierRole = (await readContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'VERIFIER_ROLE',
+    })) as `0x${string}`
+
+    const hash = await writeContract(config, {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'grantRole',
+      args: [verifierRole, targetAddress],
+      account: account.address,
+    })
+
+    await waitForTransactionReceipt(config, {
+      hash,
+      confirmations: 1,
+      pollingInterval: 2000,
+      timeout: 120000,
+    })
+
+    return hash
+
+  } catch (error: any) {
+    const msg = error?.message || error?.shortMessage || 'Unknown error'
+    throw new Error(`Failed to grant VERIFIER_ROLE: ${msg}`)
+  }
+}

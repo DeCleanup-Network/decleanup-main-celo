@@ -20,7 +20,7 @@ export function checkHypercertEligibility(params: {
     testing,
     willUse: testing ? 'TESTNET thresholds' : 'MAINNET thresholds'
   })
- 
+
   const thresholds = testing
     ? HYPERCERTS_CONFIG.thresholds.testing
     : HYPERCERTS_CONFIG.thresholds.production

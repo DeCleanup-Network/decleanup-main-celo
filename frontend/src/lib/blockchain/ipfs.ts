@@ -144,3 +144,37 @@ export function getIPFSFallbackUrls(hash: string): string[] {
   return gateways.map(gateway => `${gateway}${cleanHash}`)
 }
 
+/**
+ * Upload Hypercert metadata to IPFS
+ * This creates a properly formatted JSON file for Hypercert metadata
+ * @param metadata Hypercert metadata object
+ * @param userAddress User's wallet address (for filename)
+ * @returns IPFS hash (CID) and URL
+ */
+export async function uploadHypercertMetadataToIPFS(
+  metadata: any,
+  userAddress: string
+): Promise<IPFSUploadResult> {
+  try {
+    console.log('📤 Uploading Hypercert metadata to IPFS...')
+    
+    // Create a properly formatted metadata object
+    const hypercertMetadata = {
+      ...metadata,
+      type: 'hypercert-metadata',
+      standard: 'hypercerts-v1',
+    }
+
+    // Upload as JSON with descriptive name
+    const timestamp = Date.now()
+    const filename = `hypercert-${userAddress.slice(0, 8)}-${timestamp}`
+    
+    const result = await uploadJSONToIPFS(hypercertMetadata, filename)
+    
+    console.log('✅ Hypercert metadata uploaded:', result.hash)
+    return result
+  } catch (error) {
+    console.error('❌ Failed to upload Hypercert metadata:', error)
+    throw error
+  }
+}

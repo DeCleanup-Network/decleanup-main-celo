@@ -13,6 +13,7 @@ import { getCrecyBalance } from '@/lib/utils/crecy-tracking'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
+import { VerifierApplyCard } from '@/components/dashboard/VerifierApplyCard'
 import { useIsVerifier } from '@/hooks/useIsVerifier'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
@@ -660,11 +661,10 @@ function HomeContent() {
       const result = await mintHypercert(address, hypercertNumber)
 
       const message =
-        `✅ Hypercert eligibility registered successfully!\n\n` +
         `Transaction: ${result.txHash}\n` +
         `Hypercert ID: ${result.hypercertId}\n` +
-        `Owner: ${result.owner}\n\n` +
-        `ℹ️ Hypercert metadata & claiming will be enabled in a future milestone.`
+        `Metadata CID: ${result.metadataCid}\n\n` +
+        `ℹ️ Your Hypercert is now on-chain!`
 
       alert(message)
 
@@ -883,6 +883,9 @@ function HomeContent() {
           )}
         </div>
 
+        {/* Verifier Apply Card */}
+        <VerifierApplyCard />
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Stats Section */}
@@ -965,7 +968,7 @@ function HomeContent() {
             </div>
 
             {/* Quick Actions */}
-            <div className={`grid gap-3 ${chainId === 44787 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="grid gap-3 grid-cols-3">
             <Link href="/leaderboard" className="block">
                 <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
                   <Trophy className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
@@ -992,19 +995,17 @@ function HomeContent() {
             </Link>
               )}
 
-              {chainId === 44787 && (
-                <Link href="/hypercerts" className="block">
-                  <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4 hover:border-brand-yellow/50 transition-all group">
-                    <Heart className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
-                    <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
-                      HYPERCERTS TEST
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Test page
-                    </p>
-                  </div>
-                </Link>
-              )}
+              <Link href="/hypercerts" className="block">
+                <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
+                  <Heart className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
+                    HYPERCERTS
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    View eligibility
+                  </p>
+                </div>
+              </Link>
 
             {hypercertEligibility?.isEligible && (
                 <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
