@@ -11,6 +11,17 @@ import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 export default function HypercertsTestPage() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
+
+  // Debug e correção do chainId
+  useEffect(() => {
+    console.log('🔍 [ChainId Raw]', {
+      chainId,
+      type: typeof chainId,
+      expected: 'Should be 44787 (Sepolia) or 42220 (Mainnet)',
+      willFix: chainId !== 44787 && chainId !== 42220
+    })
+  }, [chainId])
+  
   const [loading, setLoading] = useState(false)
   const [eligibility, setEligibility] = useState<any>(null)
   const [aggregatedData, setAggregatedData] = useState<any>(null)
@@ -43,10 +54,14 @@ export default function HypercertsTestPage() {
           }
         }
 
-        // Check eligibility
+        // Check eligibility - fix chainId if corrupted
+        const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787 // default to Sepolia
+        console.log('🔍 [Using ChainId]', validChainId)
+        
         const eligibilityResult = checkHypercertEligibility({
           cleanupsCount: verifiedCleanups.length,
-          reportsCount: impactReportsCount
+          reportsCount: impactReportsCount,
+          chainId: validChainId,
         })
         setEligibility(eligibilityResult)
 
@@ -107,9 +122,12 @@ export default function HypercertsTestPage() {
   }
 
   const getNetworkName = () => {
-    if (chainId === 44787) return 'Celo Sepolia (Testnet)'
-    if (chainId === 42220) return 'Celo Mainnet'
-    return `Chain ID: ${chainId}`
+    // Use o chainId corrigido
+    const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787
+    
+    if (validChainId === 44787) return 'Celo Sepolia (Testnet)'
+    if (validChainId === 42220) return 'Celo Mainnet'
+    return `Chain ID: ${validChainId} (corrected from ${chainId})`
   }
 
   if (!isConnected) {
@@ -224,6 +242,21 @@ export default function HypercertsTestPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">No eligibility data available.</p>
               )}
+            </div>
+
+            {/* Levels vs Hypercerts Explanation */}
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-4 w-4 rounded-full bg-muted-foreground"></div>
+                <h3 className="font-bebas text-sm tracking-wider text-muted-foreground">
+                  LEVELS vs HYPERCERTS
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Levels are earned per verified cleanup via Impact Products.
+                Hypercerts are minted separately and represent aggregated impact
+                across multiple verified cleanups with impact reports.
+              </p>
             </div>
 
             {/* Mint Simulation */}

@@ -1,4 +1,7 @@
-export function isTestingMode(): boolean {
-  // safest possible v1 condition
-  return process.env.NEXT_PUBLIC_CHAIN_ID === '44787' // Celo Sepolia
+/**
+ * Testing mode must be derived from the ACTIVE wallet chain,
+ * never from env vars (which are static at build time).
+ */
+export function isTestingMode(chainId?: number): boolean {
+  return chainId === 44787 // Celo Sepolia
 }
