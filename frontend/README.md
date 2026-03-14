@@ -2,7 +2,7 @@
 
 DeCleanup Network’s Celo-native stack for turning verified cleanups into onchain **Impact Products**, **Hypercerts**, and token-based rewards.
 
-This repository contains the **main web application** (dashboard, profile, cleanup, verifier, leaderboard) together with the blockchain integration layer used to tokenize environmental impact and distribute $DCU / cRECY incentives.
+This repository contains the **main web application** (dashboard, profile, cleanup, verifier, leaderboard) together with the blockchain integration layer used to tokenize environmental impact and distribute DCU points and $DCU incentives.
 
 ---
 

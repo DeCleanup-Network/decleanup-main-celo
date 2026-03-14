@@ -261,9 +261,15 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
           </div>
         )}
         {impactData.contributors && impactData.contributors.length > 0 && (
-          <div>
+          <div className="sm:col-span-2">
             <dt className="text-xs uppercase text-gray-400">Contributors</dt>
-            <dd className="text-base text-white">{impactData.contributors.length} address(es)</dd>
+            <dd className="mt-1 space-y-1 text-base text-white">
+              {impactData.contributors.map((addr: string, i: number) => (
+                <div key={i} className="font-mono text-sm break-all">
+                  {addr}
+                </div>
+              ))}
+            </dd>
           </div>
         )}
         {impactData.scopeOfWork && (

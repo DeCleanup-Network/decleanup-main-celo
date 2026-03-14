@@ -157,7 +157,7 @@ export function DashboardImpactProduct({
                             <p className="font-bebas text-lg text-brand-green leading-none">{level}</p>
                         </div>
                         <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground uppercase mb-1">$cDCU</p>
+                            <p className="text-[10px] text-muted-foreground uppercase mb-1">DCU</p>
                             <p className="font-bebas text-lg text-brand-green leading-none">{dcuAttached}</p>
                         </div>
                         <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">

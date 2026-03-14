@@ -3,8 +3,6 @@
   "DCURewardManager": "0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a",
   "Submission": "0x1e355123f9dec3939552d80ad1a24175fd10688f",
   "ImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959",
-  "RecyclablesReward": "0xf8f9db39f83ea40d4f9aca72cdbec74b8f5a2900",
-  "cRecyToken": "0x34C11A932853Ae24E845Ad4B633E3cEf91afE583",
   "network": "celo-sepolia",
   "chainId": 11142220,
   "deployedAt": "2025-12-17T00:00:00.000Z",

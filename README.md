@@ -16,19 +16,18 @@ This milestone delivers the core infrastructure for DeCleanup Network, including
   - `ImpactProductNFT` (ERC721) - `0x97448790fd64dd36504d7f5ce7c2d27794b01959`
   - `DCURewardManager` - `0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a`
   - `Submission` - `0x1e355123f9dec3939552d80ad1a24175fd10688f`
-  - `RecyclablesReward` - `0xf8f9db39f83ea40d4f9aca72cdbec74b8f5a2900`
 
 - **Frontend Application**: Next.js 16 + shadcn UI with responsive dashboard, verifier cabinet, leaderboard, and cleanup submission flow
 - **Impact Reporting**: Optional impact data forms (weight/area/time/waste types) stored on IPFS
-- **Recyclables Module**: Optional recyclables submission with photo and receipt hash tracking
+- **Recyclables step**: Optional recyclables (photo + receipt); 5 DCU in same bucket as impact form (no separate contract)
 - **Test Coverage**: Comprehensive unit tests for all core contracts
 - **Documentation**: Complete system architecture and deployment documentation
 
 ### 📋 What's Ready
 
 - **Frontend** – Next.js 16 + shadcn UI with compact dashboard layout, verifier cabinet entry point, leaderboard link, and CTA flow tuned for tablets/desktop. All critical components (stats, Impact Product, actions, invites, verifier tools) are wired up.
-- **Impact + recyclables reporting** – Cleanup flow includes optional impact form (weight/area/time/waste types) and optional recyclables step (photo + receipt hash). On approval, `Submission.sol` triggers `RecyclablesReward.rewardRecyclables` (up to 5000 cRECY cap) and `rewardImpactReports`.
-- **Contracts deployed** – All core contracts (`Submission`, `DCURewardManager`, `RecyclablesReward`, `ImpactProductNFT`, `DCUToken`) are deployed and verified on Celo Sepolia testnet with proper role setup and treasury configuration.
+- **Impact + recyclables** – Cleanup flow includes optional impact form and optional recyclables step (photo + receipt). When either is present, `Submission.sol` calls `rewardImpactReports(submitter, 1)` once (5 DCU per submission). DCU points count toward the multiplier and $cDCU is claimed later.
+- **Contracts deployed** – Core contracts (`Submission`, `DCURewardManager`, `ImpactProductNFT`, `DCUToken`) are deployed and verified on Celo Sepolia with proper role setup and treasury configuration.
 
 ## Repo layout
 
@@ -55,8 +54,8 @@ cd ../contracts && npx hardhat test
 
 ### Environment variables
 
-Copy `frontend/ENV_TEMPLATE.md` → `.env.local` and fill the values (Chain ID, RPCs, WalletConnect ID, contract addresses, Pinata keys, Hypercerts network).  
-For contracts, create `contracts/.env` with your RPC + explorer keys if you plan to verify on CeloScan.
+Copy `frontend/ENV_TEMPLATE.md` → `frontend/.env.local` and fill the values (Chain ID, RPCs, WalletConnect ID, contract addresses, Pinata keys, Hypercerts network). For **$cDCU** and **deploy**, see **`docs/ENV_CDCU_AND_DEPLOY.md`** for which vars go in frontend vs root `.env`.  
+For contracts, create a **root `.env`** (Hardhat loads it from project root) with `PRIVATE_KEY`, RPC URLs, and optionally `CELOSCAN_API_KEY` for verification.
 
 ## 📚 Documentation
 - **[Development Specs](https://github.com/DeCleanup-Network/decleanup-main-celo/blob/main/docs/DEVELOPER_SPECS.md)** - 

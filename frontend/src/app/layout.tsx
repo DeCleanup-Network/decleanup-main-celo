@@ -1,19 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono, Bebas_Neue } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { NetworkChecker } from "@/components/network/NetworkChecker";
 import { Header } from "@/components/layout/Header";
-
-const inter = Inter({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const robotoMono = Roboto_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas-neue",
@@ -115,7 +107,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${inter.variable} ${robotoMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
       >
         <Providers>
           <NetworkChecker />

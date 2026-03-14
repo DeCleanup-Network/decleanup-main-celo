@@ -2,17 +2,21 @@ import { Address } from 'viem'
 
 /**
  * DCU Points System
- * 
+ *
+ * DCU points act as the multiplier for earning; $cDCU is claimed later (e.g. via ClaimVault or
+ * Impact Product NFT claim) and the claim amount is calculated based on the user's multiplier.
+ * Impact form and/or recyclables add 5 DCU points total per submission (same bucket on-chain).
+ *
  * DCU Points are stored ONCHAIN through the RewardDistributor contract's internal DCUToken contract.
- * 
+ *
  * How it works:
  * 1. RewardDistributor contract uses a DCUToken contract internally to track points
- * 2. When rewards are distributed (level claim, streak, referral, impact form), 
- *    the RewardDistributor calls dcuToken.mintReward() which transfers tokens from 
+ * 2. When rewards are distributed (level claim, streak, referral, impact form/recyclables),
+ *    the RewardDistributor calls dcuToken.mintReward() which transfers tokens from
  *    the contract's rewards pool to the user
  * 3. User's DCU points balance = their balance in the DCUToken contract
  * 4. Points are stored with 18 decimals (like standard ERC-20 tokens)
- * 
+ *
  * Storage Location:
  * - Onchain: DCUToken contract (accessed via RewardDistributor.dcuToken())
  * - This file provides fallback localStorage functions for development/testing
@@ -101,11 +105,12 @@ export async function getStakedPoints(userAddress: Address): Promise<number> {
 
 /**
  * Points reward amounts (matching original DCU rewards)
+ * DCU points act as the multiplier; $cDCU rewards are claimed later based on these.
  */
 export const POINTS_REWARDS = {
   LEVEL_REWARD: 10, // 10 points per level
   STREAK_REWARD: 2, // 2 points per week streak
-  IMPACT_FORM_REWARD: 5, // 5 points for enhanced impact form
+  IMPACT_FORM_REWARD: 5, // 5 points for impact form and/or recyclables (single bucket on-chain)
   CLEANUP_REWARD: 10, // 10 points per verified cleanup (adjust as needed)
 } as const
 

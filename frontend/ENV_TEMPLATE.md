@@ -1,6 +1,8 @@
 # Environment Variables Template
 
-Copy this to `.env.local` in the `frontend/` directory and fill in your values.
+Copy this to **`.env.local`** in the **`frontend/`** directory and fill in your values.
+
+**$cDCU and deploy:** For a single list of what to add and **which env file** (frontend vs root), see **`docs/ENV_CDCU_AND_DEPLOY.md`**.
 
 ```bash
 # ============================================
@@ -20,8 +22,12 @@ NEXT_PUBLIC_BLOCK_EXPLORER_NAME=CeloScan
 NEXT_PUBLIC_SUBMISSION_CONTRACT=
 NEXT_PUBLIC_IMPACT_PRODUCT_NFT=
 NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT=
+# Optional: app derives DCU token from RewardManager.dcuToken() if unset
 NEXT_PUBLIC_DCU_TOKEN_CONTRACT=
-NEXT_PUBLIC_RECYCLABLES_CONTRACT=
+# $cDCU / ClaimVault (Phase 2)
+NEXT_PUBLIC_CLAIMVAULT_ADDRESS=
+# Optional: cDCU token address (e.g. for balance in UI); else read ClaimVault.token()
+# NEXT_PUBLIC_CDCU_TOKEN_ADDRESS=
 
 # Note: Legacy variable names are supported for backwards compatibility:
 # - NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS (use NEXT_PUBLIC_IMPACT_PRODUCT_NFT)
@@ -54,6 +60,14 @@ NEXT_PUBLIC_HYPERCERTS_NETWORK=celo-sepolia
 # ============================================
 NEXT_PUBLIC_IMPACT_IMAGES_CID=
 NEXT_PUBLIC_IMPACT_METADATA_CID=
+
+# ============================================
+# OPTIONAL: $cDCU Claim Backend (Phase 2)
+# ============================================
+# Required for POST /api/cdcu/claim-request (signed claim issuance)
+# CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=0x...   # Backend wallet (never expose to client)
+# CLAIM_VAULT_ISSUED_STORE_PATH=./data/cdcu-issued.json  # File path to track issued amounts per recipient (MVP)
+# CLAIM_VAULT_UNLOCK_SECRET=your-secret  # Required for POST /api/cdcu/unlock (reset issued/pending so user can claim again)
 
 # ============================================
 # OPTIONAL: App Configuration

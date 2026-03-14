@@ -18,6 +18,8 @@ import { REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/wagmi'
 import { ImpactReportDetails } from '@/components/verifier/ImpactReportDetails'
 import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
+import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
+import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -56,6 +58,7 @@ export default function VerifierPage() {
     const [processingId, setProcessingId] = useState<bigint | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
+    const [verifierContext, setVerifierContext] = useState<any>(null)
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
 
     useEffect(() => {
@@ -189,6 +192,7 @@ export default function VerifierPage() {
                 const pending = getHypercertRequestsByStatus('PENDING')
                 console.log('📋 Pending Hypercert requests:', pending.length)
                 setHypercertRequests(pending)
+                setVerifierContext(buildVerifierContext(pending))
             } catch (reqError) {
                 console.error('Error loading Hypercert requests:', reqError)
             }
@@ -535,11 +539,36 @@ export default function VerifierPage() {
                         <div className="mt-1 font-bebas text-2xl text-brand-green">
                             {address ? (
                                 verifiedCleanups.filter(c => c.approver?.toLowerCase() === address.toLowerCase()).length
-                            ) : 0} $cDCU
+                            ) : 0} DCU
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">1 $cDCU per verification</div>
+                        <div className="mt-1 text-xs text-gray-500">1 DCU per verification</div>
                     </div>
                 </div>
+
+                {/* Hypercert Impact Context */}
+                {verifierContext && (
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
+                    <h3 className="mb-4 font-bold text-green-400">📊 HYPERCERT IMPACT CONTEXT</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                      <div>
+                        <p className="text-gray-400">Total Requests</p>
+                        <p className="text-2xl font-bold text-white">{verifierContext.totalRequests}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Total Cleanups</p>
+                        <p className="text-2xl font-bold text-brand-green">{verifierContext.totalCleanups}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Total Reports</p>
+                        <p className="text-2xl font-bold text-brand-yellow">{verifierContext.totalReports}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Pending/Approved</p>
+                        <p className="text-2xl font-bold text-white">{verifierContext.status.PENDING}/{verifierContext.status.APPROVED}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pending Hypercert Requests */}
                 <div className="mb-8">
@@ -579,13 +608,13 @@ export default function VerifierPage() {
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-400">Cleanups:</span>
                                                     <span className="font-bold text-foreground">
-                                                        {request.metadata?.impact?.summary?.totalCleanups || 0}
+                                                        {extractImpactSummaryFromMetadata(request.metadata)?.totalCleanups || 0}
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-400">Reports:</span>
                                                     <span className="font-bold text-foreground">
-                                                        {request.metadata?.impact?.summary?.totalReports || 0}
+                                                        {extractImpactSummaryFromMetadata(request.metadata)?.totalReports || 0}
                                                     </span>
                                                 </div>
                                             </div>

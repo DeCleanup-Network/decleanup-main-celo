@@ -31,7 +31,7 @@
 - AI/ML verification (YOLOv8) automatically detects waste reduction
 - Verified cleanups unlock:
   - **$DCU tokens** (ERC20 reward token)
-  - **cRECY tokens** (recyclables reward, 5000 cap)
+  - **DCU points** for impact form and/or recyclables (5 DCU total per submission, same bucket; $cDCU claimed later based on multiplier)
   - **Impact Product NFTs** (level up with verified cleanups)
   - **Hypercerts** (every 10 verified cleanups)
 
@@ -119,7 +119,7 @@ The `main` branch contains stable, production-ready code. When working on Hyperc
   - `DCURewardManager.sol` - Reward distribution logic
   - `DCUToken.sol` - ERC20 reward token
   - `ImpactProductNFT.sol` - Dynamic NFT that levels up
-  - `RecyclablesReward.sol` - cRECY token rewards
+  - Recyclables: optional step (photo + receipt); rewarded with DCU points in same bucket as impact form (5 DCU per submission, no separate contract)
 
 #### 3. ML Verification Service
 - **VPS Backend**: `frontend/src/app/api/ml-verification/verify/route.ts`
@@ -349,7 +349,7 @@ score = (meanConfidence * 0.3) + (normalizedTrashDelta * 0.7) + impactDataBoost
 - Referrals (invite bonuses)
 - Impact reports (extra data bonus)
 - Verifier rewards
-- Recyclables rewards
+- Recyclables (optional step; 5 DCU with impact form bucket)
 
 **Key Function**: `claimRewards()` - Users claim accumulated balance
 
@@ -435,7 +435,7 @@ On-Chain (approval):
 - Submission.sol: status → APPROVED
 - DCURewardManager: accrues rewards
 - ImpactProductNFT: checks level up
-- RecyclablesReward: rewards cRECY (if applicable)
+- Recyclables: same bucket as impact form; rewardImpactReports(submitter, 1) once when hasImpactForm || hasRecyclables
 ```
 
 ### 4. Hypercert Minting Flow
@@ -501,7 +501,7 @@ NEXT_PUBLIC_SUBMISSION_CONTRACT=0x1e355123f9dec3939552d80ad1a24175fd10688f
 NEXT_PUBLIC_DCU_TOKEN_CONTRACT=0xa282c26245d116aB5600fBF7901f2E4827c16B7A
 NEXT_PUBLIC_REWARD_MANAGER_CONTRACT=0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a
 NEXT_PUBLIC_IMPACT_PRODUCT_NFT_CONTRACT=0x97448790fd64dd36504d7f5ce7c2d27794b01959
-NEXT_PUBLIC_RECYCLABLES_REWARD_CONTRACT=0xf8f9db39f83ea40d4f9aca72cdbec74b8f5a2900
+# Recyclables: no separate contract; 5 DCU with impact form bucket
 
 # Hypercerts
 NEXT_PUBLIC_HYPERCERTS_MINTER_ADDRESS=0x8610fe3190E21bf090c9F463b162A76478A88F5F

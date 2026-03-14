@@ -12,6 +12,9 @@ import { uploadToIPFS, uploadJSONToIPFS } from '@/lib/blockchain/ipfs'
 import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission } from '@/lib/blockchain/contracts'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
 import { clearPendingCleanupData, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
+import { resolveEnsToAddress } from '@/lib/utils/ens'
+import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
 import type { Address } from 'viem'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
 import {
@@ -79,6 +82,9 @@ function CleanupContent() {
   const [checkingPending, setCheckingPending] = useState(true)
   const [clearingPending, setClearingPending] = useState(false)
   const [feeInfo, setFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
+  const [resolvingContributorIndex, setResolvingContributorIndex] = useState<number | null>(null)
+  const [alertModal, setAlertModal] = useState<{ title?: string; message: string; variant?: AlertModalVariant } | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{ title?: string; message: string; onConfirm: () => void } | null>(null)
 
   // Fix hydration error by only rendering after mount
   useEffect(() => {
@@ -383,7 +389,7 @@ function CleanupContent() {
       if (file) {
         // Validate file size (10 MB max)
         if (file.size > 10 * 1024 * 1024) {
-          alert('Image size must be less than 10 MB')
+          setAlertModal({ message: 'Image size must be less than 10 MB', variant: 'warning' })
           return
         }
         if (type === 'before') {
@@ -443,7 +449,7 @@ function CleanupContent() {
               const parsed = JSON.parse(lastLocation)
               setLocation(parsed)
               console.log('Using last known location:', parsed)
-              alert('Using last known location. For accurate geotagging, please enable location services.')
+              setAlertModal({ message: 'Using last known location. For accurate geotagging, please enable location services.', variant: 'info' })
               return
             } catch (e) {
               console.error('Error parsing last location:', e)
@@ -480,12 +486,12 @@ function CleanupContent() {
     const lng = parseFloat(manualLngInput)
 
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      alert('Please enter valid latitude and longitude values.')
+      setAlertModal({ message: 'Please enter valid latitude and longitude values.', variant: 'warning' })
       return
     }
 
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      alert('Latitude must be between -90 and 90, and longitude between -180 and 180.')
+      setAlertModal({ message: 'Latitude must be between -90 and 90, and longitude between -180 and 180.', variant: 'warning' })
       return
     }
 
@@ -499,15 +505,15 @@ function CleanupContent() {
 
   const handlePhotosNext = () => {
     if (!beforePhoto) {
-      alert('Please upload a before photo')
+      setAlertModal({ message: 'Please upload a before photo', variant: 'warning' })
       return
     }
     if (!afterPhoto) {
-      alert('Please upload an after photo')
+      setAlertModal({ message: 'Please upload an after photo', variant: 'warning' })
       return
     }
     if (!location) {
-      alert('Please capture or enter your location')
+      setAlertModal({ message: 'Please capture or enter your location', variant: 'warning' })
       getLocation()
       return
     }
@@ -682,7 +688,7 @@ function CleanupContent() {
       })
       
       // Show user-friendly error
-      alert(`Please fill all required fields. Missing: ${missingFields.join(', ')}`)
+      setAlertModal({ message: `Please fill all required fields. Missing: ${missingFields.join(', ')}`, variant: 'warning' })
       return
     }
     
@@ -704,23 +710,23 @@ function CleanupContent() {
 
   const submitCleanupFlow = async (hasForm: boolean, hasRecyclables: boolean = false) => {
     if (!isConnected || !address) {
-      alert('Please connect your wallet first')
+      setAlertModal({ message: 'Please connect your wallet first', variant: 'warning' })
       return
     }
 
     // Check if contracts are deployed
     if (!CONTRACT_ADDRESSES.VERIFICATION) {
-      alert('Contracts not deployed yet. Please deploy contracts first and set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
+      setAlertModal({ message: 'Contracts not deployed yet. Please deploy contracts first and set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local', variant: 'error' })
       return
     }
 
     if (!beforePhoto || !afterPhoto) {
-      alert('Please upload both before and after photos')
+      setAlertModal({ message: 'Please upload both before and after photos', variant: 'warning' })
       return
     }
 
     if (!location) {
-      alert('Location is required. Please enable location services and try again.')
+      setAlertModal({ message: 'Location is required. Please enable location services and try again.', variant: 'warning' })
       getLocation()
       return
     }
@@ -874,12 +880,12 @@ function CleanupContent() {
             console.warn('⚠️ Recyclables attachment failed:', errorMsg)
             // Only show alert if it's not a network/RPC error (those are expected sometimes)
             if (!errorMsg.includes('Internal JSON-RPC error') && !errorMsg.includes('network')) {
-              alert(
-                `⚠️ Warning: Cleanup submitted successfully, but failed to attach recyclables.\n\n` +
-                `Submission ID: ${cleanupId.toString()}\n\n` +
-                `You can try attaching recyclables later, or contact support if needed.\n\n` +
-                `Error: ${errorMsg}`
-              )
+              setAlertModal({
+                title: 'Recyclables attachment failed',
+                message:
+                  `Cleanup submitted successfully, but failed to attach recyclables.\n\nSubmission ID: ${cleanupId.toString()}\n\nYou can try attaching recyclables later, or contact support if needed.\n\nError: ${errorMsg}`,
+                variant: 'warning',
+              })
             }
           }
         } else if (hasRecyclables && !recyclablesPhotoHash) {
@@ -926,8 +932,12 @@ function CleanupContent() {
         setIsSubmitting(false)
         setStep('review')
         
-        // Show success alert
-        alert(`✅ Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\nYour cleanup is now pending verification. You'll be redirected to the home page.`)
+        // Show success modal (styled)
+        setAlertModal({
+          title: 'Success',
+          message: `Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\nYour cleanup is now pending verification. You'll be redirected to the home page.`,
+          variant: 'success',
+        })
         
         // Redirect to home after 3 seconds
         setTimeout(() => {
@@ -962,71 +972,76 @@ function CleanupContent() {
           errorMessage.includes('SwitchChainError')
 
         if (isCeloError) {
-          // Show very clear Celo error message
-          alert(
-            `❌ WRONG NETWORK: CELO SEPOLIA DETECTED!\n\n` +
-            `You are currently on Celo Sepolia Testnet, but this app requires ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}).\n\n` +
-            `Please switch to ${REQUIRED_CHAIN_NAME}:\n\n` +
-            `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
-            `2. Click the network dropdown at the top\n` +
-            `3. Select "${REQUIRED_CHAIN_NAME}" from the list\n` +
-            `4. If ${REQUIRED_CHAIN_NAME} is not in the list, add it:\n` +
-            `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
-            `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
-            `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
-            `   • Currency Symbol: CELO\n` +
-            `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
-            `5. Once on ${REQUIRED_CHAIN_NAME}, try submitting again.\n\n` +
-            `⚠️ Do NOT submit transactions on Celo - they will fail!`
-          )
+          setAlertModal({
+            title: 'Wrong network',
+            message:
+              `You are currently on Celo Sepolia Testnet, but this app requires ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}).\n\n` +
+              `Please switch to ${REQUIRED_CHAIN_NAME}:\n\n` +
+              `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
+              `2. Click the network dropdown at the top\n` +
+              `3. Select "${REQUIRED_CHAIN_NAME}" from the list\n` +
+              `4. If ${REQUIRED_CHAIN_NAME} is not in the list, add it:\n` +
+              `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
+              `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
+              `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
+              `   • Currency Symbol: CELO\n` +
+              `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
+              `5. Once on ${REQUIRED_CHAIN_NAME}, try submitting again.\n\n` +
+              `Do NOT submit transactions on Celo Sepolia – they will fail.`,
+            variant: 'error',
+          })
           setIsSubmitting(false)
           return
         }
 
         if (isChainNotConfigured) {
-          // Show detailed instructions for adding the network
-          alert(
-            `❌ ${REQUIRED_CHAIN_NAME} is not configured in your wallet!\n\n` +
-            `Please add ${REQUIRED_CHAIN_NAME} to your wallet:\n\n` +
-            `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
-            `2. Go to Settings → Networks → Add Network\n` +
-            `3. Click "Add a network manually"\n` +
-            `4. Enter these details:\n` +
-            `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
-            `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
-            `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
-            `   • Currency Symbol: CELO\n` +
-            `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
-            `5. Click "Save" and switch to ${REQUIRED_CHAIN_NAME}\n` +
-            `${REQUIRED_CHAIN_IS_TESTNET ? `6. Get testnet CELO from: https://faucet.celo.org/\n` : ''}` +
-            `${REQUIRED_CHAIN_IS_TESTNET ? `7. Then try submitting again.` : `6. Then try submitting again.`}`
-          )
+          setAlertModal({
+            title: 'Network not configured',
+            message:
+              `Please add ${REQUIRED_CHAIN_NAME} to your wallet:\n\n` +
+              `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
+              `2. Go to Settings → Networks → Add Network\n` +
+              `3. Click "Add a network manually"\n` +
+              `4. Enter these details:\n` +
+              `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
+              `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
+              `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
+              `   • Currency Symbol: CELO\n` +
+              `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
+              `5. Click "Save" and switch to ${REQUIRED_CHAIN_NAME}\n` +
+              `${REQUIRED_CHAIN_IS_TESTNET ? `6. Get testnet CELO from: https://faucet.celo.org/\n` : ''}` +
+              `${REQUIRED_CHAIN_IS_TESTNET ? `7. Then try submitting again.` : `6. Then try submitting again.`}`,
+            variant: 'error',
+          })
         } else if (isSwitchError) {
-          // Chain might be configured but switch failed - ask user to manually switch
-          alert(
-            `❌ Failed to switch to ${REQUIRED_CHAIN_NAME}!\n\n` +
-            `Please manually switch to ${REQUIRED_CHAIN_NAME} in your wallet:\n\n` +
-            `1. Open your wallet extension/app\n` +
-            `2. Click the network dropdown (top of wallet)\n` +
-            `3. Select "${REQUIRED_CHAIN_NAME}" from the list\n` +
-            `4. If ${REQUIRED_CHAIN_NAME} is not in the list, you may need to add it:\n` +
-            `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
-            `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
-            `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
+          setAlertModal({
+            title: 'Switch network failed',
+            message:
+              `Please manually switch to ${REQUIRED_CHAIN_NAME} in your wallet:\n\n` +
+              `1. Open your wallet extension/app\n` +
+              `2. Click the network dropdown (top of wallet)\n` +
+              `3. Select "${REQUIRED_CHAIN_NAME}" from the list\n` +
+              `4. If ${REQUIRED_CHAIN_NAME} is not in the list, you may need to add it:\n` +
+              `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
+              `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
+              `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
             `   • Currency Symbol: CELO\n` +
             `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
             `5. Once on ${REQUIRED_CHAIN_NAME}, try submitting again.\n\n` +
-            `Current error: ${errorMessage}`
-          )
+            `Current error: ${errorMessage}`,
+            variant: 'error',
+          })
         } else {
-          alert(
-            `Failed to submit cleanup:\n\n${errorMessage}\n\n` +
-            `Please check:\n` +
-            `- Your wallet is connected\n` +
-            `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
-            `- You have enough ETH for gas\n` +
-            `- The contract address is correct`
-          )
+          setAlertModal({
+            title: 'Submission failed',
+            message:
+              `${errorMessage}\n\nPlease check:\n` +
+              `- Your wallet is connected\n` +
+              `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
+              `- You have enough CELO for gas\n` +
+              `- The contract address is correct`,
+            variant: 'error',
+          })
         }
 
         setIsSubmitting(false)
@@ -1054,49 +1069,47 @@ function CleanupContent() {
         errorMessage.includes('SwitchChainError')
 
       if (isChainNotConfigured) {
-        // Show detailed instructions for adding the network
-        alert(
-          `❌ ${REQUIRED_CHAIN_NAME} is not configured in your wallet!\n\n` +
-          `Please add ${REQUIRED_CHAIN_NAME} to your wallet:\n\n` +
-          `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
-          `2. Go to Settings → Networks → Add Network\n` +
-          `3. Click "Add a network manually"\n` +
-          `4. Enter these details:\n` +
-          `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
-          `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
-          `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
-          `   • Currency Symbol: CELO\n` +
-          `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
-          `5. Click "Save" and switch to ${REQUIRED_CHAIN_NAME}\n` +
-          `${REQUIRED_CHAIN_IS_TESTNET ? `6. Get testnet CELO from: https://faucet.celo.org/\n` : ''}` +
-          `${REQUIRED_CHAIN_IS_TESTNET ? `7. Then try submitting again.` : `6. Then try submitting again.`}`
-        )
+        setAlertModal({
+          title: 'Network not configured',
+          message:
+            `Please add ${REQUIRED_CHAIN_NAME} to your wallet:\n\n` +
+            `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
+            `2. Go to Settings → Networks → Add Network\n` +
+            `3. Click "Add a network manually"\n` +
+            `4. Enter these details:\n` +
+            `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
+            `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
+            `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
+            `   • Currency Symbol: CELO\n` +
+            `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
+            `5. Click "Save" and switch to ${REQUIRED_CHAIN_NAME}\n` +
+            `${REQUIRED_CHAIN_IS_TESTNET ? `6. Get testnet CELO from: https://faucet.celo.org/\n` : ''}` +
+            `${REQUIRED_CHAIN_IS_TESTNET ? `7. Then try submitting again.` : `6. Then try submitting again.`}`,
+          variant: 'error',
+        })
       } else if (isSwitchError) {
-        // Chain might be configured but switch failed - ask user to manually switch
-        alert(
-          `❌ Failed to switch to ${REQUIRED_CHAIN_NAME}!\n\n` +
-          `Please manually switch to ${REQUIRED_CHAIN_NAME} in your wallet:\n\n` +
-          `1. Open your wallet extension/app\n` +
-          `2. Click the network dropdown (top of wallet)\n` +
-          `3. Select "${REQUIRED_CHAIN_NAME}" from the list\n` +
-          `4. If ${REQUIRED_CHAIN_NAME} is not in the list, you may need to add it:\n` +
-          `   • Network Name: ${REQUIRED_CHAIN_NAME}\n` +
-          `   • RPC URL: ${REQUIRED_RPC_URL}\n` +
-          `   • Chain ID: ${REQUIRED_CHAIN_ID}\n` +
-          `   • Currency Symbol: CELO\n` +
-          `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
-          `5. Once on ${REQUIRED_CHAIN_NAME}, try submitting again.\n\n` +
-          `Current error: ${errorMessage}`
-        )
+        setAlertModal({
+          title: 'Switch network failed',
+          message:
+            `Please manually switch to ${REQUIRED_CHAIN_NAME} in your wallet.\n\n` +
+            `1. Open your wallet extension/app\n` +
+            `2. Click the network dropdown (top of wallet)\n` +
+            `3. Select "${REQUIRED_CHAIN_NAME}" from the list\n` +
+            `4. If not in the list, add it (Network Name, RPC URL, Chain ID ${REQUIRED_CHAIN_ID}, Currency CELO).\n\n` +
+            `Current error: ${errorMessage}`,
+          variant: 'error',
+        })
       } else {
-        alert(
-          `Failed to submit cleanup:\n\n${errorMessage}\n\n` +
-          `Please check:\n` +
-          `- Your wallet is connected\n` +
-          `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
-          `- You have enough CELO for gas\n` +
-          `- The contract address is correct`
-        )
+        setAlertModal({
+          title: 'Submission failed',
+          message:
+            `${errorMessage}\n\nPlease check:\n` +
+            `- Your wallet is connected\n` +
+            `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
+            `- You have enough CELO for gas\n` +
+            `- The contract address is correct`,
+          variant: 'error',
+        })
       }
     } finally {
       setIsSubmitting(false)
@@ -1134,7 +1147,7 @@ function CleanupContent() {
               🎉 You Were Invited!
             </h3>
             <p className="text-sm text-gray-300">
-              You've been referred to DeCleanup Rewards! When you submit your first cleanup, get it verified, and claim your first Impact Product level, both you and your referrer will earn <strong className="text-white">3 $cDCU</strong> each as referral rewards. Additionally, you'll receive <strong className="text-white">10 $cDCU</strong> for claiming your first level (separate from referral rewards).
+              You've been referred to DeCleanup Rewards! When you submit your first cleanup, get it verified, and claim your first Impact Product level, both you and your referrer will earn <strong className="text-white">3 DCU</strong> each as referral rewards. Additionally, you'll receive <strong className="text-white">10 DCU</strong> for claiming your first level (separate from referral rewards).
             </p>
             <p className="mt-2 text-xs text-gray-400">
               Submit a cleanup below to get started and claim your referral reward!
@@ -1207,7 +1220,7 @@ function CleanupContent() {
                   try {
                     await switchChain({ chainId: REQUIRED_CHAIN_ID })
                   } catch (error: any) {
-                    alert(`Please switch to ${REQUIRED_CHAIN_NAME} manually in MetaMask.`)
+                    setAlertModal({ message: `Please switch to ${REQUIRED_CHAIN_NAME} manually in your wallet.`, variant: 'warning' })
                   }
                 }}
                 disabled={isSwitchingChain}
@@ -1238,22 +1251,34 @@ function CleanupContent() {
             if (status.verified) {
               clearPendingCleanupData(address)
               setPendingCleanup(null)
-              alert('Cleanup is already verified! Clearing local data. You can now claim it from your profile.')
-              return
-            }
-
-            // If cleanup exists but not verified, ask for confirmation
-            const confirmed = confirm(
-              `Cleanup #${pendingCleanup.id.toString()} exists onchain and is pending verification.\n\n` +
-              `Are you sure you want to clear it? This won't delete it from the blockchain, ` +
-              `but will allow you to submit a new cleanup.\n\n` +
-              `Note: The old cleanup will still be in the verifier dashboard.`
-            )
-
-            if (!confirmed) {
               setClearingPending(false)
+              setAlertModal({
+                message: 'Cleanup is already verified! Clearing local data. You can now claim it from your profile.',
+                variant: 'success',
+              })
               return
             }
+
+            // If cleanup exists but not verified, ask for confirmation via modal
+            setConfirmModal({
+              title: 'Clear pending cleanup?',
+              message:
+                `Cleanup #${pendingCleanup.id.toString()} exists onchain and is pending verification.\n\n` +
+                `Are you sure you want to clear it? This won't delete it from the blockchain, but will allow you to submit a new cleanup.\n\n` +
+                `Note: The old cleanup will still be in the verifier dashboard.`,
+              onConfirm: () => {
+                setConfirmModal(null)
+                clearPendingCleanupData(address)
+                setPendingCleanup(null)
+                setClearingPending(false)
+                setAlertModal({
+                  message: 'Pending cleanup data cleared! You can now submit a new cleanup.',
+                  variant: 'success',
+                })
+              },
+            })
+            setClearingPending(false)
+            return
           } catch (error: any) {
             // Cleanup doesn't exist onchain - safe to clear
             console.log('Cleanup does not exist onchain, clearing localStorage:', error?.message)
@@ -1262,10 +1287,16 @@ function CleanupContent() {
           // Clear localStorage
           clearPendingCleanupData(address)
           setPendingCleanup(null)
-          alert('Pending cleanup data cleared! You can now submit a new cleanup.')
+          setAlertModal({
+            message: 'Pending cleanup data cleared! You can now submit a new cleanup.',
+            variant: 'success',
+          })
         } catch (error) {
           console.error('Error clearing cleanup data:', error)
-          alert('Failed to clear cleanup data. Please try refreshing the page.')
+          setAlertModal({
+            message: 'Failed to clear cleanup data. Please try refreshing the page.',
+            variant: 'error',
+          })
         } finally {
           setClearingPending(false)
         }
@@ -1302,11 +1333,21 @@ function CleanupContent() {
                   <button
                     onClick={() => {
                       if (!address) return
-                      if (confirm('Reset submission counting? This will clear all pending cleanup data and allow you to submit again immediately.')) {
-                        resetSubmissionCounting(address)
-                        setPendingCleanup(null)
-                        alert('Submission counting reset! You can now submit a new cleanup.')
-                      }
+                      setConfirmModal({
+                        title: 'Reset submission counting?',
+                        message:
+                          'This will clear all pending cleanup data and allow you to submit again immediately.',
+                        confirmLabel: 'Reset',
+                        onConfirm: () => {
+                          setConfirmModal(null)
+                          resetSubmissionCounting(address)
+                          setPendingCleanup(null)
+                          setAlertModal({
+                            message: 'Submission counting reset! You can now submit a new cleanup.',
+                            variant: 'success',
+                          })
+                        },
+                      })
                     }}
                     disabled={clearingPending}
                     className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 underline disabled:opacity-50"
@@ -1324,10 +1365,34 @@ function CleanupContent() {
     return null
   }
 
+  const modalLayer = (
+    <>
+      {alertModal && (
+        <AlertModal
+          isOpen
+          onClose={() => setAlertModal(null)}
+          title={alertModal.title}
+          message={alertModal.message}
+          variant={alertModal.variant}
+        />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen
+          onClose={() => setConfirmModal(null)}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+        />
+      )}
+    </>
+  )
+
   // Step 1: Photos (Before + After) + Location
   if (step === 'photos') {
     return (
-      <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
+      <>
+        <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
         <div className="mx-auto max-w-md">
           <div className="mb-6">
             <BackButton href="/" />
@@ -1538,6 +1603,8 @@ function CleanupContent() {
           </Button>
         </div>
       </div>
+        {modalLayer}
+      </>
     )
   }
 
@@ -1545,7 +1612,8 @@ function CleanupContent() {
   // Step 4: Impact Report (Optional)
   if (step === 'enhanced') {
     return (
-      <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
+      <>
+        <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
         <div className="mx-auto max-w-md">
           <div className="mb-6">
             <BackButton />
@@ -1558,10 +1626,10 @@ function CleanupContent() {
               Impact Report
             </h1>
             <p className="mb-2 text-sm font-medium text-brand-yellow">
-              +5 $cDCU Points Bonus
+              +5 DCU Points Bonus
             </p>
             <p className="text-sm text-gray-400">
-              Provide more details on your cleanup (optional, rewarded with 5 $cDCU Points).
+              Provide more details on your cleanup (optional, rewarded with 5 DCU Points).
             </p>
           </div>
 
@@ -1786,24 +1854,65 @@ function CleanupContent() {
                   <span className="ml-2 text-gray-500">(You)</span>
                 </div>
                 {enhancedData.contributors.map((contributor, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={contributor}
-                      onChange={(e) => {
-                        const newContributors = [...enhancedData.contributors]
-                        newContributors[idx] = e.target.value
-                        setEnhancedData({ ...enhancedData, contributors: newContributors })
-                      }}
-                      placeholder="Contributor address (0x...)"
-                      className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500 text-sm"
-                    />
-                    <button
-                      onClick={() => setEnhancedData({ ...enhancedData, contributors: enhancedData.contributors.filter((_, i) => i !== idx) })}
-                      className="rounded-lg border border-red-500 bg-red-500/10 px-3 py-2 text-red-400 hover:bg-red-500/20"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                  <div key={idx} className="flex flex-col gap-1">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={contributor}
+                        onChange={(e) => {
+                          const newContributors = [...enhancedData.contributors]
+                          newContributors[idx] = e.target.value
+                          setEnhancedData({ ...enhancedData, contributors: newContributors })
+                        }}
+                        onBlur={async () => {
+                          const value = enhancedData.contributors[idx]?.trim()
+                          if (!value || resolvingContributorIndex !== null) return
+                          setResolvingContributorIndex(idx)
+                          try {
+                            const resolved = await resolveEnsToAddress(value)
+                            if (resolved) {
+                              const newContributors = [...enhancedData.contributors]
+                              newContributors[idx] = resolved
+                              setEnhancedData({ ...enhancedData, contributors: newContributors })
+                            }
+                          } finally {
+                            setResolvingContributorIndex(null)
+                          }
+                        }}
+                        placeholder="Address or ENS (e.g. vitalik.eth)"
+                        className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500 text-sm font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const value = enhancedData.contributors[idx]?.trim()
+                          if (!value) return
+                          setResolvingContributorIndex(idx)
+                          try {
+                            const resolved = await resolveEnsToAddress(value)
+                            if (resolved) {
+                              const newContributors = [...enhancedData.contributors]
+                              newContributors[idx] = resolved
+                              setEnhancedData({ ...enhancedData, contributors: newContributors })
+                            }
+                          } finally {
+                            setResolvingContributorIndex(null)
+                          }
+                        }}
+                        disabled={resolvingContributorIndex !== null || !enhancedData.contributors[idx]?.trim()}
+                        className="rounded-lg border border-brand-green/50 bg-brand-green/10 px-3 py-2 text-brand-green hover:bg-brand-green/20 disabled:opacity-50"
+                        title="Resolve ENS to address"
+                      >
+                        {resolvingContributorIndex === idx ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resolve'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEnhancedData({ ...enhancedData, contributors: enhancedData.contributors.filter((_, i) => i !== idx) })}
+                        className="rounded-lg border border-red-500 bg-red-500/10 px-3 py-2 text-red-400 hover:bg-red-500/20"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 <button
@@ -1982,13 +2091,16 @@ function CleanupContent() {
           </div>
         </div>
       </div>
+        {modalLayer}
+      </>
     )
   }
 
   // Step 5: Recyclables Report (Optional)
   if (step === 'recyclables') {
     return (
-      <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
+      <>
+        <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
         <div className="mx-auto max-w-md">
           <div className="mb-6">
             <Button
@@ -2008,74 +2120,11 @@ function CleanupContent() {
               Recyclables Submission
             </h1>
             <p className="mb-2 text-sm font-medium text-brand-green">
-              Optional - Earn $cRECY tokens
+              +5 DCU Points Bonus
             </p>
             <p className="text-sm text-gray-400">
-              If you recycled any materials from your cleanup, upload proof to earn additional rewards.
+              If you recycled any materials from your cleanup, upload proof to earn the same DCU points as the impact form (optional).
             </p>
-          </div>
-
-          {/* Mainnet Notice */}
-          <div className="mb-6 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 text-yellow-400 mt-0.5" />
-              <div className="flex-1">
-                <p className="mb-2 text-sm font-medium text-yellow-400">
-                  ⚠️ Testing Stage - Mainnet Coming Soon
-                </p>
-                <p className="text-xs text-gray-300">
-                  Recyclables submissions are currently in <strong>testing stage</strong>. 
-                  The full $cRECY token rewards system will be activated when contracts launch on{' '}
-                  <strong>Celo Mainnet</strong>. You can still submit recyclables data now for testing purposes, 
-                  but rewards will be distributed after mainnet deployment.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* cRECY Reserve Note */}
-          <div className="mb-6 rounded-lg border border-brand-green/50 bg-brand-green/10 p-4">
-            <p className="mb-2 text-sm font-medium text-brand-green">
-              💰 5,000 $cRECY Token Reserve Available (Mainnet)
-            </p>
-            <p className="mb-2 text-xs text-gray-300">
-              <strong>What is this?</strong> $cRECY tokens are rewards for recycling materials from your cleanup. 
-              This program is in partnership with{' '}
-              <a
-                href="https://www.detrashtoken.com/en"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-green hover:underline font-semibold"
-              >
-                Detrash
-              </a>
-              .
-            </p>
-            <p className="mb-3 text-xs text-gray-300">
-              We have a reserve of <strong>5,000 $cRECY tokens</strong> available for recycling rewards on Celo Mainnet. 
-              This promotional program will continue until the reserve is depleted.
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <a
-                href="https://celoscan.io/token/0x34C11A932853Ae24E845Ad4B633E3cEf91afE583"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-green hover:underline flex items-center gap-1"
-              >
-                View $cRECY on CeloScan (Mainnet)
-                <ExternalLink className="h-3 w-3" />
-              </a>
-              <span className="text-gray-500">•</span>
-              <a
-                href="https://www.detrashtoken.com/en"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-green hover:underline flex items-center gap-1"
-              >
-                Learn more about Detrash
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
           </div>
 
           <div className="mb-6 space-y-4">
@@ -2195,13 +2244,16 @@ function CleanupContent() {
           </div>
         </div>
       </div>
+        {modalLayer}
+      </>
     )
   }
 
   // Step 6: Success/Review
   if (step === 'review') {
     return (
-      <div className="min-h-screen bg-background px-4 py-6 sm:py-8">
+      <>
+        <div className="min-h-screen bg-background px-4 py-6 sm:py-8">
         <div className="mx-auto max-w-md text-center">
           <div className="mb-6">
             <CheckCircle className="mx-auto mb-4 h-16 w-16 text-brand-green" />
@@ -2264,11 +2316,34 @@ function CleanupContent() {
           </p>
         </div>
       </div>
+        {modalLayer}
+      </>
     )
   }
 
   // Fallback (shouldn't reach here)
-  return null
+  return (
+    <>
+      {alertModal && (
+        <AlertModal
+          isOpen={true}
+          onClose={() => setAlertModal(null)}
+          title={alertModal.title}
+          message={alertModal.message}
+          variant={alertModal.variant}
+        />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setConfirmModal(null)}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+        />
+      )}
+    </>
+  )
 }
 
 export default function CleanupPage() {

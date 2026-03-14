@@ -10,7 +10,7 @@ This document explains how the Celo dashboard generates Hypercerts, why we colle
 4. **Submission approval** – Verifier/Admin approves, triggering:
    - `userCleanupCount++`
    - Impact form rewards via `rewardImpactReports`
-   - Recyclables reward via `RecyclablesReward.rewardRecyclables`
+   - Recyclables: 5 DCU in same bucket as impact form (no separate contract)
    - Hypercert eligibility check (every 10 cleanups)
 
 Why collect the impact form?

@@ -28,7 +28,6 @@ describe('Contract Utilities', () => {
     expect(process.env.NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT).toBeDefined()
     expect(process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT).toBeDefined()
     expect(process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT).toBeDefined()
-    expect(process.env.NEXT_PUBLIC_RECYCLABLES_CONTRACT).toBeDefined()
   })
 
   it('should have metadata CID defined', () => {
