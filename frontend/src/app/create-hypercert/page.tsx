@@ -116,7 +116,7 @@ export default function CreateHypercertPage() {
       console.log('Hypercert minted with images:', {
         logo: logoResult.hash,
         banner: bannerResult.hash,
-        metadata: result.metadata
+        metadataCid: result.metadataCid
       })
       
       if (result.txHash) {
