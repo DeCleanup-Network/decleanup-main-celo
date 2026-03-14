@@ -125,5 +125,9 @@ export const CONTRACT_ADDRESSES = {
   DCU_TOKEN:
     process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT ||
     '',
+  /** ClaimVault: mint-on-claim $cDCU (Phase 2). */
+  CLAIMVAULT:
+    process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS ||
+    '',
 } as const
 

@@ -1402,7 +1402,7 @@ export default function VerifierPage() {
                         {cleanup.referrer !== '0x0000000000000000000000000000000000000000' && (
                           <div className="flex items-center gap-2 text-xs text-yellow-400">
                             <Users className="h-3 w-3" />
-                            <span>Referred by: <span className="font-mono text-[10px]">{cleanup.referrer.slice(0, 6)}...{cleanup.referrer.slice(-4)}</span> (both will earn 3 $cDCU each when invitee claims their first level)</span>
+                            <span>Referred by: <span className="font-mono text-[10px]">{cleanup.referrer.slice(0, 6)}...{cleanup.referrer.slice(-4)}</span> (both will earn 3 DCU each when invitee claims their first level)</span>
                           </div>
                         )}
                         <div className="text-xs">

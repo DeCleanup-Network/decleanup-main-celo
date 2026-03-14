@@ -20,6 +20,12 @@ export function Header() {
                         </p>
                     </Link>
 
+                    {/* Persistent pill: Full Platform [Celo] — Geist Sans for nav/badge */}
+                    <span className="font-sans inline-flex items-center gap-1.5 rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-medium text-brand-green shrink-0">
+                        Full Platform
+                        <span className="rounded bg-brand-green/20 px-1.5 py-0.5 font-semibold uppercase">Celo</span>
+                    </span>
+
                     {/* Wallet Connect */}
                     <WalletConnect />
                 </div>

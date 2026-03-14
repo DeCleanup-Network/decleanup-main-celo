@@ -1,6 +1,5 @@
 import { Address } from 'viem'
 import { getCleanupDetails, findLatestClaimableCleanup } from './contracts'
-import { addCrecyReward, isSubmissionRewarded } from '@/lib/utils/crecy-tracking'
 
 /**
  * VerificationStatus
@@ -308,12 +307,7 @@ export async function getLatestCleanupStatus(
       canClaim,
     })
 
-    // Award cRECY locally if cleanup is verified and has recyclables (testing only)
-    if (verified && details.hasRecyclables && user) {
-      if (!isSubmissionRewarded(user, cleanupId)) {
-        addCrecyReward(user, cleanupId)
-      }
-    }
+    // Recyclables are rewarded on-chain as part of impact report (5 DCU total per submission for impact and/or recyclables)
 
     // Unlock flow if terminal
     // If cleanup is claimed, clear pending cleanup and ensure it's marked

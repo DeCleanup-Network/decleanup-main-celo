@@ -158,7 +158,7 @@ export function VerifierApplyCard() {
           <p className="font-medium mb-2">You meet all requirements:</p>
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>✓ Level: {eligibility?.metrics.level}</li>
-            <li>✓ cDCU Balance: {eligibility?.metrics.dcuBalance.toFixed(2)}</li>
+            <li>✓ DCU Balance: {eligibility?.metrics.dcuBalance.toFixed(2)}</li>
             <li>✓ Approved Cleanups: {eligibility?.metrics.approvedCleanups}</li>
           </ul>
         </div>

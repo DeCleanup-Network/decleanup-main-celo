@@ -320,7 +320,15 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
             }
         }
 
-        // External recyclables reward (best-effort)
+        // Reward recyclables with same DCU points as impact form (5 DCU per report)
+        if (s.hasRecyclables) {
+            try rewardManager.rewardImpactReports(s.submitter, 1) {
+            } catch {
+                // Best-effort; don't revert
+            }
+        }
+
+        // Optional external recyclables token reward (disabled by default; set recyclablesRewardContract to 0 to use DCU-only)
         if (s.hasRecyclables && recyclablesRewardContract != address(0)) {
             try RecyclablesReward(recyclablesRewardContract).rewardRecyclables(s.submitter, submissionId) {
             } catch {

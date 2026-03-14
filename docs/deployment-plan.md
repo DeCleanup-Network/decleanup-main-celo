@@ -5,7 +5,7 @@ This summarizes what’s left before launching `decleanup-main-celo`.
 ## 1. Prerequisites
 
 - **Accounts**
-  - Community wallet `decleanupnet.eth` (`0x173d87d...b4`) – holds 5000 cRECY reserve.
+  - Community wallet `decleanupnet.eth` (`0x173d87d...b4`) – treasury.
   - Main deployer/admin `0x520e40e346ea85d72661fce3ba3f81cb2c560d84` – receives fees/treasury.
   - Verifier wallet `0x7d85f...0bf95` – gets ADMIN_ROLE in `Submission`.
 - **APIs**
@@ -21,7 +21,7 @@ This summarizes what’s left before launching `decleanup-main-celo`.
 2. `DCURewardManager` - Reward distribution manager (initially with placeholder NFT address)
 3. `ImpactProductNFT` - ERC721 NFT contract
 4. `Submission` - Cleanup submission and verification contract
-5. `RecyclablesReward` - Deployed separately (see `contracts/scripts/`)
+5. Recyclables: no separate contract; rewarded with impact form (5 DCU per submission)
 
 > Run `npx hardhat test` first. Then `npx hardhat ignition deploy ./ignition/modules/DCUContracts.ts --network celoSepolia`.
 
@@ -33,7 +33,7 @@ Run `npx hardhat run scripts/setup-roles.ts --network celo-sepolia` with updated
 - Grant DEFAULT_ADMIN_ROLE + ADMIN_ROLE to main deployer.
 - Grant ADMIN_ROLE to verifier wallet.
 - Update both treasuries to main deployer.
-- Wire `RecyclablesReward` address into Submission.
+- Recyclables use same reward bucket as impact form (Submission calls rewardImpactReports once when hasImpactForm || hasRecyclables).
 
 ## 4. Environment variables
 
@@ -42,7 +42,7 @@ Run `npx hardhat run scripts/setup-roles.ts --network celo-sepolia` with updated
   NEXT_PUBLIC_VERIFICATION_CONTRACT=<Submission>
   NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS=<ImpactProductNFT>
   NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT=<DCURewardManager>
-  NEXT_PUBLIC_RECYCLABLES_REWARD_CONTRACT=<RecyclablesReward>
+  # No recyclables contract; 5 DCU with impact form
   ```
 - Set RPC + chain IDs (Celo mainnet or Celo Sepolia).
 - For contracts, add explorer API key to `contracts/.env` if verifying on CeloScan.
@@ -55,7 +55,7 @@ Run `npx hardhat run scripts/setup-roles.ts --network celo-sepolia` with updated
   - Submit cleanup (with photos + optional impact data) → ensure Submission tx + IPFS upload succeed
   - Approve via verifier cabinet (or script) → check rewards available
   - Mint Impact Product + claim level
-  - Submit recyclables → ensure cRECY tracking (note: RecyclablesReward disabled on testnet)
+  - Submit recyclables → 5 DCU in same bucket as impact form (one rewardImpactReports call per submission)
 
 ## 6. Go-live checklist
 

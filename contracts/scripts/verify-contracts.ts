@@ -39,19 +39,6 @@ function getConstructorArgs(contractName: string, deployedAddresses: any): any[]
     case "ImpactProductNFT":
       // Constructor: (address _rewardsContract)
       return [deployedAddresses.DCURewardManager]
-    case "RecyclablesReward":
-      // Constructor: (address _cRecyToken, address _submissionContract)
-      // Note: cRecyToken is mainnet-only, so we use the mainnet address here
-      // This is intentional - RecyclablesReward references the mainnet token
-      if (!deployedAddresses.cRecyToken) {
-        console.warn("⚠️  cRecyToken address not found - RecyclablesReward verification may fail")
-        return [deployedAddresses.Submission] // Will likely fail, but try anyway
-      }
-      return [deployedAddresses.cRecyToken, deployedAddresses.Submission]
-    case "cRecyToken":
-      // cRecyToken is NOT deployed on Celo Sepolia - it's mainnet only
-      // Skip verification for this contract
-      return []
     default:
       return []
   }
@@ -154,28 +141,12 @@ async function main() {
   // Then ImpactProductNFT (depends on DCURewardManager, but we'll use the deployed address)
   // Then DCURewardManager (depends on DCUToken and ImpactProductNFT)
   // Then Submission (depends on DCUToken and DCURewardManager)
-  // Note: cRecyToken is mainnet-only, not deployed on Celo Sepolia
-  // Note: RecyclablesReward uses mainnet cRecyToken address, so we'll verify it with that address
-  
   const contractsToVerify: ContractInfo[] = [
     { name: "DCUToken", address: deployedAddresses.DCUToken, constructorArgs: getConstructorArgs("DCUToken", deployedAddresses) },
     { name: "ImpactProductNFT", address: deployedAddresses.ImpactProductNFT, constructorArgs: getConstructorArgs("ImpactProductNFT", deployedAddresses) },
     { name: "DCURewardManager", address: deployedAddresses.DCURewardManager, constructorArgs: getConstructorArgs("DCURewardManager", deployedAddresses) },
     { name: "Submission", address: deployedAddresses.Submission, constructorArgs: getConstructorArgs("Submission", deployedAddresses) },
   ].filter(contract => contract.address) // Filter out undefined addresses
-
-  // RecyclablesReward uses mainnet cRecyToken address, so handle it separately
-  if (deployedAddresses.RecyclablesReward) {
-    console.log("\n⚠️  Note: RecyclablesReward contract uses mainnet cRecyToken address")
-    console.log("   cRecyToken is NOT deployed on Celo Sepolia (mainnet only)")
-    console.log("   RecyclablesReward will be verified with mainnet cRecyToken address as constructor arg\n")
-    
-    contractsToVerify.push({
-      name: "RecyclablesReward",
-      address: deployedAddresses.RecyclablesReward,
-      constructorArgs: getConstructorArgs("RecyclablesReward", deployedAddresses)
-    })
-  }
 
   if (contractsToVerify.length === 0) {
     console.error("❌ No contracts found to verify!")

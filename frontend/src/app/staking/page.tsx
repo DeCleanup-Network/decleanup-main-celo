@@ -13,10 +13,10 @@ export default function StakingPage() {
     lockPeriod: '30 days',
     balance: '2,000.00',
     transactions: [
-      { date: '2026-01-08', action: 'Stake', amount: '500.00 $cDCU', status: 'Completed' },
-      { date: '2026-01-07', action: 'Claim Rewards', amount: '42.50 $cDCU', status: 'Completed' },
-      { date: '2026-01-06', action: 'Unstake', amount: '200.00 $cDCU', status: 'Pending' },
-      { date: '2026-01-05', action: 'Stake', amount: '750.00 $cDCU', status: 'Completed' },
+      { date: '2026-01-08', action: 'Stake', amount: '500.00 DCU', status: 'Completed' },
+      { date: '2026-01-07', action: 'Claim Rewards', amount: '42.50 DCU', status: 'Completed' },
+      { date: '2026-01-06', action: 'Unstake', amount: '200.00 DCU', status: 'Pending' },
+      { date: '2026-01-05', action: 'Stake', amount: '750.00 DCU', status: 'Completed' },
     ]
   }
 
@@ -30,7 +30,7 @@ export default function StakingPage() {
             Staking
           </h1>
           <p className="text-sm text-gray-400">
-            Stake your $cDCU tokens to earn rewards and participate in governance
+            Stake your DCU tokens to earn rewards and participate in governance
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export default function StakingPage() {
               <span className="text-sm font-medium text-gray-400">Total Staked</span>
             </div>
             <p className="text-2xl font-bold text-white">{mockData.totalStaked}</p>
-            <p className="text-xs text-gray-400">$cDCU</p>
+            <p className="text-xs text-gray-400">DCU</p>
           </div>
           <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
             <div className="mb-2 flex items-center gap-2">
@@ -68,13 +68,13 @@ export default function StakingPage() {
               <span className="text-sm font-medium text-gray-400">Rewards Earned</span>
             </div>
             <p className="text-2xl font-bold text-white">{mockData.rewardsEarned}</p>
-            <p className="text-xs text-gray-400">$cDCU</p>
+            <p className="text-xs text-gray-400">DCU</p>
           </div>
         </div>
 
         {/* Staking Actions */}
         <div className="mb-6 rounded-lg border border-gray-800 bg-gray-900 p-6">
-          <h3 className="mb-4 text-lg font-semibold text-white">Stake $cDCU Tokens</h3>
+          <h3 className="mb-4 text-lg font-semibold text-white">Stake DCU Tokens</h3>
 
           <div className="space-y-4">
             {/* APR Info */}
@@ -160,7 +160,7 @@ export default function StakingPage() {
                 Staking Benefits
               </h4>
               <ul className="text-xs text-gray-300 space-y-1">
-                <li>• Earn rewards on staked $cDCU tokens</li>
+                <li>• Earn rewards on staked DCU tokens</li>
                 <li>• Participate in community governance</li>
                 <li>• Help secure the DeCleanup ecosystem</li>
                 <li>• Flexible staking periods and amounts</li>

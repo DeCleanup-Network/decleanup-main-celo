@@ -43,13 +43,13 @@ export function DashboardActions({
     }
 
     const handleShareX = () => {
-        const text = encodeURIComponent(`Join me on DeCleanup Network! Clean up, earn $cDCU tokens, and make a real environmental impact. 🌱`)
+        const text = encodeURIComponent(`Join me on DeCleanup Network! Clean up, earn DCU tokens, and make a real environmental impact. 🌱`)
         const url = encodeURIComponent(referralLink)
         window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank')
     }
 
     const handleShareFarcaster = () => {
-        const text = encodeURIComponent(`Join me on DeCleanup Network! Clean up, earn $cDCU tokens, and make a real environmental impact. 🌱\n\n${referralLink}`)
+        const text = encodeURIComponent(`Join me on DeCleanup Network! Clean up, earn DCU tokens, and make a real environmental impact. 🌱\n\n${referralLink}`)
         window.open(`https://warpcast.com/~/compose?text=${text}`, '_blank')
     }
 
@@ -176,7 +176,7 @@ export function DashboardActions({
                         </h3>
                     </div>
                     <p className="text-sm sm:text-base text-muted-foreground">
-                        Earn 3 $cDCU each when friends submit, get verified, and claim their first Impact Product level.
+                        Earn 3 DCU each when friends submit, get verified, and claim their first Impact Product level.
                     </p>
 
                     <div className="grid grid-cols-2 gap-2">

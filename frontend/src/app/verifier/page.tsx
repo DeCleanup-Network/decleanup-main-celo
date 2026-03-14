@@ -539,9 +539,9 @@ export default function VerifierPage() {
                         <div className="mt-1 font-bebas text-2xl text-brand-green">
                             {address ? (
                                 verifiedCleanups.filter(c => c.approver?.toLowerCase() === address.toLowerCase()).length
-                            ) : 0} $cDCU
+                            ) : 0} DCU
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">1 $cDCU per verification</div>
+                        <div className="mt-1 text-xs text-gray-500">1 DCU per verification</div>
                     </div>
                 </div>
 
