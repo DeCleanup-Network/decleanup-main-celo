@@ -22,6 +22,8 @@ import { config, REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_NAME, REQUIRED_CHAI
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
 import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
+import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
+import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -77,6 +79,8 @@ export default function VerifierPage() {
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<Array<{ cleanupId: bigint; verified: boolean; claimed: boolean; level: number; user: Address }>>([])
   const [isLoadingCleanups, setIsLoadingCleanups] = useState(false)
+  const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
 
   const { signMessageAsync, isPending: isSigning } = useSignMessage()
 
@@ -94,18 +98,22 @@ export default function VerifierPage() {
     }
   }, [address, isConnected])
 
-  // Load cleanups when verifier is authenticated
+  // Load cleanups and hypercert requests when verifier is authenticated
   useEffect(() => {
     if (!isVerifier) return
     
     // Load cleanups initially
     loadCleanups()
     
-    // Refresh cleanups every 30 seconds
+    // Load hypercert requests initially
+    loadHypercertRequests()
+    
+    // Refresh cleanups and requests every 30 seconds
     const interval = setInterval(() => {
       // Only refresh if not currently loading
       if (!isLoadingCleanups) {
-      loadCleanups()
+        loadCleanups()
+        loadHypercertRequests()
       }
     }, 30000)
     
@@ -438,7 +446,15 @@ export default function VerifierPage() {
       setIsLoadingCleanups(false)
     }
   }
-
+  async function loadHypercertRequests() {
+    try {
+      const pending = getHypercertRequestsByStatus('PENDING')
+      console.log('📋 Pending Hypercert requests:', pending.length)
+      setHypercertRequests(pending)
+    } catch (error) {
+      console.error('Error loading Hypercert requests:', error)
+    }
+  }
   async function handleVerify(cleanupId: bigint) {
     setVerifying(true)
     setError(null)
@@ -605,6 +621,83 @@ export default function VerifierPage() {
       setError(`Failed to reject: ${errorMessage}`)
     } finally {
       setRejecting(false)
+    }
+  }
+
+  async function handleApproveHypercert(requestId: string) {
+    if (!address) return
+    
+    setProcessingRequestId(requestId)
+    try {
+      console.log('Approving Hypercert request:', requestId)
+      
+      // Approve the request
+      const approvedRequest = approveHypercertRequest({
+        requestId,
+        verifierAddress: address,
+      })
+      
+      if (!approvedRequest) {
+        throw new Error('Failed to approve request')
+      }
+      
+      // TODO: In Phase 6, this will call the actual on-chain mint function
+      // For now, just update the UI
+      console.log('✅ Hypercert request approved:', approvedRequest.id)
+      
+      alert(
+        `✅ Hypercert request approved!\n\n` +
+        `Request ID: ${requestId}\n\n` +
+        `Note: On-chain minting will be implemented in Phase 6.`
+      )
+      
+      // Refresh the requests list
+      loadHypercertRequests()
+    } catch (error) {
+      console.error('Error approving Hypercert request:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to approve Hypercert request:\n\n${errorMessage}`)
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
+  async function handleRejectHypercert(requestId: string) {
+    if (!address) return
+    
+    const reason = prompt('Enter rejection reason (optional):')
+    
+    setProcessingRequestId(requestId)
+    try {
+      console.log('Rejecting Hypercert request:', requestId)
+      
+      // Reject the request
+      const rejectedRequest = rejectHypercertRequest({
+        requestId,
+        verifierAddress: address,
+        reason: reason || undefined,
+      })
+      
+      if (!rejectedRequest) {
+        throw new Error('Failed to reject request')
+      }
+      
+      console.log('❌ Hypercert request rejected:', rejectedRequest.id)
+      
+      alert(
+        `Hypercert request rejected.\n\n` +
+        `Request ID: ${requestId}\n` +
+        (reason ? `Reason: ${reason}` : '')
+      )
+      
+      // Refresh the requests list
+      loadHypercertRequests()
+    } catch (error) {
+      console.error('Error rejecting Hypercert request:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to reject Hypercert request:\n\n${errorMessage}`)
+    } finally {
+      setProcessingRequestId(null)
     }
   }
 
@@ -837,6 +930,131 @@ export default function VerifierPage() {
       </div>
     )
   }
+
+  {/* Pending Hypercert Requests */}
+        <div className="mb-8">
+          <h2 className="mb-4 text-2xl font-bold uppercase text-white">Pending Hypercert Requests</h2>
+          {hypercertRequests.length === 0 ? (
+            <div className="rounded-lg border border-gray-800 bg-gray-900 p-8 text-center text-gray-400">
+              No pending Hypercert requests to review.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {hypercertRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="rounded-lg border border-gray-800 bg-gray-900 p-6"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Hypercert Request</h3>
+                      <p className="mt-1 font-mono text-xs text-gray-400">ID: {request.id}</p>
+                    </div>
+                    <div className="rounded-full bg-yellow-500/20 px-3 py-1 text-sm font-medium text-yellow-400">
+                      PENDING
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="h-4 w-4" />
+                      <span className="font-mono text-xs">{request.requester}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Calendar className="h-4 w-4" />
+                      <span>{new Date(request.submittedAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Metadata Preview */}
+                  <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800 p-4">
+                    <h4 className="mb-2 text-sm font-semibold text-white">Impact Summary</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-400">Cleanups:</span>
+                        <span className="ml-2 font-bold text-white">
+                          {request.metadata?.impact?.summary?.totalCleanups || 0}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Reports:</span>
+                        <span className="ml-2 font-bold text-white">
+                          {request.metadata?.impact?.summary?.totalReports || 0}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-400">Timeframe:</span>
+                        <span className="ml-2 text-white">
+                          {request.metadata?.impact?.summary?.timeframeStart && 
+                            new Date(request.metadata.impact.summary.timeframeStart).toLocaleDateString()
+                          } - {
+                            request.metadata?.impact?.summary?.timeframeEnd &&
+                            new Date(request.metadata.impact.summary.timeframeEnd).toLocaleDateString()
+                          }
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Show branding if available */}
+                    {request.metadata?.branding && (
+                      <div className="mt-3 border-t border-gray-700 pt-3">
+                        <h5 className="mb-2 text-xs font-semibold uppercase text-gray-400">Branding</h5>
+                        {request.metadata.branding.title && (
+                          <div className="mb-1 text-sm text-white">
+                            Title: {request.metadata.branding.title}
+                          </div>
+                        )}
+                        {request.metadata.branding.description && (
+                          <div className="text-xs text-gray-400">
+                            {request.metadata.branding.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => handleRejectHypercert(request.id)}
+                      disabled={processingRequestId === request.id}
+                      variant="outline"
+                      className="flex-1 border-red-500 text-red-400 hover:bg-red-500/10"
+                    >
+                      {processingRequestId === request.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Rejecting...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleApproveHypercert(request.id)}
+                      disabled={processingRequestId === request.id}
+                      className="flex-1 bg-brand-green text-black hover:bg-brand-green/90"
+                    >
+                      {processingRequestId === request.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Approve & Mint
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
   const pendingCleanups = cleanups.filter((c) => !c.verified && !c.rejected)
   const verifiedCleanups = cleanups.filter((c) => c.verified)
