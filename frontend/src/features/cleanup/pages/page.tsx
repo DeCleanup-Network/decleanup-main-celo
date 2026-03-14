@@ -84,7 +84,7 @@ function CleanupContent() {
   const [feeInfo, setFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
   const [resolvingContributorIndex, setResolvingContributorIndex] = useState<number | null>(null)
   const [alertModal, setAlertModal] = useState<{ title?: string; message: string; variant?: AlertModalVariant } | null>(null)
-  const [confirmModal, setConfirmModal] = useState<{ title?: string; message: string; onConfirm: () => void } | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{ title?: string; message: string; onConfirm: () => void; confirmLabel?: string } | null>(null)
 
   // Fix hydration error by only rendering after mount
   useEffect(() => {
@@ -1383,6 +1383,7 @@ function CleanupContent() {
           title={confirmModal.title}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
+          confirmLabel={confirmModal.confirmLabel}
         />
       )}
     </>
@@ -2340,6 +2341,7 @@ function CleanupContent() {
           title={confirmModal.title}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
+          confirmLabel={confirmModal.confirmLabel}
         />
       )}
     </>
