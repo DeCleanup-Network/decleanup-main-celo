@@ -81,6 +81,11 @@ export default function CreateHypercertPage() {
       setError('Please upload both logo and banner images')
       return
     }
+    const walletAddress = address
+    if (!walletAddress) {
+      setError('Wallet not connected')
+      return
+    }
 
     setStatus('uploading')
     setError(null)
@@ -106,7 +111,7 @@ export default function CreateHypercertPage() {
       setStatusMessage('Minting Hypercert on-chain...')
       setStatusMessage('Please confirm the transaction in your wallet...')
 
-      const result = await mintHypercert(address)
+      const result = await mintHypercert(walletAddress)
       
       console.log('Hypercert minted with images:', {
         logo: logoResult.hash,
