@@ -363,9 +363,6 @@ export default function HypercertsTestPage() {
                     </div>
                   )}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No eligibility data available.</p>
-              )}
             </div>
             {/* Levels vs Hypercerts Explanation */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
