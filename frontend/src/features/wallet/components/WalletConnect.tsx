@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { isWeb3AuthEnabled } from '@/lib/web3auth/config'
 import { EmbeddedWalletConnect } from './EmbeddedWalletConnect'
 
@@ -23,9 +24,15 @@ export function WalletConnect() {
 
   if (!mounted) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-800" />
-      </div>
+      <Button
+        type="button"
+        disabled
+        aria-busy="true"
+        aria-label="Loading wallet"
+        className="min-w-[8.75rem] bg-brand-green text-black hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:text-black"
+      >
+        Loading…
+      </Button>
     )
   }
 
@@ -36,9 +43,15 @@ export function WalletConnect() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-800" />
-        </div>
+        <Button
+          type="button"
+          disabled
+          aria-busy="true"
+          aria-label="Loading wallet"
+          className="min-w-[8.75rem] bg-brand-green text-black hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:text-black"
+        >
+          Loading…
+        </Button>
       }
     >
       <RainbowKitConnectButton />

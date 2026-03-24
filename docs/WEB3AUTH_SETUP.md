@@ -16,12 +16,13 @@ In the **`frontend/`** directory, add:
 NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=your_client_id_here
 ```
 
-Optional (for production):
+Optional — **only if** your Web3Auth project in the dashboard is on **Sapphire Mainnet** (most projects stay on **Sapphire Devnet**):
 
 ```bash
-# Use Sapphire Mainnet instead of Devnet
 NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet
 ```
+
+If this does not match the project’s network, login fails with **Network mismatch** and signer-service **400**.
 
 ## 3. Install and run
 
@@ -52,6 +53,16 @@ The Embedded Wallets SDK is EVM-compatible, so **Celo Sepolia works**. Your app 
 Remove or comment out `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID` in `.env.local`. The app falls back to **RainbowKit** (Connect with MetaMask, WalletConnect, etc.).
 
 ## Troubleshooting
+
+### "Network mismatch" / `sapphire_mainnet` vs `sapphire_devnet` / signer-service **400**
+
+The Client ID is tied to **one** Sapphire network in the [Web3Auth dashboard](https://dashboard.web3auth.io/) (Devnet or Mainnet). The app must request the **same** network.
+
+- **Symptom:** Console shows `Provided network "sapphire_mainnet" does not match project network "sapphire_devnet"` (or the reverse).
+- **Fix (typical):** Remove `NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet` from **Vercel** / `.env.local` so the app uses **Sapphire Devnet** (default), matching a default/free-tier project.
+- **Fix (if you need Mainnet):** In the dashboard, move or configure the project for **Sapphire Mainnet**, then set `NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet`.
+
+Do **not** set `mainnet` in env until the dashboard project is actually on Mainnet.
 
 ### "Failed to connect with wallet. Failed to login with auth" (WalletLoginError)
 

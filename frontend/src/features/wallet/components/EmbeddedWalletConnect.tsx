@@ -13,6 +13,20 @@ import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/
 import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
 import { WEB3AUTH_ACCOUNT_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
+function PreparingLoginButton() {
+  return (
+    <Button
+      type="button"
+      disabled
+      aria-busy="true"
+      aria-label="Preparing login"
+      className="min-w-[8.75rem] bg-brand-green text-black hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:text-black"
+    >
+      Preparing login…
+    </Button>
+  )
+}
+
 /**
  * Connect button for Web3Auth Embedded Wallets (social / email login).
  * Single "Log In" opens the Web3Auth modal (Google, email, etc.).
@@ -43,17 +57,37 @@ export function EmbeddedWalletConnect() {
   }, [isConnected, address, chainId, web3AuthSwitchChain])
 
   if (!mounted) {
-    return (
-      <div className="flex h-9 w-32 animate-pulse items-center justify-center rounded-lg bg-gray-800" />
-    )
+    return <PreparingLoginButton />
   }
 
   const authNotReady = !isInitialized || isInitializing
   // Logged-in users: never block on Web3Auth init (avoids hiding address after refresh).
   if (authNotReady && (!isConnected || !address)) {
-    return (
-      <div className="flex h-9 w-32 animate-pulse items-center justify-center rounded-lg bg-gray-800" />
-    )
+    const initErrMsg = initError instanceof Error ? initError.message : initError != null ? String(initError) : null
+    if (initErrMsg) {
+      return (
+        <div className="flex max-w-[min(100%,280px)] flex-col items-center gap-2 text-center">
+          <p className="text-xs text-red-400" title={initErrMsg}>
+            {initErrMsg}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-gray-600 text-gray-200"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </Button>
+            <a href="/reset-wallet-session" className="text-xs text-gray-500 underline hover:text-gray-400">
+              Reset session
+            </a>
+          </div>
+        </div>
+      )
+    }
+    return <PreparingLoginButton />
   }
 
   if (!isConnected || !address) {

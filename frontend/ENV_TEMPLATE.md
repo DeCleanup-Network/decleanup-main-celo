@@ -54,8 +54,8 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 # When set, the app uses "Login with Email or Google" (wallet created in background) instead of RainbowKit.
 # Get your Client ID from https://dashboard.web3auth.io/
 # NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=
-# Optional: use SAPPHIRE_MAINNET in production (default is SAPPHIRE_DEVNET for dev)
-# In production, set to use Sapphire Mainnet (removes "sapphire_devnet" warning):
+# Optional: ONLY if your Web3Auth Dashboard project uses Sapphire Mainnet (must match — else 400 / Network mismatch)
+# Default / omit = Sapphire Devnet (typical for most projects)
 # NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet
 # Note: "Sapphire" is Web3Auth's backend network; your app chain is already Celo Sepolia (chains in code).
 

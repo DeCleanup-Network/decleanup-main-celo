@@ -12,9 +12,11 @@ if (!clientId && typeof window !== 'undefined') {
 }
 
 // Web3Auth "network" = their backend (Sapphire), not the blockchain. Your chain is Celo Sepolia (set below in chains).
-// Sapphire Devnet = free tier for dev; Sapphire Mainnet = for production. Cannot be "Celo Sepolia" (that's the chain).
+// MUST match dashboard.web3auth.io → Project → network (Sapphire Devnet vs Sapphire Mainnet).
+// If you set NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet but the project is still Devnet, the API returns 400 and
+// "Network mismatch ... sapphire_mainnet ... sapphire_devnet". Fix: remove the env var (use devnet) or move the project to Mainnet in the dashboard.
 const web3AuthNetwork =
-  process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === 'mainnet'
+  process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === 'mainnet'
     ? WEB3AUTH_NETWORK.SAPPHIRE_MAINNET
     : WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
 
