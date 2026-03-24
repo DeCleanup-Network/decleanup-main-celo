@@ -102,10 +102,12 @@ export async function fetchChainMetrics(
     tokenMintedWei: 0n,
   }
 
+  // Cast: viem's chain-specific client and the generic PublicClient type can disagree on
+  // getBlock transaction shapes across package versions; getLogs/getBlockNumber are compatible.
   const client = createPublicClient({
     chain,
     transport: http(rpcUrl, { batch: true, timeout: 60_000 }),
-  })
+  }) as PublicClient
 
   let latest: bigint
   try {
@@ -199,12 +201,15 @@ export function envOr(
 }
 
 export function getImpactApiConfig() {
-  const celoRpc = envOr(
-    process.env.IMPACT_STATS_CELO_RPC_URL,
-    process.env.NEXT_PUBLIC_RPC_URL,
-    'https://forno.celo.org'
-  )
-  const baseRpc = envOr(process.env.IMPACT_STATS_BASE_RPC_URL, 'https://mainnet.base.org')
+  const celoRpc =
+    envOr(
+      process.env.IMPACT_STATS_CELO_RPC_URL,
+      process.env.NEXT_PUBLIC_RPC_URL,
+      'https://forno.celo.org'
+    ) ?? 'https://forno.celo.org'
+  const baseRpc =
+    envOr(process.env.IMPACT_STATS_BASE_RPC_URL, 'https://mainnet.base.org') ??
+    'https://mainnet.base.org'
 
   const celoSubmission = envOr(
     process.env.IMPACT_STATS_CELO_SUBMISSION_CONTRACT,

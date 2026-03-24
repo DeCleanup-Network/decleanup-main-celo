@@ -5,7 +5,7 @@
 import type { Account } from 'viem'
 import { toAccount } from 'viem/accounts'
 import type { WalletClient } from 'viem'
-import { hashMessage } from 'viem'
+import { hashMessage, toHex } from 'viem'
 
 /**
  * Converts a WalletClient to a viem Account by delegating signing to wallet.request().
@@ -18,7 +18,12 @@ export function walletClientToAccount(walletClient: WalletClient): Account {
   return toAccount({
     address,
     signMessage: async ({ message }) => {
-      const hex = typeof message === 'string' ? hashMessage(message) : message.raw
+      const hex =
+        typeof message === 'string'
+          ? hashMessage(message)
+          : typeof message.raw === 'string'
+            ? message.raw
+            : toHex(message.raw)
       const sig = await walletClient.request({
         method: 'personal_sign',
         params: [hex, address],
