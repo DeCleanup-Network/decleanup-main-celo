@@ -39,6 +39,7 @@ import { generateReferralLink } from '@/lib/utils/sharing'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
+import { fetchViaIpfsGatewayProxy } from '@/lib/utils/ipfs-gateway-proxy'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import type { Address } from 'viem'
 
@@ -90,8 +91,14 @@ function convertIPFSToGateway(ipfsUrl: string): string {
 }
 
 async function fetchWithFallback(ipfsUrl: string): Promise<Response> {
+  const jsonHeaders = { Accept: 'application/json' }
+
   if (!ipfsUrl.startsWith('ipfs://')) {
-    return fetch(ipfsUrl)
+    return fetchViaIpfsGatewayProxy(ipfsUrl, {
+      method: 'GET',
+      headers: jsonHeaders,
+      redirect: 'follow',
+    })
   }
 
   const gateways = [
@@ -107,9 +114,9 @@ async function fetchWithFallback(ipfsUrl: string): Promise<Response> {
   for (const gateway of gateways) {
     try {
       const url = `${gateway}${path}`
-      const response = await fetch(url, {
+      const response = await fetchViaIpfsGatewayProxy(url, {
         method: 'GET',
-        headers: { Accept: 'application/json' },
+        headers: jsonHeaders,
         redirect: 'follow',
       })
       if (response.ok) {

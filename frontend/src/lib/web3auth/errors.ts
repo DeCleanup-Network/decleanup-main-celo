@@ -30,3 +30,15 @@ export function isWeb3AuthPopupClosedError(reason: unknown): boolean {
   }
   return false
 }
+
+/** SDK throws when connect() runs before the login modal finished initializing (common on mobile). */
+export function isWeb3AuthModalNotReadyError(reason: unknown): boolean {
+  const msg =
+    reason instanceof Error
+      ? reason.message
+      : typeof (reason as { message?: unknown })?.message === 'string'
+        ? String((reason as { message: string }).message)
+        : String(reason ?? '')
+  const s = msg.toLowerCase()
+  return s.includes('not ready') || s.includes('not initialized')
+}

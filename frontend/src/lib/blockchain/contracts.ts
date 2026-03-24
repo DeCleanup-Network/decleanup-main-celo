@@ -610,10 +610,15 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
   }
 }
 
+/**
+ * Latest verified submission that can still be claimed on-chain.
+ * Submissions listed in localStorage `claimed_cleanup_ids_*` are skipped entirely so users
+ * cannot re-claim the same level without submitting a new cleanup (strict submit → verify → claim loop).
+ */
 export async function findLatestClaimableCleanup(user: Address): Promise<bigint | null> {
   try {
     const submissionIds = await getUserSubmissions(user)
-    
+
     if (submissionIds.length === 0) {
       return null
     }
@@ -627,23 +632,31 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
     for (const submissionId of sortedIds) {
       try {
         const details = await getCleanupDetails(submissionId)
-        // Use let instead of const so we can update it after unmarking
-        let localClaimed = typeof window !== 'undefined' ? (() => {
-          try {
-            const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-            const claimedIds = localStorage.getItem(claimedKey)
-            if (claimedIds) {
-              const parsed = JSON.parse(claimedIds) as string[]
-              return parsed.includes(submissionId.toString())
-            }
-          } catch {
-          }
-          return false
-        })() : false
-        
-        // Check if this is a pre-fix cleanup (rewarded=true but user has no balance)
-        // IMPORTANT: Check this EVEN IF marked as claimed, because we need to detect pre-fix cleanups
-        // that were incorrectly unmarked or never properly marked
+
+        const localClaimed =
+          typeof window !== 'undefined'
+            ? (() => {
+                try {
+                  const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+                  const claimedIds = localStorage.getItem(claimedKey)
+                  if (claimedIds) {
+                    const parsed = JSON.parse(claimedIds) as string[]
+                    return parsed.includes(submissionId.toString())
+                  }
+                } catch {
+                  /* ignore */
+                }
+                return false
+              })()
+            : false
+
+        if (localClaimed) {
+          console.log(
+            `[findLatestClaimableCleanup] Skip ${submissionId.toString()} — already in claimed_cleanup_ids (claim again requires a new submission)`
+          )
+          continue
+        }
+
         let isPreFixCleanup = false
         if (details.verified && details.rewarded && !details.rejected && REWARD_MANAGER_ADDRESS) {
           try {
@@ -661,194 +674,32 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
               functionName: 'getBalance',
               args: [user],
             }) as bigint
-            
-            // Only mark as pre-fix if verified more than 1 hour ago
-            // This prevents false positives for newly verified cleanups
-            // Be very conservative - only block old cleanups that are definitely pre-fix
-            if (balance === 0n && details.timestamp) {
-              const now = BigInt(Math.floor(Date.now() / 1000))
-              const oneHourAgo = now - BigInt(3600) // 1 hour in seconds
-              const verifiedAgo = now - details.timestamp
-              
-              // Only mark as pre-fix if verified >1 hour ago and still has 0 balance
-              if (details.timestamp < oneHourAgo) {
-                // Check if user has the corresponding NFT level - if not, allow claiming
-                // This allows users to claim pre-fix cleanups to get their NFT
-                try {
-                  const userLevel = await getUserLevel(user)
-                  // If user has no NFT (level 0), allow claiming this cleanup to mint their first NFT
-                  if (userLevel === 0) {
-                    console.log(`[findLatestClaimableCleanup] Pre-fix cleanup ${submissionId.toString()} detected, but user has no NFT (level 0) - allowing claim to mint NFT`)
-                    isPreFixCleanup = false // Don't block it
-                    // Also unmark it from localStorage if it was previously marked as claimed
-                    if (localClaimed && typeof window !== 'undefined') {
-                      try {
-                        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                        const claimedIds = localStorage.getItem(claimedKey)
-                        if (claimedIds) {
-                          const parsed = JSON.parse(claimedIds) as string[]
-                          const filtered = parsed.filter(id => id !== submissionId.toString())
-                          if (filtered.length === 0) {
-                            localStorage.removeItem(claimedKey)
-                          } else {
-                            localStorage.setItem(claimedKey, JSON.stringify(filtered))
-                          }
-                          console.log(`[findLatestClaimableCleanup] ✅ Unmarked pre-fix cleanup ${submissionId.toString()} from claimed list - user needs to claim it to mint NFT`)
-                          localClaimed = false // Update so it can be returned
-                        }
-                      } catch (e) {
-                        console.warn('[findLatestClaimableCleanup] Could not unmark cleanup:', e)
-                      }
-                    }
-                  } else {
-                    isPreFixCleanup = true
-                    console.warn(`[findLatestClaimableCleanup] ⚠️ Pre-fix cleanup detected: ${submissionId.toString()} (rewarded=true but balance=0, verified ${verifiedAgo.toString()}s ago, >1h, user has NFT level ${userLevel})`)
-                    // Automatically mark it as claimed to prevent it from being found again
-                    if (typeof window !== 'undefined') {
-                      try {
-                        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                        const claimedIds = localStorage.getItem(claimedKey)
-                        const parsed = claimedIds ? JSON.parse(claimedIds) as string[] : []
-                        if (!parsed.includes(submissionId.toString())) {
-                          parsed.push(submissionId.toString())
-                          localStorage.setItem(claimedKey, JSON.stringify(parsed))
-                          console.log(`[findLatestClaimableCleanup] ✅ Auto-marked pre-fix cleanup ${submissionId.toString()} as claimed`)
-                          // Update localClaimed so it's skipped
-                          localClaimed = true
-                        }
-                      } catch (e) {
-                        console.warn('[findLatestClaimableCleanup] Could not mark cleanup as claimed:', e)
-                      }
-                    }
-                  }
-                } catch (error) {
-                  // If we can't check NFT level, be conservative and allow claiming
-                  console.warn(`[findLatestClaimableCleanup] Could not check user NFT level for cleanup ${submissionId.toString()}, allowing claim:`, error)
-                  isPreFixCleanup = false
-                  // Also unmark from localStorage if marked
-                  if (localClaimed && typeof window !== 'undefined') {
-                    try {
-                      const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                      const claimedIds = localStorage.getItem(claimedKey)
-                      if (claimedIds) {
-                        const parsed = JSON.parse(claimedIds) as string[]
-                        const filtered = parsed.filter(id => id !== submissionId.toString())
-                        if (filtered.length === 0) {
-                          localStorage.removeItem(claimedKey)
-                        } else {
-                          localStorage.setItem(claimedKey, JSON.stringify(filtered))
-                        }
-                        localClaimed = false
-                      }
-                    } catch (e) {
-                      // Ignore
-                    }
-                  }
-                }
-              } else {
-                console.log(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} verified recently (${verifiedAgo.toString()}s ago, <1h). Allowing claim - not marking as pre-fix.`)
-              }
-            } else if (balance > 0n) {
-              console.log(`[findLatestClaimableCleanup] User has balance for cleanup ${submissionId.toString()}:`, balance.toString(), '- not a pre-fix cleanup')
-            } else if (!details.timestamp) {
-              console.warn(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} has no timestamp - cannot determine if pre-fix`)
-            }
-          } catch (error) {
-            console.warn(`[findLatestClaimableCleanup] Could not check balance for cleanup ${submissionId.toString()}:`, error)
-          }
-        }
-        
-        // If cleanup is verified but marked as claimed in localStorage, check if it was actually claimed
-        // Sometimes cleanups get incorrectly marked as claimed (e.g., if claim failed)
-        // Do this BEFORE checking isClaimable so we can unmark it and make it claimable
-        if (details.verified && !details.rejected && localClaimed && !isPreFixCleanup && REWARD_MANAGER_ADDRESS) {
-          console.warn(`[findLatestClaimableCleanup] ⚠️ Cleanup ${submissionId.toString()} is verified but marked as claimed in localStorage`)
-          console.warn(`[findLatestClaimableCleanup] Checking if it was actually claimed...`)
-          
-          // Check if user actually has rewards or if this was a failed claim
-          try {
-            const balance = await readContract(getConfig(), {
-              address: REWARD_MANAGER_ADDRESS,
-              abi: [
-                {
-                  type: 'function',
-                  name: 'getBalance',
-                  stateMutability: 'view',
-                  inputs: [{ name: 'user', type: 'address' }],
-                  outputs: [{ name: '', type: 'uint256' }],
-                },
-              ] as const,
-              functionName: 'getBalance',
-              args: [user],
-            }) as bigint
-            
-            // If user has no balance and cleanup is verified, it might not have been actually claimed
-            // Only unmark if cleanup was verified recently (< 1 hour ago) to avoid unmarking old claimed cleanups
+
             if (balance === 0n && details.timestamp) {
               const now = BigInt(Math.floor(Date.now() / 1000))
               const oneHourAgo = now - BigInt(3600)
-              const verifiedAgo = now - details.timestamp
-              
-              if (details.timestamp > oneHourAgo) {
-                console.warn(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} verified recently (${verifiedAgo.toString()}s ago) but marked as claimed and balance is 0`)
-                console.warn(`[findLatestClaimableCleanup] This might be a failed claim - unmarking from localStorage to allow retry`)
-                
-                // Unmark from localStorage to allow claiming
-                if (typeof window !== 'undefined') {
-                  try {
-                    const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                    const claimedIds = localStorage.getItem(claimedKey)
-                    if (claimedIds) {
-                      const parsed = JSON.parse(claimedIds) as string[]
-                      const filtered = parsed.filter(id => id !== submissionId.toString())
-                      if (filtered.length === 0) {
-                        localStorage.removeItem(claimedKey)
-                      } else {
-                        localStorage.setItem(claimedKey, JSON.stringify(filtered))
-                      }
-                      console.log(`[findLatestClaimableCleanup] ✅ Unmarked cleanup ${submissionId.toString()} from claimed list - can now be claimed`)
-                      // Update localClaimed to false so it can be returned
-                      localClaimed = false
-                    }
-                  } catch (e) {
-                    console.warn('[findLatestClaimableCleanup] Could not unmark cleanup:', e)
-                  }
-                }
+              if (details.timestamp < oneHourAgo) {
+                isPreFixCleanup = true
+                console.warn(
+                  `[findLatestClaimableCleanup] Pre-fix cleanup ${submissionId.toString()}: verified >1h ago, rewarded, balance 0 — skipping`
+                )
               }
             }
           } catch (error) {
-            console.warn(`[findLatestClaimableCleanup] Could not check if cleanup should be unmarked:`, error)
+            console.warn(`[findLatestClaimableCleanup] Balance check failed for ${submissionId.toString()}:`, error)
           }
         }
-        
-        const isClaimable = 
+
+        const isClaimable =
           details.user.toLowerCase() === user.toLowerCase() &&
           details.verified &&
           !details.rejected &&
           !details.claimed &&
-          !localClaimed &&
           !isPreFixCleanup
-        
+
         if (isClaimable) {
-          console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`, {
-            verified: details.verified,
-            rejected: details.rejected,
-            claimed: details.claimed,
-            localClaimed,
-            isPreFixCleanup,
-          })
-          console.log(`[findLatestClaimableCleanup] Returning cleanup ID: ${submissionId.toString()}`)
+          console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`)
           return submissionId
-        } else {
-          console.log(`[findLatestClaimableCleanup] Cleanup ${submissionId.toString()} is not claimable:`, {
-            verified: details.verified,
-            rejected: details.rejected,
-            claimed: details.claimed,
-            localClaimed,
-            isPreFixCleanup,
-            userMatch: details.user.toLowerCase() === user.toLowerCase(),
-            rewarded: details.rewarded,
-          })
         }
       } catch (error) {
         console.warn(`Failed to fetch details for submission ${submissionId}:`, error)

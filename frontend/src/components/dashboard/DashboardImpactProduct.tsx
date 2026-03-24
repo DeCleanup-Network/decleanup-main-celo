@@ -7,7 +7,7 @@ import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchai
 import { useAccount } from 'wagmi'
 import { getHypercertEligibility } from '@/lib/blockchain/contracts'
 import { getLevelName, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
-import { getIPFSUrl } from '@/lib/blockchain/ipfs'
+import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
 
 interface ImpactProductProps {
     level: number
@@ -50,8 +50,15 @@ export function DashboardImpactProduct({
     const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
     
     // Always use IPFS if we have a CID, even if imageUrl prop is empty
-    const imageUrlToUse = imageUrl || (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) || getImpactProductImagePath(level)
-    const animationUrlToUse = animationUrl || (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) || (level === 10 ? getImpactProductAnimationPath() : null)
+    const rawImage =
+      imageUrl ||
+      (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) ||
+      getImpactProductImagePath(level)
+    const rawAnimation =
+      animationUrl || (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) || (level === 10 ? getImpactProductAnimationPath() : null)
+    // Same-origin proxy avoids Pinata CORS / 429 in Safari and dev (localhost)
+    const imageUrlToUse = proxyIpfsHttpUrl(rawImage)
+    const animationUrlToUse = rawAnimation ? proxyIpfsHttpUrl(rawAnimation) : null
 
     useEffect(() => {
         if (address && level > 0) {

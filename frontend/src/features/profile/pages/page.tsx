@@ -42,6 +42,7 @@ import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { getUserCleanupStatus, markCleanupAsClaimed } from '@/lib/blockchain/verification'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
 import { AlertModal } from '@/components/ui/alert-modal'
+import { fetchViaIpfsGatewayProxy } from '@/lib/utils/ipfs-gateway-proxy'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
   ? 'CeloScan (Sepolia)'
   : 'CeloScan'
@@ -168,12 +169,18 @@ export default function ProfilePage() {
                 'https://dweb.link/ipfs/',
               ]
               const gatewayList = gateways || defaultGateways
-              return `${gatewayList[0]}${path} `
+              return `${gatewayList[0]}${path}`
             }
 
             const fetchWithFallback = async (ipfsUrl: string): Promise<Response> => {
+              const jsonHeaders = { Accept: 'application/json' }
+
               if (!ipfsUrl.startsWith('ipfs://')) {
-                return fetch(ipfsUrl)
+                return fetchViaIpfsGatewayProxy(ipfsUrl, {
+                  method: 'GET',
+                  headers: jsonHeaders,
+                  redirect: 'follow',
+                })
               }
 
               const gateways = [
@@ -188,10 +195,10 @@ export default function ProfilePage() {
 
               for (const gateway of gateways) {
                 try {
-                  const url = `${gateway}${path} `
-                  const response = await fetch(url, {
+                  const url = `${gateway}${path}`
+                  const response = await fetchViaIpfsGatewayProxy(url, {
                     method: 'GET',
-                    headers: { Accept: 'application/json' },
+                    headers: jsonHeaders,
                     redirect: 'follow',
                   })
                   if (response.ok) {
@@ -202,7 +209,7 @@ export default function ProfilePage() {
                 }
               }
 
-              throw new Error(`All IPFS gateways failed for: ${ipfsUrl} `)
+              throw new Error(`All IPFS gateways failed for: ${ipfsUrl}`)
             }
 
             if (tokenURI) {

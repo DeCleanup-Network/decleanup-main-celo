@@ -1,12 +1,17 @@
 'use client'
 
-import { useWeb3AuthConnect, useSwitchChain as useWeb3AuthSwitchChain } from '@web3auth/modal/react'
+import {
+  useWeb3Auth,
+  useWeb3AuthConnect,
+  useSwitchChain as useWeb3AuthSwitchChain,
+} from '@web3auth/modal/react'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_ID_HEX } from '@/lib/blockchain/chain-constants'
-import { isWeb3AuthPopupClosedError } from '@/lib/web3auth/errors'
+import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/web3auth/errors'
 import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
+import { WEB3AUTH_ACCOUNT_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
 /**
  * Connect button for Web3Auth Embedded Wallets (social / email login).
@@ -16,6 +21,7 @@ import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
 export function EmbeddedWalletConnect() {
   const [mounted, setMounted] = useState(false)
   const [dismissMessage, setDismissMessage] = useState<string | null>(null)
+  const { isInitialized, isInitializing, initError } = useWeb3Auth()
   const { connect, loading, isConnected, error } = useWeb3AuthConnect()
   const { address, chainId } = useAccount()
   const { disconnect } = useDisconnect()
@@ -42,15 +48,33 @@ export function EmbeddedWalletConnect() {
     )
   }
 
+  const authNotReady = !isInitialized || isInitializing
+  // Logged-in users: never block on Web3Auth init (avoids hiding address after refresh).
+  if (authNotReady && (!isConnected || !address)) {
+    return (
+      <div className="flex h-9 w-32 animate-pulse items-center justify-center rounded-lg bg-gray-800" />
+    )
+  }
+
   if (!isConnected || !address) {
+    const initErrMsg = initError instanceof Error ? initError.message : initError != null ? String(initError) : null
     const errorMessage = error?.message ?? null
+    const isModalNotReadyErr =
+      (error != null && isWeb3AuthModalNotReadyError(error)) ||
+      (errorMessage != null && isWeb3AuthModalNotReadyError({ message: errorMessage }))
     const isPopupErr =
-      dismissMessage != null || (error != null && isWeb3AuthPopupClosedError(error))
+      dismissMessage != null ||
+      (error != null && isWeb3AuthPopupClosedError(error)) ||
+      isModalNotReadyErr
     const displayText =
       dismissMessage ??
-      (errorMessage && isWeb3AuthPopupClosedError(error)
-        ? 'Login window closed before finishing. Click Log In to try again.'
-        : errorMessage)
+      (initErrMsg && !errorMessage
+        ? initErrMsg
+        : errorMessage && isWeb3AuthPopupClosedError(error)
+          ? 'Login window closed before finishing. Click Log In to try again.'
+          : errorMessage && isModalNotReadyErr
+            ? 'Login is still starting. Wait a second, then tap Log In again.'
+            : errorMessage)
     const isAuthError =
       !isPopupErr &&
       (errorMessage?.toLowerCase().includes('failed to login with auth') ||
@@ -58,17 +82,22 @@ export function EmbeddedWalletConnect() {
         errorMessage?.toLowerCase().includes('wallet is not found'))
 
     const handleConnect = () => {
+      if (!isInitialized || isInitializing) return
       setDismissMessage(null)
       try {
         const result = connect()
         void Promise.resolve(result).catch((e: unknown) => {
           if (isWeb3AuthPopupClosedError(e)) {
             setDismissMessage('Login window closed before finishing. Click Log In to try again.')
+          } else if (isWeb3AuthModalNotReadyError(e)) {
+            setDismissMessage('Login is still starting. Wait a second, then tap Log In again.')
           }
         })
       } catch (e: unknown) {
         if (isWeb3AuthPopupClosedError(e)) {
           setDismissMessage('Login window closed before finishing. Click Log In to try again.')
+        } else if (isWeb3AuthModalNotReadyError(e)) {
+          setDismissMessage('Login is still starting. Wait a second, then tap Log In again.')
         }
       }
     }
@@ -77,7 +106,7 @@ export function EmbeddedWalletConnect() {
       <div className="flex flex-col items-center gap-1">
         <Button
           onClick={handleConnect}
-          disabled={loading}
+          disabled={loading || !isInitialized || isInitializing}
           className="bg-brand-green text-black hover:bg-brand-green/90"
         >
           {loading ? 'Connecting...' : 'Log In'}
@@ -125,13 +154,23 @@ export function EmbeddedWalletConnect() {
           Disconnect
         </Button>
       </div>
-      <button
-        type="button"
-        onClick={clearWeb3AuthStorageAndReload}
-        className="text-xs text-gray-500 underline hover:text-gray-400"
-      >
-        Having trouble? Reset session
-      </button>
+      <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+        <a
+          href={WEB3AUTH_ACCOUNT_DASHBOARD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-brand-green/90 underline-offset-2 hover:text-brand-green hover:underline"
+        >
+          Manage wallet
+        </a>
+        <button
+          type="button"
+          onClick={clearWeb3AuthStorageAndReload}
+          className="text-xs text-gray-500 underline hover:text-gray-400"
+        >
+          Having trouble? Reset session
+        </button>
+      </div>
     </div>
   )
 }
