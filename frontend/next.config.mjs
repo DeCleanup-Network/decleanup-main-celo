@@ -16,16 +16,33 @@ const nextConfig = {
           },
         ],
       },
+      // Allow Google/Web3Auth popup to complete (fixes "Cross-Origin-Opener-Policy policy would block the window.closed call")
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+        ],
+      },
     ];
   },
-  // Webpack configuration to handle MetaMask SDK warnings
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Resolve React Native async storage for browser (MetaMask SDK compatibility)
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        '@react-native-async-storage/async-storage': false,
-      };
+  // Webpack: resolve optional/React Native deps so layout and app chunks build (client + server)
+  webpack: (config, { isServer, dev }) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      // MetaMask SDK / Web3Auth (browser build doesn't need React Native async storage)
+      '@react-native-async-storage/async-storage': false,
+    };
+    // Optional pino dev dependency used by WalletConnect; avoid "Module not found" on server
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      'pino-pretty': false,
+    };
+    // Disable persistent cache in dev to avoid 500s from stale vendor-chunks (ERR_ABORTED on layout.css, app/page.js, etc.)
+    if (dev) {
+      config.cache = false;
     }
     return config;
   },

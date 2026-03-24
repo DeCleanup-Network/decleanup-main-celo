@@ -1,4 +1,4 @@
-// Placeholder for MVP – Hypercert metadata disabled.
+// Placeholder for MVP; Hypercert metadata disabled.
 // Remove when Hypercerts integration returns.
 
 export type HypercertMetadata = {

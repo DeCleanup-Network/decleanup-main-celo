@@ -5,7 +5,7 @@ import { Address } from 'viem'
  *
  * DCU points act as the multiplier for earning; $cDCU is claimed later (e.g. via ClaimVault or
  * Impact Product NFT claim) and the claim amount is calculated based on the user's multiplier.
- * Impact form and/or recyclables add 5 DCU points total per submission (same bucket on-chain).
+ * Impact form and/or recyclables add 5 DCU points total per submission (same bucket onchain).
  *
  * DCU Points are stored ONCHAIN through the RewardDistributor contract's internal DCUToken contract.
  *
@@ -110,7 +110,7 @@ export async function getStakedPoints(userAddress: Address): Promise<number> {
 export const POINTS_REWARDS = {
   LEVEL_REWARD: 10, // 10 points per level
   STREAK_REWARD: 2, // 2 points per week streak
-  IMPACT_FORM_REWARD: 5, // 5 points for impact form and/or recyclables (single bucket on-chain)
+  IMPACT_FORM_REWARD: 5, // 5 points for impact form and/or recyclables (single bucket onchain)
   CLEANUP_REWARD: 10, // 10 points per verified cleanup (adjust as needed)
 } as const
 

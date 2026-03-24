@@ -1,7 +1,7 @@
 // frontend/src/lib/blockchain/points.ts
 // -------------------------------------------------------------
 // Frontend Simulated Points Storage (LocalStorage based)
-// Used only when on-chain reward distributor contract is missing.
+// Used only when onchain reward distributor contract is missing.
 // -------------------------------------------------------------
 
 export type PointsStorage = Record<string, string> // address -> bigint string (wei style)

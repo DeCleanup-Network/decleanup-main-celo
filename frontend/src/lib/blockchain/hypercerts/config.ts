@@ -21,7 +21,7 @@ export const HYPERCERTS_CONFIG = {
   contract: {
     // Celo Sepolia testnet contract
     address: '0x8610fe3190E21bf090c9F463b162A76478A88F5F' as `0x${string}`,
-    chainId: 44787, // Celo Sepolia
+    chainId: 11142220, // Celo Sepolia (44787 is Optimism Sepolia)
   },
 
   // Network configuration

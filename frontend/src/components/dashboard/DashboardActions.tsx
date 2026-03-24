@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Leaf, Award, Share2, Copy, Users, Loader2 } from 'lucide-react'
 import { generateReferralLink } from '@/lib/utils/sharing'
 import { FeeDisplay } from '@/components/ui/fee-display'
+import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 
 interface DashboardActionsProps {
     address: string
+    /** Current Impact Product level (0-10). At max level, submit cleanup is locked. */
+    userImpactLevel?: number
     cleanupStatus: {
         hasPendingCleanup: boolean
         canClaim: boolean
@@ -18,14 +21,17 @@ interface DashboardActionsProps {
     onClaim: () => Promise<void>
     isClaiming: boolean
     claimFeeInfo?: { fee: bigint; enabled: boolean } | null
+    onNotify?: (params: { variant: 'success' | 'info'; title: string; message: string }) => void
 }
 
 export function DashboardActions({
     address,
+    userImpactLevel = 0,
     cleanupStatus,
     onClaim,
     isClaiming,
     claimFeeInfo,
+    onNotify,
 }: DashboardActionsProps) {
     const [copying, setCopying] = useState(false)
 
@@ -38,7 +44,8 @@ export function DashboardActions({
             setTimeout(() => setCopying(false), 2000)
         } catch (error) {
             console.error('Failed to copy:', error)
-            alert(`Referral link: ${referralLink}`)
+            if (onNotify) onNotify({ variant: 'info', title: 'Referral link', message: referralLink })
+            else alert(`Referral link: ${referralLink}`)
         }
     }
 
@@ -58,6 +65,7 @@ export function DashboardActions({
     // 2. Under verification: has pending cleanup, cannot claim → Both hidden, show status
     // 3. Verified: has pending cleanup, can claim → Claim active, Submit hidden
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
+    const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
     const canClaimLevel = cleanupStatus?.canClaim && !isClaiming
     const isUnderVerification = cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     
@@ -83,7 +91,7 @@ export function DashboardActions({
 
             <div className="space-y-3 flex-1 min-h-0 overflow-y-auto">
                 {/* Submit Cleanup Button - Only show when user can submit */}
-                {canSubmit && (
+                {canSubmit && !submitLockedMaxLevel && (
                     <Link href="/cleanup">
                         <Button
                             className="w-full gap-2 bg-brand-green py-4 sm:py-5 font-bebas text-lg sm:text-xl tracking-wider text-black hover:bg-brand-green/90 transition-all"
@@ -92,6 +100,19 @@ export function DashboardActions({
                             SUBMIT CLEANUP
                         </Button>
                     </Link>
+                )}
+
+                {canSubmit && submitLockedMaxLevel && (
+                    <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-4 space-y-2">
+                        <p className="font-bebas text-lg tracking-wide text-muted-foreground">
+                            SUBMIT CLEANUP LOCKED
+                        </p>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL} (the maximum). New cleanup
+                            submissions are closed for this program phase. Your completed journey is reflected in your
+                            stats, Hypercerts, and public impact portfolio.
+                        </p>
+                    </div>
                 )}
 
                 {/* Claim Level Button - Only show when verified and can claim */}

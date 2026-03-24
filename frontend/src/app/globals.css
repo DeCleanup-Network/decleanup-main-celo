@@ -210,3 +210,13 @@
 ::-webkit-scrollbar-thumb:hover { background: var(--green, #58B12F); }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Mobile: reserve space above browser UI so content isn't cut off */
+.pb-mobile-safe {
+  padding-bottom: 1.5rem;
+}
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-mobile-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}

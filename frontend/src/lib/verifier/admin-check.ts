@@ -1,6 +1,6 @@
 /**
  * Admin Role Verification
- * Checks on-chain if address has DEFAULT_ADMIN_ROLE
+ * Checks onchain if address has DEFAULT_ADMIN_ROLE
  * LAZY: Only executes at runtime, not build time
  */
 
@@ -24,7 +24,7 @@ async function getWagmiConfig() {
 }
 
 /**
- * Check if address has DEFAULT_ADMIN_ROLE on-chain
+ * Check if address has DEFAULT_ADMIN_ROLE onchain
  * CRITICAL: Must be called for every protected route
  */
 export async function isAdminOnChain(address: string | Address): Promise<boolean> {
@@ -85,7 +85,7 @@ export async function isAdminOnChain(address: string | Address): Promise<boolean
 
     return isAdmin
   } catch (error) {
-    console.error('Error checking admin role on-chain:', error)
+    console.error('Error checking admin role onchain:', error)
     return false
   }
 }

@@ -27,7 +27,7 @@ const ERC20_BALANCE_ABI = [
   },
 ] as const
 
-/** Minimum DCU points (on-chain reward stats total) required to be eligible to claim $cDCU. */
+/** Minimum DCU points (onchain reward stats total) required to be eligible to claim $cDCU. */
 export const ELIGIBILITY_THRESHOLD_WEI = 50n * 10n ** 18n
 
 /** 1e18 scale for multiplier (1.1 = 11e17). */
@@ -228,12 +228,12 @@ export function saveIssuedStore(store: Record<string, string>): void {
   }
 }
 
-/** Key for pending (signed but not yet submitted on-chain) amount per recipient. */
+/** Key for pending (signed but not yet submitted onchain) amount per recipient. */
 export function pendingKey(recipient: string): string {
   return `pending_${recipient.toLowerCase()}`
 }
 
-/** Get pending amount for recipient (signed but not yet confirmed on-chain). */
+/** Get pending amount for recipient (signed but not yet confirmed onchain). */
 export function getPendingAmount(store: Record<string, string>, recipient: string): bigint {
   return BigInt(store[pendingKey(recipient)] ?? '0')
 }
@@ -245,7 +245,7 @@ export function setPendingAmount(store: Record<string, string>, recipient: strin
   else store[key] = amountWei.toString()
 }
 
-/** Record that the user successfully submitted the claim on-chain (move pending → issued). */
+/** Record that the user successfully submitted the claim onchain (move pending → issued). */
 export function recordIssued(recipient: string, amountWei: bigint): void {
   const store = loadIssuedStore()
   const issued = BigInt(store[recipient.toLowerCase()] ?? '0')

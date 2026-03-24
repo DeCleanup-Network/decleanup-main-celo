@@ -1,69 +1,31 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider } from 'wagmi'
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
-import { config } from './blockchain/wagmi'
-import { CustomAvatar } from '@/components/wallet/CustomAvatar'
-import { useState } from 'react'
-import '@rainbow-me/rainbowkit/styles.css'
+import { lazy, Suspense } from 'react'
+import { isWeb3AuthEnabled } from './web3auth/config'
+import { Web3AuthProviders } from './web3auth/Web3AuthProviders'
 
-const APP_NAME = 'DeCleanup Rewards'
-const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo.'
-const APP_ICON_URL =
-  process.env.NEXT_PUBLIC_MINIAPP_ICON_URL ||
-  'https://gateway.pinata.cloud/ipfs/bafybeiatsp354gtary234ie6irpa5x56q3maykjynkbe3f2hj6lq7pbvba?filename=icon.png'
+// Load RainbowKit + WalletConnect only when Web3Auth is OFF. This avoids
+// "WalletConnect Core is already initialized" and blank popup when using Web3Auth.
+const RainbowKitProviders = lazy(
+  () => import('./RainbowKitProviders').then((m) => ({ default: m.RainbowKitProviders }))
+)
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000, // 1 minute
-            refetchOnWindowFocus: false,
-            retry: (failureCount, error: any) => {
-              // Don't retry on CORS errors (they won't succeed)
-              if (error?.message?.includes('CORS') || error?.message?.includes('Access-Control-Allow-Origin')) {
-                return false
-              }
-              return failureCount < 2
-            },
-          },
-        },
-      })
-  )
-
-  // Enhanced theme customization
-  // RainbowKit's darkTheme accepts accentColor, accentColorForeground, borderRadius, fontStack, overlayBlur
-  // Additional customization can be done via CSS variables if needed
-  const customTheme = darkTheme({
-    accentColor: '#58B12F', // brand-green
-    accentColorForeground: 'black',
-    borderRadius: 'medium',
-    fontStack: 'system',
-    overlayBlur: 'small',
-  })
-
+function ProvidersFallback() {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={customTheme}
-          modalSize="compact"
-          coolMode
-          avatar={CustomAvatar}
-          appInfo={{
-            appName: APP_NAME,
-            learnMoreUrl: 'https://decleanup.net',
-          }}
-          // Don't automatically switch chains - let NetworkChecker handle it
-          // This prevents double wallet prompts
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-800" />
+    </div>
   )
 }
 
+export function Providers({ children }: { children: React.ReactNode }) {
+  if (isWeb3AuthEnabled) {
+    return <Web3AuthProviders>{children}</Web3AuthProviders>
+  }
+
+  return (
+    <Suspense fallback={<ProvidersFallback />}>
+      <RainbowKitProviders>{children}</RainbowKitProviders>
+    </Suspense>
+  )
+}

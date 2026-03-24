@@ -13,14 +13,14 @@
  * ⚠️ Only represents APPROVED cleanups (already filtered by indexer)
  */
 export interface ImpactEntry {
-  // On-chain data
+  // Onchain data
   submissionId: string
   submitter: string
   timestamp: number
   latitude: number
   longitude: number
   
-  // Impact report data (from IPFS) — NORMALIZED TO BASE UNITS
+  // Impact report data (from IPFS); normalized to base units
   locationType: string
   areaSqm: number // Always sqm (normalized by indexer)
   weightKg: number // Always kg (normalized by indexer)
@@ -89,7 +89,7 @@ export interface ImpactAggregate {
   }
   
   // Metrics (passed from aggregator caller)
-  verificationRate?: number // 0-100 (approved / total_submissions) — optional
+  verificationRate?: number // 0-100 (approved / total_submissions); optional
   averageContributorsPerCleanup: number
   
   // SDG Impact (future expansion)

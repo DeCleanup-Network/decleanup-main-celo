@@ -2,7 +2,7 @@
  * POST /api/cdcu/claim-request
  *
  * Request a signed $cDCU claim for the given recipient.
- * Backend reads on-chain eligibility (DCURewardManager reward stats), computes claimable amount,
+ * Backend reads onchain eligibility (DCURewardManager reward stats), computes claimable amount,
  * signs EIP-712 Claim, and returns signature + params for the user to submit via ClaimVault.claim().
  *
  * Body: { recipient: string } (wallet address)

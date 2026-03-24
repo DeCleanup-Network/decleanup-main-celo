@@ -4,8 +4,8 @@
  */
 
 import { writeContract, waitForTransactionReceipt } from '@wagmi/core'
-import { config } from './wagmi'
-import { CONTRACT_ADDRESSES } from './wagmi'
+import { getConfig } from './get-wagmi-config'
+import { CONTRACT_ADDRESSES } from './chain-constants'
 import type { Address } from 'viem'
 
 const CLAIMVAULT_ABI = [
@@ -48,7 +48,7 @@ export async function claimCdcu(signed: SignedClaimParams): Promise<{ hash: `0x$
     throw new Error('ClaimVault address not configured. Set NEXT_PUBLIC_CLAIMVAULT_ADDRESS.')
   }
 
-  const hash = await writeContract(config, {
+  const hash = await writeContract(getConfig(), {
     address: claimVaultAddress,
     abi: CLAIMVAULT_ABI,
     functionName: 'claim',
@@ -64,6 +64,6 @@ export async function claimCdcu(signed: SignedClaimParams): Promise<{ hash: `0x$
     ],
   })
 
-  const receipt = await waitForTransactionReceipt(config, { hash })
+  const receipt = await waitForTransactionReceipt(getConfig(), { hash })
   return { hash, receipt }
 }

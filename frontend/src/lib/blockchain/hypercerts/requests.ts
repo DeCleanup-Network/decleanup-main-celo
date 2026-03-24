@@ -2,13 +2,30 @@ import { HypercertRequest, HypercertRequestStatus } from './types'
 
 const STORAGE_KEY = 'hypercert_requests'
 
+function migrateRequest(r: HypercertRequest): HypercertRequest {
+  if (r.hypercertId && r.status === 'APPROVED') {
+    return { ...r, status: 'MINTED' as const }
+  }
+  return r
+}
+
+/** True while a request is waiting on verifiers or the user still needs to mint an approved cert. */
+export function hasOpenHypercertWorkflow(requests: HypercertRequest[]): boolean {
+  return requests.some(
+    (req) =>
+      req.status === 'PENDING' ||
+      (req.status === 'APPROVED' && !req.hypercertId)
+  )
+}
+
 // Get all requests from localStorage
 export function getAllHypercertRequests(): HypercertRequest[] {
   if (typeof window === 'undefined') return []
   
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
+    const raw: HypercertRequest[] = stored ? JSON.parse(stored) : []
+    return raw.map(migrateRequest)
   } catch (error) {
     console.error('Error reading Hypercert requests:', error)
     return []
@@ -32,6 +49,13 @@ export function submitHypercertRequest(params: {
   requester: string
   metadata: any
 }): HypercertRequest {
+  const existing = getHypercertRequestsByUser(params.requester)
+  if (hasOpenHypercertWorkflow(existing)) {
+    throw new Error(
+      'Finish your open Hypercert request first: wait for review, mint an approved certificate, or wait for a rejection before submitting a new request.'
+    )
+  }
+
   const request: HypercertRequest = {
     id: `${Date.now()}-${params.requester.slice(0, 8)}`,
     requester: params.requester,
@@ -119,6 +143,7 @@ export function updateRequestWithHypercertId(
   }
   
   request.hypercertId = hypercertId
+  request.status = 'MINTED'
   if (txHash) request.txHash = txHash
   if (metadataCid) request.metadataCid = metadataCid
   

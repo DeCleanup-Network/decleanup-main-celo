@@ -4,7 +4,7 @@ import { Address } from 'viem'
  * Local cRECY Token Tracking (Deprecated)
  *
  * Recyclables are now rewarded with DCU points (same as impact form) via lib/utils/points.ts
- * and on-chain via rewardImpactReports. This module is no longer used in the app; kept for
+ * and onchain via rewardImpactReports. This module is no longer used in the app; kept for
  * reference or optional re-enable of a separate recyclables token.
  *
  * Reward amount was: 5 cRECY per approved recyclables submission.

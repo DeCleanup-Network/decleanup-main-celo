@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Award, ExternalLink, ChevronDown, Copy, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
+import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
 import { useAccount } from 'wagmi'
 import { getHypercertEligibility } from '@/lib/blockchain/contracts'
 import { getLevelName, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
@@ -17,6 +17,7 @@ interface ImpactProductProps {
     impactValue: string | null
     tokenId: bigint | null
     contractAddress: string
+    onNotify?: (params: { variant: 'info'; title: string; message: string }) => void
 }
 
 export function DashboardImpactProduct({
@@ -27,6 +28,7 @@ export function DashboardImpactProduct({
     impactValue,
     tokenId,
     contractAddress,
+    onNotify,
 }: ImpactProductProps) {
     const { address } = useAccount()
     const [showManualImport, setShowManualImport] = useState(false)
@@ -84,7 +86,8 @@ export function DashboardImpactProduct({
             setTimeout(() => setCopying(null), 2000)
         } catch (error) {
             console.error('Failed to copy:', error)
-            alert(`${label}: ${value}`)
+            if (onNotify) onNotify({ variant: 'info', title: label, message: value })
+            else alert(`${label}: ${value}`)
         }
     }
 

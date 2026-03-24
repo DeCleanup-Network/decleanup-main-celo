@@ -1,7 +1,7 @@
 /**
  * POST /api/cdcu/record-issued
  *
- * Called by the frontend after the user successfully submits the claim tx on-chain.
+ * Called by the frontend after the user successfully submits the claim tx onchain.
  * Moves the pending amount to issued so the backend doesn't block the next claim.
  *
  * Body: { recipient: string, amount: string } (amount in wei)

@@ -51,21 +51,6 @@ const celoSepoliaChain = defineChain({
 
 // Include Ethereum mainnet for ENS resolution (RainbowKit can resolve ENS even when on Celo)
 const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoMainnet, mainnet]
-// Default to Celo Sepolia (11142220) for testing
-// Change to celoMainnet.id (42220) after deploying contracts to mainnet
-const requiredChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || celoSepoliaChain.id)
-const requiredChain =
-  configuredChains.find((chain) => chain.id === requiredChainId) ?? celoSepoliaChain
-const requiredChainLabel = requiredChain.testnet ? requiredChain.name : 'Celo Mainnet'
-
-// Resolve block explorer + RPC URL based on the active chain
-const requiredBlockExplorerUrl =
-  requiredChain.id === celoMainnet.id
-    ? 'https://celoscan.io'
-    : 'https://celo-sepolia.blockscout.com'
-
-const requiredRpcUrl =
-  requiredChain.id === celoMainnet.id ? celoMainnetRpcUrl : celoSepoliaRpcUrl
 
 const APP_NAME = 'DeCleanup Rewards'
 const APP_URL = process.env.NEXT_PUBLIC_MINIAPP_URL || 'http://localhost:3000'
@@ -98,36 +83,14 @@ export const config = getDefaultConfig({
   appIcon: APP_ICON_URL,
 })
 
-// Default/Celo chain metadata exports
-export const DEFAULT_CHAIN_ID = requiredChainId
-export const REQUIRED_CHAIN_ID = requiredChainId
-export const REQUIRED_CHAIN_NAME = requiredChainLabel
-export const REQUIRED_BLOCK_EXPLORER_URL = requiredBlockExplorerUrl
-export const REQUIRED_RPC_URL = requiredRpcUrl
-export const REQUIRED_CHAIN_IS_TESTNET = Boolean(requiredChain.testnet)
-
-// Contract addresses (update with actual addresses after deployment)
-// Canonical names: NEXT_PUBLIC_IMPACT_PRODUCT_NFT, NEXT_PUBLIC_SUBMISSION_CONTRACT, NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT
-// Legacy names kept for backwards compatibility
-export const CONTRACT_ADDRESSES = {
-  IMPACT_PRODUCT:
-    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT ||
-    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS ||
-    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT ||
-    '',
-  VERIFICATION:
-    process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT ||
-    '',
-  REWARD_DISTRIBUTOR:
-    process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT ||
-    process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS ||
-    '',
-  DCU_TOKEN:
-    process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT ||
-    '',
-  /** ClaimVault: mint-on-claim $cDCU (Phase 2). */
-  CLAIMVAULT:
-    process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS ||
-    '',
-} as const
+// Re-export chain constants (defined in chain-constants.ts to avoid loading RainbowKit in Web3Auth path)
+export {
+  DEFAULT_CHAIN_ID,
+  REQUIRED_CHAIN_ID,
+  REQUIRED_CHAIN_NAME,
+  REQUIRED_BLOCK_EXPLORER_URL,
+  REQUIRED_RPC_URL,
+  REQUIRED_CHAIN_IS_TESTNET,
+  CONTRACT_ADDRESSES,
+} from './chain-constants'
 

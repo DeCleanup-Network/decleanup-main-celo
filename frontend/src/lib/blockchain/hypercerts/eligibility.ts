@@ -1,5 +1,5 @@
 import { HYPERCERTS_CONFIG } from './config'
-import { isTestingMode } from './testing'
+import { isTestingMode, useRelaxedHypercertThresholds } from './testing'
 import { HypercertEligibilityResult } from './types'
 
 export function checkHypercertEligibility(params: {
@@ -14,11 +14,13 @@ export function checkHypercertEligibility(params: {
     reportsCount: params.reportsCount
   })
   
-  const testing = isTestingMode(params.chainId)
-  
+  const relaxed = useRelaxedHypercertThresholds() && isTestingMode(params.chainId)
+  /** Production-style gates unless NEXT_PUBLIC_HYPERCERT_RELAXED_ELIGIBILITY=true */
+  const testing = relaxed
+
   console.log('🔍 [Testing Mode]', {
-    testing,
-    willUse: testing ? 'TESTNET thresholds' : 'MAINNET thresholds'
+    relaxedHypercertThresholds: relaxed,
+    willUse: testing ? 'TESTNET (relaxed) thresholds' : 'PRODUCTION thresholds',
   })
 
   const thresholds = testing
@@ -35,7 +37,7 @@ export function checkHypercertEligibility(params: {
     eligible,
     cleanupsCount: params.cleanupsCount,
     reportsCount: params.reportsCount,
-    testingOverride: testing ? true : undefined,
+    testingOverride: relaxed ? true : undefined,
     reason: eligible
       ? undefined
       : `Requires ${thresholds.minCleanups} cleanups and ${thresholds.minReports} impact report(s)`,

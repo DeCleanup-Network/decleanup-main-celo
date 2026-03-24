@@ -147,14 +147,14 @@ export function VerifierApplyCard() {
   }
 
   return (
-    <div className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-6">
+    <div className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6 min-w-0">
       <div className="flex items-center gap-2 mb-4">
-        <CheckCircle className="w-5 h-5 text-brand-green" />
-        <h3 className="font-semibold text-foreground">Ready to Be a Verifier?</h3>
+        <CheckCircle className="w-5 h-5 text-brand-green shrink-0" />
+        <h3 className="font-semibold text-foreground break-words">Ready to Be a Verifier?</h3>
       </div>
 
-      <div className="space-y-3 mb-4">
-        <div className="text-sm text-foreground">
+      <div className="space-y-3 mb-4 min-w-0">
+        <div className="text-sm text-foreground break-words">
           <p className="font-medium mb-2">You meet all requirements:</p>
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>✓ Level: {eligibility?.metrics.level}</li>
@@ -179,9 +179,9 @@ export function VerifierApplyCard() {
         )}
       </Button>
 
-      {applyError && <p className="text-sm text-red-400 mt-3">{applyError}</p>}
+      {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
 
-      <p className="text-xs text-muted-foreground mt-3">
+      <p className="text-xs text-muted-foreground mt-3 break-words">
         Application will be reviewed by admins
       </p>
     </div>

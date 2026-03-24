@@ -11,7 +11,9 @@ Copy this to **`.env.local`** in the **`frontend/`** directory and fill in your 
 NEXT_PUBLIC_CHAIN_ID=11142220
 NEXT_PUBLIC_RPC_URL=https://forno.celo.org
 NEXT_PUBLIC_TESTNET_RPC_URL=https://alfajores-forno.celo-testnet.org
+# If you see 403 from forno, use an alternative (e.g. dRPC):
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://forno.celo-sepolia.celo-testnet.org
+# NEXT_PUBLIC_SEPOLIA_RPC_URL=https://celo-sepolia.drpc.org
 NEXT_PUBLIC_BLOCK_EXPLORER_URL=https://alfajores.celoscan.io
 NEXT_PUBLIC_BLOCK_EXPLORER_NAME=CeloScan
 
@@ -47,6 +49,24 @@ NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 
 # ============================================
+# OPTIONAL: Web3Auth Embedded Wallets (social / email login)
+# ============================================
+# When set, the app uses "Login with Email or Google" (wallet created in background) instead of RainbowKit.
+# Get your Client ID from https://dashboard.web3auth.io/
+# NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=
+# Optional: use SAPPHIRE_MAINNET in production (default is SAPPHIRE_DEVNET for dev)
+# In production, set to use Sapphire Mainnet (removes "sapphire_devnet" warning):
+# NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet
+# Note: "Sapphire" is Web3Auth's backend network; your app chain is already Celo Sepolia (chains in code).
+
+# ============================================
+# OPTIONAL: Pimlico (gasless / Account Abstraction on Celo Sepolia)
+# ============================================
+# For paymaster-sponsored txs, get an API key from https://docs.pimlico.io/guides/create-api-key
+# Celo Sepolia slug: celo-sepolia (chainId 11142220). Used by frontend/src/lib/blockchain/smart-account.ts
+# NEXT_PUBLIC_PIMLICO_API_KEY=
+
+# ============================================
 # OPTIONAL: Hypercerts (API key not required for basic minting)
 # ============================================
 # Note: The Hypercerts SDK works without an API key for minting.
@@ -54,6 +74,8 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 # Leave empty if you only need basic minting functionality.
 NEXT_PUBLIC_HYPERCERTS_API_KEY=
 NEXT_PUBLIC_HYPERCERTS_NETWORK=celo-sepolia
+# Relaxed mint gates: 1 verified cleanup + 1 impact report. Default OFF uses production gates (10 cleanups + 1 report).
+# NEXT_PUBLIC_HYPERCERT_RELAXED_ELIGIBILITY=true
 
 # ============================================
 # OPTIONAL: Impact Product Metadata
@@ -91,4 +113,5 @@ NEXT_PUBLIC_BIGDATACLOUD_API_KEY=
    - For basic minting: **Leave empty** - it will work fine
    - If you need advanced features: Check https://hypercerts.org/docs/developer/api or contact Hypercerts team
 4. **BigDataCloud**: https://www.bigdatacloud.com/ (for leaderboard geocoding)
+5. **Web3Auth** (optional): https://dashboard.web3auth.io/ — create an app and copy the Client ID to `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID` for email/Google login. See `docs/WEB3AUTH_SETUP.md`.
 

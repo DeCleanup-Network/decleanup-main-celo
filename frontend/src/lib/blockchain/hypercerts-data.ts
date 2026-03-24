@@ -1,4 +1,4 @@
-// Placeholder for MVP – Hypercert data disabled.
+// Placeholder for MVP; Hypercert data disabled.
 // Remove when real Hypercert integration returns.
 
 export function getHypercertData(_level: number) {

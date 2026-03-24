@@ -103,7 +103,7 @@ export interface HypercertMetadataInput {
   }
 }
 
-export type HypercertRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export type HypercertRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'MINTED'
 
 export interface HypercertRequest {
   id: string

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useSignMessage, useChainId, useSwitchChain } from 'wagmi'
+import { useAccount, useSignMessage, useSwitchChain } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/layout/BackButton'
@@ -26,6 +26,8 @@ import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertR
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
+import { AlertModal } from '@/components/ui/alert-modal'
+import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -59,7 +61,7 @@ const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 
 export default function VerifierPage() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
+  const chainId = useResolvedChainId()
   const { switchChain } = useSwitchChain()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -84,6 +86,7 @@ export default function VerifierPage() {
   const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
   const [verifierContext, setVerifierContext] = useState<any>(null)
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+  const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string } | null>(null)
 
   const { signMessageAsync, isPending: isSigning } = useSignMessage()
 
@@ -522,20 +525,22 @@ export default function VerifierPage() {
             setPollingStatus(null)
             await loadCleanups()
               setSelectedCleanup(null)
-              alert(
-                `✅ Cleanup ${cleanupId.toString()} is now verified!\n\n` +
-                `View on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`
-              )
+              setActionModal({
+                variant: 'success',
+                title: 'Cleanup verified',
+                message: `Cleanup ${cleanupId.toString()} is now verified!\n\nView on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`,
+              })
           } else if (pollCount >= maxPolls) {
               console.log('Max polls reached after confirmation, stopping check')
             clearInterval(pollInterval)
             setPollingStatus(null)
               await loadCleanups()
               setSelectedCleanup(null)
-              alert(
-                `⚠️ Transaction confirmed but verification status not updated yet.\n\n` +
-                `This may be a temporary RPC issue. Check ${BLOCK_EXPLORER_NAME}:\n${explorerUrl}`
-              )
+              setActionModal({
+                variant: 'warning',
+                title: 'Status pending',
+                message: `Transaction confirmed but verification status not updated yet.\n\nThis may be a temporary RPC issue. Check ${BLOCK_EXPLORER_NAME}:\n${explorerUrl}`,
+              })
           }
         } catch (checkError: any) {
           const errorMsg = checkError?.message || String(checkError)
@@ -565,18 +570,17 @@ export default function VerifierPage() {
         
         const errorMsg = receiptError?.message || String(receiptError)
         if (errorMsg.includes('timeout')) {
-          alert(
-            `⏱️ Transaction submitted but confirmation is taking longer than expected.\n\n` +
-            `Transaction Hash: ${hash}\n\n` +
-            `Please check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}\n\n` +
-            `The cleanup will be verified once the transaction confirms.`
-          )
+          setActionModal({
+            variant: 'info',
+            title: 'Transaction pending',
+            message: `Transaction submitted but confirmation is taking longer than expected.\n\nTransaction Hash: ${hash}\n\nPlease check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}\n\nThe cleanup will be verified once the transaction confirms.`,
+          })
         } else {
-          alert(
-            `⚠️ Transaction submitted but could not confirm receipt.\n\n` +
-            `Transaction Hash: ${hash}\n\n` +
-            `Please check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}`
-          )
+          setActionModal({
+            variant: 'warning',
+            title: 'Confirmation pending',
+            message: `Transaction submitted but could not confirm receipt.\n\nTransaction Hash: ${hash}\n\nPlease check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}`,
+          })
         }
       }
     } catch (error) {
@@ -586,10 +590,9 @@ export default function VerifierPage() {
       
       // Show alert for critical errors (chain mismatches, etc.)
       if (errorMessage.includes('CRITICAL') || errorMessage.includes('Chain') || errorMessage.includes('network')) {
-        alert(`❌ ${errorMessage}`)
+        setActionModal({ variant: 'error', title: 'Error', message: errorMessage })
       } else {
-        // For other errors, show a more user-friendly message
-        alert(`Failed to verify cleanup:\n\n${errorMessage}\n\nPlease check your wallet connection and network settings.`)
+        setActionModal({ variant: 'error', title: 'Verify failed', message: `Failed to verify cleanup:\n\n${errorMessage}\n\nPlease check your wallet connection and network settings.` })
       }
     } finally {
       setVerifying(false)
@@ -613,16 +616,16 @@ export default function VerifierPage() {
       
       // Show success with transaction hash
       const explorerUrl = getExplorerTxUrl(hash)
-      alert(
-        `✅ Rejection transaction submitted!\n\n` +
-        `Transaction Hash: ${hash}\n\n` +
-        `The cleanup will be marked as rejected once the transaction confirms.\n\n` +
-        `View on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`
-      )
+      setActionModal({
+        variant: 'success',
+        title: 'Rejection submitted',
+        message: `Rejection transaction submitted!\n\nTransaction Hash: ${hash}\n\nThe cleanup will be marked as rejected once the transaction confirms.\n\nView on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`,
+      })
     } catch (error) {
       console.error('Error rejecting cleanup:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setError(`Failed to reject: ${errorMessage}`)
+      setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject cleanup:\n\n${errorMessage}` })
     } finally {
       setRejecting(false)
     }
@@ -645,22 +648,22 @@ export default function VerifierPage() {
         throw new Error('Failed to approve request')
       }
       
-      // TODO: In Phase 6, this will call the actual on-chain mint function
+      // TODO: In Phase 6, this will call the actual onchain mint function
       // For now, just update the UI
       console.log('✅ Hypercert request approved:', approvedRequest.id)
       
-      alert(
-        `✅ Hypercert request approved!\n\n` +
-        `Request ID: ${requestId}\n\n` +
-        `Note: On-chain minting will be implemented in Phase 6.`
-      )
+      setActionModal({
+        variant: 'success',
+        title: 'Hypercert approved',
+        message: `Hypercert request approved!\n\nRequest ID: ${requestId}\n\nNote: Onchain minting will be implemented in Phase 6.`,
+      })
       
       // Refresh the requests list
       loadHypercertRequests()
     } catch (error) {
       console.error('Error approving Hypercert request:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      alert(`Failed to approve Hypercert request:\n\n${errorMessage}`)
+      setActionModal({ variant: 'error', title: 'Approve failed', message: `Failed to approve Hypercert request:\n\n${errorMessage}` })
     } finally {
       setProcessingRequestId(null)
     }
@@ -688,18 +691,18 @@ export default function VerifierPage() {
       
       console.log('❌ Hypercert request rejected:', rejectedRequest.id)
       
-      alert(
-        `Hypercert request rejected.\n\n` +
-        `Request ID: ${requestId}\n` +
-        (reason ? `Reason: ${reason}` : '')
-      )
+      setActionModal({
+        variant: 'success',
+        title: 'Hypercert rejected',
+        message: `Hypercert request rejected.\n\nRequest ID: ${requestId}\n${reason ? `Reason: ${reason}` : ''}`,
+      })
       
       // Refresh the requests list
       loadHypercertRequests()
     } catch (error) {
       console.error('Error rejecting Hypercert request:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      alert(`Failed to reject Hypercert request:\n\n${errorMessage}`)
+      setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject Hypercert request:\n\n${errorMessage}` })
     } finally {
       setProcessingRequestId(null)
     }
@@ -1944,6 +1947,16 @@ export default function VerifierPage() {
           )}
         </div>
       </div>
+
+      {actionModal && (
+        <AlertModal
+          isOpen
+          onClose={() => setActionModal(null)}
+          title={actionModal.title}
+          message={actionModal.message}
+          variant={actionModal.variant}
+        />
+      )}
     </div>
   )
 }

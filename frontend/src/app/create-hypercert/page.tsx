@@ -7,12 +7,14 @@ import { uploadToIPFS } from '@/lib/blockchain/ipfs'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contracts'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 
 type MintStatus = 'idle' | 'uploading' | 'generating' | 'minting' | 'success' | 'error'
 
 export default function CreateHypercertPage() {
   const router = useRouter()
   const { address, isConnected } = useAccount()
+  const { submissionOwnerAddress } = useSmartAccountClient()
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [status, setStatus] = useState<MintStatus>('idle')
@@ -33,7 +35,8 @@ export default function CreateHypercertPage() {
       if (!address) return
 
       try {
-        const submissions = await getUserSubmissions(address)
+        const owner = submissionOwnerAddress ?? address
+        const submissions = await getUserSubmissions(owner)
         let verifiedCleanupsCount = 0
         let impactReportsCount = 0
         
@@ -60,7 +63,7 @@ export default function CreateHypercertPage() {
     }
 
     checkEligibility()
-  }, [address])
+  }, [address, submissionOwnerAddress])
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -105,10 +108,10 @@ export default function CreateHypercertPage() {
       setStatus('generating')
       setStatusMessage('Generating Hypercert metadata from verified cleanups...')
       
-      // mintHypercert now generates full metadata automatically from on-chain data
+      // mintHypercert now generates full metadata automatically from onchain data
       // Images will be added in future enhancement
       setStatus('minting')
-      setStatusMessage('Minting Hypercert on-chain...')
+      setStatusMessage('Minting Hypercert onchain...')
       setStatusMessage('Please confirm the transaction in your wallet...')
 
       const result = await mintHypercert(walletAddress)

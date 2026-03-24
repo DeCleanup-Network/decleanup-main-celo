@@ -1,21 +1,26 @@
 'use client'
 
-import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useEffect, useState } from 'react'
-import { useAccount, useChainId } from 'wagmi'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/wagmi'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { isWeb3AuthEnabled } from '@/lib/web3auth/config'
+import { EmbeddedWalletConnect } from './EmbeddedWalletConnect'
 
+const RainbowKitConnectButton = lazy(
+  () =>
+    import('./RainbowKitConnectButton').then((m) => ({ default: m.RainbowKitConnectButton }))
+)
+
+/**
+ * Unified wallet connect: when Web3Auth is configured, renders EmbeddedWalletConnect
+ * (email/Google login). Otherwise lazy-loads RainbowKit ConnectButton so we never
+ * load RainbowKit/WalletConnect when Web3Auth is active (avoids init conflicts).
+ */
 export function WalletConnect() {
   const [mounted, setMounted] = useState(false)
-  const { isConnected } = useAccount()
-  const chainId = useChainId()
 
-  // Fix hydration error by only showing wallet state after mount
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Show consistent initial state on server and client
   if (!mounted) {
     return (
       <div className="flex items-center gap-2">
@@ -24,22 +29,19 @@ export function WalletConnect() {
     )
   }
 
+  if (isWeb3AuthEnabled) {
+    return <EmbeddedWalletConnect />
+  }
+
   return (
-    <ConnectButton
-      accountStatus={{
-        smallScreen: 'avatar',
-        largeScreen: 'full',
-      }}
-      chainStatus={{
-        smallScreen: 'icon',
-        largeScreen: 'full',
-      }}
-      showBalance={{
-        smallScreen: false,
-        largeScreen: true,
-      }}
-      // Don't automatically switch chains on connect - let NetworkChecker handle it
-      // This prevents double wallet prompts (one for connect, one for switch)
-    />
+    <Suspense
+      fallback={
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-800" />
+        </div>
+      }
+    >
+      <RainbowKitConnectButton />
+    </Suspense>
   )
 }

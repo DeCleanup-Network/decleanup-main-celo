@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
-import { useAccount, useChainId, useSwitchChain } from 'wagmi'
+import { useAccount, useSwitchChain } from 'wagmi'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { BackButton } from '@/components/layout/BackButton'
-import { Camera, Upload, ArrowRight, ArrowLeft, Check, Loader2, ExternalLink, X, Clock, AlertCircle, Users, CheckCircle } from 'lucide-react'
+import { Camera, Upload, ArrowRight, ArrowLeft, Check, Loader2, ExternalLink, X, Clock, AlertCircle, Users, CheckCircle, Award } from 'lucide-react'
 import { uploadToIPFS, uploadJSONToIPFS } from '@/lib/blockchain/ipfs'
-import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission } from '@/lib/blockchain/contracts'
+import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission, getUserLevel, type GaslessClient } from '@/lib/blockchain/contracts'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
 import { clearPendingCleanupData, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
 import { resolveEnsToAddress } from '@/lib/utils/ens'
@@ -17,6 +19,8 @@ import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import type { Address } from 'viem'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
+import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import {
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
@@ -51,8 +55,14 @@ const describeChain = (id?: number) => {
 
 function CleanupContent() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
+  const chainId = useResolvedChainId()
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  const {
+    client: gaslessClient,
+    submissionOwnerAddress,
+    error: gaslessError,
+    isLoading: isGaslessLoading,
+  } = useSmartAccountClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [mounted, setMounted] = useState(false)
@@ -85,6 +95,8 @@ function CleanupContent() {
   const [resolvingContributorIndex, setResolvingContributorIndex] = useState<number | null>(null)
   const [alertModal, setAlertModal] = useState<{ title?: string; message: string; variant?: AlertModalVariant } | null>(null)
   const [confirmModal, setConfirmModal] = useState<{ title?: string; message: string; onConfirm: () => void; confirmLabel?: string } | null>(null)
+  const [impactProductLevel, setImpactProductLevel] = useState<number | null>(null)
+  const [checkingImpactLevel, setCheckingImpactLevel] = useState(false)
 
   // Fix hydration error by only rendering after mount
   useEffect(() => {
@@ -93,6 +105,29 @@ function CleanupContent() {
       setHostName(window.location.hostname)
     }
   }, [])
+
+  useEffect(() => {
+    if (!mounted || !address) {
+      setImpactProductLevel(null)
+      return
+    }
+    let cancelled = false
+    const owner = submissionOwnerAddress ?? address
+    setCheckingImpactLevel(true)
+    void getUserLevel(owner as Address)
+      .then((lvl) => {
+        if (!cancelled) setImpactProductLevel(lvl)
+      })
+      .catch(() => {
+        if (!cancelled) setImpactProductLevel(0)
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingImpactLevel(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mounted, address, submissionOwnerAddress])
 
   // Read referrer from URL params and persist it
   // IMPORTANT: Only allow referral if user hasn't submitted yet (one-time chance)
@@ -105,7 +140,8 @@ function CleanupContent() {
       try {
         // First, check if user has already submitted - if yes, they can't be referred again
         const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
-        const submissions = await getUserSubmissions(address)
+        const owner = submissionOwnerAddress ?? address
+        const submissions = await getUserSubmissions(owner)
         const hasSubmitted = submissions.length > 0
 
         if (hasSubmitted) {
@@ -172,7 +208,7 @@ function CleanupContent() {
     }
 
     loadReferrer()
-  }, [mounted, searchParams, address])
+  }, [mounted, searchParams, address, submissionOwnerAddress])
 
   // Impact Report form data
   const [enhancedData, setEnhancedData] = useState({
@@ -285,30 +321,60 @@ function CleanupContent() {
           return
         }
 
+        const ownerOnChain = (submissionOwnerAddress ?? address).toLowerCase()
+        const identityVariants = [...new Set([ownerOnChain, address.toLowerCase()])]
+
+        const clearAllPendingKeys = () => {
+          for (const low of identityVariants) {
+            localStorage.removeItem(`pending_cleanup_id_${low}`)
+            localStorage.removeItem(`pending_cleanup_location_${low}`)
+          }
+        }
+
         if (typeof window !== 'undefined') {
-          // Check for pending cleanup ID scoped to this user's address
-          const pendingKey = `pending_cleanup_id_${address.toLowerCase()}`
-          const pendingCleanupId = localStorage.getItem(pendingKey)
+          // Prefer smart-account key first (gasless), then EOA (legacy)
+          let pendingCleanupId: string | null = null
+          let pendingKeyUsed: string | null = null
+          for (const low of identityVariants) {
+            const pendingKey = `pending_cleanup_id_${low}`
+            const id = localStorage.getItem(pendingKey)
+            if (id) {
+              pendingCleanupId = id
+              pendingKeyUsed = pendingKey
+              break
+            }
+          }
 
           if (pendingCleanupId) {
             try {
               const status = await getCleanupDetails(BigInt(pendingCleanupId))
               console.log('Cleanup status found:', status)
 
-              // Verify this cleanup belongs to the current user
-              if (status.user.toLowerCase() !== address.toLowerCase()) {
+              // Onchain `user` is the submitter (Safe when using paymaster, EOA otherwise)
+              if (status.user.toLowerCase() !== ownerOnChain) {
                 console.log('Cleanup belongs to different user, clearing localStorage')
-                localStorage.removeItem(pendingKey)
-                localStorage.removeItem(`pending_cleanup_location_${address.toLowerCase()}`)
+                clearAllPendingKeys()
                 setPendingCleanup(null)
                 return
+              }
+
+              // Migrate legacy EOA-scoped key to canonical submission-owner key
+              if (pendingKeyUsed && pendingKeyUsed !== `pending_cleanup_id_${ownerOnChain}`) {
+                localStorage.setItem(`pending_cleanup_id_${ownerOnChain}`, pendingCleanupId)
+                localStorage.removeItem(pendingKeyUsed)
+                const legacyLoc = `pending_cleanup_location_${pendingKeyUsed.replace('pending_cleanup_id_', '')}`
+                const canonicalLoc = `pending_cleanup_location_${ownerOnChain}`
+                const loc = localStorage.getItem(legacyLoc)
+                if (loc) {
+                  localStorage.setItem(canonicalLoc, loc)
+                  localStorage.removeItem(legacyLoc)
+                }
               }
 
               // Check if cleanup is rejected - if so, clear localStorage and allow new submission
               if (status.rejected) {
                 console.log('Cleanup is rejected, clearing localStorage to allow new submission')
-                localStorage.removeItem(pendingKey)
-                localStorage.removeItem(`pending_cleanup_location_${address.toLowerCase()}`)
+                clearAllPendingKeys()
                 setPendingCleanup(null)
                 return
               }
@@ -333,8 +399,7 @@ function CleanupContent() {
               } else if (status.claimed || status.rejected) {
                 // Already claimed or rejected - clear localStorage
                 console.log('Cleanup is claimed or rejected, clearing localStorage')
-                localStorage.removeItem(pendingKey)
-                localStorage.removeItem(`pending_cleanup_location_${address.toLowerCase()}`)
+                clearAllPendingKeys()
                 setPendingCleanup(null)
               }
             } catch (error: any) {
@@ -342,8 +407,7 @@ function CleanupContent() {
               const errorMessage = error?.message || String(error)
               // Always clear localStorage on error - cleanup doesn't exist or RPC issue
               console.log('Clearing localStorage - cleanup not found or error:', errorMessage)
-              localStorage.removeItem(pendingKey)
-              localStorage.removeItem(`pending_cleanup_location_${address.toLowerCase()}`)
+              clearAllPendingKeys()
               setPendingCleanup(null)
             }
           } else {
@@ -369,7 +433,7 @@ function CleanupContent() {
     // Poll for status updates every 10 seconds
     const interval = setInterval(checkPendingCleanup, 10000)
     return () => clearInterval(interval)
-  }, [isConnected, address])
+  }, [isConnected, address, submissionOwnerAddress])
 
   // Detect if we're on mobile
   const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
@@ -825,6 +889,12 @@ function CleanupContent() {
       console.log('Submitting to contract...')
       console.log('Contract address:', CONTRACT_ADDRESSES.VERIFICATION)
       console.log('Current chain ID:', chainId)
+      console.log('Gasless status:', {
+        paymasterConfigured: isPaymasterConfigured(),
+        hasGaslessClient: !!gaslessClient,
+        isGaslessLoading,
+        gaslessError: gaslessError?.message || null,
+      })
       console.log('Submission data:', {
         beforeHash: beforeHash.hash,
         afterHash: afterHash.hash,
@@ -835,6 +905,17 @@ function CleanupContent() {
       })
 
       try {
+        // If paymaster is configured but smart account init failed, stop here and show the actual cause
+        // instead of falling back to EOA (which causes "insufficient funds" for zero-balance embedded wallets).
+        if (isPaymasterConfigured() && !gaslessClient) {
+          const detail =
+            gaslessError?.message ||
+            (isGaslessLoading
+              ? 'Smart account is still initializing. Please wait a few seconds and retry.'
+              : 'Smart account client is unavailable.')
+          throw new Error(`Gasless submit unavailable: ${detail}`)
+        }
+
         // Pass chainId from hook to avoid false chain detection issues
         const cleanupId = await submitCleanup(
           beforeHash.hash,
@@ -844,7 +925,8 @@ function CleanupContent() {
           referrerAddress,
           hasForm,
           impactFormDataHash || '',
-          feeValue
+          feeValue,
+          gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
         )
         
 
@@ -858,7 +940,7 @@ function CleanupContent() {
         // Only attach if we have a recyclables photo hash (IPFS upload succeeded)
         if (hasRecyclables && recyclablesPhotoHash && address) {
           try {
-            console.log('📝 Attaching recyclables to submission on-chain...')
+            console.log('📝 Attaching recyclables to submission onchain...')
             console.log('Submission ID:', cleanupId.toString())
             console.log('Recyclables photo hash:', recyclablesPhotoHash)
             console.log('Recyclables receipt hash:', recyclablesReceiptHash || '(none)')
@@ -867,7 +949,8 @@ function CleanupContent() {
             const recyclablesTxHash = await attachRecyclablesToSubmission(
               cleanupId,
               recyclablesPhotoHash,
-              recyclablesReceiptHash || ''
+              recyclablesReceiptHash || '',
+              gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
             )
             
             console.log('✅ Recyclables attached successfully! Transaction hash:', recyclablesTxHash)
@@ -894,10 +977,11 @@ function CleanupContent() {
 
         setCleanupId(cleanupId)
         
-        // Store cleanup ID in localStorage for verification checking (scoped to user address)
+        // Store cleanup ID in localStorage for verification checking (scoped to onchain submitter: Safe or EOA)
         if (typeof window !== 'undefined' && address) {
-          const pendingKey = `pending_cleanup_id_${address.toLowerCase()}`
-          const locationKey = `pending_cleanup_location_${address.toLowerCase()}`
+          const storageOwner = (submissionOwnerAddress ?? address).toLowerCase()
+          const pendingKey = `pending_cleanup_id_${storageOwner}`
+          const locationKey = `pending_cleanup_location_${storageOwner}`
           localStorage.setItem(pendingKey, cleanupId.toString())
           localStorage.setItem(locationKey, JSON.stringify(location))
 
@@ -987,7 +1071,7 @@ function CleanupContent() {
               `   • Currency Symbol: CELO\n` +
               `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
               `5. Once on ${REQUIRED_CHAIN_NAME}, try submitting again.\n\n` +
-              `Do NOT submit transactions on Celo Sepolia – they will fail.`,
+              `Do NOT submit transactions on Celo Sepolia; they will fail.`,
             variant: 'error',
           })
           setIsSubmitting(false)
@@ -1120,14 +1204,27 @@ function CleanupContent() {
   const isWrongNetwork = chainId !== REQUIRED_CHAIN_ID
   // IMPORTANT: Check for null/undefined explicitly, not truthiness, because cleanup ID 0 is valid!
   const hasPendingCleanup = pendingCleanup !== null && pendingCleanup !== undefined
-  const isSubmissionDisabled = (hasPendingCleanup && !pendingCleanup.verified) || isWrongNetwork || isSwitchingChain
-  
+  const canClaimPendingLevel =
+    hasPendingCleanup && !!pendingCleanup?.verified && !pendingCleanup?.claimed
+  const isSubmissionDisabled =
+    (hasPendingCleanup && !pendingCleanup.verified) ||
+    canClaimPendingLevel ||
+    isWrongNetwork ||
+    isSwitchingChain
+
+  const claimLevelButtonClasses =
+    'w-full gap-2 bg-brand-yellow py-4 font-bebas text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
+  const uploadDisabledHint = canClaimPendingLevel
+    ? 'Verified: claim your level below'
+    : 'Submission on cooldown'
+
   // Debug logging
   if (hasPendingCleanup) {
     console.log('[Cleanup] Submission disabled check:', {
       hasPendingCleanup,
       pendingCleanupId: pendingCleanup.id.toString(),
       verified: pendingCleanup.verified,
+      canClaimPendingLevel,
       isSubmissionDisabled,
     })
   }
@@ -1195,6 +1292,47 @@ function CleanupContent() {
     )
   }
 
+  if (checkingImpactLevel || impactProductLevel === null) {
+    return (
+      <div className="min-h-screen bg-background px-4 py-8 pb-20">
+        <div className="mx-auto max-w-md">
+          <BackButton href="/" label="Go Back" />
+          <div className="mt-8 flex items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (impactProductLevel >= MAX_IMPACT_PRODUCT_LEVEL) {
+    return (
+      <div className="min-h-screen bg-background px-4 py-8 pb-20">
+        <div className="mx-auto max-w-md space-y-6">
+          <BackButton href="/" label="Go Back" />
+          <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-6 space-y-3">
+            <h2 className="text-xl font-bebas tracking-wide text-foreground">SUBMISSION CLOSED</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL} (the maximum). New cleanup submissions
+              aren&apos;t available for this program phase. Your impact remains visible on your dashboard and in your{' '}
+              <Link
+                href={`/impact/${address as string}${
+                  submissionOwnerAddress && submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
+                    ? `?sa=${submissionOwnerAddress}`
+                    : ''
+                }`}
+                className="text-brand-green underline"
+              >
+                public impact portfolio
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Cooldown/Wrong Network banner component
   const CooldownBanner = () => {
     if (checkingPending) return null
@@ -1229,6 +1367,37 @@ function CleanupContent() {
               >
                 {isSwitchingChain ? 'Switching...' : `Switch to ${REQUIRED_CHAIN_NAME}`}
               </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Verified, ready to claim; mirror dashboard primary action
+    if (pendingCleanup && pendingCleanup.verified && !pendingCleanup.claimed) {
+      return (
+        <div className="mb-6 rounded-lg border border-brand-yellow/30 bg-brand-yellow/10 p-4">
+          <div className="flex items-start gap-3">
+            <Award className="h-5 w-5 flex-shrink-0 text-brand-yellow mt-0.5" />
+            <div className="flex-1 space-y-3">
+              <h3 className="text-sm font-semibold text-brand-yellow">Ready to claim</h3>
+              <p className="text-sm text-gray-200">
+                Your cleanup #{pendingCleanup.id.toString()} is verified. Claim your Impact Product level on the home
+                dashboard to receive your rewards.
+              </p>
+              <Button asChild className={claimLevelButtonClasses}>
+                <Link href="/" className="inline-flex items-center justify-center">
+                  <Award className="h-5 w-5" />
+                  CLAIM LEVEL
+                </Link>
+              </Button>
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-1 text-xs text-brand-yellow/90 hover:text-brand-yellow underline"
+              >
+                Or open profile
+                <ExternalLink className="h-3 w-3" />
+              </Link>
             </div>
           </div>
         </div>
@@ -1440,7 +1609,7 @@ function CleanupContent() {
                 >
                   <Upload className={`mb-2 h-10 w-10 ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
                   <p className={`text-sm ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {isSubmissionDisabled ? 'Submission on cooldown' : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
+                    {isSubmissionDisabled ? uploadDisabledHint : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
                   </p>
                   {isMobile && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
@@ -1489,7 +1658,7 @@ function CleanupContent() {
                 >
                   <Upload className={`mb-2 h-10 w-10 ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
                   <p className={`text-sm ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {isSubmissionDisabled ? 'Submission on cooldown' : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
+                    {isSubmissionDisabled ? uploadDisabledHint : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
                   </p>
                   {isMobile && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
@@ -1585,23 +1754,32 @@ function CleanupContent() {
             </div>
           </div>
 
-          <Button
-            onClick={handlePhotosNext}
-            disabled={!beforePhoto || !afterPhoto || !location || isSubmitting || isGettingLocation || isSubmissionDisabled}
-            className="w-full gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
+          {canClaimPendingLevel ? (
+            <Button asChild className={claimLevelButtonClasses}>
+              <Link href="/" className="inline-flex items-center justify-center">
+                <Award className="h-5 w-5" />
+                CLAIM LEVEL
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              onClick={handlePhotosNext}
+              disabled={!beforePhoto || !afterPhoto || !location || isSubmitting || isGettingLocation || isSubmissionDisabled}
+              className="w-full gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Next
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
         {modalLayer}
@@ -1621,6 +1799,7 @@ function CleanupContent() {
           </div>
 
           <ReferralNotification />
+          <CooldownBanner />
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
@@ -1925,7 +2104,10 @@ function CleanupContent() {
                   Add Contributor
                 </button>
                 {enhancedData.contributors.length > 0 && (
-                  <p className="text-xs text-gray-500">Contributors are listed for attribution purposes only</p>
+                  <p className="text-xs text-gray-500">
+                    Contributors are listed for attribution only (no DCU). Use a wallet address or resolve ENS (e.g.{' '}
+                    vitalik.eth). Mentioned wallets get cleanup credit in public stats when verified.
+                  </p>
                 )}
               </div>
             </div>
@@ -2055,41 +2237,50 @@ function CleanupContent() {
             />
           )}
 
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              onClick={handleSkipEnhanced}
-              disabled={isSubmitting}
-              className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
-            >
-              Skip
+          {canClaimPendingLevel ? (
+            <Button asChild className={claimLevelButtonClasses}>
+              <Link href="/" className="inline-flex items-center justify-center">
+                <Award className="h-5 w-5" />
+                CLAIM LEVEL
+              </Link>
             </Button>
-            <Button
-              onClick={() => {
-                console.log('[Submit Button Clicked]', {
-                  isSubmitting,
-                  validation,
-                  disabled: isSubmitting || (validation.hasStartedFilling && !validation.isValid),
-                  formData: enhancedData
-                })
-                handleEnhancedNext()
-              }}
-              disabled={isSubmitting || (validation.hasStartedFilling && !validation.isValid)}
-              className="flex-1 gap-2 bg-brand-yellow text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  {validation.hasStartedFilling ? 'Submit' : 'Continue'}
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={handleSkipEnhanced}
+                disabled={isSubmitting}
+                className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={() => {
+                  console.log('[Submit Button Clicked]', {
+                    isSubmitting,
+                    validation,
+                    disabled: isSubmitting || (validation.hasStartedFilling && !validation.isValid),
+                    formData: enhancedData
+                  })
+                  handleEnhancedNext()
+                }}
+                disabled={isSubmitting || (validation.hasStartedFilling && !validation.isValid)}
+                className="flex-1 gap-2 bg-brand-yellow text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    {validation.hasStartedFilling ? 'Submit' : 'Continue'}
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
         {modalLayer}
@@ -2115,6 +2306,7 @@ function CleanupContent() {
           </div>
 
           <ReferralNotification />
+          <CooldownBanner />
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
@@ -2146,7 +2338,7 @@ function CleanupContent() {
                   />
                   <button
                     onClick={() => setRecyclablesPhoto(null)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSubmissionDisabled}
                     className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50"
                   >
                     <X className="h-4 w-4" />
@@ -2155,7 +2347,7 @@ function CleanupContent() {
               ) : (
                 <button
                   onClick={() => handlePhotoSelect('recyclables')}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSubmissionDisabled}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 hover:border-gray-600"
                 >
                   <Upload className="mb-2 h-10 w-10 text-gray-500" />
@@ -2183,7 +2375,7 @@ function CleanupContent() {
                   />
                   <button
                     onClick={() => setRecyclablesReceipt(null)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSubmissionDisabled}
                     className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50"
                   >
                     <X className="h-4 w-4" />
@@ -2192,7 +2384,7 @@ function CleanupContent() {
               ) : (
                 <button
                   onClick={() => handlePhotoSelect('recyclablesReceipt')}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSubmissionDisabled}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 hover:border-gray-600"
                 >
                   <Upload className="mb-2 h-10 w-10 text-gray-500" />
@@ -2216,33 +2408,42 @@ function CleanupContent() {
             />
           )}
 
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              onClick={handleSkipRecyclables}
-              disabled={isSubmitting}
-              className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
-            >
-              Skip
+          {canClaimPendingLevel ? (
+            <Button asChild className={claimLevelButtonClasses}>
+              <Link href="/" className="inline-flex items-center justify-center">
+                <Award className="h-5 w-5" />
+                CLAIM LEVEL
+              </Link>
             </Button>
-            <Button
-              onClick={handleSubmitRecyclables}
-              disabled={isSubmitting || !recyclablesPhoto}
-              className="flex-1 gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  Submit
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={handleSkipRecyclables}
+                disabled={isSubmitting}
+                className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={handleSubmitRecyclables}
+                disabled={isSubmitting || !recyclablesPhoto}
+                className="flex-1 gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    Submit
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
         {modalLayer}

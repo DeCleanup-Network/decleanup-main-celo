@@ -6,6 +6,7 @@ import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { NetworkChecker } from "@/components/network/NetworkChecker";
 import { Header } from "@/components/layout/Header";
+import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas-neue",
@@ -109,11 +110,13 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
       >
-        <Providers>
-          <NetworkChecker />
-          <Header />
-          <main className="flex-1">{children}</main>
-        </Providers>
+        <RootErrorBoundary>
+          <Providers>
+            <NetworkChecker />
+            <Header />
+            <main className="flex-1 pb-mobile-safe">{children}</main>
+          </Providers>
+        </RootErrorBoundary>
       </body>
     </html>
   );

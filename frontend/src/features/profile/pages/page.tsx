@@ -21,14 +21,27 @@ import {
   Copy,
 } from 'lucide-react'
 import Link from 'next/link'
-import { getDCUBalance, getStakedDCU, getUserLevel, getUserTokenId, getTokenURI, getTokenURIForLevel, getStreakCount, hasActiveStreak, claimImpactProductFromVerification,} from '@/lib/blockchain/contracts'
+import {
+  getDCUBalance,
+  getStakedDCU,
+  getUserLevel,
+  getUserTokenId,
+  getTokenURI,
+  getTokenURIForLevel,
+  getStreakCount,
+  hasActiveStreak,
+  claimImpactProductFromVerification,
+  type GaslessClient,
+} from '@/lib/blockchain/contracts'
 import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/wagmi'
 import { useChainId } from 'wagmi'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { DashboardPersonalStats } from '@/components/dashboard/DashboardPersonalStats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { getUserCleanupStatus, markCleanupAsClaimed } from '@/lib/blockchain/verification'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
+import { AlertModal } from '@/components/ui/alert-modal'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
   ? 'CeloScan (Sepolia)'
   : 'CeloScan'
@@ -67,6 +80,7 @@ function extractImpactStats(metadata: ImpactMetadata | null) {
 
 export default function ProfilePage() {
   const { address, isConnected } = useAccount()
+  const { submissionOwnerAddress, client: gaslessClient } = useSmartAccountClient()
   const chainId = useChainId()
   const [hasMounted, setHasMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -95,6 +109,8 @@ export default function ProfilePage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [copyingField, setCopyingField] = useState<string | null>(null)
+  const [claimModal, setClaimModal] = useState<{ variant: 'success' | 'error'; message: string } | null>(null)
+  const [notifyModal, setNotifyModal] = useState<{ variant: 'success' | 'info'; title: string; message: string } | null>(null)
 
   // Prevent hydration mismatch by ensuring we render only after mounting
   useEffect(() => {
@@ -301,11 +317,12 @@ export default function ProfilePage() {
       return
     }
 
-    loadProfileData(address, { showSpinner: true })
+    const owner = (submissionOwnerAddress ?? address) as Address
+    loadProfileData(owner, { showSpinner: true })
 
     const handleVisibilityChange = () => {
       if (!document.hidden && isConnected && address) {
-        loadProfileData(address, { showSpinner: false })
+        loadProfileData((submissionOwnerAddress ?? address) as Address, { showSpinner: false })
       }
     }
 
@@ -313,7 +330,7 @@ export default function ProfilePage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [address, isConnected, loadProfileData])
+  }, [address, isConnected, loadProfileData, submissionOwnerAddress])
 
   // Check for pending cleanup status (single source of truth = verification.ts)
 useEffect(() => {
@@ -326,7 +343,8 @@ useEffect(() => {
 
   async function refresh() {
     try {
-      const status = await getUserCleanupStatus(address as Address)
+      const owner = (submissionOwnerAddress ?? address) as Address
+      const status = await getUserCleanupStatus(owner)
 
       if (cancelled) return
 
@@ -366,7 +384,7 @@ useEffect(() => {
     cancelled = true
     clearInterval(interval)
   }
-}, [address, isConnected])
+}, [address, isConnected, submissionOwnerAddress])
 
 
   if (!hasMounted) {
@@ -423,10 +441,10 @@ useEffect(() => {
     try {
       setCopyingField(label)
       await navigator.clipboard.writeText(value)
-      alert(`${label} copied to clipboard.`)
+      setNotifyModal({ variant: 'success', title: 'Copied', message: `${label} copied to clipboard.` })
     } catch (error) {
       console.error(`Failed to copy ${label}:`, error)
-      alert(`${label}: ${value}`)
+      setNotifyModal({ variant: 'info', title: label, message: value })
     } finally {
       setCopyingField(null)
     }
@@ -456,7 +474,7 @@ useEffect(() => {
               if (isRefreshing || !address) return
               setIsRefreshing(true)
               try {
-                await loadProfileData(address, { showSpinner: false })
+                await loadProfileData((submissionOwnerAddress ?? address) as Address, { showSpinner: false })
               } catch (error) {
                 console.error('Error refreshing profile:', error)
               } finally {
@@ -495,6 +513,7 @@ useEffect(() => {
             impactValue={profileData.impactValue}
             tokenId={profileData.tokenId}
             contractAddress={CONTRACT_ADDRESSES.IMPACT_PRODUCT}
+            onNotify={(p) => setNotifyModal({ variant: p.variant || 'info', title: p.title, message: p.message })}
           />
 
           {/* Right Column: Actions */}
@@ -519,30 +538,38 @@ useEffect(() => {
               try {
                 setIsClaiming(true)
             
-                await claimImpactProductFromVerification(cleanupStatus.cleanupId)
+                await claimImpactProductFromVerification(
+                  cleanupStatus.cleanupId,
+                  gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
+                )
 
                 // Mark as claimed in localStorage
                 if (address && cleanupStatus.cleanupId) {
-                  markCleanupAsClaimed(address as Address, cleanupStatus.cleanupId)
+                  const claimOwner = (submissionOwnerAddress ?? address) as Address
+                  markCleanupAsClaimed(claimOwner, cleanupStatus.cleanupId)
+                  for (const low of new Set([claimOwner.toLowerCase(), address.toLowerCase()])) {
+                    localStorage.removeItem(`pending_cleanup_id_${low}`)
+                    localStorage.removeItem(`pending_cleanup_location_${low}`)
+                  }
                 }
 
-                alert(
-                  `✅ Claim submitted!\n\n` +
-                  `Your claim transaction was sent.\n\n` +
-                  `Please wait for confirmation and refresh the page in a moment.`
-                )
+                setClaimModal({
+                  variant: 'success',
+                  message: 'Claim submitted!\n\nYour claim transaction was sent.\n\nPlease wait for confirmation and refresh the page in a moment.',
+                })
             
                 // Refresh local status + profile data + cleanup status
                 if (address) {
+                  const refreshOwner = (submissionOwnerAddress ?? address) as Address
                   // Wait longer for state to update after claim (RPC propagation + NFT operations)
                   await new Promise(resolve => setTimeout(resolve, 5000))
                   
                   console.log('[Profile] Refreshing profile data after claim...')
-                  await loadProfileData(address as Address, { showSpinner: false })
+                  await loadProfileData(refreshOwner, { showSpinner: false })
                   console.log('[Profile] Profile data refreshed')
                   
                   // Refresh cleanup status to hide claim button
-                  const newStatus = await getUserCleanupStatus(address as Address)
+                  const newStatus = await getUserCleanupStatus(refreshOwner)
                   console.log('[Profile] New cleanup status:', newStatus)
                   setCleanupStatus(newStatus ? {
                     cleanupId: newStatus.cleanupId ?? null,
@@ -555,16 +582,36 @@ useEffect(() => {
               } catch (error: any) {
                 console.error('Error claiming:', error)
                 const errorMessage = error?.message || String(error)
-                alert(`Failed to claim: ${errorMessage}`)
+                setClaimModal({ variant: 'error', message: `Failed to claim: ${errorMessage}` })
               } finally {
                 setIsClaiming(false)
               }
             }}
             
             isClaiming={isClaiming}
+            onNotify={(p) => setNotifyModal({ variant: p.variant || 'info', title: p.title, message: p.message })}
           />
         </div>
       </div>
+
+      {claimModal && (
+        <AlertModal
+          isOpen
+          onClose={() => setClaimModal(null)}
+          title={claimModal.variant === 'success' ? 'Claim submitted' : 'Claim failed'}
+          message={claimModal.message}
+          variant={claimModal.variant}
+        />
+      )}
+      {notifyModal && (
+        <AlertModal
+          isOpen
+          onClose={() => setNotifyModal(null)}
+          title={notifyModal.title}
+          message={notifyModal.message}
+          variant={notifyModal.variant}
+        />
+      )}
     </div>
   )
 }

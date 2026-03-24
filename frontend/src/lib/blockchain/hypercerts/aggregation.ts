@@ -1,5 +1,11 @@
 import { CleanupReference } from './types'
 
+/** Chain stores Unix seconds; JS Date and hypercert display expect ms. */
+function verifiedAtToMs(t: number): number {
+  if (!Number.isFinite(t) || t <= 0) return t
+  return t < 1e12 ? t * 1000 : t
+}
+
 export function aggregateUserCleanups(
   cleanups: CleanupReference[]
 ) {
@@ -7,7 +13,7 @@ export function aggregateUserCleanups(
     throw new Error('No cleanups to aggregate')
   }
 
-  const timestamps = cleanups.map(c => c.verifiedAt)
+  const timestamps = cleanups.map((c) => verifiedAtToMs(c.verifiedAt))
 
   return {
     totalCleanups: cleanups.length,

@@ -1,21 +1,29 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAccount, useChainId } from 'wagmi'
+import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
+import { useResolvedChainId } from '@/hooks/useResolvedChainId'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contracts'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { buildHypercertMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 import { uploadToIPFS } from '@/lib/blockchain/ipfs'
-import { submitHypercertRequest, getHypercertRequestsByUser, updateRequestWithHypercertId } from '@/lib/blockchain/hypercerts/requests'
+import {
+  submitHypercertRequest,
+  getHypercertRequestsByUser,
+  updateRequestWithHypercertId,
+  hasOpenHypercertWorkflow,
+} from '@/lib/blockchain/hypercerts/requests'
 
 export default function HypercertsTestPage() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
+  const chainId = useResolvedChainId()
+  const { submissionOwnerAddress } = useSmartAccountClient()
 
   useEffect(() => {
     console.log('🔍 [ChainId Raw]', {
@@ -44,7 +52,8 @@ export default function HypercertsTestPage() {
     async function loadData() {
       setLoading(true)
       try {
-        const submissions = await getUserSubmissions(address as `0x${string}`)
+        const owner = (submissionOwnerAddress ?? address) as `0x${string}`
+        const submissions = await getUserSubmissions(owner)
         const verifiedCleanups = []
         let impactReportsCount = 0
 
@@ -117,7 +126,7 @@ export default function HypercertsTestPage() {
     }
 
     loadData()
-  }, [address, isConnected, brandingCids, brandingTitle, brandingDescription])
+  }, [address, isConnected, brandingCids, brandingTitle, brandingDescription, submissionOwnerAddress, chainId])
 
   useEffect(() => {
     if (!address) return
@@ -201,7 +210,7 @@ export default function HypercertsTestPage() {
         `Transaction: ${result.txHash}\n` +
         `Hypercert ID: ${result.hypercertId}\n` +
         `Metadata CID: ${result.metadataCid}\n\n` +
-        `Your Hypercert is now on-chain!`
+        `Your Hypercert is now onchain!`
       )
     } catch (error) {
       console.error('Error minting Hypercert:', error)
@@ -223,7 +232,7 @@ export default function HypercertsTestPage() {
           <div className="max-w-3xl w-full text-center space-y-8 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-mono uppercase tracking-widest text-brand-green">
               <span className="h-2 w-2 rounded-full bg-brand-green animate-pulse" />
-              On-chain Certification
+              Onchain Certification
             </div>
             <h1 className="font-bebas text-6xl md:text-8xl tracking-tight leading-none uppercase">
               Hypercert <span className="text-brand-yellow italic">Minting</span>
@@ -265,6 +274,8 @@ export default function HypercertsTestPage() {
     )
   }
 
+  const workflowBlocked = address ? hasOpenHypercertWorkflow(userRequests) : false
+
   return (
     <div className="min-h-screen bg-black text-white selection:bg-brand-yellow selection:text-black pb-20">
       <main className="container mx-auto px-4 py-8 lg:py-12 space-y-12">
@@ -297,7 +308,7 @@ export default function HypercertsTestPage() {
             { step: '01', title: 'Aggregate', desc: 'Verified data collected', color: 'text-brand-green', active: true },
             { step: '02', title: 'Configure', desc: 'Add optional branding', color: 'text-brand-green', active: true },
             { step: '03', title: 'Request', desc: 'Submit for review', color: 'text-brand-yellow', active: true },
-            { step: '04', title: 'Mint', desc: 'On-chain certificate', color: 'text-white/40', active: false },
+            { step: '04', title: 'Mint', desc: 'Onchain certificate', color: 'text-white/40', active: false },
           ].map((s, i) => (
             <div key={i} className={`p-6 rounded-2xl border border-white/5 bg-white/[0.02] flex flex-col gap-2 relative overflow-hidden group hover:bg-white/[0.04] transition-all ${s.active ? 'border-l-2 border-l-brand-green' : ''}`}>
               <div className={`${s.color} font-mono text-[10px] tracking-widest`}>-- {s.step} --</div>
@@ -342,6 +353,15 @@ export default function HypercertsTestPage() {
                           <span className="text-xs text-red-400/80 font-sans">{eligibility.reason}</span>
                         </div>
                       )}
+
+                      {eligibility.eligible && workflowBlocked && (
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/25 rounded-xl space-y-2">
+                          <p className="text-xs text-yellow-200/90 font-sans">
+                            You have an open Hypercert workflow: a request pending review, or an approved certificate
+                            waiting to be minted. Complete or resolve it before submitting another request.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-white/40 text-sm">Failed to retrieve eligibility data.</p>
@@ -351,7 +371,7 @@ export default function HypercertsTestPage() {
                 <div className="w-full md:w-auto self-stretch md:self-auto flex flex-col justify-between items-end gap-6">
                   <button
                     onClick={handleSubmitRequest}
-                    disabled={!eligibility?.eligible || loading}
+                    disabled={!eligibility?.eligible || loading || workflowBlocked}
                     className="w-full md:w-64 py-4 rounded-full font-bebas text-xl uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed
                             bg-brand-yellow text-black hover:bg-white border-2 border-brand-yellow hover:border-white shadow-[0_0_30px_rgba(250,255,0,0.15)] active:scale-95 flex items-center justify-center gap-2"
                   >
@@ -395,6 +415,7 @@ export default function HypercertsTestPage() {
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           request.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500' :
                           request.status === 'APPROVED' ? 'bg-brand-green/20 text-brand-green' :
+                          request.status === 'MINTED' ? 'bg-cyan-500/20 text-cyan-300' :
                           'bg-red-500/20 text-red-500'
                         }`}>
                           {request.status}
@@ -442,7 +463,7 @@ export default function HypercertsTestPage() {
               <div className="space-y-3">
                 <button
                   onClick={handleSubmitRequest}
-                  disabled={!eligibility?.eligible}
+                  disabled={!eligibility?.eligible || workflowBlocked}
                   className="w-full gap-2 bg-brand-yellow py-3 sm:py-4 font-bebas text-sm sm:text-base tracking-wider text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-all flex items-center justify-center"
                 >
                   SUBMIT HYPERCERT FOR REVIEW
@@ -542,6 +563,19 @@ export default function HypercertsTestPage() {
               <div className="space-y-1">
                 <div className="font-bebas text-2xl uppercase tracking-widest">Cumulative Impact</div>
                 <p className="text-[10px] uppercase tracking-widest font-mono opacity-60">Calculated verified contributions</p>
+                {address && (
+                  <Link
+                    href={`/impact/${address}${
+                      submissionOwnerAddress &&
+                      submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
+                        ? `?sa=${submissionOwnerAddress}`
+                        : ''
+                    }`}
+                    className="inline-block mt-2 text-[11px] font-sans font-semibold underline underline-offset-2 hover:opacity-80"
+                  >
+                    Open public impact portfolio →
+                  </Link>
+                )}
               </div>
 
               {aggregatedData ? (
@@ -560,7 +594,7 @@ export default function HypercertsTestPage() {
                   <div className="pt-6 border-t border-black/10 space-y-2">
                     <div className="text-[10px] uppercase tracking-widest font-bold opacity-40">Timeframe</div>
                     <div className="font-mono text-xs font-bold">
-                      {new Date(aggregatedData.timeframeStart).toLocaleDateString()} — {new Date(aggregatedData.timeframeEnd).toLocaleDateString()}
+                      {new Date(aggregatedData.timeframeStart).toLocaleDateString()} - {new Date(aggregatedData.timeframeEnd).toLocaleDateString()}
                     </div>
                   </div>
                 </div>

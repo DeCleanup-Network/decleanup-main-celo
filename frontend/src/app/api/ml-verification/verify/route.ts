@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if storage fails
     }
     
-    // Return result with hash for on-chain storage
+    // Return result with hash for onchain storage
     return NextResponse.json({
       submissionId,
       score: verificationResult.score,

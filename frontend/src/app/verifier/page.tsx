@@ -20,6 +20,7 @@ import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertR
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
+import { AlertModal } from '@/components/ui/alert-modal'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -60,6 +61,7 @@ export default function VerifierPage() {
     const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
     const [verifierContext, setVerifierContext] = useState<any>(null)
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+    const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error'; title: string; message: string } | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -212,7 +214,7 @@ export default function VerifierPage() {
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
             const message = `Cleanup verified successfully!\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nView on block explorer: ${txUrl}`
-            alert(message)
+            setActionModal({ variant: 'success', title: 'Cleanup verified', message })
             
             // Refresh cleanups after a short delay to allow blockchain state to update
             setTimeout(() => {
@@ -228,9 +230,9 @@ export default function VerifierPage() {
             if (txHashMatch) {
                 const txHash = txHashMatch[0]
                 const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-                alert(`Failed to verify cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}`)
+                setActionModal({ variant: 'error', title: 'Verify failed', message: `Failed to verify cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}` })
             } else {
-                alert(`Failed to verify cleanup: ${errorMessage}`)
+                setActionModal({ variant: 'error', title: 'Verify failed', message: `Failed to verify cleanup: ${errorMessage}` })
             }
         } finally {
             setProcessingId(null)
@@ -247,7 +249,7 @@ export default function VerifierPage() {
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
             const message = `Cleanup rejected successfully!\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nView on block explorer: ${txUrl}`
-            alert(message)
+            setActionModal({ variant: 'success', title: 'Cleanup rejected', message })
             
             // Refresh cleanups after a short delay to allow blockchain state to update
             setTimeout(() => {
@@ -263,9 +265,9 @@ export default function VerifierPage() {
             if (txHashMatch) {
                 const txHash = txHashMatch[0]
                 const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-                alert(`Failed to reject cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}`)
+                setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}` })
             } else {
-                alert(`Failed to reject cleanup: ${errorMessage}`)
+                setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject cleanup: ${errorMessage}` })
             }
         } finally {
             setProcessingId(null)
@@ -290,15 +292,15 @@ export default function VerifierPage() {
                 throw new Error('Failed to approve request')
             }
             
-            // TODO: In Phase 6, this will call the actual on-chain mint function
+            // TODO: In Phase 6, this will call the actual onchain mint function
             // For now, just update the UI
             console.log('✅ Hypercert request approved:', approvedRequest.id)
             
-            alert(
-                `✅ Hypercert request approved!\n\n` +
-                `Request ID: ${requestId}\n\n` +
-                `Note: On-chain minting will be implemented in Phase 6.`
-            )
+            setActionModal({
+                variant: 'success',
+                title: 'Hypercert approved',
+                message: `Hypercert request approved!\n\nRequest ID: ${requestId}\n\nNote: Onchain minting will be implemented in Phase 6.`,
+            })
             
             // Refresh the data
             fetchCleanups()
@@ -306,7 +308,7 @@ export default function VerifierPage() {
             console.error('Error approving Hypercert request:', error)
             const errorMessage = error?.message || 'Unknown error'
             setError(`Failed to approve Hypercert request: ${errorMessage}`)
-            alert(`Failed to approve Hypercert request:\n\n${errorMessage}`)
+            setActionModal({ variant: 'error', title: 'Approve failed', message: `Failed to approve Hypercert request:\n\n${errorMessage}` })
         } finally {
             setProcessingRequestId(null)
         }
@@ -335,11 +337,11 @@ export default function VerifierPage() {
             
             console.log('❌ Hypercert request rejected:', rejectedRequest.id)
             
-            alert(
-                `Hypercert request rejected.\n\n` +
-                `Request ID: ${requestId}\n` +
-                (reason ? `Reason: ${reason}` : '')
-            )
+            setActionModal({
+                variant: 'success',
+                title: 'Hypercert rejected',
+                message: `Hypercert request rejected.\n\nRequest ID: ${requestId}\n${reason ? `Reason: ${reason}` : ''}`,
+            })
             
             // Refresh the data
             fetchCleanups()
@@ -347,7 +349,7 @@ export default function VerifierPage() {
             console.error('Error rejecting Hypercert request:', error)
             const errorMessage = error?.message || 'Unknown error'
             setError(`Failed to reject Hypercert request: ${errorMessage}`)
-            alert(`Failed to reject Hypercert request:\n\n${errorMessage}`)
+            setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject Hypercert request:\n\n${errorMessage}` })
         } finally {
             setProcessingRequestId(null)
         }
@@ -823,6 +825,16 @@ export default function VerifierPage() {
                     )}
                 </div>
             </div>
+
+            {actionModal && (
+                <AlertModal
+                    isOpen
+                    onClose={() => setActionModal(null)}
+                    title={actionModal.title}
+                    message={actionModal.message}
+                    variant={actionModal.variant}
+                />
+            )}
         </div>
     )
 }

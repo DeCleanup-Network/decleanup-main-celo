@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
-// Hypercerts Minting – Real minting via Hypercerts SDK
+// Hypercerts minting: real minting via Hypercerts SDK
 // ---------------------------------------------------------------------------
 
 import { HypercertClient, TransferRestrictions } from '@hypercerts-org/sdk'
 import { getAccount, getWalletClient } from 'wagmi/actions'
-import { config } from './wagmi'
+import { getConfig } from './get-wagmi-config'
 import { getUserSubmissions, getCleanupDetails } from './contracts'
 import { aggregateUserCleanups } from './hypercerts/aggregation'
 import { buildHypercertMetadata } from './hypercerts/metadata'
@@ -15,7 +15,7 @@ import { HYPERCERTS_CONFIG } from './hypercerts/config'
  * Initialize Hypercerts SDK client
  */
 async function getHypercertClient() {
-  const walletClient = await getWalletClient(config)
+  const walletClient = await getWalletClient(getConfig())
   
   if (!walletClient) {
     throw new Error('No wallet client available')
@@ -30,7 +30,7 @@ async function getHypercertClient() {
 }
 
 /**
- * Mint Hypercert on-chain via Hypercerts SDK
+ * Mint Hypercert onchain via Hypercerts SDK
  * @param userAddress User's wallet address
  * @param metadataUri IPFS URI of the metadata (ipfs://CID or https://gateway/ipfs/CID)
  * @returns Transaction result with Hypercert ID
@@ -40,7 +40,7 @@ export async function mintHypercertOnChain(
   metadataUri: string
 ): Promise<{ txHash: string; hypercertId: string }> {
   try {
-    console.log('🪙 Minting Hypercert on-chain...')
+    console.log('🪙 Minting Hypercert onchain...')
     console.log('  User:', userAddress)
     console.log('  Metadata URI:', metadataUri)
 
@@ -165,8 +165,8 @@ export async function mintHypercert(
 
     console.log('✅ Metadata uploaded:', metadataCid)
 
-    // 2. Mint Hypercert on-chain with metadata URI
-    console.log('🪙 Minting Hypercert on-chain...')
+    // 2. Mint Hypercert onchain with metadata URI
+    console.log('🪙 Minting Hypercert onchain...')
     const mintResult = await mintHypercertOnChain(userAddress, ipfsResult.url)
 
     console.log('🎉 Hypercert minting complete!')

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Coins, CheckCircle, Lock } from 'lucide-react'
-import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
+import { CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { formatEther } from 'viem'
 
@@ -28,7 +28,7 @@ interface DashboardClaimCdcuProps {
 }
 
 /**
- * $cDCU claim: eligibility at 50 DCU points; claimable = (points - 50) × 0.1 × progressive multiplier (1.1x–2x).
+ * $cDCU claim: eligibility at 50 DCU points; claimable = (points - 50) × 0.1 × progressive multiplier (1.1x-2x).
  * Shows progress to 50, claimable amount, and Claim button when eligible.
  */
 export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
@@ -117,7 +117,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
   const progress = Math.min(100, (pointsNum / ELIGIBILITY_THRESHOLD) * 100)
 
   return (
-    <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
+    <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 min-w-0">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-sans font-semibold text-muted-foreground tracking-wide">Claim $cDCU</span>
         <Coins className="h-4 w-4 text-brand-green" />
@@ -130,11 +130,11 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
         </div>
       ) : eligibility ? (
         <>
-          {/* Progress to 50 DCU points */}
+          {/* Progress to 50 DCU points; stack on small screens to avoid "need298 50" */}
           <div className="mb-3">
-            <div className="flex justify-between text-xs mb-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 sm:gap-2 text-xs mb-1">
               <span className="text-muted-foreground">DCU points (need {ELIGIBILITY_THRESHOLD} to unlock)</span>
-              <span className={eligibility.eligible ? 'text-brand-green font-medium' : 'text-muted-foreground'}>
+              <span className={`shrink-0 ${eligibility.eligible ? 'text-brand-green font-medium' : 'text-muted-foreground'}`}>
                 {pointsNum.toFixed(0)} / {ELIGIBILITY_THRESHOLD}
               </span>
             </div>

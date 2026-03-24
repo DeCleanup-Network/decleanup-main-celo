@@ -28,7 +28,6 @@ import { ImpactEntry, ImpactIndexCache } from './types'
 // CONSTANTS
 // ============================================================================
 
-const SUBMISSION_STATUS_APPROVED = 2
 const CACHE_TTL_MINUTES = 60
 const IPFS_PARALLEL_LIMIT = 5
 const IPFS_TIMEOUT_MS = 5000
@@ -47,10 +46,18 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
   const now = Date.now()
   
   if (cachedIndex && cachedIndex.expiresAt > now) {
-    console.log(
-      `📦 Returning cached impact index (${cachedIndex.entries.length} entries)`
+    const staleSubmitter = cachedIndex.entries.some(
+      (e) => !e.submitter || String(e.submitter).trim() === ''
     )
-    return cachedIndex.entries
+    if (staleSubmitter) {
+      console.warn('⚠️ Invalidating impact cache (entries missing submitter; use submission.user)')
+      cachedIndex = null
+    } else {
+      console.log(
+        `📦 Returning cached impact index (${cachedIndex.entries.length} entries)`
+      )
+      return cachedIndex.entries
+    }
   }
   
   console.log('🔄 Rebuilding impact index from contract + IPFS...')
@@ -71,7 +78,10 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
       .map((result) => result)
       .filter((result) => result.status === 'fulfilled')
       .map((result) => (result as PromiseFulfilledResult<any>).value)
-      .filter((submission) => submission.status === SUBMISSION_STATUS_APPROVED)
+      .filter(
+        (submission) =>
+          submission.verified === true && submission.rejected !== true
+      )
     
     console.log(`✅ Filtered to ${approvedSubmissions.length} approved submissions`)
     
@@ -214,9 +224,10 @@ function normalizeEntry(submission: any): ImpactEntry {
     ? [...new Set(impactData.contributors as string[])]
     : []
   
+  const submitterAddr = submission.user ?? submission.submitter
   const entry: ImpactEntry = {
     submissionId: submission.id.toString(),
-    submitter: submission.submitter,
+    submitter: submitterAddr ? String(submitterAddr) : '0x0000000000000000000000000000000000000000',
     timestamp: Number(submission.timestamp),
     latitude: Number(submission.latitude),
     longitude: Number(submission.longitude),

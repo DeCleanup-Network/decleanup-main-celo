@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const { applicationId: appId, decision, reviewedBy, notes } = validation.data
     applicationId = appId
 
-    // STEP 2: 🔴 CRITICAL - Verify admin role on-chain
+    // STEP 2: 🔴 CRITICAL - Verify admin role onchain
     const isAdmin = await isAdminOnChain(reviewedBy)
     if (!isAdmin) {
       console.warn(`⛔ Non-admin tried to review application: ${reviewedBy}`)

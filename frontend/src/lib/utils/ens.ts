@@ -2,7 +2,7 @@
 
 import { createPublicClient, http, isAddress } from 'viem'
 import { mainnet } from 'viem/chains'
-import { getEnsAddress } from 'viem/actions'
+import { getEnsAddress, getEnsName } from 'viem/actions'
 import { normalize } from 'viem/ens'
 
 const ethPublicClient = createPublicClient({
@@ -25,6 +25,17 @@ export async function resolveEnsToAddress(ensOrAddress: string): Promise<string 
     const name = normalize(trimmed)
     const resolved = await getEnsAddress(ethPublicClient, { name })
     return resolved ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Primary ENS name for an address (Ethereum mainnet), if set.
+ */
+export async function resolveAddressToEnsName(address: `0x${string}`): Promise<string | null> {
+  try {
+    return (await getEnsName(ethPublicClient, { address })) ?? null
   } catch {
     return null
   }

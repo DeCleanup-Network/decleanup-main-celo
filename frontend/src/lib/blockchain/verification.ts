@@ -307,7 +307,7 @@ export async function getLatestCleanupStatus(
       canClaim,
     })
 
-    // Recyclables are rewarded on-chain as part of impact report (5 DCU total per submission for impact and/or recyclables)
+    // Recyclables are rewarded onchain as part of impact report (5 DCU total per submission for impact and/or recyclables)
 
     // Unlock flow if terminal
     // If cleanup is claimed, clear pending cleanup and ensure it's marked
