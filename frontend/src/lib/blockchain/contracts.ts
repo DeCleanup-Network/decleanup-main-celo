@@ -610,6 +610,21 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
   }
 }
 
+/** Count of approved (non-rejected) submissions — must match NFT userLevel after all levels are claimed. */
+async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
+  const submissionIds = await getUserSubmissions(user)
+  let n = 0
+  for (const sid of submissionIds) {
+    try {
+      const details = await getCleanupDetails(sid)
+      if (details.verified && !details.rejected) n++
+    } catch {
+      /* ignore */
+    }
+  }
+  return n
+}
+
 /**
  * Latest verified submission that can still be claimed on-chain.
  * Submissions listed in localStorage `claimed_cleanup_ids_*` are skipped entirely so users
@@ -617,6 +632,19 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
  */
 export async function findLatestClaimableCleanup(user: Address): Promise<bigint | null> {
   try {
+    try {
+      const verifiedCnt = await countVerifiedCleanupsForUser(user)
+      const nftLvl = await getUserLevel(user)
+      if (verifiedCnt > 0 && nftLvl >= verifiedCnt) {
+        console.log(
+          `[findLatestClaimableCleanup] NFT level ${nftLvl} >= verified cleanups ${verifiedCnt} — no pending level claim`
+        )
+        return null
+      }
+    } catch (e) {
+      console.warn('[findLatestClaimableCleanup] NFT vs verified count check failed:', e)
+    }
+
     const submissionIds = await getUserSubmissions(user)
 
     if (submissionIds.length === 0) {

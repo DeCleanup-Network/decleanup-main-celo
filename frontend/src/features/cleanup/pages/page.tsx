@@ -13,6 +13,7 @@ import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission, getUser
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
+import { isImpactClaimOutstanding, markCleanupAsClaimed } from '@/lib/blockchain/verification'
 import { clearPendingCleanupData, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
 import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
@@ -382,6 +383,16 @@ function CleanupContent() {
               // Set pending cleanup state based on status
               // If verified but not claimed, keep it in state so user can see claim button
               if (status.verified && !status.claimed) {
+                // On-chain: NFT userLevel must stay behind verified cleanup count until each level is minted.
+                // If localStorage is stale, still clear so user can submit a new cleanup.
+                const outstanding = await isImpactClaimOutstanding(status.user as Address)
+                if (!outstanding) {
+                  console.log('[Cleanup] Impact level already caught up on-chain; clearing stale pending claim')
+                  markCleanupAsClaimed(status.user as Address, BigInt(pendingCleanupId))
+                  clearAllPendingKeys()
+                  setPendingCleanup(null)
+                  return
+                }
                 // Verified but not claimed - keep in localStorage and state for claim button
                 setPendingCleanup({
                   id: BigInt(pendingCleanupId),

@@ -64,6 +64,19 @@ The Client ID is tied to **one** Sapphire network in the [Web3Auth dashboard](ht
 
 Do **not** set `mainnet` in env until the dashboard project is actually on Mainnet.
 
+### "Could not validate redirect" / "please whitelist your domain" (often after choosing Google on mobile)
+
+Web3Auth compares the app’s origin to **Whitelist URL** (also called **Allowed origins** / **Redirect** in the dashboard). If production isn’t listed, login fails **after** you pick a Google account.
+
+1. **Web3Auth Dashboard** → [dashboard.web3auth.io](https://dashboard.web3auth.io/) → select the **same project** as your `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID` → **Whitelist URL** (or **Developer Settings** → allowed URLs, depending on UI version).
+2. Add **exactly** (no path, **no trailing slash**):
+   - `https://dapp.decleanup.net`
+3. Save, wait a minute, then on the device open **`/reset-wallet-session`** or clear site data for the dapp and try **Log In** → Google again.
+
+Also confirm **Vercel** does **not** set `NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet` if this project is **Sapphire Devnet** (see **Network mismatch** above).
+
+**Gmail / Google:** In [Google Cloud Console](https://console.cloud.google.com/) → **Credentials** → your OAuth **Web client** → **Authorized JavaScript origins** must include `https://dapp.decleanup.net` (same origin, no trailing slash). **Authorized redirect URIs** should still include `https://auth.web3auth.io/auth` (Web3Auth’s redirect, not your dapp URL).
+
 ### "Failed to connect with wallet. Failed to login with auth" (WalletLoginError)
 
 This means the **auth connector** (Google, email, etc.) could not complete login. Fix in this order:
