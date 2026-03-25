@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAccount } from 'wagmi'
 import { useSearchParams } from 'next/navigation'
-import { Leaf, Award, Users, Share2, Copy, Heart, TrendingUp, Flame, Info, FileText, Shield, Trophy, CheckSquare, Loader2, X } from 'lucide-react'
+import { Leaf, Award, Users, Heart, Info, Trophy, CheckSquare, Loader2, X, TrendingUp } from 'lucide-react'
 import { getUserCleanupStatus } from '@/lib/blockchain/verification'
 import {
   claimImpactProductFromVerification,
@@ -27,6 +27,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
+import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { VerifierApplyCard } from '@/components/dashboard/VerifierApplyCard'
 import { useIsVerifier } from '@/hooks/useIsVerifier'
 import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
@@ -1062,28 +1063,19 @@ function HomeContent() {
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 sm:gap-6 px-4 py-4 sm:px-6 sm:py-6">
         {/* Header Section: gradient + pulse on first word (DeCleanupLandingPage HeroSection) */}
-        <div className="flex items-center justify-between flex-shrink-0 mb-2">
-          <div className="space-y-3 sm:space-y-4">
-            <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-              <h1 className="py-2 font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl lg:text-7xl" style={{ fontFamily: 'var(--font-bebas-neue), sans-serif', letterSpacing: '0.05em', lineHeight: 1.1 }}>
-                <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
-                  DeCleanup
-                </span>{" "}
-                Rewards
-              </h1>
-              <h2 className="font-sans text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl font-normal normal-case break-words">
-                Log cleanups. Build a verified record. Earn your voice in the network.
-              </h2>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowEarnModal(true)}
-            className="flex items-center gap-2 rounded-lg border border-brand-green/30 bg-brand-green/10 px-3 py-2 sm:px-4 sm:py-2.5 text-brand-green hover:bg-brand-green/20 transition-colors"
-            title="Learn how to earn more DCU"
+        <div className="mb-2 min-w-0 max-w-3xl animate-fade-in-up space-y-2 sm:space-y-3">
+          <h1
+            className="py-1 font-bebas text-3xl leading-none tracking-wider sm:py-2 sm:text-5xl md:text-6xl lg:text-7xl"
+            style={{ fontFamily: 'var(--font-bebas-neue), sans-serif', letterSpacing: '0.05em', lineHeight: 1.1 }}
           >
-            <Info className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="font-bebas text-sm tracking-wide hidden sm:inline">HOW TO EARN</span>
-          </button>
+            <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
+              DeCleanup
+            </span>{' '}
+            Rewards
+          </h1>
+          <h2 className="font-sans text-sm font-normal normal-case leading-relaxed text-muted-foreground sm:text-lg md:text-xl">
+            Log cleanups. Build a verified record. Earn your voice in the network.
+          </h2>
         </div>
 
         {/* Referral Notification - Only show if user hasn't submitted yet */}
@@ -1143,13 +1135,8 @@ function HomeContent() {
               onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
             />
           ) : cleanupStatus?.canClaim ? (
-            <div className="flex flex-col rounded-2xl border border-brand-yellow/30 bg-card p-6 sm:p-8 min-h-[400px] sm:min-h-[500px]">
-              <div className="flex items-center gap-2 mb-4 flex-shrink-0">
-                <Award className="h-5 w-5 text-brand-yellow" />
-                <h2 className="font-bebas text-xl sm:text-2xl tracking-wider text-foreground">
-                  IMPACT PRODUCT
-                </h2>
-              </div>
+            <div className="flex min-h-[min(70dvh,420px)] flex-col rounded-2xl border border-brand-yellow/30 bg-card p-5 sm:min-h-[500px] sm:p-8">
+              <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
 
               <div className="flex flex-1 flex-col items-center justify-center text-center min-h-0">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
@@ -1164,9 +1151,8 @@ function HomeContent() {
                 <h3 className="mb-2 font-bebas text-2xl sm:text-3xl tracking-wider text-foreground">
                   READY TO CLAIM
                 </h3>
-                <p className="text-sm sm:text-base text-muted-foreground max-w-xs">
-                  Complete your claim to mint Level {cleanupStatus.level ?? 1}. Same action as the &quot;Claim
-                  level&quot; button in your actions panel.
+                <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
+                  Complete your claim to mint Level {cleanupStatus.level ?? 1}.
                 </p>
                 <Button
                   type="button"
@@ -1189,13 +1175,8 @@ function HomeContent() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col rounded-2xl border border-border bg-card p-6 sm:p-8 min-h-[400px] sm:min-h-[500px]">
-              <div className="flex items-center gap-2 mb-4 flex-shrink-0">
-                <Award className="h-5 w-5 text-brand-yellow" />
-                <h2 className="font-bebas text-xl sm:text-2xl tracking-wider text-foreground">
-                  IMPACT PRODUCT
-                </h2>
-              </div>
+            <div className="flex min-h-[min(70dvh,420px)] flex-col rounded-2xl border border-border bg-card p-5 sm:min-h-[500px] sm:p-8">
+              <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
 
               <div className="flex flex-1 flex-col items-center justify-center text-center min-h-0">
                 <div className="mb-4 rounded-2xl border-2 border-border/50 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
@@ -1221,42 +1202,109 @@ function HomeContent() {
         {/* Verifier Apply Card */}
         <VerifierApplyCard />
 
+        {/* Explore: full-width row — avoids cramped 3-col squeeze beside stats on phones */}
+        <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3">
+          <Link href="/leaderboard" className="block min-h-[88px]">
+            <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
+              <Trophy className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
+              <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">LEADERBOARD</h3>
+              <p className="text-xs text-muted-foreground">Top contributors</p>
+            </div>
+          </Link>
+
+          {isConnected && (
+            <Link href="/verifier" className="block min-h-[88px]">
+              <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
+                <CheckSquare className="mb-2 h-5 w-5 shrink-0 text-brand-green" aria-hidden />
+                <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">VERIFIER CABINET</h3>
+                <p className="text-xs text-muted-foreground">Verify cleanups</p>
+              </div>
+            </Link>
+          )}
+
+          <Link href="/hypercerts" className="block min-h-[88px]">
+            <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
+              <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
+              <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">HYPERCERTS</h3>
+              <p className="text-xs text-muted-foreground">Impact certificates</p>
+            </div>
+          </Link>
+
+          {hypercertEligibility?.isEligible && (
+            <div className="min-[480px]:col-span-2 lg:col-span-3">
+              <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
+                <Heart className="mb-2 h-5 w-5 text-brand-yellow" aria-hidden />
+                <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">
+                  HYPERCERT
+                  {hypercertEligibility.testingOverride && (
+                    <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Sepolia Testnet)</span>
+                  )}
+                </h3>
+                <Button
+                  onClick={handleMintHypercert}
+                  disabled={mintingHypercert}
+                  size="sm"
+                  className="h-8 w-full gap-1 bg-brand-yellow text-xs text-black hover:bg-brand-yellow/90 disabled:opacity-50"
+                >
+                  {mintingHypercert ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <>
+                      <Heart className="h-3 w-3" />
+                      MINT
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Stats Section */}
           <div className="flex flex-col gap-4 sm:gap-6 lg:col-span-2">
             {/* Stats Grid */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-brand-green" />
-                  <h2 className="font-bebas text-xl tracking-wider text-foreground">
-                    YOUR STATS
-                  </h2>
-                </div>
-                {address && (
-                  <Link
-                    href={`/impact/${address}${
-                      submissionOwnerAddress &&
-                      submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
-                        ? `?sa=${submissionOwnerAddress}`
-                        : ''
-                    }`}
-                    className="text-xs font-sans font-medium text-brand-green underline underline-offset-4 hover:text-brand-green/90"
-                  >
-                    Public portfolio
-                  </Link>
-                )}
-              </div>
+              <SectionHeading
+                icon={TrendingUp}
+                aside={
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowEarnModal(true)}
+                      className="flex items-center gap-1.5 rounded-lg border border-brand-green/30 bg-brand-green/10 px-2.5 py-1.5 text-brand-green transition-colors hover:bg-brand-green/20 sm:gap-2 sm:px-3 sm:py-2"
+                      title="Learn how to earn more DCU"
+                    >
+                      <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+                      <span className="font-bebas text-xs tracking-wide sm:text-sm">How to earn</span>
+                    </button>
+                    {address && (
+                      <Link
+                        href={`/impact/${address}${
+                          submissionOwnerAddress &&
+                          submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
+                            ? `?sa=${submissionOwnerAddress}`
+                            : ''
+                        }`}
+                        className="text-xs font-sans font-medium text-brand-green underline underline-offset-4 hover:text-brand-green/90"
+                      >
+                        Public portfolio
+                      </Link>
+                    )}
+                  </>
+                }
+              >
+                YOUR STATS
+              </SectionHeading>
 
               {/* Total Balances - Always Visible */}
               <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="group rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 hover:border-brand-green/50 hover:bg-brand-green/10 transition-all">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-sans font-semibold text-muted-foreground tracking-wide">
+                <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 transition-all hover:border-brand-green/50 hover:bg-brand-green/10">
+                  <div className="mb-2">
+                    <span className="text-xs font-sans font-semibold tracking-wide text-muted-foreground">
                       Total DCU
                     </span>
-                    <TrendingUp className="h-4 w-4 text-brand-green transition-transform group-hover:scale-110" />
                   </div>
                   <p className="font-bebas text-3xl text-brand-green leading-none min-h-[2.25rem] flex items-center">
                     {!hasLoadedDashboardOnce ? (
@@ -1297,32 +1345,27 @@ function HomeContent() {
               {showBreakdown && (
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Cleanups', icon: TrendingUp, value: rewardStats.cleanupsDCU.toFixed(0), color: 'text-brand-green', showToken: true, count: rewardStats.cleanupsCount.toString() },
-                    { label: 'Referrals', icon: Users, value: rewardStats.referralsDCU.toFixed(0), color: 'text-brand-green', showToken: true },
-                    { label: 'Streak', icon: Flame, value: rewardStats.streakDCU.toFixed(0), color: 'text-brand-yellow', showToken: true },
-                    { label: 'Reports', icon: FileText, value: rewardStats.reportsDCU.toFixed(0), color: 'text-brand-green', showToken: true },
-                    { label: 'Hypercerts', icon: Heart, value: rewardStats.hypercertsDCU.toFixed(0), color: 'text-brand-green', showToken: true, count: hypercertEligibility ? Number(hypercertEligibility.hypercertCount).toString() : '0' },
-                    { label: 'Verifier', icon: Shield, value: rewardStats.verifierDCU.toFixed(0), color: isVerifierUser ? 'text-brand-green' : 'text-muted-foreground', showToken: true },
+                    { label: 'Cleanups', value: rewardStats.cleanupsDCU.toFixed(0), showToken: true, count: rewardStats.cleanupsCount.toString() },
+                    { label: 'Referrals', value: rewardStats.referralsDCU.toFixed(0), showToken: true },
+                    { label: 'Streak', value: rewardStats.streakDCU.toFixed(0), showToken: true },
+                    { label: 'Reports', value: rewardStats.reportsDCU.toFixed(0), showToken: true },
+                    { label: 'Hypercerts', value: rewardStats.hypercertsDCU.toFixed(0), showToken: true, count: hypercertEligibility ? Number(hypercertEligibility.hypercertCount).toString() : '0' },
+                    { label: 'Verifier', value: rewardStats.verifierDCU.toFixed(0), showToken: true },
                     {
                       label: 'As contributor',
-                      icon: Users,
                       value: String(rewardStats.contributorCleanupCount),
-                      color: 'text-muted-foreground',
                       showToken: false,
                       count: rewardStats.impactReportsAttributed > 0 ? `${rewardStats.impactReportsAttributed} rep.` : undefined,
                       suffix: ' cleanups',
                       sub: 'Attribution only, no DCU',
                     },
-                  ].map((stat) => {
-                    const IconComponent = stat.icon
-                    return (
-                      <div key={stat.label} className="group rounded-xl border border-border bg-background/50 p-4 hover:border-brand-green/50 hover:bg-background transition-all">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  ].map((stat) => (
+                      <div key={stat.label} className="rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-brand-green/50 hover:bg-background">
+                        <div className="mb-2">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             {stat.label}
                             {stat.count && ` (${stat.count})`}
                           </span>
-                          <IconComponent className={`h-4 w-4 ${stat.color} transition-transform group-hover:scale-110`} />
                         </div>
                         <p className="font-bebas text-2xl text-foreground leading-none min-h-[2rem] flex flex-col gap-0.5">
                           {!hasLoadedDashboardOnce ? (
@@ -1342,162 +1385,9 @@ function HomeContent() {
                           )}
                         </p>
                       </div>
-                    )
-                  })}
+                    ))}
                 </div>
               )}
-            </div>
-
-            {/* Quick Actions */}
-            <div className="grid gap-3 grid-cols-3">
-              <Link href="/leaderboard" className="block">
-                <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
-                  <Trophy className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
-                    LEADERBOARD
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Top contributors
-                  </p>
-                </div>
-              </Link>
-
-              {isConnected && (
-                <Link href="/verifier" className="block">
-                  <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
-                    <CheckSquare className="h-5 w-5 text-brand-green mb-2 group-hover:scale-110 transition-transform" />
-                    <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
-                      VERIFIER CABINET
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Verify cleanups
-                    </p>
-                  </div>
-                </Link>
-              )}
-
-              <Link href="/hypercerts" className="block">
-                <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-green/50 transition-all group">
-                  <Heart className="h-5 w-5 text-brand-yellow mb-2 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
-                    HYPERCERTS
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    View eligibility
-                  </p>
-                </div>
-              </Link>
-
-              {hypercertEligibility?.isEligible && (
-                <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
-                  <Heart className="h-5 w-5 text-brand-yellow mb-2" />
-                  <h3 className="font-bebas text-sm tracking-wider text-foreground mb-1">
-                    HYPERCERT
-                    {hypercertEligibility.testingOverride && (
-                      <span className="ml-2 text-xs text-brand-yellow/70 font-normal">(Sepolia Testnet)</span>
-                    )}
-                  </h3>
-                  <Button
-                    onClick={handleMintHypercert}
-                    disabled={mintingHypercert}
-                    size="sm"
-                    className="w-full gap-1 bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-50 h-7 text-xs"
-                  >
-                    {mintingHypercert ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <>
-                        <Heart className="h-3 w-3" />
-                        MINT
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Invite Friends */}
-            <div className="rounded-xl border border-border bg-card p-4 sm:p-5 flex-shrink-0">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="h-5 w-5 text-brand-green" />
-                <h3 className="font-bebas text-xl tracking-wider text-foreground">
-                  INVITE FRIENDS
-                </h3>
-              </div>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Earn 3 DCU each when friends submit, get verified, and claim their first Impact Product level.
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 border-brand-green/30 bg-brand-green/5 px-3 py-2 h-auto text-xs font-bebas tracking-wider text-brand-green hover:bg-brand-green/10 hover:border-brand-green/50"
-                  onClick={() => {
-                    if (!address) return
-                    const { generateReferralLink } = require('@/lib/utils/sharing')
-                    const link = generateReferralLink(address)
-                    const message = `Join me in @decleanupnet Rewards 🌍
-
-Clean up, prove impact, earn Impact Products, build reputation, and soon vote on global cleanup decisions in the Celo app.
-
-🔗 ${link}`
-                    window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(message)}`, '_blank')
-                  }}
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  Farcaster
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 border-border px-3 py-2 h-auto text-xs font-bebas tracking-wider hover:bg-accent"
-                  onClick={() => {
-                    if (!address) return
-                    const link = generateReferralLink(address)
-                    const message = `Join me in @decleanupnet Rewards 🌍
-
-Clean up, prove impact, earn Impact Products, build reputation, and soon vote on global cleanup decisions in the Celo app.
-
-🔗 ${link}`
-                    const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`
-                    window.open(xUrl, '_blank')
-                  }}
-                >
-                  <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                  X
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 border-border px-3 py-2 h-auto text-xs font-bebas tracking-wider hover:bg-accent"
-                  onClick={async () => {
-                    if (!address) return
-                    const link = generateReferralLink(address)
-                    const message = `Join me in @decleanupnet Rewards 🌍
-
-Clean up, prove impact, earn Impact Products, build reputation, and soon vote on global cleanup decisions in the Celo app.
-
-🔗 ${link}`
-                    try {
-                      await navigator.clipboard.writeText(message)
-                      setNotifyModal({ variant: 'success', title: 'Copied', message: 'Referral link copied to clipboard!' })
-                    } catch (error) {
-                      // Fallback: try to copy just the link
-                      try {
-                        await navigator.clipboard.writeText(link)
-                        setNotifyModal({ variant: 'success', title: 'Copied', message: 'Referral link copied!' })
-                      } catch (err) {
-                        setNotifyModal({ variant: 'info', title: 'Referral link', message: link })
-                      }
-                    }
-                  }}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy
-                </Button>
-              </div>
             </div>
           </div>
 

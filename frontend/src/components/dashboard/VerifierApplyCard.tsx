@@ -9,7 +9,8 @@ import { useAccount } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
 import { getLatestApplicationByAddress } from '@/lib/verifier/applications'
-import { Shield, AlertCircle, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react'
+import { Shield, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react'
+import { SectionHeading } from '@/components/dashboard/SectionHeading'
 
 export function VerifierApplyCard() {
   const { address } = useAccount()
@@ -49,13 +50,12 @@ export function VerifierApplyCard() {
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-blue-400" />
-            <h3 className="font-semibold text-foreground">Verifier Status</h3>
-          </div>
-          <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-        </div>
+        <SectionHeading
+          icon={Shield}
+          aside={<Loader2 className="h-5 w-5 shrink-0 animate-spin text-brand-yellow" aria-hidden />}
+        >
+          VERIFIER REQUIREMENTS
+        </SectionHeading>
         <p className="text-sm text-muted-foreground">Loading eligibility...</p>
       </div>
     )
@@ -64,10 +64,7 @@ export function VerifierApplyCard() {
   if (error) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <AlertCircle className="w-5 h-5 text-red-400" />
-          <h3 className="font-semibold text-foreground">Verifier Status</h3>
-        </div>
+        <SectionHeading icon={Shield}>VERIFIER REQUIREMENTS</SectionHeading>
         <p className="text-sm text-red-400">{error}</p>
       </div>
     )
@@ -76,10 +73,7 @@ export function VerifierApplyCard() {
   if (latestApp) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5 text-blue-400" />
-          <h3 className="font-semibold text-foreground">Verifier Application</h3>
-        </div>
+        <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -123,10 +117,7 @@ export function VerifierApplyCard() {
   if (!eligibility?.eligible) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <AlertCircle className="w-5 h-5 text-orange-400" />
-          <h3 className="font-semibold text-foreground">Verifier Requirements</h3>
-        </div>
+        <SectionHeading icon={Shield}>VERIFIER REQUIREMENTS</SectionHeading>
 
         {eligibility?.reasons && (
           <div className="space-y-2 text-sm text-muted-foreground">
@@ -147,15 +138,12 @@ export function VerifierApplyCard() {
   }
 
   return (
-    <div className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6 min-w-0">
-      <div className="flex items-center gap-2 mb-4">
-        <CheckCircle className="w-5 h-5 text-brand-green shrink-0" />
-        <h3 className="font-semibold text-foreground break-words">Ready to Be a Verifier?</h3>
-      </div>
+    <div className="min-w-0 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6">
+      <SectionHeading icon={Shield}>VERIFIER REQUIREMENTS</SectionHeading>
 
-      <div className="space-y-3 mb-4 min-w-0">
-        <div className="text-sm text-foreground break-words">
-          <p className="font-medium mb-2">You meet all requirements:</p>
+      <div className="mb-4 min-w-0 space-y-3">
+        <div className="break-words text-sm text-foreground">
+          <p className="mb-2 font-medium">You meet all requirements:</p>
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>✓ Level: {eligibility?.metrics.level}</li>
             <li>✓ DCU Balance: {eligibility?.metrics.dcuBalance.toFixed(2)}</li>

@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Leaf, Award, Share2, Copy, Users, Loader2 } from 'lucide-react'
-import { generateReferralLink } from '@/lib/utils/sharing'
+import { Leaf, Award, Loader2 } from 'lucide-react'
 import { FeeDisplay } from '@/components/ui/fee-display'
+import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 
 interface DashboardActionsProps {
@@ -33,33 +32,6 @@ export function DashboardActions({
     claimFeeInfo,
     onNotify,
 }: DashboardActionsProps) {
-    const [copying, setCopying] = useState(false)
-
-    const referralLink = generateReferralLink(address, 'web')
-
-    const handleCopyLink = async () => {
-        try {
-            setCopying(true)
-            await navigator.clipboard.writeText(referralLink)
-            setTimeout(() => setCopying(false), 2000)
-        } catch (error) {
-            console.error('Failed to copy:', error)
-            if (onNotify) onNotify({ variant: 'info', title: 'Referral link', message: referralLink })
-            else alert(`Referral link: ${referralLink}`)
-        }
-    }
-
-    const handleShareX = () => {
-        const text = encodeURIComponent(`Join me on DeCleanup Network! Clean up, earn DCU tokens, and make a real environmental impact. 🌱`)
-        const url = encodeURIComponent(referralLink)
-        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank')
-    }
-
-    const handleShareFarcaster = () => {
-        const text = encodeURIComponent(`Join me on DeCleanup Network! Clean up, earn DCU tokens, and make a real environmental impact. 🌱\n\n${referralLink}`)
-        window.open(`https://warpcast.com/~/compose?text=${text}`, '_blank')
-    }
-
     // Button state logic:
     // 1. Can submit: no pending cleanup, cannot claim → Submit active, Claim hidden
     // 2. Under verification: has pending cleanup, cannot claim → Both hidden, show status
@@ -84,12 +56,10 @@ export function DashboardActions({
     // this is also normal (e.g., all cleanups claimed, or no cleanups yet)
 
     return (
-        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col h-full min-h-0 overflow-y-auto">
-            <h2 className="mb-4 border-b border-border pb-3 font-bebas text-2xl sm:text-3xl tracking-wider text-brand-green flex-shrink-0">
-                ACTIONS
-            </h2>
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-2xl border border-border bg-card p-4 sm:p-6">
+            <SectionHeading icon={Leaf}>ACTIONS</SectionHeading>
 
-            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
                 {/* Submit Cleanup Button - Only show when user can submit */}
                 {canSubmit && !submitLockedMaxLevel && (
                     <Link href="/cleanup">
@@ -188,59 +158,6 @@ export function DashboardActions({
                     </div>
                 )}
 
-                {/* Invite Friends Section */}
-                <div className="mt-4 space-y-3 border-t border-border pt-4">
-                    <div className="flex items-center gap-2">
-                        <Users className="h-5 w-5 text-brand-green" />
-                        <h3 className="font-bebas text-xl sm:text-2xl tracking-wider text-brand-green">
-                            INVITE FRIENDS
-                        </h3>
-                    </div>
-                    <p className="text-sm sm:text-base text-muted-foreground">
-                        Earn 3 DCU each when friends submit, get verified, and claim their first Impact Product level.
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button
-                            onClick={handleShareFarcaster}
-                            variant="outline"
-                            size="sm"
-                            className="border-brand-green/30 font-bebas text-xs sm:text-sm tracking-wider text-brand-green hover:bg-brand-green/10 hover:border-brand-green/50 py-2 h-auto transition-all"
-                        >
-                            <Share2 className="mr-1 h-3.5 w-3.5" />
-                            FARCASTER
-                        </Button>
-                        <Button
-                            onClick={handleShareX}
-                            variant="outline"
-                            size="sm"
-                            className="border-brand-green/30 font-bebas text-xs sm:text-sm tracking-wider text-brand-green hover:bg-brand-green/10 hover:border-brand-green/50 py-2 h-auto transition-all"
-                        >
-                            <Share2 className="mr-1 h-3.5 w-3.5" />
-                            X (TWITTER)
-                        </Button>
-                    </div>
-
-                    <Button
-                        onClick={handleCopyLink}
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-brand-green/30 font-bebas text-xs sm:text-sm tracking-wider text-brand-green hover:bg-brand-green/10 hover:border-brand-green/50 py-2 h-auto transition-all"
-                    >
-                        {copying ? (
-                            <>
-                                <span className="mr-1">✓</span>
-                                COPIED!
-                            </>
-                        ) : (
-                            <>
-                                <Copy className="mr-1 h-3.5 w-3.5" />
-                                COPY LINK
-                            </>
-                        )}
-                    </Button>
-                </div>
-
                 {/* Future Features - Coming Soon */}
                 <div className="mt-4 space-y-2 border-t border-border pt-4">
                     <p className="mb-3 text-sm sm:text-base font-bebas tracking-wide text-muted-foreground uppercase">COMING SOON</p>
@@ -261,15 +178,6 @@ export function DashboardActions({
                         title="Coming Soon"
                     >
                         JOIN IMPACT CIRCLE
-                    </Button>
-                    <Button
-                        disabled
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-border/50 font-bebas text-xs sm:text-sm tracking-wider text-muted-foreground opacity-50 cursor-not-allowed py-2 h-auto"
-                        title="Coming Soon"
-                    >
-                        CLAIM/STAKE
                     </Button>
                 </div>
             </div>

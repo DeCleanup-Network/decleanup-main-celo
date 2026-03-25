@@ -8,6 +8,7 @@ import { useAccount } from 'wagmi'
 import { getHypercertEligibility } from '@/lib/blockchain/contracts'
 import { getLevelName, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
 import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import { SectionHeading } from '@/components/dashboard/SectionHeading'
 
 interface ImpactProductProps {
     level: number
@@ -103,13 +104,8 @@ export function DashboardImpactProduct({
         : null
 
     return (
-        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col">
-            <div className="mb-4 flex items-center gap-2 flex-shrink-0">
-                <Award className="h-5 w-5 text-brand-green" />
-                <h2 className="font-bebas text-xl sm:text-2xl tracking-wider text-brand-green">
-                    IMPACT PRODUCT
-                </h2>
-            </div>
+        <div className="flex flex-col rounded-2xl border border-border bg-card p-4 sm:p-6">
+            <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
 
             {level > 0 ? (
                 <div className="space-y-4 flex flex-col">
