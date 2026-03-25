@@ -29,7 +29,7 @@ export function WalletConnect() {
         disabled
         aria-busy="true"
         aria-label="Loading wallet"
-        className="min-w-[8.75rem] bg-brand-green text-black hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:text-black"
+        className="min-w-[8.75rem] font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:!text-black"
       >
         Loading…
       </Button>
@@ -48,7 +48,7 @@ export function WalletConnect() {
           disabled
           aria-busy="true"
           aria-label="Loading wallet"
-          className="min-w-[8.75rem] bg-brand-green text-black hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:text-black"
+          className="min-w-[8.75rem] font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:!text-black"
         >
           Loading…
         </Button>

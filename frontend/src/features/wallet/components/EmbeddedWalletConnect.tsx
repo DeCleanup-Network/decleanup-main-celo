@@ -13,6 +13,9 @@ import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/
 import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
 import { WEB3AUTH_ACCOUNT_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
+/** If Web3Auth init never completes (blocked network, ad blockers, SDK hang), stop spinning forever. */
+const WEB3AUTH_INIT_SLOW_MS = 25_000
+
 function PreparingLoginButton() {
   return (
     <Button
@@ -20,7 +23,7 @@ function PreparingLoginButton() {
       disabled
       aria-busy="true"
       aria-label="Preparing login"
-      className="min-w-[8.75rem] bg-brand-green text-black hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:text-black"
+      className="min-w-[8.75rem] font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:!text-black"
     >
       Preparing login…
     </Button>
@@ -34,6 +37,7 @@ function PreparingLoginButton() {
  */
 export function EmbeddedWalletConnect() {
   const [mounted, setMounted] = useState(false)
+  const [initSlow, setInitSlow] = useState(false)
   const [dismissMessage, setDismissMessage] = useState<string | null>(null)
   const { isInitialized, isInitializing, initError } = useWeb3Auth()
   const { connect, loading, isConnected, error } = useWeb3AuthConnect()
@@ -45,6 +49,19 @@ export function EmbeddedWalletConnect() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const authNotReady = !isInitialized || isInitializing
+  const waitingForWeb3AuthInit =
+    mounted && authNotReady && (!isConnected || !address)
+
+  useEffect(() => {
+    if (!waitingForWeb3AuthInit) {
+      setInitSlow(false)
+      return
+    }
+    const id = window.setTimeout(() => setInitSlow(true), WEB3AUTH_INIT_SLOW_MS)
+    return () => window.clearTimeout(id)
+  }, [waitingForWeb3AuthInit])
 
   // One-time auto-switch to Celo Sepolia after connect (embedded wallet may report wrong chain from cache)
   useEffect(() => {
@@ -60,7 +77,6 @@ export function EmbeddedWalletConnect() {
     return <PreparingLoginButton />
   }
 
-  const authNotReady = !isInitialized || isInitializing
   // Logged-in users: never block on Web3Auth init (avoids hiding address after refresh).
   if (authNotReady && (!isConnected || !address)) {
     const initErrMsg = initError instanceof Error ? initError.message : initError != null ? String(initError) : null
@@ -81,6 +97,33 @@ export function EmbeddedWalletConnect() {
               Reload
             </Button>
             <a href="/reset-wallet-session" className="text-xs text-gray-500 underline hover:text-gray-400">
+              Reset session
+            </a>
+          </div>
+        </div>
+      )
+    }
+    if (initSlow) {
+      return (
+        <div className="flex max-w-[min(100%,min(100vw-2rem,320px))] flex-col items-center gap-3 text-center">
+          <p className="text-xs text-amber-400/95">
+            Login is taking longer than usual. Try a reload, allow this site in your ad blocker, or reset the wallet
+            session.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-gray-600 font-sans text-gray-200"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </Button>
+            <a
+              href="/reset-wallet-session"
+              className="text-xs font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+            >
               Reset session
             </a>
           </div>
@@ -141,7 +184,7 @@ export function EmbeddedWalletConnect() {
         <Button
           onClick={handleConnect}
           disabled={loading || !isInitialized || isInitializing}
-          className="bg-brand-green text-black hover:bg-brand-green/90"
+          className="font-sans !text-black bg-brand-green hover:bg-brand-green/90"
         >
           {loading ? 'Connecting...' : 'Log In'}
         </Button>
@@ -171,38 +214,38 @@ export function EmbeddedWalletConnect() {
   const isWrongChain = chainId !== undefined && chainId !== REQUIRED_CHAIN_ID
 
   return (
-    <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-sm text-gray-300">{shortAddress}</span>
+    <div className="flex max-w-[min(100vw-4.5rem,20rem)] flex-col items-end gap-1 text-right sm:max-w-none">
+      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+        <span className="font-mono text-[11px] text-gray-300 sm:text-sm tabular-nums">{shortAddress}</span>
         {isWrongChain && (
-          <span className="rounded bg-yellow-500/20 px-1.5 py-0.5 text-xs text-yellow-400">
+          <span className="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] text-yellow-400 sm:text-xs">
             Wrong network
           </span>
         )}
         <Button
           variant="outline"
           size="sm"
-          className="border-gray-600 text-gray-300 hover:bg-gray-800"
+          className="h-8 shrink-0 border-gray-600 px-2.5 text-[11px] text-gray-300 hover:bg-gray-800 sm:h-9 sm:text-sm"
           onClick={() => disconnect()}
         >
           Disconnect
         </Button>
       </div>
-      <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-x-2.5 gap-y-0.5 sm:gap-x-3">
         <a
           href={WEB3AUTH_ACCOUNT_DASHBOARD_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-medium text-brand-green/90 underline-offset-2 hover:text-brand-green hover:underline"
+          className="text-[11px] font-medium text-brand-green/90 underline-offset-2 hover:text-brand-green hover:underline sm:text-xs"
         >
           Manage wallet
         </a>
         <button
           type="button"
           onClick={clearWeb3AuthStorageAndReload}
-          className="text-xs text-gray-500 underline hover:text-gray-400"
+          className="text-[11px] text-gray-500 underline hover:text-gray-400 sm:text-xs"
         >
-          Having trouble? Reset session
+          <span className="hidden sm:inline">Having trouble? </span>Reset session
         </button>
       </div>
     </div>

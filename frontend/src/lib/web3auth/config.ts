@@ -3,7 +3,7 @@
 import type { Web3AuthContextConfig } from '@web3auth/modal/react'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
 
-const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID
+const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID?.trim()
 
 if (!clientId && typeof window !== 'undefined') {
   console.warn(
@@ -43,15 +43,14 @@ const web3AuthOptions: Web3AuthOptions = {
   web3AuthNetwork,
   chains: [celoSepoliaChainConfig],
   defaultChainId: CELO_SEPOLIA_CHAIN_ID_HEX,
-  // Show only social/email (Google, etc.); hide MetaMask and other wallet connectors to avoid
-  // "Failed to login with MetaMask wallet" when user expects to use Google.
-  // Each connector config must have loginMethods so filterConnectors doesn't read undefined (default only has label/showOnModal).
+  // Social/email + external wallets (MetaMask, WalletConnect, Coinbase) on the same modal.
+  // Each connector config must include loginMethods so filterConnectors doesn't read undefined.
   modalConfig: {
     connectors: {
       [WALLET_CONNECTORS.AUTH]: { label: 'Social / Email', loginMethods: {} },
-      [WALLET_CONNECTORS.METAMASK]: { label: 'MetaMask', showOnModal: false, loginMethods: {} },
-      [WALLET_CONNECTORS.WALLET_CONNECT_V2]: { label: 'WalletConnect', showOnModal: false, loginMethods: {} },
-      [WALLET_CONNECTORS.COINBASE]: { label: 'Coinbase', showOnModal: false, loginMethods: {} },
+      [WALLET_CONNECTORS.METAMASK]: { label: 'MetaMask', showOnModal: true, loginMethods: {} },
+      [WALLET_CONNECTORS.WALLET_CONNECT_V2]: { label: 'WalletConnect', showOnModal: true, loginMethods: {} },
+      [WALLET_CONNECTORS.COINBASE]: { label: 'Coinbase', showOnModal: true, loginMethods: {} },
     },
   },
 }

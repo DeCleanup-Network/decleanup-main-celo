@@ -2327,7 +2327,7 @@ function CleanupContent() {
               +5 DCU Points Bonus
             </p>
             <p className="text-sm text-gray-400">
-              If you recycled any materials from your cleanup, upload proof to earn the same DCU points as the impact form (optional).
+              If you recycled any materials from your cleanup, upload proof to earn 5 DCU points (optional).
             </p>
           </div>
 
