@@ -83,8 +83,8 @@ function convertIPFSToGateway(ipfsUrl: string): string {
   if (path.startsWith('/')) path = path.substring(1)
 
   const defaultGateways = [
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
     'https://ipfs.io/ipfs/',
+    process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
     'https://cloudflare-ipfs.com/ipfs/',
     'https://dweb.link/ipfs/',
   ]
@@ -103,8 +103,8 @@ async function fetchWithFallback(ipfsUrl: string): Promise<Response> {
   }
 
   const gateways = [
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
     'https://ipfs.io/ipfs/',
+    process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
     'https://cloudflare-ipfs.com/ipfs/',
     'https://dweb.link/ipfs/',
   ]
@@ -216,7 +216,7 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
         ? (() => {
             const imagesCID =
               process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+            const gateway = 'https://ipfs.io/ipfs/'
             const imageName = level === 10 ? 'IP10Placeholder.png' : `IP${level}.png`
             return `${gateway}${imagesCID}/${imageName}`
           })()
@@ -228,7 +228,7 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
         ? (() => {
             const imagesCID =
               process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+            const gateway = 'https://ipfs.io/ipfs/'
             return `${gateway}${imagesCID}/IP10VIdeo.mp4`
           })()
         : '')
@@ -248,7 +248,7 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
         ? (() => {
             const imagesCID =
               process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+            const gateway = 'https://ipfs.io/ipfs/'
             const imageName = level === 10 ? 'IP10Placeholder.png' : `IP${level}.png`
             return `${gateway}${imagesCID}/${imageName}`
           })()
@@ -258,7 +258,7 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
         ? (() => {
             const imagesCID =
               process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+            const gateway = 'https://ipfs.io/ipfs/'
             return `${gateway}${imagesCID}/IP10VIdeo.mp4`
           })()
         : ''

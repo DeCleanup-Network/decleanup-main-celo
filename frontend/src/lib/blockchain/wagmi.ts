@@ -53,7 +53,12 @@ const celoSepoliaChain = defineChain({
 const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoMainnet, mainnet]
 
 const APP_NAME = 'DeCleanup Rewards'
-const APP_URL = process.env.NEXT_PUBLIC_MINIAPP_URL || 'http://localhost:3000'
+// WalletConnect validates metadata.url against the live page; prefer production URL on Vercel.
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXT_PUBLIC_MINIAPP_URL ||
+  'http://localhost:3000'
 const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo.'
 const APP_ICON_URL =
   process.env.NEXT_PUBLIC_MINIAPP_ICON_URL ||

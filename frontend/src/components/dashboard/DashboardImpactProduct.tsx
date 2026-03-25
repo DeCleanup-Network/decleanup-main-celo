@@ -48,7 +48,7 @@ export function DashboardImpactProduct({
     
     // Prefer IPFS URLs from metadata, then try IPFS with CID, fallback to local paths only if no CID
     const imagesCID = process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-    const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+    const gateway = 'https://ipfs.io/ipfs/'
     
     // Always use IPFS if we have a CID, even if imageUrl prop is empty
     const rawImage =
@@ -109,51 +109,52 @@ export function DashboardImpactProduct({
 
             {level > 0 ? (
                 <div className="space-y-4 flex flex-col">
-                    {/* NFT Display */}
-                    <div className="w-full overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black flex-shrink-0 flex items-center justify-center p-4 sm:p-6 aspect-[3/4] max-h-[500px] relative">
+                    {/* NFT Display — absolute inner frame avoids flex min-size so object-contain isn’t clipped */}
+                    <div className="relative mx-auto w-full max-h-[min(500px,72vh)] aspect-[3/4] overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black">
                         {imageLoading && (
-                            <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
                                 <div className="relative">
                                     <div className="h-16 w-16 border-4 border-brand-green/30 border-t-brand-green rounded-full animate-spin"></div>
                                 </div>
                             </div>
                         )}
-                        {level === 10 && animationUrlToUse ? (
-                            <video
-                                src={animationUrlToUse}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="max-h-full max-w-full object-contain"
-                                onLoadedData={() => setImageLoading(false)}
-                                onError={(e) => {
-                                    setImageLoading(false)
-                                    // Fallback to static image if animation fails
-                                    const target = e.target as HTMLVideoElement
-                                    if (imageUrlToUse && target.parentElement) {
-                                        const img = document.createElement('img')
-                                        img.src = imageUrlToUse
-                                        img.className = 'max-h-full max-w-full object-contain'
-                                        img.alt = `Level ${level} Impact Product`
-                                        target.parentElement.replaceChild(img, target)
-                                    }
-                                }}
-                            />
-                        ) : imageUrlToUse ? (
-                            <img
-                                src={imageUrlToUse}
-                                alt={`Level ${level} Impact Product`}
-                                className="max-h-full max-w-full object-contain"
-                                loading="lazy"
-                                onLoad={() => setImageLoading(false)}
-                                onError={() => setImageLoading(false)}
-                            />
-                        ) : (
-                            <div className="flex h-full items-center justify-center">
-                                <Award className="h-24 w-24 text-gray-700" />
-                            </div>
-                        )}
+                        <div className="absolute inset-0 p-3 sm:p-5">
+                            {level === 10 && animationUrlToUse ? (
+                                <video
+                                    src={animationUrlToUse}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="h-full w-full object-contain object-center"
+                                    onLoadedData={() => setImageLoading(false)}
+                                    onError={(e) => {
+                                        setImageLoading(false)
+                                        const target = e.target as HTMLVideoElement
+                                        if (imageUrlToUse && target.parentElement) {
+                                            const img = document.createElement('img')
+                                            img.src = imageUrlToUse
+                                            img.className = 'h-full w-full object-contain object-center'
+                                            img.alt = `Level ${level} Impact Product`
+                                            target.parentElement.replaceChild(img, target)
+                                        }
+                                    }}
+                                />
+                            ) : imageUrlToUse ? (
+                                <img
+                                    src={imageUrlToUse}
+                                    alt={`Level ${level} Impact Product`}
+                                    className="h-full w-full object-contain object-center"
+                                    loading="lazy"
+                                    onLoad={() => setImageLoading(false)}
+                                    onError={() => setImageLoading(false)}
+                                />
+                            ) : (
+                                <div className="flex h-full items-center justify-center">
+                                    <Award className="h-24 w-24 text-gray-700" />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Stats Grid - Compact - All Same Design */}

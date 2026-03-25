@@ -18,6 +18,7 @@ import type { CleanupDetails } from '@/lib/blockchain/contracts'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
+import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
 
 export function hashToGatewayUrl(hash: string): string {
   if (!hash) return ''
@@ -28,6 +29,13 @@ export function hashToGatewayUrl(hash: string): string {
     return getIPFSUrl(cid)
   }
   return getIPFSUrl(h)
+}
+
+/** Same as {@link hashToGatewayUrl} but for `<img src>` / media: same-origin proxy avoids Pinata CORS/CORP/429. */
+export function hashToProxyDisplayUrl(hash: string): string {
+  const u = hashToGatewayUrl(hash)
+  if (!u) return ''
+  return proxyIpfsHttpUrl(u)
 }
 
 /** Impact JSON stored with submissions (see cleanup flow). */
@@ -209,7 +217,7 @@ async function resolveImpactProductPreview(level: number, tokenId: bigint | null
   if (level <= 0) return null
   const imagesCID =
     process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-  const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+  const gateway = 'https://ipfs.io/ipfs/'
   const fallback = `${gateway}${imagesCID}/${level === 10 ? 'IP10Placeholder.png' : `IP${level}.png`}`
   try {
     let uri = ''
@@ -219,7 +227,7 @@ async function resolveImpactProductPreview(level: number, tokenId: bigint | null
     if (!uri) {
       uri = await getTokenURIForLevel(level)
     }
-    if (!uri) return fallback
+    if (!uri) return proxyIpfsHttpUrl(fallback)
     const ac = new AbortController()
     const tid = setTimeout(() => ac.abort(), 8000)
     let r: Response
@@ -231,20 +239,20 @@ async function resolveImpactProductPreview(level: number, tokenId: bigint | null
     } finally {
       clearTimeout(tid)
     }
-    if (!r.ok) return fallback
+    if (!r.ok) return proxyIpfsHttpUrl(fallback)
     const text = await r.text()
-    if (text.trim().startsWith('<')) return fallback
+    if (text.trim().startsWith('<')) return proxyIpfsHttpUrl(fallback)
     const meta = JSON.parse(text) as { image?: string }
     if (meta?.image) {
       const img = meta.image.startsWith('ipfs://')
         ? hashToGatewayUrl(meta.image.replace('ipfs://', ''))
         : meta.image
-      return img
+      return proxyIpfsHttpUrl(img)
     }
   } catch {
     // ignore
   }
-  return fallback
+  return proxyIpfsHttpUrl(fallback)
 }
 
 export type PublicPortfolioPayload = {

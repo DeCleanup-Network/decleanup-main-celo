@@ -3,6 +3,19 @@ import { isAllowedIpfsFetchHost } from '@/lib/utils/ipfs-fetch-allowed'
 
 export const runtime = 'nodejs'
 
+/** When Pinata or another gateway rate-limits, try public gateways for the same CID. */
+const IPFS_CID_FALLBACK_BASES = [
+  'https://ipfs.io/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://gateway.ipfs.io/ipfs/',
+] as const
+
+function extractIpfsCidFromUrl(url: string): string | null {
+  const m = url.match(/\/ipfs\/([^?#]+)/)
+  return m?.[1] ? decodeURIComponent(m[1]) : null
+}
+
 /**
  * Server-side fetch of IPFS gateway URLs so browsers (esp. Safari) avoid
  * Pinata CORS + rate limits when loading images/metadata from localhost.
@@ -28,10 +41,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Host not allowed' }, { status: 403 })
   }
 
-  const upstream = await fetch(raw, {
+  let upstream = await fetch(raw, {
     headers: { Accept: '*/*' },
     next: { revalidate: 3600 },
   })
+
+  const cid = extractIpfsCidFromUrl(raw)
+  if (!upstream.ok && cid && (upstream.status === 429 || upstream.status === 503)) {
+    for (const base of IPFS_CID_FALLBACK_BASES) {
+      const alt = `${base}${cid}`
+      try {
+        const u = new URL(alt)
+        if (!isAllowedIpfsFetchHost(u.hostname)) continue
+        const retry = await fetch(alt, {
+          headers: { Accept: '*/*' },
+          next: { revalidate: 3600 },
+        })
+        if (retry.ok) {
+          upstream = retry
+          break
+        }
+      } catch {
+        /* try next */
+      }
+    }
+  }
 
   const contentType = upstream.headers.get('content-type') || 'application/octet-stream'
   return new NextResponse(upstream.body, {

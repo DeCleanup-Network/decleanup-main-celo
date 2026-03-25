@@ -15,6 +15,8 @@ if (!clientId && typeof window !== 'undefined') {
 // MUST match dashboard.web3auth.io → Project → network (Sapphire Devnet vs Sapphire Mainnet).
 // If you set NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet but the project is still Devnet, the API returns 400 and
 // "Network mismatch ... sapphire_mainnet ... sapphire_devnet". Fix: remove the env var (use devnet) or move the project to Mainnet in the dashboard.
+// If the console shows 403 on .../signer-service/api/feature-access?...&is_wallet_service=true — the Client ID may lack
+// Wallet Services / embedded-wallet entitlements on that Sapphire tier; check dashboard billing & product flags, or use Devnet until enabled.
 const web3AuthNetwork =
   process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === 'mainnet'
     ? WEB3AUTH_NETWORK.SAPPHIRE_MAINNET

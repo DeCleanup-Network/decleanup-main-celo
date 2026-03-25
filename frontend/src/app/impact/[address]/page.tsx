@@ -24,7 +24,7 @@ import {
 import { resolveEnsToAddress, resolveAddressToEnsName } from '@/lib/utils/ens'
 import {
   fetchPublicPortfolioData,
-  hashToGatewayUrl,
+  hashToProxyDisplayUrl,
   canShowPhoto,
   type PublicPortfolioPayload,
 } from '@/lib/impact/public-portfolio-data'
@@ -420,8 +420,8 @@ function PublicPortfolioContent() {
                 {data.enriched.map((e) => {
                   const d = e.details
                   const id = e.submissionId
-                  const beforeU = d.beforePhotoHash ? hashToGatewayUrl(d.beforePhotoHash) : ''
-                  const afterU = d.afterPhotoHash ? hashToGatewayUrl(d.afterPhotoHash) : ''
+                  const beforeU = d.beforePhotoHash ? hashToProxyDisplayUrl(d.beforePhotoHash) : ''
+                  const afterU = d.afterPhotoHash ? hashToProxyDisplayUrl(d.afterPhotoHash) : ''
                   const showBefore = beforeU && canShowPhoto(e.impact, 'before')
                   const showAfter = afterU && canShowPhoto(e.impact, 'after')
                   const im = e.impact

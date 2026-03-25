@@ -21,7 +21,8 @@
  */
 
 import { getCleanupDetails, getCleanupCounter } from '@/lib/blockchain/contracts'
-import { getIPFSUrl } from '@/lib/blockchain/ipfs'
+import { getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
+import { fetchViaIpfsGatewayProxy } from '@/lib/utils/ipfs-gateway-proxy'
 import { ImpactEntry, ImpactIndexCache } from './types'
 
 // ============================================================================
@@ -29,8 +30,9 @@ import { ImpactEntry, ImpactIndexCache } from './types'
 // ============================================================================
 
 const CACHE_TTL_MINUTES = 60
-const IPFS_PARALLEL_LIMIT = 5
-const IPFS_TIMEOUT_MS = 5000
+/** Keep low to avoid Pinata/public gateway 429s when many CIDs resolve at once. */
+const IPFS_PARALLEL_LIMIT = 3
+const IPFS_TIMEOUT_MS = 8000
 
 // ============================================================================
 // CACHE STATE
@@ -164,18 +166,34 @@ async function resolveSubmissionIPFSData(
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), IPFS_TIMEOUT_MS)
-    
-    const ipfsUrl = getIPFSUrl(submission.impactFormDataHash)
-    const response = await fetch(ipfsUrl, {
-      signal: controller.signal,
-    })
-    
-    clearTimeout(timeout)
-    
-    if (!response.ok) {
-      throw new Error(`IPFS returned ${response.status}`)
+
+    const raw = String(submission.impactFormDataHash || '')
+    const cleanHash = raw.replace(/^ipfs:\/\//, '').split('?')[0].split('#')[0].trim()
+    const gatewayUrls = cleanHash ? getIPFSFallbackUrls(cleanHash) : []
+
+    let response: Response | null = null
+    let lastStatus = 0
+    for (const url of gatewayUrls) {
+      try {
+        const r = await fetchViaIpfsGatewayProxy(url, { signal: controller.signal })
+        if (r.ok) {
+          response = r
+          break
+        }
+        lastStatus = r.status
+      } catch {
+        /* try next gateway */
+      }
     }
-    
+
+    clearTimeout(timeout)
+
+    if (!response?.ok) {
+      throw new Error(
+        lastStatus ? `IPFS gateways failed (last HTTP ${lastStatus})` : 'IPFS gateways failed'
+      )
+    }
+
     const impactData = await response.json()
     
     return {
