@@ -55,7 +55,8 @@ Add these in **Vercel → Project → Settings → Environment Variables**. Use 
 | `NEXT_PUBLIC_HYPERCERTS_NETWORK` | e.g. `celo-sepolia` | No |
 | `NEXT_PUBLIC_IMPACT_IMAGES_CID` | IPFS CID for impact images | No |
 | `NEXT_PUBLIC_IMPACT_METADATA_CID` | IPFS CID for impact metadata | No |
-| `NEXT_PUBLIC_MINIAPP_URL` | Miniapp URL if used | No |
+| `NEXT_PUBLIC_WEB_APP_URL` | Public dapp origin (WalletConnect metadata, OG fallbacks) | No |
+| `NEXT_PUBLIC_APP_ICON_URL` | Optional RainbowKit app icon URL | No |
 | `NEXT_PUBLIC_BIGDATACLOUD_API_KEY` | Leaderboard geocoding | Yes |
 
 ---

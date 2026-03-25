@@ -2,6 +2,7 @@
 
 import type { Web3AuthContextConfig } from '@web3auth/modal/react'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
+import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
 const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID?.trim()
 
@@ -22,10 +23,9 @@ const web3AuthNetwork =
     ? WEB3AUTH_NETWORK.SAPPHIRE_MAINNET
     : WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
 
-// Celo Sepolia: required so Web3Auth provider has a valid chain. Use alternative RPC if forno returns 403.
+// Celo Sepolia: match wagmi (same-origin /api/rpc/celo-sepolia in browser avoids public-RPC CORS failures).
 // SDK requires chainId as hex string (e.g. '0xAA044C'), not number.
-const celoSepoliaRpc =
-  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://celo-sepolia.drpc.org'
+const celoSepoliaRpc = getCeloSepoliaHttpRpcUrl()
 const CELO_SEPOLIA_CHAIN_ID_HEX = '0xAA044C' as const // 11142220 in hex
 
 const celoSepoliaChainConfig = {

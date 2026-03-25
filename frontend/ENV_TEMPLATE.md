@@ -94,9 +94,12 @@ NEXT_PUBLIC_IMPACT_METADATA_CID=
 # ============================================
 # OPTIONAL: App Configuration
 # ============================================
-NEXT_PUBLIC_MINIAPP_URL=http://localhost:3000
+# Public origin of this deployment (WalletConnect metadata, OG URL). Production: https://dapp.decleanup.net
+NEXT_PUBLIC_WEB_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=https://decleanup.network
+# Optional: override RainbowKit / WalletConnect app icon (default: Pinata IPFS icon)
+# NEXT_PUBLIC_APP_ICON_URL=
 
 # ============================================
 # OPTIONAL: External Services

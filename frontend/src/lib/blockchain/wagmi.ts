@@ -2,9 +2,12 @@ import { celo, mainnet } from 'wagmi/chains'
 import { defineChain, type Chain } from 'viem'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { http } from 'wagmi'
+import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
+// Must be Celo mainnet (42220), not Alfajores (deprecated testnet) — wrong RPC causes CORS + wrong-chain reads.
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
-const celoSepoliaRpcUrl = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org'
+/** Browser-safe default: public forno sepolia often has no CORS; same-origin proxy + drpc fallback. */
+const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
 
 const celoMainnet = {
   ...celo,
@@ -57,11 +60,11 @@ const APP_NAME = 'DeCleanup Rewards'
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.NEXT_PUBLIC_MINIAPP_URL ||
+  process.env.NEXT_PUBLIC_WEB_APP_URL ||
   'http://localhost:3000'
 const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo.'
 const APP_ICON_URL =
-  process.env.NEXT_PUBLIC_MINIAPP_ICON_URL ||
+  process.env.NEXT_PUBLIC_APP_ICON_URL ||
   'https://gateway.pinata.cloud/ipfs/bafkreia2bx2ofiutdzyxyry5wfaq5kj7bcd4wvutpiw6bhbl35qdbmsat4?filename=iconDCU.png'
 
 // RainbowKit configuration with getDefaultConfig

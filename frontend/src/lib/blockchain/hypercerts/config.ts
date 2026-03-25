@@ -27,6 +27,6 @@ export const HYPERCERTS_CONFIG = {
   // Network configuration
   network: {
     name: 'celo-sepolia',
-    rpcUrl: 'https://forno.celo-sepolia.celo-testnet.org',
+    rpcUrl: 'https://celo-sepolia.drpc.org',
   },
 }

@@ -18,8 +18,8 @@ const OG_IMAGE_URL =
   "https://gateway.pinata.cloud/ipfs/bafybeicdkbybpazpp6ucfbfbrrido36ka5v7hslanbem4vsbfrznrf4kzm?filename=DCUSocialNEW.png";
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_MINIAPP_URL || 
-  process.env.NEXT_PUBLIC_SITE_URL || 
+  process.env.NEXT_PUBLIC_WEB_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
   "https://dapp.decleanup.net";
 
 export const metadata: Metadata = {

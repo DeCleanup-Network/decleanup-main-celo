@@ -9,6 +9,7 @@ const IPFS_CID_FALLBACK_BASES = [
   'https://dweb.link/ipfs/',
   'https://cloudflare-ipfs.com/ipfs/',
   'https://gateway.ipfs.io/ipfs/',
+  'https://w3s.link/ipfs/',
 ] as const
 
 function extractIpfsCidFromUrl(url: string): string | null {
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
   })
 
   const cid = extractIpfsCidFromUrl(raw)
-  if (!upstream.ok && cid && (upstream.status === 429 || upstream.status === 503)) {
+  if (!upstream.ok && cid) {
     for (const base of IPFS_CID_FALLBACK_BASES) {
       const alt = `${base}${cid}`
       try {

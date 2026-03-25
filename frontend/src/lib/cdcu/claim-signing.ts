@@ -91,7 +91,10 @@ export interface SignedClaim extends ClaimPayload {
 
 function getChain() {
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 11142220)
-  const rpc = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org'
+  const rpc =
+    process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
+    process.env.NEXT_PUBLIC_RPC_URL ||
+    'https://celo-sepolia.drpc.org'
   return { id: chainId, rpc }
 }
 
