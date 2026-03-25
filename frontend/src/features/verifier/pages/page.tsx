@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useAccount, useSignMessage, useSwitchChain } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -86,7 +86,11 @@ export default function VerifierPage() {
   const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
   const [verifierContext, setVerifierContext] = useState<any>(null)
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
-  const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string } | null>(null)
+  const [actionModal, setActionModal] = useState<{
+    variant: 'success' | 'error' | 'warning' | 'info'
+    title: string
+    message: string | ReactNode
+  } | null>(null)
 
   const { signMessageAsync, isPending: isSigning } = useSignMessage()
 
@@ -528,7 +532,21 @@ export default function VerifierPage() {
               setActionModal({
                 variant: 'success',
                 title: 'Cleanup verified',
-                message: `Cleanup ${cleanupId.toString()} is now verified!\n\nView on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`,
+                message: (
+                  <>
+                    <p className="mb-3 text-gray-300">
+                      Cleanup {cleanupId.toString()} is now verified!
+                    </p>
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                      View transaction on {BLOCK_EXPLORER_NAME}
+                    </a>
+                  </>
+                ),
               })
           } else if (pollCount >= maxPolls) {
               console.log('Max polls reached after confirmation, stopping check')
@@ -539,7 +557,21 @@ export default function VerifierPage() {
               setActionModal({
                 variant: 'warning',
                 title: 'Status pending',
-                message: `Transaction confirmed but verification status not updated yet.\n\nThis may be a temporary RPC issue. Check ${BLOCK_EXPLORER_NAME}:\n${explorerUrl}`,
+                message: (
+                  <>
+                    <p className="mb-3 text-gray-300">
+                      Transaction confirmed but verification status not updated yet. This may be a temporary RPC issue.
+                    </p>
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                      Check on {BLOCK_EXPLORER_NAME}
+                    </a>
+                  </>
+                ),
               })
           }
         } catch (checkError: any) {
@@ -573,13 +605,44 @@ export default function VerifierPage() {
           setActionModal({
             variant: 'info',
             title: 'Transaction pending',
-            message: `Transaction submitted but confirmation is taking longer than expected.\n\nTransaction Hash: ${hash}\n\nPlease check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}\n\nThe cleanup will be verified once the transaction confirms.`,
+            message: (
+              <>
+                <p className="mb-3 text-gray-300">
+                  Transaction submitted but confirmation is taking longer than expected. The cleanup will be verified once the
+                  transaction confirms.
+                </p>
+                <p className="mb-2 font-mono text-xs text-gray-400 break-all">{hash}</p>
+                <a
+                  href={explorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                >
+                  Check status on {BLOCK_EXPLORER_NAME}
+                </a>
+              </>
+            ),
           })
         } else {
           setActionModal({
             variant: 'warning',
             title: 'Confirmation pending',
-            message: `Transaction submitted but could not confirm receipt.\n\nTransaction Hash: ${hash}\n\nPlease check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}`,
+            message: (
+              <>
+                <p className="mb-3 text-gray-300">
+                  Transaction submitted but we could not confirm the receipt yet.
+                </p>
+                <p className="mb-2 font-mono text-xs text-gray-400 break-all">{hash}</p>
+                <a
+                  href={explorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                >
+                  Check status on {BLOCK_EXPLORER_NAME}
+                </a>
+              </>
+            ),
           })
         }
       }
@@ -619,7 +682,22 @@ export default function VerifierPage() {
       setActionModal({
         variant: 'success',
         title: 'Rejection submitted',
-        message: `Rejection transaction submitted!\n\nTransaction Hash: ${hash}\n\nThe cleanup will be marked as rejected once the transaction confirms.\n\nView on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`,
+        message: (
+          <>
+            <p className="mb-3 text-gray-300">
+              Rejection transaction submitted. The cleanup will be marked as rejected once the transaction confirms.
+            </p>
+            <p className="mb-2 font-mono text-xs text-gray-400 break-all">{hash}</p>
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+            >
+              View transaction on {BLOCK_EXPLORER_NAME}
+            </a>
+          </>
+        ),
       })
     } catch (error) {
       console.error('Error rejecting cleanup:', error)
@@ -1951,10 +2029,14 @@ export default function VerifierPage() {
       {actionModal && (
         <AlertModal
           isOpen
-          onClose={() => setActionModal(null)}
+          onClose={() => {
+            setActionModal(null)
+            router.refresh()
+          }}
           title={actionModal.title}
           message={actionModal.message}
           variant={actionModal.variant}
+          autoCloseMs={actionModal.variant === 'success' ? 3000 : undefined}
         />
       )}
     </div>

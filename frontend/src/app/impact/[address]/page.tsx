@@ -30,8 +30,6 @@ import {
 } from '@/lib/impact/public-portfolio-data'
 import { Button } from '@/components/ui/button'
 
-const REFRESH_MS = 25_000
-
 function formatNum(n: number, d = 1) {
   if (!Number.isFinite(n)) return '0'
   return n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 0 }) : n.toFixed(d)
@@ -81,7 +79,6 @@ function PublicPortfolioContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<PublicPortfolioPayload | null>(null)
-  const [tick, setTick] = useState(0)
 
   const resolveParam = useCallback(async () => {
     const trimmed = decodeURIComponent(raw).trim()
@@ -143,13 +140,7 @@ function PublicPortfolioContent() {
     return () => {
       cancelled = true
     }
-  }, [resolved, submissionOwnerOverride, tick])
-
-  useEffect(() => {
-    if (!resolved) return
-    const id = setInterval(() => setTick((t) => t + 1), REFRESH_MS)
-    return () => clearInterval(id)
-  }, [resolved])
+  }, [resolved, submissionOwnerOverride])
 
   const shareUrl =
     typeof window !== 'undefined' && resolved
@@ -176,14 +167,14 @@ function PublicPortfolioContent() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="relative border-b border-border bg-background/90 backdrop-blur-md">
-        <div className="container mx-auto flex flex-col gap-6 px-4 py-8 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-brand-green">
-              <Sparkles className="h-3.5 w-3.5" />
+        <div className="container mx-auto flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-end sm:justify-between sm:gap-6 sm:py-8">
+          <div className="space-y-2 sm:space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-brand-green sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.25em]">
+              <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               Verified impact · ESG disclosure
             </div>
             <h1
-              className="font-bebas text-4xl leading-none tracking-wider text-foreground sm:text-5xl md:text-6xl"
+              className="font-bebas text-3xl leading-none tracking-wider text-foreground sm:text-5xl md:text-6xl"
               style={heroTitleStyle}
             >
               <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
@@ -194,13 +185,14 @@ function PublicPortfolioContent() {
             {resolved && (
               <div className="space-y-1">
                 {ensName && (
-                  <p className="font-sans text-xl font-semibold text-brand-green">{ensName}</p>
+                  <p className="font-sans text-lg font-semibold text-brand-green sm:text-xl">{ensName}</p>
                 )}
-                <p className="font-mono text-xs text-muted-foreground break-all sm:text-sm">{resolved}</p>
+                <p className="font-mono text-[11px] text-muted-foreground break-all sm:text-sm">{resolved}</p>
                 {submissionOwnerOverride && (
-                  <p className="text-[11px] text-brand-yellow/90">
-                    Including submissions for linked account{' '}
-                    <span className="font-mono">{submissionOwnerOverride}</span> (smart account / alternate wallet).
+                  <p className="text-[10px] leading-snug text-brand-yellow/90 sm:text-[11px]">
+                    This report merges data for the profile above with cleanups submitted from{' '}
+                    <span className="font-mono text-[9px] sm:text-[11px]">{submissionOwnerOverride}</span>
+                    — the wallet that signed your submissions when it differs (e.g. embedded or smart account).
                   </p>
                 )}
               </div>
@@ -226,7 +218,7 @@ function PublicPortfolioContent() {
         </div>
       </header>
 
-      <main className="relative container mx-auto max-w-5xl space-y-12 px-4 py-12">
+      <main className="relative container mx-auto max-w-5xl space-y-6 px-4 py-6 sm:space-y-10 sm:py-12">
         {error && !resolved && (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
         )}
@@ -240,13 +232,13 @@ function PublicPortfolioContent() {
 
         {!loading && data && reward && (
           <>
-            {/* KPI strip */}
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* KPI strip — compact 2×2 on mobile so first screen fits summary cards */}
+            <section className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
               {[
                 {
                   label: 'DCU recognized',
                   value: formatNum(reward.totalDcuBreakdown, 0),
-                  sub: 'Reward manager (by category)',
+                  sub: 'Sum of categories below',
                   icon: TrendingUp,
                   accent: 'from-brand-green/15 to-brand-green/5',
                 },
@@ -254,46 +246,45 @@ function PublicPortfolioContent() {
                   label: 'Verified cleanups',
                   value: String(data.verifiedCleanups),
                   sub: data.aggregated
-                    ? `${new Date(data.aggregated.timeframeStart).toLocaleDateString()} - ${new Date(data.aggregated.timeframeEnd).toLocaleDateString()}`
-                    : '-',
+                    ? `${new Date(data.aggregated.timeframeStart).toLocaleDateString()} – ${new Date(data.aggregated.timeframeEnd).toLocaleDateString()}`
+                    : '—',
                   icon: Leaf,
                   accent: 'from-brand-green/10 to-transparent',
                 },
                 {
                   label: 'Impact reports',
                   value: String(data.verifiedWithReport),
-                  sub: 'With structured data',
+                  sub: 'Structured reports',
                   icon: FileText,
                   accent: 'from-brand-yellow/10 to-transparent',
                 },
                 {
                   label: 'Impact Product',
-                  value: data.level > 0 ? `Level ${data.level}` : '-',
-                  sub: 'Onchain NFT',
+                  value: data.level > 0 ? `Lv ${data.level}` : '—',
+                  sub: 'NFT',
                   icon: Award,
                   accent: 'from-brand-yellow/15 to-brand-green/5',
                 },
               ].map((k) => (
                 <div
                   key={k.label}
-                  className={`relative overflow-hidden rounded-2xl border border-border bg-card bg-gradient-to-br ${k.accent} p-5 shadow-lg shadow-black/20`}
+                  className={`relative min-h-0 overflow-hidden rounded-xl border border-border bg-card bg-gradient-to-br ${k.accent} p-3 shadow-md shadow-black/15 sm:rounded-2xl sm:p-5 sm:shadow-lg`}
                 >
-                  <k.icon className="absolute right-3 top-3 h-8 w-8 text-brand-green/15" />
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{k.label}</p>
-                  <p className="mt-2 font-bebas text-4xl text-foreground">{k.value}</p>
-                  <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{k.sub}</p>
+                  <k.icon className="absolute right-2 top-2 h-5 w-5 text-brand-green/15 sm:right-3 sm:top-3 sm:h-8 sm:w-8" />
+                  <p className="pr-6 text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-muted-foreground sm:pr-8 sm:text-[10px] sm:tracking-[0.2em]">
+                    {k.label}
+                  </p>
+                  <p className="mt-1 font-bebas text-2xl leading-none text-foreground sm:mt-2 sm:text-4xl">{k.value}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[9px] leading-snug text-muted-foreground sm:mt-1 sm:text-[11px]">{k.sub}</p>
                 </div>
               ))}
             </section>
 
-            {/* Rewards breakdown: same semantics as dashboard */}
-            <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
-              <h2 className="font-bebas text-2xl tracking-wider text-brand-green sm:text-3xl">Rewards breakdown (DCU)</h2>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Totals follow the Reward Manager. Wallet token balance can differ (claims, transfers). Live refresh every{' '}
-                {REFRESH_MS / 1000}s.
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Rewards breakdown — second “screen” on mobile */}
+            <section className="rounded-2xl border border-border bg-card p-4 sm:rounded-3xl sm:p-8">
+              <h2 className="font-bebas text-xl tracking-wider text-brand-green sm:text-3xl">Rewards breakdown (DCU)</h2>
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">Category totals recorded for this profile.</p>
+              <div className="mt-4 grid gap-2 sm:mt-6 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
                 {[
                   { label: 'Cleanups', value: reward.cleanupsDCU, icon: TrendingUp },
                   { label: 'Referrals', value: reward.referralsDCU, icon: Users },
@@ -304,24 +295,20 @@ function PublicPortfolioContent() {
                 ].map((row) => (
                   <div
                     key={row.label}
-                    className="flex items-center justify-between rounded-xl border border-border bg-background/50 px-4 py-3"
+                    className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-3 py-2.5 sm:rounded-xl sm:px-4 sm:py-3"
                   >
-                    <span className="flex items-center gap-2 text-sm text-foreground/90">
-                      <row.icon className="h-4 w-4 text-brand-green" />
+                    <span className="flex min-w-0 items-center gap-2 text-xs text-foreground/90 sm:text-sm">
+                      <row.icon className="h-3.5 w-3.5 shrink-0 text-brand-green sm:h-4 sm:w-4" />
                       {row.label}
                     </span>
-                    <span className="font-bebas text-xl text-foreground">{formatNum(row.value, 0)}</span>
+                    <span className="shrink-0 font-bebas text-lg text-foreground sm:text-xl">{formatNum(row.value, 0)}</span>
                   </div>
                 ))}
               </div>
-              <div className="mt-6 grid gap-4 border-t border-border pt-6 sm:grid-cols-2">
-                <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-brand-green">Total earned (contract)</p>
-                  <p className="font-bebas text-3xl text-foreground">{formatNum(reward.totalEarned, 0)}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-muted/30 p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">In reward manager accounting</p>
-                  <p className="font-bebas text-3xl text-foreground">{formatNum(reward.rewardManagerBalance, 0)}</p>
+              <div className="mt-4 border-t border-border pt-4 sm:mt-6 sm:pt-6">
+                <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-3 sm:p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-brand-green">Total earned DCU</p>
+                  <p className="font-bebas text-2xl text-foreground sm:text-3xl">{formatNum(reward.totalEarned, 0)}</p>
                 </div>
               </div>
               {data.contributorCleanupCount > 0 && (
@@ -332,27 +319,27 @@ function PublicPortfolioContent() {
               )}
             </section>
 
-            {/* Environmental metrics */}
-            <section className="grid gap-6 lg:grid-cols-12">
-              <div className="lg:col-span-5 space-y-4">
-                <h2 className="font-bebas text-2xl tracking-wider text-foreground sm:text-3xl">Cumulative environmental impact</h2>
-                <p className="text-sm text-muted-foreground">Aggregated from verified impact reports (IPFS). Updates as new cleanups verify.</p>
-                <div className="grid grid-cols-2 gap-3">
+            {/* Environmental metrics — compact block */}
+            <section className="grid gap-4 lg:grid-cols-12 lg:gap-6">
+              <div className="space-y-3 lg:col-span-5">
+                <h2 className="font-bebas text-xl tracking-wider text-foreground sm:text-3xl">Cumulative environmental impact</h2>
+                <p className="text-xs text-muted-foreground sm:text-sm">From verified impact reports (IPFS).</p>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {[
                     { icon: Droplets, label: 'Area (est.)', value: `${formatNum(data.cumulative.areaSqm, 0)} m²`, color: 'text-cyan-400' },
                     { icon: Scale, label: 'Weight (est.)', value: `${formatNum(data.cumulative.weightKg, 1)} kg`, color: 'text-brand-yellow' },
                     { icon: Leaf, label: 'Bags', value: formatNum(data.cumulative.bagsTotal, 0), color: 'text-brand-green' },
                     { icon: Clock, label: 'Time (est.)', value: `${Math.round(data.cumulative.minutesTotal / 60)} h`, color: 'text-violet-300' },
                   ].map((m) => (
-                    <div key={m.label} className="rounded-2xl border border-border bg-card p-4">
-                      <m.icon className={`mb-2 h-6 w-6 ${m.color}`} />
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{m.label}</p>
-                      <p className="mt-1 font-bebas text-2xl text-foreground">{m.value}</p>
+                    <div key={m.label} className="rounded-xl border border-border bg-card p-3 sm:rounded-2xl sm:p-4">
+                      <m.icon className={`mb-1 h-5 w-5 sm:mb-2 sm:h-6 sm:w-6 ${m.color}`} />
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground sm:text-[10px] sm:tracking-widest">{m.label}</p>
+                      <p className="mt-0.5 font-bebas text-xl text-foreground sm:mt-1 sm:text-2xl">{m.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="lg:col-span-7 rounded-3xl border border-border bg-card bg-gradient-to-br from-brand-green/5 to-transparent p-6">
+              <div className="rounded-2xl border border-border bg-card bg-gradient-to-br from-brand-green/5 to-transparent p-4 sm:rounded-3xl sm:p-6 lg:col-span-7">
                 <WasteBars counts={data.cumulative.wasteTypeCounts} />
               </div>
             </section>
@@ -505,9 +492,9 @@ function PublicPortfolioContent() {
             </section>
 
             {submissionOwnerOverride === undefined && (
-              <p className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">
-                Using embedded / smart account? Add <code className="text-foreground/80">?sa=0xYourSmartAccount</code> to merge
-                submissions with this profile link.
+              <p className="rounded-xl border border-dashed border-border bg-muted/20 p-3 text-center text-[10px] leading-snug text-muted-foreground sm:p-4 sm:text-xs">
+                If your submissions used another address (e.g. smart account), add{' '}
+                <code className="text-foreground/80">?sa=0x…</code> to this URL so those cleanups appear here.
               </p>
             )}
           </>

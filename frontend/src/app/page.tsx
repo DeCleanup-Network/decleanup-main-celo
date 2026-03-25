@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAccount } from 'wagmi'
@@ -378,6 +378,9 @@ function HomeContent() {
     title?: string
     message: string
   } | null>(null)
+  /** Prevents double refresh when OK, Escape, and auto-close all fire. */
+  const claimSuccessHandledRef = useRef(false)
+  const claimRefreshAfterModalRef = useRef<(() => Promise<void>) | null>(null)
   const [notifyModal, setNotifyModal] = useState<{ variant: 'success' | 'error' | 'info'; title: string; message: string } | null>(null)
   /** False until first successful dashboard fetch for this session (avoids showing 000 while RPCs run). */
   const [hasLoadedDashboardOnce, setHasLoadedDashboardOnce] = useState(false)
@@ -858,19 +861,19 @@ function HomeContent() {
         console.log('[Home] Cleared pending cleanup from localStorage')
       }
 
+      claimSuccessHandledRef.current = false
       setClaimModal({
         variant: 'success',
         title: 'Impact Product claimed',
         message:
-          'Onchain rewards were processed (cDCU is the token form of DCU rewards shown in your dashboard). Your Impact Product NFT was minted or upgraded.\n\nThe dashboard refreshes automatically in a few seconds. No need to reload the page.',
+          'Onchain rewards were processed, your Impact Product was minted or upgraded',
       })
 
       setCleanupStatus(null)
       setShowReferralNotification(false)
 
-      await new Promise((resolve) => setTimeout(resolve, 5000))
-
-      if (address) {
+      const runRefreshAfterClaim = async () => {
+        if (!address) return
         const refreshOwner = (submissionOwnerAddress ?? address) as Address
         console.log('[Home] Refreshing cleanup status and reward stats after claim...')
         const status = await getUserCleanupStatus(refreshOwner)
@@ -960,9 +963,10 @@ function HomeContent() {
         } catch (error) {
           console.error('[Home] Error refreshing reward stats after claim:', error)
         }
+        console.log('[Home] Refreshing data to see updated balance and NFT...')
       }
 
-      console.log('[Home] Refreshing data to see updated balance and NFT...')
+      claimRefreshAfterModalRef.current = runRefreshAfterClaim
     } catch (error: any) {
       console.error('Error claiming:', error)
       const errorMessage = error?.message || String(error)
@@ -1414,13 +1418,24 @@ function HomeContent() {
       {claimModal && (
         <AlertModal
           isOpen
-          onClose={() => setClaimModal(null)}
+          onClose={() => {
+            if (claimModal.variant === 'success') {
+              if (claimSuccessHandledRef.current) return
+              claimSuccessHandledRef.current = true
+              setClaimModal(null)
+              void claimRefreshAfterModalRef.current?.()
+              claimRefreshAfterModalRef.current = null
+            } else {
+              setClaimModal(null)
+            }
+          }}
           title={
             claimModal.title ??
             (claimModal.variant === 'success' ? 'Impact Product claimed' : 'Claim failed')
           }
           message={claimModal.message}
           variant={claimModal.variant}
+          autoCloseMs={claimModal.variant === 'success' ? 3000 : undefined}
         />
       )}
       {notifyModal && (

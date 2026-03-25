@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAccount, useSignMessage } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, Loader2, Shield, ArrowLeft, MapPin, ExternalLink } from 'lucide-react'
@@ -49,6 +50,7 @@ const VERIFIER_AUTH_MESSAGE = 'I am requesting access to the DeCleanup Verifier 
 const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 
 export default function VerifierPage() {
+    const router = useRouter()
     const [mounted, setMounted] = useState(false)
     const { address, isConnected } = useAccount()
     const { signMessageAsync, isPending: isSigning } = useSignMessage()
@@ -61,7 +63,7 @@ export default function VerifierPage() {
     const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
     const [verifierContext, setVerifierContext] = useState<any>(null)
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
-    const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error'; title: string; message: string } | null>(null)
+    const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error'; title: string; message: string | ReactNode } | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -213,7 +215,22 @@ export default function VerifierPage() {
             console.log('Verification successful, transaction hash:', txHash)
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-            const message = `Cleanup verified successfully!\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nView on block explorer: ${txUrl}`
+            const message = (
+                <>
+                    <p className="mb-3 text-gray-300">Cleanup verified successfully.</p>
+                    <p className="mb-3 font-mono text-xs text-gray-400 break-all">
+                        {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                    </p>
+                    <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full items-center gap-1 break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                        View transaction on explorer
+                    </a>
+                </>
+            )
             setActionModal({ variant: 'success', title: 'Cleanup verified', message })
             
             // Refresh cleanups after a short delay to allow blockchain state to update
@@ -248,7 +265,22 @@ export default function VerifierPage() {
             console.log('Rejection successful, transaction hash:', txHash)
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-            const message = `Cleanup rejected successfully!\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nView on block explorer: ${txUrl}`
+            const message = (
+                <>
+                    <p className="mb-3 text-gray-300">Cleanup rejected successfully.</p>
+                    <p className="mb-3 font-mono text-xs text-gray-400 break-all">
+                        {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                    </p>
+                    <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full items-center gap-1 break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                        View transaction on explorer
+                    </a>
+                </>
+            )
             setActionModal({ variant: 'success', title: 'Cleanup rejected', message })
             
             // Refresh cleanups after a short delay to allow blockchain state to update
@@ -829,10 +861,14 @@ export default function VerifierPage() {
             {actionModal && (
                 <AlertModal
                     isOpen
-                    onClose={() => setActionModal(null)}
+                    onClose={() => {
+                        setActionModal(null)
+                        router.refresh()
+                    }}
                     title={actionModal.title}
                     message={actionModal.message}
                     variant={actionModal.variant}
+                    autoCloseMs={actionModal.variant === 'success' ? 3000 : undefined}
                 />
             )}
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -10,8 +10,11 @@ interface AlertModalProps {
   isOpen: boolean
   onClose: () => void
   title?: string
-  message: string
+  /** Plain string (preserves line breaks) or rich content (e.g. links). */
+  message?: string | ReactNode
   variant?: AlertModalVariant
+  /** When set, calls `onClose` after this many ms (e.g. match submission success redirect at 3s). */
+  autoCloseMs?: number
 }
 
 const variantStyles: Record<AlertModalVariant, { icon: typeof CheckCircle; borderClass: string; iconBgClass: string; iconColorClass: string }> = {
@@ -47,18 +50,27 @@ export function AlertModal({
   title,
   message,
   variant = 'info',
+  autoCloseMs,
 }: AlertModalProps) {
   const style = variantStyles[variant]
   const Icon = style.icon
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!isOpen) return
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || autoCloseMs == null || autoCloseMs <= 0) return
+    const id = window.setTimeout(() => onCloseRef.current(), autoCloseMs)
+    return () => window.clearTimeout(id)
+  }, [isOpen, autoCloseMs])
 
   if (!isOpen) return null
 
@@ -85,9 +97,17 @@ export function AlertModal({
             {title}
           </h2>
         )}
-        <p className="mb-6 whitespace-pre-wrap text-center text-sm text-gray-300 leading-relaxed">
-          {message}
-        </p>
+        {message != null && (
+          typeof message === 'string' ? (
+            <p className="mb-6 whitespace-pre-wrap text-center text-sm text-gray-300 leading-relaxed">
+              {message}
+            </p>
+          ) : (
+            <div className="mb-6 text-center text-sm text-gray-300 leading-relaxed">
+              {message}
+            </div>
+          )
+        )}
         <Button
           onClick={onClose}
           className={`w-full ${variant === 'success' ? 'border-2 border-brand-green bg-brand-green text-black hover:bg-brand-green/90 font-semibold' : 'border-2 border-gray-700 bg-gray-800 text-white hover:bg-gray-700'}`}

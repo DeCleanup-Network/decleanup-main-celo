@@ -181,11 +181,13 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full border-muted text-muted-foreground cursor-not-allowed"
+                className="h-auto min-h-[2.75rem] w-full border-muted px-3 py-2.5 text-muted-foreground cursor-not-allowed"
                 disabled
               >
-                <Lock className="h-4 w-4 mr-2" />
-                Unlock at 50 points
+                <span className="inline-flex w-full min-w-0 items-center justify-center gap-2 text-center leading-snug">
+                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="min-w-0">Unlock at 50 points</span>
+                </span>
               </Button>
             </>
           )}

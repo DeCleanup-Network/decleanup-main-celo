@@ -1820,13 +1820,13 @@ function CleanupContent() {
               +5 DCU Points Bonus
             </p>
             <p className="text-sm text-gray-400">
-              Provide more details on your cleanup (optional, rewarded with 5 DCU Points).
+              Provide more details on your cleanup (optional)
             </p>
           </div>
 
-          {/* Full form (always visible) */}
-          <div 
-            className="mb-6 space-y-4 max-h-[70vh] overflow-y-auto pr-2"
+          {/* Full form — page scrolls naturally so users can return to the heading after scrolling down */}
+          <div
+            className="mb-6 space-y-4 pr-1 sm:pr-2"
             onWheel={(e) => {
               // Close any open select dropdowns and blur number inputs when scrolling
               const activeElement = document.activeElement
@@ -2327,7 +2327,7 @@ function CleanupContent() {
               +5 DCU Points Bonus
             </p>
             <p className="text-sm text-gray-400">
-              If you recycled any materials from your cleanup, upload proof to earn 5 DCU points (optional).
+              If you recycled any materials from your cleanup, upload proof (optional)
             </p>
           </div>
 
