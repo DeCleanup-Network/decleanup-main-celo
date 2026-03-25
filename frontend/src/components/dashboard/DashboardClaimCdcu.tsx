@@ -117,7 +117,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
   const progress = Math.min(100, (pointsNum / ELIGIBILITY_THRESHOLD) * 100)
 
   return (
-    <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 min-w-0">
+    <div className="w-full min-w-0 max-w-full rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-sans font-semibold text-muted-foreground tracking-wide">Claim $cDCU</span>
         <Coins className="h-4 w-4 text-brand-green" />

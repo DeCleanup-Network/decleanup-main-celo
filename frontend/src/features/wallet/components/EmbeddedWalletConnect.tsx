@@ -8,6 +8,7 @@ import {
 import { useAccount, useDisconnect } from 'wagmi'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { CopyableAddress } from '@/components/ui/copyable-address'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_ID_HEX } from '@/lib/blockchain/chain-constants'
 import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/web3auth/errors'
 import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
@@ -210,13 +211,15 @@ export function EmbeddedWalletConnect() {
     )
   }
 
-  const shortAddress = `${address.slice(0, 6)}…${address.slice(-4)}`
   const isWrongChain = chainId !== undefined && chainId !== REQUIRED_CHAIN_ID
 
   return (
     <div className="flex max-w-[min(100vw-4.5rem,20rem)] flex-col items-end gap-1 text-right sm:max-w-none">
       <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
-        <span className="font-mono text-[11px] text-gray-300 sm:text-sm tabular-nums">{shortAddress}</span>
+        <CopyableAddress
+          address={address}
+          className="text-[11px] text-gray-300 sm:text-sm"
+        />
         {isWrongChain && (
           <span className="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] text-yellow-400 sm:text-xs">
             Wrong network

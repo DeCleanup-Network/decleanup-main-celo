@@ -29,6 +29,7 @@ import {
   type PublicPortfolioPayload,
 } from '@/lib/impact/public-portfolio-data'
 import { Button } from '@/components/ui/button'
+import { CopyableAddress } from '@/components/ui/copyable-address'
 
 function formatNum(n: number, d = 1) {
   if (!Number.isFinite(n)) return '0'
@@ -79,6 +80,7 @@ function PublicPortfolioContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<PublicPortfolioPayload | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const resolveParam = useCallback(async () => {
     const trimmed = decodeURIComponent(raw).trim()
@@ -151,9 +153,24 @@ function PublicPortfolioContent() {
     if (!shareUrl) return
     try {
       await navigator.clipboard.writeText(shareUrl)
+      setLinkCopied(true)
+      window.setTimeout(() => setLinkCopied(false), 2500)
     } catch {
       // ignore
     }
+  }
+
+  const shareOnX = () => {
+    if (!shareUrl) return
+    const text = encodeURIComponent('View my DeCleanup Impact Portfolio')
+    const url = encodeURIComponent(shareUrl)
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'noopener,noreferrer')
+  }
+
+  const shareOnFarcaster = () => {
+    if (!shareUrl) return
+    const text = encodeURIComponent(`View my DeCleanup Impact Portfolio\n\n${shareUrl}`)
+    window.open(`https://warpcast.com/~/compose?text=${text}`, '_blank', 'noopener,noreferrer')
   }
 
   const reward = data?.rewards
@@ -180,39 +197,58 @@ function PublicPortfolioContent() {
               <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
                 Impact
               </span>{' '}
-              Report
+              Portfolio
             </h1>
             {resolved && (
               <div className="space-y-1">
                 {ensName && (
                   <p className="font-sans text-lg font-semibold text-brand-green sm:text-xl">{ensName}</p>
                 )}
-                <p className="font-mono text-[11px] text-muted-foreground break-all sm:text-sm">{resolved}</p>
-                {submissionOwnerOverride && (
-                  <p className="text-[10px] leading-snug text-brand-yellow/90 sm:text-[11px]">
-                    This report merges data for the profile above with cleanups submitted from{' '}
-                    <span className="font-mono text-[9px] sm:text-[11px]">{submissionOwnerOverride}</span>
-                    — the wallet that signed your submissions when it differs (e.g. embedded or smart account).
-                  </p>
-                )}
+                <div className="max-w-full sm:max-w-2xl">
+                  <CopyableAddress
+                    address={resolved}
+                    truncate={false}
+                    className="text-[11px] text-muted-foreground sm:text-sm"
+                  />
+                </div>
               </div>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             <Button asChild variant="outline" size="sm" className="border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted">
               <Link href="/">Home</Link>
             </Button>
             {shareUrl && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="border-brand-green/40 bg-brand-green/10 font-bebas tracking-wider text-brand-green hover:bg-brand-green/20"
-                onClick={() => void copyShare()}
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Copy link
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-brand-green/40 bg-brand-green/10 font-bebas tracking-wider text-brand-green hover:bg-brand-green/20"
+                  onClick={() => void copyShare()}
+                >
+                  <Share2 className="mr-2 h-4 w-4 shrink-0" />
+                  {linkCopied ? 'Copied!' : 'Copy link'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted"
+                  onClick={shareOnX}
+                >
+                  Share on X
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted"
+                  onClick={shareOnFarcaster}
+                >
+                  Share on Farcaster
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -226,7 +262,7 @@ function PublicPortfolioContent() {
         {loading && (
           <div className="flex flex-col items-center justify-center gap-4 py-24">
             <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
-            <p className="text-sm text-muted-foreground">Loading onchain impact & IPFS reports…</p>
+            <p className="text-sm text-muted-foreground">Loading statistics</p>
           </div>
         )}
 
@@ -305,12 +341,6 @@ function PublicPortfolioContent() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 border-t border-border pt-4 sm:mt-6 sm:pt-6">
-                <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-3 sm:p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-brand-green">Total earned DCU</p>
-                  <p className="font-bebas text-2xl text-foreground sm:text-3xl">{formatNum(reward.totalEarned, 0)}</p>
-                </div>
-              </div>
               {data.contributorCleanupCount > 0 && (
                 <p className="mt-4 text-xs text-muted-foreground">
                   <Users className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" />
@@ -365,16 +395,21 @@ function PublicPortfolioContent() {
                       </div>
                     )}
                     <div className="absolute bottom-4 left-4 right-4">
-                      <p className="font-bebas text-3xl text-white drop-shadow-md">Impact Product NFT</p>
-                      <p className="text-sm text-white/70">
-                        Level {data.level} · Onchain NFT
+                      <p
+                        className="font-bebas text-3xl leading-none tracking-wider drop-shadow-lg sm:text-4xl"
+                        style={heroTitleStyle}
+                      >
+                        <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent">
+                          Impact
+                        </span>
+                        <span className="text-white"> Product</span>
                       </p>
+                      <p className="mt-1 text-sm text-white/80">Level {data.level}</p>
                     </div>
                   </div>
-                  <div className="flex flex-col justify-center p-8">
+                  <div className="flex flex-col justify-center p-6 sm:p-8">
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                      This onchain NFT represents verified cleanup progression in the DeCleanup network. Share this report with
-                      sponsors, municipalities, or ESG partners as third-party verifiable proof of field activity.
+                      This asset represents verified cleanup progression in the DeCleanup Network.
                     </p>
                     <div className="mt-6 flex flex-wrap gap-2">
                       <span className="rounded-full border border-brand-green/40 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-brand-green">
@@ -395,9 +430,7 @@ function PublicPortfolioContent() {
                 <div>
                   <h2 className="font-bebas text-2xl tracking-wider text-foreground sm:text-3xl">Cleanup evidence & reports</h2>
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                    Photo previews respect your per-photo consent from the impact report (
-                    <code className="text-foreground/80">beforePhotoAllowed</code> / <code className="text-foreground/80">afterPhotoAllowed</code>
-                    ). Missing consent defaults to visible for legacy submissions.
+                    Photo previews respect your per-photo consent from the impact report.
                   </p>
                 </div>
                 <Link2 className="hidden h-8 w-8 text-muted-foreground/30 sm:block" />
@@ -491,12 +524,6 @@ function PublicPortfolioContent() {
               </div>
             </section>
 
-            {submissionOwnerOverride === undefined && (
-              <p className="rounded-xl border border-dashed border-border bg-muted/20 p-3 text-center text-[10px] leading-snug text-muted-foreground sm:p-4 sm:text-xs">
-                If your submissions used another address (e.g. smart account), add{' '}
-                <code className="text-foreground/80">?sa=0x…</code> to this URL so those cleanups appear here.
-              </p>
-            )}
           </>
         )}
       </main>

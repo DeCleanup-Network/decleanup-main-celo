@@ -1334,7 +1334,7 @@ function CleanupContent() {
                 }`}
                 className="text-brand-green underline"
               >
-                public impact portfolio
+                Impact Portfolio
               </Link>
               .
             </p>

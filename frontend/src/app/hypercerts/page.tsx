@@ -573,7 +573,7 @@ export default function HypercertsTestPage() {
                     }`}
                     className="inline-block mt-2 text-[11px] font-sans font-semibold underline underline-offset-2 hover:opacity-80"
                   >
-                    Open public impact portfolio →
+                    Open Impact Portfolio →
                   </Link>
                 )}
               </div>

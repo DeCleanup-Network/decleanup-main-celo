@@ -1293,7 +1293,7 @@ function HomeContent() {
                         }`}
                         className="text-xs font-sans font-medium text-brand-green underline underline-offset-4 hover:text-brand-green/90"
                       >
-                        Public portfolio
+                        Impact portfolio
                       </Link>
                     )}
                   </>
@@ -1302,9 +1302,9 @@ function HomeContent() {
                 YOUR STATS
               </SectionHeading>
 
-              {/* Total Balances - Always Visible */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 transition-all hover:border-brand-green/50 hover:bg-brand-green/10">
+              {/* Total Balances - Always Visible (stack on mobile so Claim $cDCU card is not clipped) */}
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="min-w-0 rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 transition-all hover:border-brand-green/50 hover:bg-brand-green/10">
                   <div className="mb-2">
                     <span className="text-xs font-sans font-semibold tracking-wide text-muted-foreground">
                       Total DCU
@@ -1328,7 +1328,11 @@ function HomeContent() {
                     Sum of categories in the breakdown below (Reward Manager accounting).
                   </p>
                 </div>
-                {address && <DashboardClaimCdcu address={address} />}
+                {address && (
+                  <div className="min-w-0 w-full">
+                    <DashboardClaimCdcu address={address} />
+                  </div>
+                )}
               </div>
 
               {/* Expandable Breakdown */}
