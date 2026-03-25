@@ -43,14 +43,14 @@ const web3AuthOptions: Web3AuthOptions = {
   web3AuthNetwork,
   chains: [celoSepoliaChainConfig],
   defaultChainId: CELO_SEPOLIA_CHAIN_ID_HEX,
-  // Social/email + external wallets (MetaMask, WalletConnect, Coinbase) on the same modal.
+  // Social/email + MetaMask + WalletConnect. Do not add WALLET_CONNECTORS.COINBASE unless you
+  // install the optional peer `@coinbase/wallet-sdk` (otherwise init throws: "Connector coinbase is not configured").
   // Each connector config must include loginMethods so filterConnectors doesn't read undefined.
   modalConfig: {
     connectors: {
       [WALLET_CONNECTORS.AUTH]: { label: 'Social / Email', loginMethods: {} },
       [WALLET_CONNECTORS.METAMASK]: { label: 'MetaMask', showOnModal: true, loginMethods: {} },
       [WALLET_CONNECTORS.WALLET_CONNECT_V2]: { label: 'WalletConnect', showOnModal: true, loginMethods: {} },
-      [WALLET_CONNECTORS.COINBASE]: { label: 'Coinbase', showOnModal: true, loginMethods: {} },
     },
   },
 }
