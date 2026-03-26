@@ -133,11 +133,17 @@ This means the **auth connector** (Google, email, etc.) could not complete login
 12. **"Cross-Origin-Opener-Policy policy would block the window.closed call"** / Google popup not closing
    - The app sends `Cross-Origin-Opener-Policy: same-origin-allow-popups`. Restart the dev server after config changes. If the console warning still appears, the popup may still work; if not, try another browser or disable strict extensions.
 
-### "authorization failed" / "Session Expired or Invalid public key"
+### Mobile Safari / iOS — login feels like it “kicks you out” or you must reopen the tab
+
+- Embedded login uses **redirect** OAuth (not a small popup). You may briefly leave the dapp while Google/email finishes; you should land back on the same origin. If not, check **Whitelist URL** (above) includes your exact production origin.
+- **Authenticator / SMS prompts** can still appear **often** if **Google (or Microsoft, etc.)** treats the login as high-risk or your account requires 2FA on each sign-in — that is separate from Web3Auth’s optional wallet MFA. Check **Google Account → Security** (recent activity, “less secure” app settings, trusted devices).
+- The app sets Web3Auth **`mfaLevel: none`** so the **Embedded Wallet MFA setup** flow is not shown by default. Dashboard policies can still override; check [Web3Auth dashboard](https://dashboard.web3auth.io/) if you enabled mandatory MFA for the project.
+
+### "Session Expired or Invalid public key" (true stale session)
 
 The Web3Auth SDK can throw this when it tries to restore a cached session and the stored key/session is expired or invalid (e.g. after a long time, browser update, or cleared partial storage).
 
-**Fix:** The app now listens for this error and redirects you to **`/reset-wallet-session`** to clear storage. If you still see it in the console before redirect, open **`/reset-wallet-session`** manually, then click **Log In** again.
+**Fix:** The app listens for **specific** session-expiry messages and can redirect to **`/reset-wallet-session`**. Generic OAuth **"authorization failed"** during login is **not** treated as session expiry (that previously cleared storage mid-login on mobile). If you still see session errors after a long idle period, open **`/reset-wallet-session`** manually, then **Log In** again.
 
 ### "aes/gcm: invalid ghash tag" (or other decrypt errors)
 

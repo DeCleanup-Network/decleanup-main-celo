@@ -986,6 +986,31 @@ function CleanupContent() {
           console.warn('⚠️ Recyclables were selected but IPFS upload failed - recyclables not attached to submission')
         }
 
+        // ML / AI verification (server downloads from IPFS, runs scoring pipeline; non-blocking for UX)
+        try {
+          console.log('[ML Verification] Triggering AI verification for cleanup:', cleanupId.toString())
+          const mlVerificationResponse = await fetch('/api/ml-verification/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              submissionId: cleanupId.toString(),
+              beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
+              afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
+              gps: { latitude: location.lat, longitude: location.lng },
+              timestamp: Date.now(),
+            }),
+          })
+          if (mlVerificationResponse.ok) {
+            const mlData = await mlVerificationResponse.json()
+            console.log('[ML Verification] Result:', mlData)
+          } else {
+            const errText = await mlVerificationResponse.text()
+            console.warn('[ML Verification] API returned:', mlVerificationResponse.status, errText)
+          }
+        } catch (mlError) {
+          console.warn('[ML Verification] AI verification error (non-critical):', mlError)
+        }
+
         setCleanupId(cleanupId)
         
         // Store cleanup ID in localStorage for verification checking (scoped to onchain submitter: Safe or EOA)

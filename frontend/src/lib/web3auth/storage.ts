@@ -40,10 +40,12 @@ export function clearWeb3AuthStorageAndRedirect(path = '/'): void {
   if (typeof window !== 'undefined') window.location.href = path
 }
 
-/** Message patterns that indicate a stale/invalid Web3Auth session (SDK throws these on restore). */
+/**
+ * Stale/invalid Web3Auth session messages only — do not use generic "authorization failed"
+ * (OAuth emits that during in-flight login on mobile; matching it wiped storage and kicked users out).
+ */
 export const SESSION_EXPIRED_PATTERNS = [
   'Session Expired or Invalid public key',
-  'authorization failed',
   'Invalid public key',
 ] as const
 

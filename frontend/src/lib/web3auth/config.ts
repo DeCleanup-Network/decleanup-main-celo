@@ -2,6 +2,7 @@
 
 import type { Web3AuthContextConfig } from '@web3auth/modal/react'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
+import { MFA_LEVELS } from '@web3auth/auth'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
 const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID?.trim()
@@ -45,6 +46,23 @@ const web3AuthOptions: Web3AuthOptions = {
   web3AuthNetwork,
   chains: [celoSepoliaChainConfig],
   defaultChainId: CELO_SEPOLIA_CHAIN_ID_HEX,
+  /** Keep login session in localStorage (default); survives tab switches better than session-only. */
+  storageType: 'local',
+  /** idToken lifetime (seconds). SDK max ~30d; explicit 7d is enough for typical use. */
+  sessionTime: 7 * 24 * 60 * 60,
+  /**
+   * Skip Web3Auth “set up MFA” flows by default. (Google/Microsoft may still ask for 2FA per *their* policy.)
+   * @see https://web3auth.io/docs/sdk/helper-sdks/authentication
+   */
+  mfaLevel: MFA_LEVELS.NONE,
+  /**
+   * Redirect-based OAuth is reliable on mobile Safari; popups often look like the app “closed” or lose focus.
+   * User returns to the same URL after provider auth.
+   */
+  uiConfig: {
+    appName: 'DeCleanup',
+    uxMode: 'redirect',
+  },
   // Social/email + MetaMask + WalletConnect. Do not add WALLET_CONNECTORS.COINBASE unless you
   // install the optional peer `@coinbase/wallet-sdk` (otherwise init throws: "Connector coinbase is not configured").
   // Each connector config must include loginMethods so filterConnectors doesn't read undefined.
