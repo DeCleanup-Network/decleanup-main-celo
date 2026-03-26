@@ -3,7 +3,7 @@
 import type { Web3AuthContextConfig } from '@web3auth/modal/react'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
 import { MFA_LEVELS } from '@web3auth/auth'
-import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
+import { REQUIRED_CHAIN_ID_HEX } from '@/lib/blockchain/chain-constants'
 
 const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID?.trim()
 
@@ -17,22 +17,25 @@ if (!clientId && typeof window !== 'undefined') {
 // MUST match dashboard.web3auth.io → Project → network (Sapphire Devnet vs Sapphire Mainnet).
 // If you set NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet but the project is still Devnet, the API returns 400 and
 // "Network mismatch ... sapphire_mainnet ... sapphire_devnet". Fix: remove the env var (use devnet) or move the project to Mainnet in the dashboard.
-// If the console shows 403 on .../signer-service/api/feature-access?...&is_wallet_service=true — the Client ID may lack
-// Wallet Services / embedded-wallet entitlements on that Sapphire tier; check dashboard billing & product flags, or use Devnet until enabled.
+// 403 on .../signer-service/api/feature-access?...&is_wallet_service=true means **Wallet Services** (embedded
+// signer UI) is not allowed for this Client ID on the current **Web3Auth plan**. Social login uses the
+// embedded wallet stack — you must enable Wallet Services / upgrade the plan at https://dashboard.web3auth.io
+// (Base tier often does not include it). This is not fixable by sessionTime/whitelabel/CORS alone.
 const web3AuthNetwork =
   process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === 'mainnet'
     ? WEB3AUTH_NETWORK.SAPPHIRE_MAINNET
     : WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
 
-// Celo Sepolia: match wagmi (same-origin /api/rpc/celo-sepolia in browser avoids public-RPC CORS failures).
-// SDK requires chainId as hex string (e.g. '0xAA044C'), not number.
-const celoSepoliaRpc = getCeloSepoliaHttpRpcUrl()
-const CELO_SEPOLIA_CHAIN_ID_HEX = '0xAA044C' as const // 11142220 in hex
+// Celo Sepolia: MUST be a fixed public HTTPS RPC — never env/proxy. The embedded wallet runs on
+// https://wallet.web3auth.io; it cannot call http://127.0.0.1:3000/api/rpc (PNA / loopback block).
+// Do not use getCeloSepoliaHttpRpcUrl() or NEXT_PUBLIC_* that might point at /api/rpc here.
+// SDK requires chainId as hex string. MUST match `REQUIRED_CHAIN_ID_HEX` (lowercase `0xaa044c`).
+const CELO_SEPOLIA_RPC_FOR_WEB3AUTH = 'https://celo-sepolia.drpc.org'
 
 const celoSepoliaChainConfig = {
   chainNamespace: CHAIN_NAMESPACES.EIP155,
-  chainId: CELO_SEPOLIA_CHAIN_ID_HEX,
-  rpcTarget: celoSepoliaRpc,
+  chainId: REQUIRED_CHAIN_ID_HEX,
+  rpcTarget: CELO_SEPOLIA_RPC_FOR_WEB3AUTH,
   displayName: 'Celo Sepolia Testnet',
   blockExplorerUrl: 'https://celo-sepolia.blockscout.com',
   ticker: 'CELO',
@@ -51,7 +54,7 @@ const web3AuthOptions: Web3AuthOptions = {
   clientId: clientId || '',
   web3AuthNetwork,
   chains: [celoSepoliaChainConfig],
-  defaultChainId: CELO_SEPOLIA_CHAIN_ID_HEX,
+  defaultChainId: REQUIRED_CHAIN_ID_HEX,
   /** Keep login session in localStorage (default); survives tab switches better than session-only. */
   storageType: 'local',
   /**

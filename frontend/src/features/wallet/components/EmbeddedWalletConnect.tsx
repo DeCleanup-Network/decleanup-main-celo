@@ -5,6 +5,7 @@ import {
   useWeb3AuthConnect,
   useSwitchChain as useWeb3AuthSwitchChain,
 } from '@web3auth/modal/react'
+import { CONNECTOR_STATUS } from '@web3auth/modal'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -12,10 +13,13 @@ import { CopyableAddress } from '@/components/ui/copyable-address'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_ID_HEX } from '@/lib/blockchain/chain-constants'
 import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/web3auth/errors'
 import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
-import { WEB3AUTH_ACCOUNT_DASHBOARD_URL } from '@/lib/web3auth/urls'
+import { WEB3AUTH_ACCOUNT_DASHBOARD_URL, WEB3AUTH_DEVELOPER_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
-/** If Web3Auth init never completes (blocked network, ad blockers, SDK hang), stop spinning forever. */
-const WEB3AUTH_INIT_SLOW_MS = 25_000
+/**
+ * If init hangs (common when signer returns 403 for Wallet Services), show help instead of endless spinner.
+ * Keep this fairly short so operators notice quickly.
+ */
+const WEB3AUTH_INIT_STALL_MS = 8_000
 
 function PreparingLoginButton() {
   return (
@@ -40,7 +44,7 @@ export function EmbeddedWalletConnect() {
   const [mounted, setMounted] = useState(false)
   const [initSlow, setInitSlow] = useState(false)
   const [dismissMessage, setDismissMessage] = useState<string | null>(null)
-  const { isInitialized, isInitializing, initError } = useWeb3Auth()
+  const { isInitialized, isInitializing, initError, status } = useWeb3Auth()
   const { connect, loading, isConnected, error } = useWeb3AuthConnect()
   const { address, chainId } = useAccount()
   const { disconnect } = useDisconnect()
@@ -60,7 +64,7 @@ export function EmbeddedWalletConnect() {
       setInitSlow(false)
       return
     }
-    const id = window.setTimeout(() => setInitSlow(true), WEB3AUTH_INIT_SLOW_MS)
+    const id = window.setTimeout(() => setInitSlow(true), WEB3AUTH_INIT_STALL_MS)
     return () => window.clearTimeout(id)
   }, [waitingForWeb3AuthInit])
 
@@ -104,12 +108,29 @@ export function EmbeddedWalletConnect() {
         </div>
       )
     }
-    if (initSlow) {
+
+    const stalled = initSlow || status === CONNECTOR_STATUS.ERRORED
+    if (stalled) {
       return (
-        <div className="flex max-w-[min(100%,min(100vw-2rem,320px))] flex-col items-center gap-3 text-center">
-          <p className="text-xs text-amber-400/95">
-            Login is taking longer than usual. Try a reload, allow this site in your ad blocker, or reset the wallet
-            session.
+        <div className="flex max-w-[min(100%,min(100vw-2rem,380px))] flex-col items-center gap-3 text-center">
+          <p className="text-xs font-medium text-amber-300/95">
+            Login can’t finish loading
+          </p>
+          <p className="text-[11px] leading-snug text-gray-400">
+            Social login needs{' '}
+            <strong className="text-gray-300">Web3Auth Wallet Services</strong>. If the console shows{' '}
+            <code className="rounded bg-white/5 px-1 py-0.5 text-[10px] text-amber-200/90">403</code> on{' '}
+            <code className="rounded bg-white/5 px-1 py-0.5 text-[10px]">feature-access</code>, open your
+            project in the{' '}
+            <a
+              href={WEB3AUTH_DEVELOPER_DASHBOARD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+            >
+              Web3Auth dashboard
+            </a>{' '}
+            and enable Wallet Services or upgrade the plan. Ad blockers can also block the signer.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button

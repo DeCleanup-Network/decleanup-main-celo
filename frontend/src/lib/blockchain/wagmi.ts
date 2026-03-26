@@ -56,12 +56,26 @@ const celoSepoliaChain = defineChain({
 const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoMainnet, mainnet]
 
 const APP_NAME = 'DeCleanup Rewards'
-// WalletConnect validates metadata.url against the live page; prefer production URL on Vercel.
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.NEXT_PUBLIC_WEB_APP_URL ||
-  'http://localhost:3000'
+
+/**
+ * WalletConnect compares `metadata.url` to the page URL. Using only build-time env breaks when the
+ * same build is served on a custom domain (e.g. dapp.decleanup.net) vs the preview URL — use the live
+ * origin in the browser when available.
+ */
+function getWalletConnectAppUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_WEB_APP_URL ||
+    (typeof process !== 'undefined' && process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+    'http://localhost:3000'
+  )
+}
+
+const APP_URL = getWalletConnectAppUrl()
 const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo.'
 const APP_ICON_URL =
   process.env.NEXT_PUBLIC_APP_ICON_URL ||

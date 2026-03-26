@@ -43,6 +43,11 @@ const nextConfig = {
     // Disable persistent cache in dev to avoid 500s from stale vendor-chunks (ERR_ABORTED on layout.css, app/page.js, etc.)
     if (dev) {
       config.cache = false;
+      // macOS: EMFILE from native file watchers can leave routes unregistered (GET / → 404). Polling is heavier but stable.
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+      };
     }
     return config;
   },

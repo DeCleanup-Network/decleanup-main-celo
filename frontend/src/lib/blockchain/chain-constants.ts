@@ -16,7 +16,7 @@ const requiredChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || CELO_SEPOLIA_
 const isTestnet = requiredChainId !== CELO_MAINNET_CHAIN_ID
 
 export const REQUIRED_CHAIN_ID = requiredChainId
-/** Hex string for wallet_switchEthereumChain / Web3Auth switchChain (e.g. '0xAA044C'). */
+/** Hex string for wallet_switchEthereumChain / Web3Auth switchChain (lowercase; must match Web3Auth `chains[].chainId`). */
 export const REQUIRED_CHAIN_ID_HEX = `0x${requiredChainId.toString(16)}` as const
 export const DEFAULT_CHAIN_ID = requiredChainId
 export const REQUIRED_CHAIN_NAME = isTestnet ? 'Celo Sepolia Testnet' : 'Celo Mainnet'
