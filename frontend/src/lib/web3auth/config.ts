@@ -54,8 +54,11 @@ const web3AuthOptions: Web3AuthOptions = {
   defaultChainId: CELO_SEPOLIA_CHAIN_ID_HEX,
   /** Keep login session in localStorage (default); survives tab switches better than session-only. */
   storageType: 'local',
-  /** idToken lifetime (seconds). SDK max ~30d; explicit 7d is enough for typical use. */
-  sessionTime: 7 * 24 * 60 * 60,
+  /**
+   * idToken lifetime (seconds). Web3Auth **Base** plan allows at most **1 day**; longer sessions and
+   * custom branding (see `uiConfig`) require a higher tier — otherwise signer returns 403 / code 1003.
+   */
+  sessionTime: 86400,
   /**
    * Skip Web3Auth “set up MFA” flows by default. (Google/Microsoft may still ask for 2FA per *their* policy.)
    * @see https://web3auth.io/docs/sdk/helper-sdks/authentication
@@ -65,8 +68,9 @@ const web3AuthOptions: Web3AuthOptions = {
    * Desktop: popup OAuth (modal completes in-page). Mobile: redirect (Safari popups are flaky).
    * Forcing redirect everywhere broke “pick Google account → nothing happens” when the SDK didn’t finish the return leg.
    */
+  // Do not set appName/logo/theme here: those count as **whitelabel** and are not available on the
+  // Base dashboard plan (API: is_whitelabel=true → 403). Only uxMode is safe on Base.
   uiConfig: {
-    appName: 'DeCleanup',
     uxMode: authUxMode(),
   },
   // Social/email + MetaMask + WalletConnect. Do not add WALLET_CONNECTORS.COINBASE unless you
