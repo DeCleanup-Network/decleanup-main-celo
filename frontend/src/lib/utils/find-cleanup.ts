@@ -58,7 +58,7 @@ export type CleanupSearchResult = {
 
 /**
  * Find cleanups submitted by a wallet (full or partial address match)
- * NOTE: MVP-safe implementation — does not rely on on-chain counters
+ * NOTE: MVP-safe implementation; does not rely on onchain counters
  */
 export async function findCleanupsByWallet(
   walletAddressOrPartial: string,

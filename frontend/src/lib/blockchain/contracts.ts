@@ -1,9 +1,25 @@
-import { Address, Hash } from 'viem'
+import { Address } from 'viem'
+import { encodeFunctionData } from 'viem'
 import { readContract, writeContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
-import { config } from './wagmi'
-import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from './wagmi'
+import { getConfig } from './get-wagmi-config'
+import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from './chain-constants'
+import { getSmartAccountAddressFromClient } from './smart-account'
 import { keccak256, toBytes } from 'viem'
 import { getLogs as viemGetLogs } from 'viem/actions'
+
+/** Smart account client (e.g. from permissionless) for gasless submit. Has sendTransaction({ to, data?, value? }). */
+export type GaslessClient = { sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`> }
+
+/** True when the error is from calling a contract on wrong chain or at an address with no contract (viem "returned no data"). */
+function isNoDataOrWrongChainError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const msg = (error as { message?: string }).message
+  const name = (error as { name?: string }).name
+  if (typeof msg === 'string' && msg.includes('returned no data')) return true
+  if (name === 'ContractFunctionZeroDataError') return true
+  if (typeof msg === 'string' && msg.includes('is not a contract')) return true
+  return false
+}
 
 export enum CleanupStatus {
   Pending = 0,
@@ -199,11 +215,24 @@ const SUBMISSION_ABI = [
     outputs: [{ name: '', type: 'uint256[]' }],
   },
   {
-    type: 'function',
-    name: 'userHypercertCount',
-    stateMutability: 'view',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
+    type: "function",
+    name: "grantRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" }
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "revokeRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" }
+    ],
+    outputs: [],
   },
 ] as const
 
@@ -215,13 +244,14 @@ export async function submitCleanup(
   _referrer: string | null,
   _hasImpactForm: boolean,
   _impactReportHash: string,
-  _fee?: bigint
+  _fee?: bigint,
+  options?: { gaslessClient?: GaslessClient }
 ): Promise<bigint> {
   if (!SUBMISSION_ADDRESS) {
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
@@ -238,32 +268,21 @@ export async function submitCleanup(
   const impactFormDataHash = _hasImpactForm && _impactReportHash ? _impactReportHash : ''
 
   try {
-    const submissionCountBefore = await readContract(config, {
+    const submissionCountBefore = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
     })
 
-    const contractConfig: any = {
-      address: SUBMISSION_ADDRESS,
-      abi: SUBMISSION_ABI,
-      functionName: 'createSubmission',
-      args: [
-        dataURI,
-        beforeHash,
-        afterHash,
-        impactFormDataHash,
-        latInt256,
-        lngInt256,
-        referrer,
-      ],
-      account: account.address,
-      gas: 1000000n,
-    }
-
-    if (_fee && _fee > 0n) {
-      contractConfig.value = _fee
-    }
+    const args = [
+      dataURI,
+      beforeHash,
+      afterHash,
+      impactFormDataHash,
+      latInt256,
+      lngInt256,
+      referrer,
+    ] as const
 
     console.log('Submitting transaction with args:', {
       dataURI: dataURI.substring(0, 50) + '...',
@@ -274,17 +293,42 @@ export async function submitCleanup(
       lng: lngInt256.toString(),
       referrer: referrer,
       fee: _fee?.toString() || '0',
+      gasless: !!options?.gaslessClient,
     })
 
-    const hash = await writeContract(config, contractConfig)
-    const receipt = await waitForTransactionReceipt(config, {
+    let hash: `0x${string}`
+
+    if (options?.gaslessClient) {
+      const data = encodeFunctionData({
+        abi: SUBMISSION_ABI,
+        functionName: 'createSubmission',
+        args,
+      })
+      hash = await options.gaslessClient.sendTransaction({
+        to: SUBMISSION_ADDRESS,
+        data,
+        value: _fee ?? 0n,
+      })
+    } else {
+      const contractConfig: any = {
+        address: SUBMISSION_ADDRESS,
+        abi: SUBMISSION_ABI,
+        functionName: 'createSubmission',
+        args,
+        account: account.address,
+      }
+      if (_fee && _fee > 0n) contractConfig.value = _fee
+      hash = await writeContract(getConfig(), contractConfig)
+    }
+
+    const receipt = await waitForTransactionReceipt(getConfig(), {
       hash,
       confirmations: 1,
       pollingInterval: 2000,
       timeout: 120000,
     })
 
-    const submissionCountAfter = await readContract(config, {
+    const submissionCountAfter = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -346,7 +390,7 @@ export async function getCleanupDetails(
   }
 
   try {
-    const result: any = await readContract(config, {
+    const result: any = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionDetails',
@@ -415,8 +459,7 @@ export async function getCleanupDetails(
         level: 0,
       }
     }
-    
-    console.error('Error fetching cleanup details:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error fetching cleanup details:', error)
     throw error
   }
 }
@@ -427,14 +470,14 @@ export async function getCleanupCounter(): Promise<bigint> {
   }
 
   try {
-    const count = await readContract(config, {
+    const count = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
     })
     return count as bigint
   } catch (error) {
-    console.error('Error getting cleanup counter:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error getting cleanup counter:', error)
     return 0n
   }
 }
@@ -445,7 +488,7 @@ export async function getUserSubmissions(user: Address): Promise<bigint[]> {
   }
 
   try {
-    const submissionIds = await readContract(config, {
+    const submissionIds = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionsByUser',
@@ -453,7 +496,7 @@ export async function getUserSubmissions(user: Address): Promise<bigint[]> {
     })
     return (submissionIds as bigint[]) || []
   } catch (error) {
-    console.error('Error getting user submissions:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error getting user submissions:', error)
     return []
   }
 }
@@ -469,7 +512,7 @@ export async function getVerifierRewardsCount(verifierAddress: Address): Promise
 
   try {
     // Get total submission count
-    const totalSubmissions = await readContract(config, {
+    const totalSubmissions = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -525,7 +568,7 @@ export async function getVerifierRewardsCount(verifierAddress: Address): Promise
 
     return verifiedCount
   } catch (error) {
-    console.error('[getVerifierRewardsCount] Error getting verifier rewards count:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('[getVerifierRewardsCount] Error getting verifier rewards count:', error)
     return 0
   }
 }
@@ -540,7 +583,7 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
   }
 
   try {
-    const referrer = await readContract(config, {
+    const referrer = await readContract(getConfig(), {
       address: REWARD_MANAGER_ADDRESS,
       abi: [
         {
@@ -562,15 +605,48 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
 
     return referrer
   } catch (error) {
-    console.error('Error getting user referrer:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error getting user referrer:', error)
     return null
   }
 }
 
+/** Count of approved (non-rejected) submissions — must match NFT userLevel after all levels are claimed. */
+async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
+  const submissionIds = await getUserSubmissions(user)
+  let n = 0
+  for (const sid of submissionIds) {
+    try {
+      const details = await getCleanupDetails(sid)
+      if (details.verified && !details.rejected) n++
+    } catch {
+      /* ignore */
+    }
+  }
+  return n
+}
+
+/**
+ * Latest verified submission that can still be claimed on-chain.
+ * Submissions listed in localStorage `claimed_cleanup_ids_*` are skipped entirely so users
+ * cannot re-claim the same level without submitting a new cleanup (strict submit → verify → claim loop).
+ */
 export async function findLatestClaimableCleanup(user: Address): Promise<bigint | null> {
   try {
+    try {
+      const verifiedCnt = await countVerifiedCleanupsForUser(user)
+      const nftLvl = await getUserLevel(user)
+      if (verifiedCnt > 0 && nftLvl >= verifiedCnt) {
+        console.log(
+          `[findLatestClaimableCleanup] NFT level ${nftLvl} >= verified cleanups ${verifiedCnt} — no pending level claim`
+        )
+        return null
+      }
+    } catch (e) {
+      console.warn('[findLatestClaimableCleanup] NFT vs verified count check failed:', e)
+    }
+
     const submissionIds = await getUserSubmissions(user)
-    
+
     if (submissionIds.length === 0) {
       return null
     }
@@ -584,44 +660,35 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
     for (const submissionId of sortedIds) {
       try {
         const details = await getCleanupDetails(submissionId)
-        
-        // Quick check: If already claimed on-chain, skip immediately (no need to check further)
-        if (details.claimed) {
-          continue // Skip to next cleanup
+
+        const localClaimed =
+          typeof window !== 'undefined'
+            ? (() => {
+                try {
+                  const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+                  const claimedIds = localStorage.getItem(claimedKey)
+                  if (claimedIds) {
+                    const parsed = JSON.parse(claimedIds) as string[]
+                    return parsed.includes(submissionId.toString())
+                  }
+                } catch {
+                  /* ignore */
+                }
+                return false
+              })()
+            : false
+
+        if (localClaimed) {
+          console.log(
+            `[findLatestClaimableCleanup] Skip ${submissionId.toString()} — already in claimed_cleanup_ids (claim again requires a new submission)`
+          )
+          continue
         }
-        
-        // Use let instead of const so we can update it after unmarking
-        let localClaimed = typeof window !== 'undefined' ? (() => {
-          try {
-            const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-            const claimedIds = localStorage.getItem(claimedKey)
-            if (claimedIds) {
-              const parsed = JSON.parse(claimedIds) as string[]
-              return parsed.includes(submissionId.toString())
-            }
-          } catch {
-          }
-          return false
-        })() : false
-        
-        // Quick check: If marked as claimed in localStorage AND verified more than 1 hour ago, skip
-        // (Don't skip recent ones in case claim failed)
-        if (localClaimed && details.verified && details.timestamp) {
-          const now = BigInt(Math.floor(Date.now() / 1000))
-          const oneHourAgo = now - BigInt(3600)
-          if (details.timestamp < oneHourAgo) {
-            // Old cleanup marked as claimed - skip it (don't log, just skip)
-            continue
-          }
-        }
-        
-        // Check if this is a pre-fix cleanup (rewarded=true but user has no balance)
-        // IMPORTANT: Check this EVEN IF marked as claimed, because we need to detect pre-fix cleanups
-        // that were incorrectly unmarked or never properly marked
+
         let isPreFixCleanup = false
         if (details.verified && details.rewarded && !details.rejected && REWARD_MANAGER_ADDRESS) {
           try {
-            const balance = await readContract(config, {
+            const balance = await readContract(getConfig(), {
               address: REWARD_MANAGER_ADDRESS,
               abi: [
                 {
@@ -635,170 +702,31 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
               functionName: 'getBalance',
               args: [user],
             }) as bigint
-            
-            // Only mark as pre-fix if verified more than 1 hour ago
-            // This prevents false positives for newly verified cleanups
-            // Be very conservative - only block old cleanups that are definitely pre-fix
+
             if (balance === 0n && details.timestamp) {
               const now = BigInt(Math.floor(Date.now() / 1000))
-              const oneHourAgo = now - BigInt(3600) // 1 hour in seconds
-              const verifiedAgo = now - details.timestamp
-              
-              // Only mark as pre-fix if verified >1 hour ago and still has 0 balance
+              const oneHourAgo = now - BigInt(3600)
               if (details.timestamp < oneHourAgo) {
-                // Check if user has the corresponding NFT level - if not, allow claiming
-                // This allows users to claim pre-fix cleanups to get their NFT
-                try {
-                  const userLevel = await getUserLevel(user)
-                  // If user has no NFT (level 0), allow claiming this cleanup to mint their first NFT
-                  if (userLevel === 0) {
-                    console.log(`[findLatestClaimableCleanup] Pre-fix cleanup ${submissionId.toString()} detected, but user has no NFT (level 0) - allowing claim to mint NFT`)
-                    isPreFixCleanup = false // Don't block it
-                    // Also unmark it from localStorage if it was previously marked as claimed
-                    if (localClaimed && typeof window !== 'undefined') {
-                      try {
-                        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                        const claimedIds = localStorage.getItem(claimedKey)
-                        if (claimedIds) {
-                          const parsed = JSON.parse(claimedIds) as string[]
-                          const filtered = parsed.filter(id => id !== submissionId.toString())
-                          if (filtered.length === 0) {
-                            localStorage.removeItem(claimedKey)
-                          } else {
-                            localStorage.setItem(claimedKey, JSON.stringify(filtered))
-                          }
-                          console.log(`[findLatestClaimableCleanup] ✅ Unmarked pre-fix cleanup ${submissionId.toString()} from claimed list - user needs to claim it to mint NFT`)
-                          localClaimed = false // Update so it can be returned
-                        }
-                      } catch (e) {
-                        console.warn('[findLatestClaimableCleanup] Could not unmark cleanup:', e)
-                      }
-                    }
-                  } else {
-                    isPreFixCleanup = true
-                    console.warn(`[findLatestClaimableCleanup] ⚠️ Pre-fix cleanup detected: ${submissionId.toString()} (rewarded=true but balance=0, verified ${verifiedAgo.toString()}s ago, >1h, user has NFT level ${userLevel})`)
-                    // Automatically mark it as claimed to prevent it from being found again
-                    if (typeof window !== 'undefined') {
-                      try {
-                        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                        const claimedIds = localStorage.getItem(claimedKey)
-                        const parsed = claimedIds ? JSON.parse(claimedIds) as string[] : []
-                        if (!parsed.includes(submissionId.toString())) {
-                          parsed.push(submissionId.toString())
-                          localStorage.setItem(claimedKey, JSON.stringify(parsed))
-                          console.log(`[findLatestClaimableCleanup] ✅ Auto-marked pre-fix cleanup ${submissionId.toString()} as claimed`)
-                          // Update localClaimed so it's skipped
-                          localClaimed = true
-                        }
-                      } catch (e) {
-                        console.warn('[findLatestClaimableCleanup] Could not mark cleanup as claimed:', e)
-                      }
-                    }
-                  }
-                } catch (error) {
-                  // If we can't check NFT level, be conservative and allow claiming
-                  console.warn(`[findLatestClaimableCleanup] Could not check user NFT level for cleanup ${submissionId.toString()}, allowing claim:`, error)
-                  isPreFixCleanup = false
-                  // Also unmark from localStorage if marked
-                  if (localClaimed && typeof window !== 'undefined') {
-                    try {
-                      const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                      const claimedIds = localStorage.getItem(claimedKey)
-                      if (claimedIds) {
-                        const parsed = JSON.parse(claimedIds) as string[]
-                        const filtered = parsed.filter(id => id !== submissionId.toString())
-                        if (filtered.length === 0) {
-                          localStorage.removeItem(claimedKey)
-                        } else {
-                          localStorage.setItem(claimedKey, JSON.stringify(filtered))
-                        }
-                        localClaimed = false
-                      }
-                    } catch (e) {
-                      // Ignore
-                    }
-                  }
-                }
+                isPreFixCleanup = true
+                console.warn(
+                  `[findLatestClaimableCleanup] Pre-fix cleanup ${submissionId.toString()}: verified >1h ago, rewarded, balance 0 — skipping`
+                )
               }
             }
           } catch (error) {
-            console.warn(`[findLatestClaimableCleanup] Could not check balance for cleanup ${submissionId.toString()}:`, error)
+            console.warn(`[findLatestClaimableCleanup] Balance check failed for ${submissionId.toString()}:`, error)
           }
         }
-        
-        // If cleanup is verified but marked as claimed in localStorage, check if it was actually claimed
-        // Sometimes cleanups get incorrectly marked as claimed (e.g., if claim failed)
-        // Do this BEFORE checking isClaimable so we can unmark it and make it claimable
-        // Only check recent cleanups (< 1 hour) to avoid unnecessary checks on old cleanups
-        if (details.verified && !details.rejected && localClaimed && !isPreFixCleanup && REWARD_MANAGER_ADDRESS && details.timestamp) {
-          const now = BigInt(Math.floor(Date.now() / 1000))
-          const oneHourAgo = now - BigInt(3600)
-          
-          // Only check if verified recently (might be a failed claim)
-          if (details.timestamp > oneHourAgo) {
-            // Check if user actually has rewards or if this was a failed claim
-            try {
-              const balance = await readContract(config, {
-                address: REWARD_MANAGER_ADDRESS,
-                abi: [
-                  {
-                    type: 'function',
-                    name: 'getBalance',
-                    stateMutability: 'view',
-                    inputs: [{ name: 'user', type: 'address' }],
-                    outputs: [{ name: '', type: 'uint256' }],
-                  },
-                ] as const,
-                functionName: 'getBalance',
-                args: [user],
-              }) as bigint
-              
-              // If user has no balance, it might not have been actually claimed
-              if (balance === 0n) {
-                // Unmark from localStorage to allow claiming
-                if (typeof window !== 'undefined') {
-                  try {
-                    const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                    const claimedIds = localStorage.getItem(claimedKey)
-                    if (claimedIds) {
-                      const parsed = JSON.parse(claimedIds) as string[]
-                      const filtered = parsed.filter(id => id !== submissionId.toString())
-                      if (filtered.length === 0) {
-                        localStorage.removeItem(claimedKey)
-                      } else {
-                        localStorage.setItem(claimedKey, JSON.stringify(filtered))
-                      }
-                      // Update localClaimed to false so it can be returned
-                      localClaimed = false
-                    }
-                  } catch (e) {
-                    // Ignore localStorage errors
-                  }
-                }
-              }
-            } catch (error) {
-              // Ignore balance check errors
-            }
-          }
-        }
-        
-        const isClaimable = 
+
+        const isClaimable =
           details.user.toLowerCase() === user.toLowerCase() &&
           details.verified &&
           !details.rejected &&
           !details.claimed &&
-          !localClaimed &&
           !isPreFixCleanup
-        
+
         if (isClaimable) {
-          console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`, {
-            verified: details.verified,
-            rejected: details.rejected,
-            claimed: details.claimed,
-            localClaimed,
-            isPreFixCleanup,
-          })
-          console.log(`[findLatestClaimableCleanup] Returning cleanup ID: ${submissionId.toString()}`)
+          console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`)
           return submissionId
         }
       } catch (error) {
@@ -824,41 +752,28 @@ export async function getSubmissionFee(): Promise<{
   }
 }
 
-/**
- * Check if an address is a verifier
- * 
- * Current implementation: Checks VERIFIER_ROLE (whitelisted addresses)
- * Future implementation: Will also check $cDCU staking status
- * 
- * @param _address - Address to check
- * @returns true if address is a verifier, false otherwise
- */
 export async function isVerifier(_address: Address): Promise<boolean> {
   if (!SUBMISSION_ADDRESS) {
     return false
   }
 
   try {
-    const verifierRole = await readContract(config, {
+    const verifierRole = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'VERIFIER_ROLE',
     })
 
-    const hasRole = await readContract(config, {
+    const hasRole = await readContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'hasRole',
       args: [verifierRole as `0x${string}`, _address],
     })
 
-    // TODO: Future - Also check $cDCU staking status
-    // const stakingStatus = await checkVerifierStaking(_address)
-    // return hasRole && stakingStatus
-
     return hasRole as boolean
   } catch (error) {
-    console.error('Error checking verifier status:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error checking verifier status:', error)
     return false
   }
 }
@@ -871,7 +786,7 @@ export async function verifyCleanup(
     throw new Error('Submission contract address not configured')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
@@ -884,7 +799,7 @@ export async function verifyCleanup(
       account: account.address,
     })
 
-    hash = await writeContract(config, {
+    hash = await writeContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'approveSubmission',
@@ -902,7 +817,7 @@ export async function verifyCleanup(
     
     while (retries < maxRetries) {
       try {
-        receipt = await waitForTransactionReceipt(config, { 
+        receipt = await waitForTransactionReceipt(getConfig(), { 
           hash,
           confirmations: 1, // Wait for 1 confirmation
           pollingInterval: 2000, // Poll every 2 seconds
@@ -935,7 +850,7 @@ export async function verifyCleanup(
     console.log('Transaction receipt received:', receipt)
     
     if (receipt.status === 'reverted' || receipt.status === 0) {
-      throw new Error('Transaction reverted on chain')
+      throw new Error('Transaction reverted onchain')
     }
 
     return hash
@@ -975,7 +890,7 @@ export async function rejectCleanup(
     throw new Error('Submission contract address not configured')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
@@ -988,7 +903,7 @@ export async function rejectCleanup(
       account: account.address,
     })
 
-    hash = await writeContract(config, {
+    hash = await writeContract(getConfig(), {
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'rejectSubmission',
@@ -1006,7 +921,7 @@ export async function rejectCleanup(
     
     while (retries < maxRetries) {
       try {
-        receipt = await waitForTransactionReceipt(config, { 
+        receipt = await waitForTransactionReceipt(getConfig(), { 
           hash,
           confirmations: 1, // Wait for 1 confirmation
           pollingInterval: 2000, // Poll every 2 seconds
@@ -1040,7 +955,7 @@ export async function rejectCleanup(
     
     // Check if transaction failed
     if (receipt.status === 'reverted' || receipt.status === 0) {
-      throw new Error('Transaction reverted on chain')
+      throw new Error('Transaction reverted onchain')
     }
 
     return hash
@@ -1097,7 +1012,7 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
       },
     ] as const
 
-    const dcuTokenAddress = await readContract(config, {
+    const dcuTokenAddress = await readContract(getConfig(), {
       address: REWARD_MANAGER_ADDRESS,
       abi: REWARD_MANAGER_DCU_ABI,
       functionName: 'dcuToken',
@@ -1113,7 +1028,7 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
       },
     ] as const
 
-    const balance = await readContract(config, {
+    const balance = await readContract(getConfig(), {
       address: dcuTokenAddress,
       abi: DCU_TOKEN_ABI,
       functionName: 'balanceOf',
@@ -1122,7 +1037,7 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
 
     return balance
   } catch (error) {
-    console.error('Error getting DCU balance:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error getting DCU balance:', error)
     return 0n
   }
 }
@@ -1169,7 +1084,7 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
       },
     ] as const
 
-    const result = await readContract(config, {
+    const result = await readContract(getConfig(), {
       address: REWARD_MANAGER_ADDRESS,
       abi: REWARD_MANAGER_STATS_ABI,
       functionName: 'getUserRewardStats',
@@ -1186,7 +1101,7 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
       impactReportRewardsAmount: result[6],
     }
   } catch (error) {
-    console.error('Error getting user reward stats:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error getting user reward stats:', error)
     return {
       currentBalance: 0n,
       totalEarned: 0n,
@@ -1225,7 +1140,7 @@ export async function verifyRewardManagerSetup(): Promise<{
       },
     ] as const
 
-    const dcuTokenAddress = await readContract(config, {
+    const dcuTokenAddress = await readContract(getConfig(), {
       address: REWARD_MANAGER_ADDRESS,
       abi: REWARD_MANAGER_ABI,
       functionName: 'dcuToken',
@@ -1251,13 +1166,13 @@ export async function verifyRewardManagerSetup(): Promise<{
       },
     ] as const
 
-    const minterRole = await readContract(config, {
+    const minterRole = await readContract(getConfig(), {
       address: dcuTokenAddress,
       abi: DCU_TOKEN_ABI,
       functionName: 'MINTER_ROLE',
     })
 
-    const hasMinterRole = await readContract(config, {
+    const hasMinterRole = await readContract(getConfig(), {
       address: dcuTokenAddress,
       abi: DCU_TOKEN_ABI,
       functionName: 'hasRole',
@@ -1299,7 +1214,7 @@ export async function getUserLevel(userAddress: Address): Promise<number> {
       },
     ] as const
 
-    const result = await readContract(config, {
+    const result = await readContract(getConfig(), {
       address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'getUserNFTData',
@@ -1307,14 +1222,15 @@ export async function getUserLevel(userAddress: Address): Promise<number> {
     }) as [bigint, bigint, bigint]
 
     return Number(result[2])
-  } catch (error: any) {
-    console.log('User has no Impact Product NFT or contract not configured:', error?.message)
+  } catch (error: unknown) {
+    if (!isNoDataOrWrongChainError(error)) console.log('User has no Impact Product NFT or contract not configured:', (error as { message?: string })?.message)
     return 0
   }
 }
 
 export async function claimImpactProductFromVerification(
-  cleanupId: bigint
+  cleanupId: bigint,
+  options?: { gaslessClient?: GaslessClient }
 ): Promise<`0x${string}`> {
   if (!SUBMISSION_ADDRESS) {
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
@@ -1324,10 +1240,15 @@ export async function claimImpactProductFromVerification(
     throw new Error('Reward Manager contract address not configured. Please set NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT in .env.local')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
+
+  const eoaAddress = account.address as Address
+  const smartFromClient = options?.gaslessClient
+    ? getSmartAccountAddressFromClient(options.gaslessClient)
+    : null
 
   const cleanupDetails = await getCleanupDetails(cleanupId)
   
@@ -1339,9 +1260,30 @@ export async function claimImpactProductFromVerification(
     throw new Error('Cleanup was rejected. Cannot claim rewards.')
   }
 
-  if (cleanupDetails.user.toLowerCase() !== account.address.toLowerCase()) {
+  const ownerLower = cleanupDetails.user.toLowerCase()
+  const matchesEoa = ownerLower === eoaAddress.toLowerCase()
+  const matchesSmart = !!(smartFromClient && ownerLower === smartFromClient.toLowerCase())
+
+  if (!matchesEoa && !matchesSmart) {
     throw new Error('You can only claim rewards for your own cleanups.')
   }
+
+  if (matchesSmart && !options?.gaslessClient) {
+    throw new Error(
+      'This cleanup is tied to your smart account. Wait for the gasless wallet to finish loading, then try again.'
+    )
+  }
+
+  if (options?.gaslessClient && !smartFromClient) {
+    throw new Error(
+      'Gasless claim unavailable: smart account not ready. Wait a few seconds after connecting or refresh the page.'
+    )
+  }
+
+  /** Onchain identity that owns this cleanup (= reward/NFT recipient reads). */
+  const submissionOwner = cleanupDetails.user
+  /** Execute writes as Safe UserOp only when cleanup owner is the smart account. */
+  const useGasless = matchesSmart && !!options?.gaslessClient
   const REWARD_MANAGER_ABI = [
     {
       type: 'function',
@@ -1359,15 +1301,16 @@ export async function claimImpactProductFromVerification(
     },
   ] as const
 
-  const balance = await readContract(config, {
+  const balance = await readContract(getConfig(), {
     address: REWARD_MANAGER_ADDRESS,
     abi: REWARD_MANAGER_ABI,
     functionName: 'getBalance',
-    args: [account.address],
+    args: [submissionOwner],
   }) as bigint
 
   console.log('User balance before claim:', balance.toString())
-  console.log('User address:', account.address)
+  console.log('Submission owner (claim address):', submissionOwner)
+  console.log('Connected EOA:', eoaAddress)
   console.log('Cleanup ID:', cleanupId.toString())
   console.log('Cleanup verified:', cleanupDetails.verified)
   console.log('Cleanup rewarded (from contract):', cleanupDetails.rewarded)
@@ -1412,18 +1355,31 @@ export async function claimImpactProductFromVerification(
     // User has existing balance - claim it first (might be from old cleanups or impact reports)
     console.log(`Claiming existing balance: ${(Number(balance) / 1e18).toFixed(2)} $cDCU`)
     try {
-      hash = await writeContract(config, {
-        address: REWARD_MANAGER_ADDRESS,
-        abi: REWARD_MANAGER_ABI,
-        functionName: 'claimRewards',
-        args: [balance],
-        account: account.address,
-      })
+      if (useGasless) {
+        const data = encodeFunctionData({
+          abi: REWARD_MANAGER_ABI,
+          functionName: 'claimRewards',
+          args: [balance],
+        })
+        hash = await options!.gaslessClient!.sendTransaction({
+          to: REWARD_MANAGER_ADDRESS as Address,
+          data,
+          value: 0n,
+        })
+      } else {
+        hash = await writeContract(getConfig(), {
+          address: REWARD_MANAGER_ADDRESS,
+          abi: REWARD_MANAGER_ABI,
+          functionName: 'claimRewards',
+          args: [balance],
+          account: eoaAddress,
+        })
+      }
 
       console.log('✅ Claim transaction hash:', hash)
       console.log('Waiting for transaction receipt...')
 
-      receipt = await waitForTransactionReceipt(config, {
+      receipt = await waitForTransactionReceipt(getConfig(), {
         hash,
         confirmations: 1,
         pollingInterval: 2000,
@@ -1433,7 +1389,7 @@ export async function claimImpactProductFromVerification(
       console.log('Claim transaction confirmed:', receipt)
 
       if (receipt.status === 'reverted' || receipt.status === 0) {
-        throw new Error('Transaction reverted on chain. DCURewardManager may not have MINTER_ROLE on DCUToken.')
+        throw new Error('Transaction reverted onchain. DCURewardManager may not have MINTER_ROLE on DCUToken.')
       }
 
       await new Promise(resolve => setTimeout(resolve, 3000))
@@ -1456,7 +1412,7 @@ export async function claimImpactProductFromVerification(
     
     // Only check for RewardsClaimed event if we actually called claimRewards
     if (hash && receipt) {
-      const publicClient = getPublicClient(config)
+      const publicClient = getPublicClient(getConfig())
       
       if (publicClient) {
         try {
@@ -1474,7 +1430,7 @@ export async function claimImpactProductFromVerification(
             address: REWARD_MANAGER_ADDRESS,
             event: REWARDS_CLAIMED_EVENT_ABI,
             args: {
-              user: account.address,
+              user: submissionOwner,
             },
             fromBlock: receipt.blockNumber,
             toBlock: receipt.blockNumber,
@@ -1514,7 +1470,7 @@ export async function claimImpactProductFromVerification(
           },
         ] as const
 
-        const dcuTokenAddress = await readContract(config, {
+        const dcuTokenAddress = await readContract(getConfig(), {
           address: REWARD_MANAGER_ADDRESS,
           abi: REWARD_MANAGER_DCU_ABI,
           functionName: 'dcuToken',
@@ -1530,11 +1486,11 @@ export async function claimImpactProductFromVerification(
           },
         ] as const
 
-        const dcuBalanceAfter = await readContract(config, {
+        const dcuBalanceAfter = await readContract(getConfig(), {
           address: dcuTokenAddress,
           abi: DCU_TOKEN_ABI,
           functionName: 'balanceOf',
-          args: [account.address],
+          args: [submissionOwner],
         }) as bigint
 
         console.log('cDCU token balance after claim:', dcuBalanceAfter.toString())
@@ -1547,11 +1503,11 @@ export async function claimImpactProductFromVerification(
       } catch (checkError) {
         console.error('Error checking DCU token balance:', checkError)
       }
-      const balanceAfter = await readContract(config, {
+      const balanceAfter = await readContract(getConfig(), {
         address: REWARD_MANAGER_ADDRESS,
         abi: REWARD_MANAGER_ABI,
         functionName: 'getBalance',
-        args: [account.address],
+        args: [submissionOwner],
       }) as bigint
 
       console.log('RewardManager balance before claim:', balance.toString())
@@ -1599,17 +1555,17 @@ export async function claimImpactProductFromVerification(
           },
         ] as const
 
-        const dcuTokenAddress = await readContract(config, {
+        const dcuTokenAddress = await readContract(getConfig(), {
           address: REWARD_MANAGER_ADDRESS,
           abi: REWARD_MANAGER_DCU_ABI,
           functionName: 'dcuToken',
         }) as Address
 
-        const dcuBalance = await readContract(config, {
+        const dcuBalance = await readContract(getConfig(), {
           address: dcuTokenAddress,
           abi: DCU_TOKEN_ABI,
           functionName: 'balanceOf',
-          args: [account.address],
+          args: [submissionOwner],
         }) as bigint
 
         console.log('cDCU token balance after claim:', dcuBalance.toString())
@@ -1649,11 +1605,11 @@ export async function claimImpactProductFromVerification(
           // Try multiple times in case of RPC sync delay
           for (let attempt = 0; attempt < 3; attempt++) {
             try {
-              isVerifiedPOI = await readContract(config, {
+              isVerifiedPOI = await readContract(getConfig(), {
                 address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
                 abi: IMPACT_PRODUCT_ABI,
                 functionName: 'verifiedPOI',
-                args: [account.address],
+                args: [submissionOwner],
               }) as boolean
               
               if (isVerifiedPOI) {
@@ -1689,8 +1645,8 @@ export async function claimImpactProductFromVerification(
         // The contract will revert if POI is not verified, but at least we tried
         // This ensures there's always a transaction hash returned
 
-        const currentTokenId = await getUserTokenId(account.address)
-        const currentLevel = await getUserLevel(account.address)
+        const currentTokenId = await getUserTokenId(submissionOwner)
+        const currentLevel = await getUserLevel(submissionOwner)
         
         console.log('Current NFT state:', { tokenId: currentTokenId?.toString() || 'null', level: currentLevel })
         
@@ -1698,7 +1654,7 @@ export async function claimImpactProductFromVerification(
           try {
             console.log('Attempting to mint Impact Product NFT...')
             console.log('This will trigger rewardImpactProductClaim which distributes rewards')
-            const mintHash = await mintImpactProductNFT()
+            const mintHash = await mintImpactProductNFT({ gaslessClient: useGasless ? options?.gaslessClient : undefined })
             console.log('✅ Impact Product NFT minted successfully:', mintHash)
             // Return the mint hash if we don't have a claim hash
             if (!hash) {
@@ -1720,7 +1676,9 @@ export async function claimImpactProductFromVerification(
           try {
             console.log(`Attempting to upgrade Impact Product NFT from level ${currentLevel} to ${currentLevel + 1}...`)
             console.log('This will trigger rewardImpactProductClaim which distributes rewards')
-            const upgradeHash = await upgradeImpactProductNFT(currentTokenId)
+            const upgradeHash = await upgradeImpactProductNFT(currentTokenId, {
+              gaslessClient: useGasless ? options?.gaslessClient : undefined,
+            })
             console.log('✅ Impact Product NFT upgraded successfully:', upgradeHash)
             // Return the upgrade hash if we don't have a claim hash
             if (!hash) {
@@ -1783,6 +1741,18 @@ export async function claimImpactProductFromVerification(
   }
 }
 
+export async function getHypercertEligibility(_: Address): Promise<{
+  cleanupCount: bigint
+  hypercertCount: bigint
+  isEligible: boolean
+}> {
+  return {
+    cleanupCount: 0n,
+    hypercertCount: 0n,
+    isEligible: false,
+  }
+}
+
 export async function getStakedDCU(_: Address): Promise<bigint> {
   return 0n
 }
@@ -1807,7 +1777,7 @@ export async function getUserTokenId(userAddress: Address): Promise<bigint | nul
       },
     ] as const
 
-    const result = await readContract(config, {
+    const result = await readContract(getConfig(), {
       address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'getUserNFTData',
@@ -1836,7 +1806,7 @@ export async function getTokenURI(tokenId: bigint): Promise<string> {
       },
     ] as const
 
-    const uri = await readContract(config, {
+    const uri = await readContract(getConfig(), {
       address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'tokenURI',
@@ -1883,12 +1853,12 @@ export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> 
     ] as const
 
     const [fee, enabled] = await Promise.all([
-      readContract(config, {
+      readContract(getConfig(), {
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'claimFee',
       }) as Promise<bigint>,
-      readContract(config, {
+      readContract(getConfig(), {
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'feeEnabled',
@@ -1897,17 +1867,19 @@ export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> 
 
     return { fee, enabled }
   } catch (error) {
-    console.warn('Failed to fetch claim fee:', error)
+    if (!isNoDataOrWrongChainError(error)) console.warn('Failed to fetch claim fee:', error)
     return { fee: 0n, enabled: false }
   }
 }
 
-export async function mintImpactProductNFT(): Promise<`0x${string}`> {
+export async function mintImpactProductNFT(options?: {
+  gaslessClient?: GaslessClient
+}): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
@@ -1927,15 +1899,29 @@ export async function mintImpactProductNFT(): Promise<`0x${string}`> {
   ] as const
 
   try {
-    const hash = await writeContract(config, {
-      address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-      abi: IMPACT_PRODUCT_ABI,
-      functionName: 'safeMint',
-      account: account.address,
-      value: value,
-    })
+    let hash: `0x${string}`
+    if (options?.gaslessClient) {
+      const data = encodeFunctionData({
+        abi: IMPACT_PRODUCT_ABI,
+        functionName: 'safeMint',
+        args: [],
+      })
+      hash = await options.gaslessClient.sendTransaction({
+        to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        data,
+        value,
+      })
+    } else {
+      hash = await writeContract(getConfig(), {
+        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        abi: IMPACT_PRODUCT_ABI,
+        functionName: 'safeMint',
+        account: account.address,
+        value: value,
+      })
+    }
 
-    await waitForTransactionReceipt(config, {
+    await waitForTransactionReceipt(getConfig(), {
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -1952,12 +1938,15 @@ export async function mintImpactProductNFT(): Promise<`0x${string}`> {
   }
 }
 
-export async function upgradeImpactProductNFT(tokenId: bigint): Promise<`0x${string}`> {
+export async function upgradeImpactProductNFT(
+  tokenId: bigint,
+  options?: { gaslessClient?: GaslessClient }
+): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
@@ -1977,16 +1966,30 @@ export async function upgradeImpactProductNFT(tokenId: bigint): Promise<`0x${str
   ] as const
 
   try {
-    const hash = await writeContract(config, {
-      address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-      abi: IMPACT_PRODUCT_ABI,
-      functionName: 'upgradeNFT',
-      args: [tokenId],
-      account: account.address,
-      value: value,
-    })
+    let hash: `0x${string}`
+    if (options?.gaslessClient) {
+      const data = encodeFunctionData({
+        abi: IMPACT_PRODUCT_ABI,
+        functionName: 'upgradeNFT',
+        args: [tokenId],
+      })
+      hash = await options.gaslessClient.sendTransaction({
+        to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        data,
+        value,
+      })
+    } else {
+      hash = await writeContract(getConfig(), {
+        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        abi: IMPACT_PRODUCT_ABI,
+        functionName: 'upgradeNFT',
+        args: [tokenId],
+        account: account.address,
+        value: value,
+      })
+    }
 
-    await waitForTransactionReceipt(config, {
+    await waitForTransactionReceipt(getConfig(), {
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -2021,27 +2024,45 @@ export async function hasActiveStreak(_: Address): Promise<boolean> {
 export async function attachRecyclablesToSubmission(
   submissionId: bigint,
   recyclablesPhotoHash: string,
-  recyclablesReceiptHash: string
+  recyclablesReceiptHash: string,
+  options?: { gaslessClient?: GaslessClient }
 ): Promise<`0x${string}`> {
   if (!SUBMISSION_ADDRESS) {
     throw new Error('Submission contract address not configured')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
 
-  try {
-    const hash = await writeContract(config, {
-      address: SUBMISSION_ADDRESS,
-      abi: SUBMISSION_ABI,
-      functionName: 'attachRecyclables',
-      args: [submissionId, recyclablesPhotoHash, recyclablesReceiptHash || ''],
-      account: account.address,
-    })
+  const args = [submissionId, recyclablesPhotoHash, recyclablesReceiptHash || ''] as const
 
-    await waitForTransactionReceipt(config, {
+  try {
+    let hash: `0x${string}`
+
+    if (options?.gaslessClient) {
+      const data = encodeFunctionData({
+        abi: SUBMISSION_ABI,
+        functionName: 'attachRecyclables',
+        args,
+      })
+      hash = await options.gaslessClient.sendTransaction({
+        to: SUBMISSION_ADDRESS,
+        data,
+        value: 0n,
+      })
+    } else {
+      hash = await writeContract(getConfig(), {
+        address: SUBMISSION_ADDRESS,
+        abi: SUBMISSION_ABI,
+        functionName: 'attachRecyclables',
+        args,
+        account: account.address,
+      })
+    }
+
+    await waitForTransactionReceipt(getConfig(), {
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -2054,44 +2075,41 @@ export async function attachRecyclablesToSubmission(
   }
 }
 
+
 /* -------------------------------------------------------------------------- */
-/*                               HYPERCERTS                                   */
+/*                            VERIFIER ROLE MANAGEMENT                        */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Claim Hypercert reward (10 $DCU bonus)
- * Called after successful Hypercert mint
- */
-export async function claimHypercertReward(hypercertNumber: bigint): Promise<Hash> {
-  if (!REWARD_MANAGER_ADDRESS) {
-    throw new Error('Reward Manager contract address not configured')
+export async function grantVerifierRole(targetAddress: Address): Promise<`0x${string}`> {
+  if (!SUBMISSION_ADDRESS) {
+    throw new Error('Submission contract address not configured')
   }
 
-  const account = getAccount(config)
+  const account = getAccount(getConfig())
   if (!account.address) {
     throw new Error('Wallet not connected')
   }
 
-  const REWARD_MANAGER_ABI = [
-    {
-      type: 'function',
-      name: 'claimHypercertReward',
-      stateMutability: 'nonpayable',
-      inputs: [{ name: 'hypercertNumber', type: 'uint256' }],
-      outputs: [],
-    },
-  ] as const
+  if (!targetAddress || targetAddress === '0x0000000000000000000000000000000000000000') {
+    throw new Error('Invalid target address')
+  }
 
   try {
-    const hash = await writeContract(config, {
-      address: REWARD_MANAGER_ADDRESS,
-      abi: REWARD_MANAGER_ABI,
-      functionName: 'claimHypercertReward',
-      args: [hypercertNumber],
+    const verifierRole = (await readContract(getConfig(), {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'VERIFIER_ROLE',
+    })) as `0x${string}`
+
+    const hash = await writeContract(getConfig(), {
+      address: SUBMISSION_ADDRESS,
+      abi: SUBMISSION_ABI,
+      functionName: 'grantRole',
+      args: [verifierRole, targetAddress],
       account: account.address,
     })
 
-    await waitForTransactionReceipt(config, {
+    await waitForTransactionReceipt(getConfig(), {
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -2099,91 +2117,9 @@ export async function claimHypercertReward(hypercertNumber: bigint): Promise<Has
     })
 
     return hash
+
   } catch (error: any) {
-    const errorMessage = error?.message || error?.shortMessage || 'Unknown error'
-    throw new Error(`Failed to claim Hypercert reward: ${errorMessage}`)
+    const msg = error?.message || error?.shortMessage || 'Unknown error'
+    throw new Error(`Failed to grant VERIFIER_ROLE: ${msg}`)
   }
 }
-
-/**
- * Get Hypercert eligibility for a user
- */
-export interface HypercertEligibility {
-  isEligible: boolean
-  hypercertCount: bigint
-  currentLevel: number
-  cleanupsUntilNext: number
-}
-
-export async function getHypercertEligibility(userAddress: Address): Promise<HypercertEligibility> {
-  if (!SUBMISSION_ADDRESS || !CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
-    return {
-      isEligible: false,
-      hypercertCount: 0n,
-      currentLevel: 0,
-      cleanupsUntilNext: 10,
-    }
-  }
-
-  try {
-    // Get user hypercert count
-    const hypercertCount = await readContract(config, {
-      address: SUBMISSION_ADDRESS,
-      abi: SUBMISSION_ABI,
-      functionName: 'userHypercertCount',
-      args: [userAddress],
-    }) as bigint
-
-    // Get NFT level
-    const IMPACT_PRODUCT_ABI = [
-      {
-        type: 'function',
-        name: 'getUserNFTData',
-        stateMutability: 'view',
-        inputs: [{ name: 'user', type: 'address' }],
-        outputs: [
-          { name: 'tokenId', type: 'uint256' },
-          { name: 'totalCleanups', type: 'uint256' },
-          { name: 'level', type: 'uint256' },
-        ],
-      },
-    ] as const
-
-    let currentLevel = 0
-    try {
-      const nftData = await readContract(config, {
-        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-        abi: IMPACT_PRODUCT_ABI,
-        functionName: 'getUserNFTData',
-        args: [userAddress],
-      }) as [bigint, bigint, bigint]
-
-      currentLevel = Number(nftData[2])
-    } catch {
-      // User may not have NFT yet
-      currentLevel = 0
-    }
-
-    // Eligibility: level > 0 && level % 10 === 0
-    const isEligible = currentLevel > 0 && currentLevel % 10 === 0
-
-    // Calculate cleanups until next Hypercert
-    const cleanupsUntilNext = isEligible ? 0 : 10 - (currentLevel % 10)
-
-    return {
-      isEligible,
-      hypercertCount,
-      currentLevel,
-      cleanupsUntilNext,
-    }
-  } catch (error) {
-    console.error('[Hypercert Eligibility] Error:', error)
-    return {
-      isEligible: false,
-      hypercertCount: 0n,
-      currentLevel: 0,
-      cleanupsUntilNext: 10,
-    }
-  }
-}
-

@@ -5,7 +5,7 @@ import hardhat from "hardhat";
  * Setup script to configure wallet roles and addresses
  * 
  * Wallets:
- * - 0x173d87dfa68aeb0e821c6021f5652b9c3a7556b4 (decleanupnet.eth) - Community wallet (has 5000 cRECY reserve)
+ * - 0x173d87dfa68aeb0e821c6021f5652b9c3a7556b4 (decleanupnet.eth) - Community wallet
  * - 0x520e40e346ea85d72661fce3ba3f81cb2c560d84 - Main deployer/admin (receives contract fees)
  * - 0x7d85fcbb505d48e6176483733b62b51704e0bf95 - Verifier (has ADMIN_ROLE for approving submissions)
  */
@@ -188,8 +188,6 @@ async function main() {
   console.log("   Verifier has ADMIN_ROLE:", await submission.hasRole(ADMIN_ROLE, VERIFIER));
   console.log("\n💡 Wallet Configuration:");
   console.log("   📦 Community wallet (decleanupnet.eth):", COMMUNITY_WALLET);
-  console.log("      → Holds 5000 cRECY reserve");
-  console.log("      → Transfer cRECY to RecyclablesReward contract, then call syncReserve()");
   console.log("   👤 Main deployer:", MAIN_DEPLOYER);
   console.log("      → Receives all contract fees automatically");
   console.log("      → Has owner and admin roles");
@@ -198,9 +196,8 @@ async function main() {
   console.log("      → Can approve/reject submissions");
   console.log("      → Will see 'VERIFIER CABINET' button in dashboard");
   console.log("\n📝 Next Steps:");
-  console.log("   1. Transfer 5000 cRECY from community wallet to RecyclablesReward contract");
-  console.log("   2. Call syncReserve() on RecyclablesReward contract");
-  console.log("   3. Connect verifier wallet to see the VERIFIER CABINET button");
+  console.log("   1. Connect verifier wallet to see the VERIFIER CABINET button");
+  console.log("   2. Recyclables are rewarded with DCU points (same bucket as impact form: 5 DCU per submission).");
 }
 
 main()

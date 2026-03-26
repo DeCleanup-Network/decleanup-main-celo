@@ -1,19 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono, Bebas_Neue } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { NetworkChecker } from "@/components/network/NetworkChecker";
 import { Header } from "@/components/layout/Header";
-
-const inter = Inter({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const robotoMono = Roboto_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas-neue",
@@ -25,8 +18,8 @@ const OG_IMAGE_URL =
   "https://gateway.pinata.cloud/ipfs/bafybeicdkbybpazpp6ucfbfbrrido36ka5v7hslanbem4vsbfrznrf4kzm?filename=DCUSocialNEW.png";
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_MINIAPP_URL || 
-  process.env.NEXT_PUBLIC_SITE_URL || 
+  process.env.NEXT_PUBLIC_WEB_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
   "https://dapp.decleanup.net";
 
 export const metadata: Metadata = {
@@ -115,13 +108,15 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${inter.variable} ${robotoMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
       >
-        <Providers>
-          <NetworkChecker />
-          <Header />
-          <main className="flex-1">{children}</main>
-        </Providers>
+        <RootErrorBoundary>
+          <Providers>
+            <NetworkChecker />
+            <Header />
+            <main className="flex-1 pb-mobile-safe">{children}</main>
+          </Providers>
+        </RootErrorBoundary>
       </body>
     </html>
   );

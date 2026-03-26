@@ -2,9 +2,12 @@ import { celo, mainnet } from 'wagmi/chains'
 import { defineChain, type Chain } from 'viem'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { http } from 'wagmi'
+import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
+// Must be Celo mainnet (42220), not Alfajores (deprecated testnet) — wrong RPC causes CORS + wrong-chain reads.
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
-const celoSepoliaRpcUrl = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org'
+/** Browser-safe default: public forno sepolia often has no CORS; same-origin proxy + drpc fallback. */
+const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
 
 const celoMainnet = {
   ...celo,
@@ -51,27 +54,17 @@ const celoSepoliaChain = defineChain({
 
 // Include Ethereum mainnet for ENS resolution (RainbowKit can resolve ENS even when on Celo)
 const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoMainnet, mainnet]
-// Default to Celo Sepolia (11142220) for testing
-// Change to celoMainnet.id (42220) after deploying contracts to mainnet
-const requiredChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || celoSepoliaChain.id)
-const requiredChain =
-  configuredChains.find((chain) => chain.id === requiredChainId) ?? celoSepoliaChain
-const requiredChainLabel = requiredChain.testnet ? requiredChain.name : 'Celo Mainnet'
-
-// Resolve block explorer + RPC URL based on the active chain
-const requiredBlockExplorerUrl =
-  requiredChain.id === celoMainnet.id
-    ? 'https://celoscan.io'
-    : 'https://celo-sepolia.blockscout.com'
-
-const requiredRpcUrl =
-  requiredChain.id === celoMainnet.id ? celoMainnetRpcUrl : celoSepoliaRpcUrl
 
 const APP_NAME = 'DeCleanup Rewards'
-const APP_URL = process.env.NEXT_PUBLIC_MINIAPP_URL || 'http://localhost:3000'
+// WalletConnect validates metadata.url against the live page; prefer production URL on Vercel.
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXT_PUBLIC_WEB_APP_URL ||
+  'http://localhost:3000'
 const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo.'
 const APP_ICON_URL =
-  process.env.NEXT_PUBLIC_MINIAPP_ICON_URL ||
+  process.env.NEXT_PUBLIC_APP_ICON_URL ||
   'https://gateway.pinata.cloud/ipfs/bafkreia2bx2ofiutdzyxyry5wfaq5kj7bcd4wvutpiw6bhbl35qdbmsat4?filename=iconDCU.png'
 
 // RainbowKit configuration with getDefaultConfig
@@ -98,32 +91,14 @@ export const config = getDefaultConfig({
   appIcon: APP_ICON_URL,
 })
 
-// Default/Celo chain metadata exports
-export const DEFAULT_CHAIN_ID = requiredChainId
-export const REQUIRED_CHAIN_ID = requiredChainId
-export const REQUIRED_CHAIN_NAME = requiredChainLabel
-export const REQUIRED_BLOCK_EXPLORER_URL = requiredBlockExplorerUrl
-export const REQUIRED_RPC_URL = requiredRpcUrl
-export const REQUIRED_CHAIN_IS_TESTNET = Boolean(requiredChain.testnet)
-
-// Contract addresses (update with actual addresses after deployment)
-// Canonical names: NEXT_PUBLIC_IMPACT_PRODUCT_NFT, NEXT_PUBLIC_SUBMISSION_CONTRACT, NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT
-// Legacy names kept for backwards compatibility
-export const CONTRACT_ADDRESSES = {
-  IMPACT_PRODUCT:
-    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT ||
-    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS ||
-    process.env.NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT ||
-    '',
-  VERIFICATION:
-    process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT ||
-    '',
-  REWARD_DISTRIBUTOR:
-    process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT ||
-    process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS ||
-    '',
-  DCU_TOKEN:
-    process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT ||
-    '',
-} as const
+// Re-export chain constants (defined in chain-constants.ts to avoid loading RainbowKit in Web3Auth path)
+export {
+  DEFAULT_CHAIN_ID,
+  REQUIRED_CHAIN_ID,
+  REQUIRED_CHAIN_NAME,
+  REQUIRED_BLOCK_EXPLORER_URL,
+  REQUIRED_RPC_URL,
+  REQUIRED_CHAIN_IS_TESTNET,
+  CONTRACT_ADDRESSES,
+} from './chain-constants'
 

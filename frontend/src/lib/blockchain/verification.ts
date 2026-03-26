@@ -1,6 +1,29 @@
 import { Address } from 'viem'
-import { getCleanupDetails, findLatestClaimableCleanup } from './contracts'
-import { addCrecyReward, isSubmissionRewarded } from '@/lib/utils/crecy-tracking'
+import {
+  getCleanupDetails,
+  findLatestClaimableCleanup,
+  getUserSubmissions,
+  getUserLevel,
+} from './contracts'
+
+/** Verified submissions (approved, not rejected) for this user — drives level claim eligibility vs NFT userLevel. */
+export async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
+  const submissionIds = await getUserSubmissions(user)
+  let n = 0
+  for (const sid of submissionIds) {
+    const d = await getCleanupDetails(sid)
+    if (d.verified && !d.rejected) n++
+  }
+  return n
+}
+
+/** True if user still has at least one verified cleanup whose Impact Product level was not minted yet (NFT level is behind verified count). */
+export async function isImpactClaimOutstanding(user: Address): Promise<boolean> {
+  const verifiedCount = await countVerifiedCleanupsForUser(user)
+  if (verifiedCount === 0) return false
+  const nftLevel = await getUserLevel(user)
+  return nftLevel < verifiedCount
+}
 
 /**
  * VerificationStatus
@@ -264,8 +287,29 @@ export async function getLatestCleanupStatus(
     // If it's a pre-fix cleanup, don't allow claiming (needs manual reward distribution)
     // BUT: Only block if we're absolutely sure it's pre-fix (verified >1h ago, balance=0)
     // For newly verified cleanups, always allow claiming (rewards might be distributed during claim)
-    const canClaim = verified && !rejected && !claimed && !isPreFixCleanup
-    
+    let canClaim = verified && !rejected && !claimed && !isPreFixCleanup
+
+    // On-chain source of truth: each verified cleanup should eventually mint one Impact Product level.
+    // localStorage "claimed" can be missing (new device / cleared storage) while NFT level already caught up.
+    if (canClaim && verified) {
+      try {
+        const verifiedCount = await countVerifiedCleanupsForUser(user)
+        const nftLevel = await getUserLevel(user)
+        if (verifiedCount > 0 && nftLevel >= verifiedCount) {
+          console.log('[verification] NFT level caught up with verified cleanups; treating as claimed', {
+            nftLevel,
+            verifiedCount,
+            cleanupId: cleanupId.toString(),
+          })
+          clearPendingCleanup(user)
+          markCleanupAsClaimed(user, cleanupId)
+          return null
+        }
+      } catch (e) {
+        console.warn('[verification] NFT vs verified count check failed:', e)
+      }
+    }
+
     // Debug: Log why canClaim might be false
     if (verified && !canClaim) {
       console.warn('[verification] ⚠️ Cleanup is verified but canClaim is false:', {
@@ -308,12 +352,7 @@ export async function getLatestCleanupStatus(
       canClaim,
     })
 
-    // Award cRECY locally if cleanup is verified and has recyclables (testing only)
-    if (verified && details.hasRecyclables && user) {
-      if (!isSubmissionRewarded(user, cleanupId)) {
-        addCrecyReward(user, cleanupId)
-      }
-    }
+    // Recyclables are rewarded onchain as part of impact report (5 DCU total per submission for impact and/or recyclables)
 
     // Unlock flow if terminal
     // If cleanup is claimed, clear pending cleanup and ensure it's marked

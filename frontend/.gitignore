@@ -24,6 +24,12 @@
 .DS_Store
 *.pem
 
+# $cDCU issued store (per-user issuance data; created at runtime if missing)
+/data/
+
+# ML verification local image cache (UPLOAD_DIR)
+/uploads/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

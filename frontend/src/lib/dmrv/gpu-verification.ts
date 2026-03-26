@@ -1,240 +1,225 @@
 /**
- * GPU-Based ML Verification Integration
- * Orchestrates photo storage, GPU inference, and verification scoring
+ * GPU verification: calls the inference service (YOLOv8 / waste detection),
+ * applies the product scoring formula, and hashes results for audit / on-chain use.
+ *
+ * Env:
+ * - GPU_INFERENCE_SERVICE_URL — base URL (e.g. http://127.0.0.1:8000)
+ * - GPU_SHARED_SECRET — sent as Authorization: Bearer <secret> when non-empty
+ * - GPU_INFERENCE_PATH — optional path segment (default /infer)
  */
 
 import { createHash } from 'crypto'
 
-export interface GPUInferenceRequest {
-  submissionId: string
-  imageUrl: string
-  phase: 'before' | 'after'
+const DEFAULT_INFER_PATH = '/infer'
+const INFER_TIMEOUT_MS = 120_000
+
+export interface VerificationResult {
+  beforeInference: {
+    objectCount: number
+    meanConfidence: number
+  }
+  afterInference: {
+    objectCount: number
+    meanConfidence: number
+  }
+  score: {
+    delta: number
+    score: number
+    verdict: 'approved' | 'rejected' | 'pending'
+  }
+  hash: string
 }
 
-export interface DetectedObject {
-  class: string
-  confidence: number
-  bbox: [number, number, number, number] // [x, y, width, height]
+/** Alias for API / client consumers that only reference the scored verdict block. */
+export type VerificationScore = VerificationResult['score']
+
+interface RawInferPayload {
+  object_count?: number
+  objectCount?: number
+  mean_confidence?: number
+  meanConfidence?: number
+  objects?: unknown[]
+  detections?: unknown[]
 }
 
-export interface GPUInferenceResponse {
-  submissionId: string
-  phase: 'before' | 'after'
-  objects: DetectedObject[]
-  objectCount: number
-  meanConfidence: number
-  modelVersion: string
+function getGpuBaseUrl(): string {
+  const raw = process.env.GPU_INFERENCE_SERVICE_URL || 'http://localhost:8000'
+  return raw.replace(/\/+$/, '')
 }
 
-export interface VerificationScore {
-  submissionId: string
-  beforeCount: number
-  afterCount: number
-  delta: number
-  score: number
-  verdict: 'AUTO_VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
-  modelVersion: string
-  timestamp: number
+function getInferUrl(): string {
+  const path = process.env.GPU_INFERENCE_PATH || DEFAULT_INFER_PATH
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  return `${getGpuBaseUrl()}${normalized}`
+}
+
+function getAuthHeaders(): HeadersInit {
+  const secret = process.env.GPU_SHARED_SECRET || ''
+  if (!secret) return {}
+  return { Authorization: `Bearer ${secret}` }
+}
+
+function parseInferResponse(data: unknown): { objectCount: number; meanConfidence: number } {
+  if (!data || typeof data !== 'object') {
+    return { objectCount: 0, meanConfidence: 0 }
+  }
+  const o = data as RawInferPayload
+  const objects = Array.isArray(o.objects) ? o.objects : []
+  const detections = Array.isArray(o.detections) ? o.detections : []
+  const objectCount =
+    typeof o.object_count === 'number'
+      ? o.object_count
+      : typeof o.objectCount === 'number'
+        ? o.objectCount
+        : objects.length > 0
+          ? objects.length
+          : detections.length
+  const meanConfidence =
+    typeof o.mean_confidence === 'number'
+      ? o.mean_confidence
+      : typeof o.meanConfidence === 'number'
+        ? o.meanConfidence
+        : 0
+  return {
+    objectCount: Math.max(0, Math.floor(objectCount)),
+    meanConfidence: clamp01(meanConfidence),
+  }
+}
+
+function clamp01(n: number): number {
+  if (Number.isNaN(n) || !Number.isFinite(n)) return 0
+  return Math.min(1, Math.max(0, n))
 }
 
 /**
- * Call GPU inference service
+ * POST multipart image to GPU service /infer (or GPU_INFERENCE_PATH).
  */
-export async function callGPUInference(
-  submissionId: string,
-  imageUrl: string,
-  phase: 'before' | 'after'
-): Promise<GPUInferenceResponse> {
-  const gpuServiceUrl = process.env.GPU_INFERENCE_SERVICE_URL || 'http://localhost:8000'
-  const sharedSecret = process.env.GPU_SHARED_SECRET || ''
-  
-  const request: GPUInferenceRequest = {
-    submissionId,
-    imageUrl,
-    phase,
+export async function inferImage(imageUrl: string): Promise<{ objectCount: number; meanConfidence: number }> {
+  const imageRes = await fetch(imageUrl, {
+    signal: AbortSignal.timeout(INFER_TIMEOUT_MS),
+  })
+  if (!imageRes.ok) {
+    throw new Error(`Failed to download image for inference: ${imageRes.status} ${imageUrl}`)
   }
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+  const contentType = imageRes.headers.get('content-type') || 'image/jpeg'
+  const arrayBuffer = await imageRes.arrayBuffer()
+  const blob = new Blob([arrayBuffer], { type: contentType })
+
+  const form = new FormData()
+  form.append('file', blob, 'image.jpg')
+
+  const inferRes = await fetch(getInferUrl(), {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: form,
+    signal: AbortSignal.timeout(INFER_TIMEOUT_MS),
+  })
+
+  if (!inferRes.ok) {
+    const text = await inferRes.text().catch(() => '')
+    throw new Error(`GPU infer failed: ${inferRes.status} ${inferRes.statusText} ${text.slice(0, 500)}`)
   }
-  
-  // Always include Authorization header if secret is configured
-  // GPU service will skip validation if SHARED_SECRET is empty
-  if (sharedSecret) {
-    headers['Authorization'] = `Bearer ${sharedSecret}`
-    console.log(`[GPU Verification] Using authorization for ${phase} image (secret length: ${sharedSecret.length})`)
-  } else {
-    console.warn(`[GPU Verification] ⚠️ GPU_SHARED_SECRET not set or empty. GPU service must not require auth, or this will fail.`)
-    console.warn(`[GPU Verification] Check: process.env.GPU_SHARED_SECRET = ${process.env.GPU_SHARED_SECRET ? 'SET' : 'NOT SET'}`)
-  }
-  
-  try {
-    const response = await fetch(`${gpuServiceUrl}/infer`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-    })
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      
-      // Provide helpful error message for 401 errors
-      if (response.status === 401) {
-        console.error(`[GPU Verification] Authorization failed (401). Check:`)
-        console.error(`  1. GPU service has SHARED_SECRET set: ${gpuServiceUrl}`)
-        console.error(`  2. Frontend has GPU_SHARED_SECRET set: ${sharedSecret ? 'SET' : 'NOT SET'}`)
-        console.error(`  3. Secrets match between frontend and GPU service`)
-        throw new Error(`GPU service requires authorization. Set GPU_SHARED_SECRET in .env.local to match GPU service's SHARED_SECRET. Error: ${errorText}`)
-      }
-      
-      throw new Error(`GPU inference failed: ${response.status} ${errorText}`)
-    }
-    
-    const result: GPUInferenceResponse = await response.json()
-    return result
-  } catch (error) {
-    console.error(`[GPU Verification] Inference error for ${phase}:`, error)
-    throw error
-  }
+
+  const json: unknown = await inferRes.json()
+  return parseInferResponse(json)
 }
 
 /**
- * Compute verification score from before/after inference results
+ * Product scoring (see docs/DEVELOPER_SPECS.md — ML Verification Flow).
+ * trashDelta = beforeCount - afterCount; higher means more waste removed.
  */
 export function computeVerificationScore(
-  beforeResult: GPUInferenceResponse,
-  afterResult: GPUInferenceResponse
-): VerificationScore {
-  const beforeCount = beforeResult.objectCount
-  const afterCount = afterResult.objectCount
-  const delta = beforeCount - afterCount
-  
-  // Normalize trash delta
-  // Conservative: max reasonable delta is 50 items
-  // This can be tuned based on real-world data
-  const maxDelta = 50
-  
-  // Handle negative delta (more objects after = bad, but could be detection error)
-  // If delta is negative, it's suspicious but not necessarily invalid
-  // We'll penalize it but not reject outright
-  let normalizedTrashDelta: number
-  if (delta < 0) {
-    // Negative delta: more objects detected after cleanup (suspicious)
-    // Penalize but don't completely reject (could be detection error)
-    normalizedTrashDelta = Math.max(delta / maxDelta, -0.3) // Cap penalty at -0.3
-    normalizedTrashDelta = (normalizedTrashDelta + 0.3) / 1.3 // Normalize to 0-1 range
-  } else {
-    // Positive delta: objects removed (good)
-    normalizedTrashDelta = Math.min(Math.max(delta / maxDelta, 0), 1.0) // Clamp 0-1
-  }
-  
-  // Calculate mean confidence from both results
-  const meanConfidence = (beforeResult.meanConfidence + afterResult.meanConfidence) / 2
-  
-  // Verification score formula
-  // 40% weight on confidence, 60% weight on trash reduction
-  // More weight on actual cleanup (delta) than detection confidence
-  const score = (meanConfidence * 0.4) + (normalizedTrashDelta * 0.6)
-  
-  // Classification - More lenient thresholds
-  // Lowered thresholds to reduce false rejections
-  let verdict: 'AUTO_VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
-  if (score >= 0.5) {
-    // Lowered from 0.7 to 0.5 for AUTO_VERIFIED
-    verdict = 'AUTO_VERIFIED'
-  } else if (score >= 0.25) {
-    // Lowered from 0.4 to 0.25 for NEEDS_REVIEW
-    verdict = 'NEEDS_REVIEW'
-  } else {
-    // Only reject if score is very low (< 0.25)
-    verdict = 'REJECTED'
-  }
-  
-  // Special case: If before has objects and after has fewer, always mark as NEEDS_REVIEW at minimum
-  // This handles cases where detection might be imperfect but cleanup likely occurred
-  if (beforeCount > 0 && afterCount < beforeCount && delta > 0) {
-    if (verdict === 'REJECTED') {
-      verdict = 'NEEDS_REVIEW' // Upgrade from REJECTED to NEEDS_REVIEW
-    }
-  }
-  
-  return {
-    submissionId: beforeResult.submissionId,
-    beforeCount,
-    afterCount,
-    delta,
-    score,
-    verdict,
-    modelVersion: beforeResult.modelVersion,
-    timestamp: Date.now(),
-  }
+  before: { objectCount: number; meanConfidence: number },
+  after: { objectCount: number; meanConfidence: number },
+  impactDataBoost = 0
+): { delta: number; score: number; verdict: 'approved' | 'rejected' | 'pending' } {
+  const delta = before.objectCount - after.objectCount
+  const normalizedTrashDelta = Math.min(Math.max(delta, 0) / 50, 1)
+  const meanConfidence = (before.meanConfidence + after.meanConfidence) / 2
+  const boost = clamp01(impactDataBoost)
+  const score = meanConfidence * 0.3 + normalizedTrashDelta * 0.7 + boost
+  const clampedScore = clamp01(score)
+
+  let verdict: 'approved' | 'rejected' | 'pending'
+  if (clampedScore >= 0.35) verdict = 'approved'
+  else if (clampedScore >= 0.15) verdict = 'pending'
+  else verdict = 'rejected'
+
+  return { delta, score: clampedScore, verdict }
 }
 
 /**
- * Hash verification result for on-chain storage
+ * Deterministic hash for audit trails (hex, no 0x prefix; callers may prefix for bytes32).
  */
-export function hashVerificationResult(result: VerificationScore): string {
-  const resultJson = JSON.stringify(result, Object.keys(result).sort())
-  return createHash('sha256').update(resultJson).digest('hex')
+export function hashVerificationResult(result: VerificationResult, submissionId?: string): string {
+  const payload = {
+    submissionId: submissionId ?? null,
+    beforeInference: result.beforeInference,
+    afterInference: result.afterInference,
+    score: result.score,
+  }
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex')
+}
+
+function stubPending(submissionId: string, reason: string): VerificationResult {
+  console.warn('[GPU Verification] Falling back to pending:', reason)
+  const result: VerificationResult = {
+    beforeInference: { objectCount: 0, meanConfidence: 0 },
+    afterInference: { objectCount: 0, meanConfidence: 0 },
+    score: {
+      delta: 0,
+      score: 0,
+      verdict: 'pending',
+    },
+    hash: '',
+  }
+  result.hash = hashVerificationResult(result, submissionId)
+  return result
 }
 
 /**
- * Full verification pipeline
- * 1. Call GPU service for before image
- * 2. Call GPU service for after image
- * 3. Compute verification score
- * 4. Return result with hash
+ * Run full verification: two inference calls + scoring + hash.
+ * On GPU/network errors, returns a pending result so the API route can still respond 200.
  */
 export async function runFullVerification(
   submissionId: string,
   beforeImageUrl: string,
-  afterImageUrl: string
-): Promise<{
-  score: VerificationScore
-  hash: string
-  beforeInference: GPUInferenceResponse
-  afterInference: GPUInferenceResponse
-}> {
-  console.log(`[GPU Verification] Starting full verification for submission ${submissionId}...`)
-  
-  // Run inference on both images in parallel
-  const [beforeResult, afterResult] = await Promise.all([
-    callGPUInference(submissionId, beforeImageUrl, 'before'),
-    callGPUInference(submissionId, afterImageUrl, 'after'),
-  ])
-  
-  console.log(`[GPU Verification] Before: ${beforeResult.objectCount} objects (confidence: ${beforeResult.meanConfidence.toFixed(3)}), After: ${afterResult.objectCount} objects (confidence: ${afterResult.meanConfidence.toFixed(3)})`)
-  
-  // Log detected objects for debugging
-  if (beforeResult.objects.length > 0) {
-    console.log(`[GPU Verification] Before photo detected objects:`, beforeResult.objects.map(obj => `${obj.class} (${(obj.confidence * 100).toFixed(1)}%)`).join(', '))
-  } else {
-    console.warn(`[GPU Verification] ⚠️ No objects detected in before photo. This may indicate: 1) Image doesn't contain detectable waste, 2) Model needs retraining, or 3) Image quality/format issue.`)
-  }
-  
-  if (afterResult.objects.length > 0) {
-    console.log(`[GPU Verification] After photo detected objects:`, afterResult.objects.map(obj => `${obj.class} (${(obj.confidence * 100).toFixed(1)}%)`).join(', '))
-  } else {
-    console.warn(`[GPU Verification] ⚠️ No objects detected in after photo. This may indicate: 1) Cleanup was successful (no waste remaining), 2) Image quality issue, or 3) Model detection issue.`)
-  }
-  
-  // Compute verification score
-  const score = computeVerificationScore(beforeResult, afterResult)
-  
-  // Generate hash for on-chain storage
-  const hash = hashVerificationResult(score)
-  
-  console.log(`[GPU Verification] Verification complete: ${score.verdict} (score: ${score.score.toFixed(3)}, delta: ${score.delta})`)
-  
-  // Warn if score is suspiciously low
-  if (score.score < 0.1 && beforeResult.objectCount === 0 && afterResult.objectCount === 0) {
-    console.warn(`[GPU Verification] ⚠️ Very low score (${score.score.toFixed(3)}) with 0 objects detected in both images. Possible issues: 1) Same image uploaded twice, 2) Images don't contain detectable waste, 3) Model detection failure.`)
-  }
-  
-  return {
-    score,
-    hash,
-    beforeInference: beforeResult,
-    afterInference: afterResult,
+  afterImageUrl: string,
+  options?: { impactDataBoost?: number }
+): Promise<VerificationResult> {
+  const boost = options?.impactDataBoost ?? 0
+
+  try {
+    const [beforeInference, afterInference] = await Promise.all([
+      inferImage(beforeImageUrl),
+      inferImage(afterImageUrl),
+    ])
+
+    const { delta, score, verdict } = computeVerificationScore(beforeInference, afterInference, boost)
+
+    const result: VerificationResult = {
+      beforeInference: {
+        objectCount: beforeInference.objectCount,
+        meanConfidence: beforeInference.meanConfidence,
+      },
+      afterInference: {
+        objectCount: afterInference.objectCount,
+        meanConfidence: afterInference.meanConfidence,
+      },
+      score: {
+        delta,
+        score,
+        verdict,
+      },
+      hash: '',
+    }
+
+    result.hash = hashVerificationResult(result, submissionId)
+
+    return result
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[GPU Verification] Inference or scoring failed:', message)
+    return stubPending(submissionId, message)
   }
 }

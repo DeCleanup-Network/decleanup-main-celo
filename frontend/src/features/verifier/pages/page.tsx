@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAccount, useSignMessage, useChainId, useSwitchChain } from 'wagmi'
+import { useState, useEffect, type ReactNode } from 'react'
+import { useAccount, useSignMessage, useSwitchChain } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/layout/BackButton'
@@ -22,6 +22,12 @@ import { config, REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_NAME, REQUIRED_CHAI
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
 import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
+import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
+import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
+import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
+import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
+import { AlertModal } from '@/components/ui/alert-modal'
+import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -55,7 +61,7 @@ const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 
 export default function VerifierPage() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
+  const chainId = useResolvedChainId()
   const { switchChain } = useSwitchChain()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -77,6 +83,14 @@ export default function VerifierPage() {
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<Array<{ cleanupId: bigint; verified: boolean; claimed: boolean; level: number; user: Address }>>([])
   const [isLoadingCleanups, setIsLoadingCleanups] = useState(false)
+  const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
+  const [verifierContext, setVerifierContext] = useState<any>(null)
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+  const [actionModal, setActionModal] = useState<{
+    variant: 'success' | 'error' | 'warning' | 'info'
+    title: string
+    message: string | ReactNode
+  } | null>(null)
 
   const { signMessageAsync, isPending: isSigning } = useSignMessage()
 
@@ -94,18 +108,22 @@ export default function VerifierPage() {
     }
   }, [address, isConnected])
 
-  // Load cleanups when verifier is authenticated
+  // Load cleanups and hypercert requests when verifier is authenticated
   useEffect(() => {
     if (!isVerifier) return
     
     // Load cleanups initially
     loadCleanups()
     
-    // Refresh cleanups every 30 seconds
+    // Load hypercert requests initially
+    loadHypercertRequests()
+    
+    // Refresh cleanups and requests every 30 seconds
     const interval = setInterval(() => {
       // Only refresh if not currently loading
       if (!isLoadingCleanups) {
-      loadCleanups()
+        loadCleanups()
+        loadHypercertRequests()
       }
     }, 30000)
     
@@ -438,7 +456,16 @@ export default function VerifierPage() {
       setIsLoadingCleanups(false)
     }
   }
-
+  async function loadHypercertRequests() {
+    try {
+      const pending = getHypercertRequestsByStatus('PENDING')
+      console.log('📋 Pending Hypercert requests:', pending.length)
+      setHypercertRequests(pending)
+      setVerifierContext(buildVerifierContext(pending))
+    } catch (error) {
+      console.error('Error loading Hypercert requests:', error)
+    }
+  }
   async function handleVerify(cleanupId: bigint) {
     setVerifying(true)
     setError(null)
@@ -502,20 +529,50 @@ export default function VerifierPage() {
             setPollingStatus(null)
             await loadCleanups()
               setSelectedCleanup(null)
-              alert(
-                `✅ Cleanup ${cleanupId.toString()} is now verified!\n\n` +
-                `View on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`
-              )
+              setActionModal({
+                variant: 'success',
+                title: 'Cleanup verified',
+                message: (
+                  <>
+                    <p className="mb-3 text-gray-300">
+                      Cleanup {cleanupId.toString()} is now verified!
+                    </p>
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                      View transaction on {BLOCK_EXPLORER_NAME}
+                    </a>
+                  </>
+                ),
+              })
           } else if (pollCount >= maxPolls) {
               console.log('Max polls reached after confirmation, stopping check')
             clearInterval(pollInterval)
             setPollingStatus(null)
               await loadCleanups()
               setSelectedCleanup(null)
-              alert(
-                `⚠️ Transaction confirmed but verification status not updated yet.\n\n` +
-                `This may be a temporary RPC issue. Check ${BLOCK_EXPLORER_NAME}:\n${explorerUrl}`
-              )
+              setActionModal({
+                variant: 'warning',
+                title: 'Status pending',
+                message: (
+                  <>
+                    <p className="mb-3 text-gray-300">
+                      Transaction confirmed but verification status not updated yet. This may be a temporary RPC issue.
+                    </p>
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                      Check on {BLOCK_EXPLORER_NAME}
+                    </a>
+                  </>
+                ),
+              })
           }
         } catch (checkError: any) {
           const errorMsg = checkError?.message || String(checkError)
@@ -545,18 +602,48 @@ export default function VerifierPage() {
         
         const errorMsg = receiptError?.message || String(receiptError)
         if (errorMsg.includes('timeout')) {
-          alert(
-            `⏱️ Transaction submitted but confirmation is taking longer than expected.\n\n` +
-            `Transaction Hash: ${hash}\n\n` +
-            `Please check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}\n\n` +
-            `The cleanup will be verified once the transaction confirms.`
-          )
+          setActionModal({
+            variant: 'info',
+            title: 'Transaction pending',
+            message: (
+              <>
+                <p className="mb-3 text-gray-300">
+                  Transaction submitted but confirmation is taking longer than expected. The cleanup will be verified once the
+                  transaction confirms.
+                </p>
+                <p className="mb-2 font-mono text-xs text-gray-400 break-all">{hash}</p>
+                <a
+                  href={explorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                >
+                  Check status on {BLOCK_EXPLORER_NAME}
+                </a>
+              </>
+            ),
+          })
         } else {
-          alert(
-            `⚠️ Transaction submitted but could not confirm receipt.\n\n` +
-            `Transaction Hash: ${hash}\n\n` +
-            `Please check ${BLOCK_EXPLORER_NAME} for status:\n${explorerUrl}`
-          )
+          setActionModal({
+            variant: 'warning',
+            title: 'Confirmation pending',
+            message: (
+              <>
+                <p className="mb-3 text-gray-300">
+                  Transaction submitted but we could not confirm the receipt yet.
+                </p>
+                <p className="mb-2 font-mono text-xs text-gray-400 break-all">{hash}</p>
+                <a
+                  href={explorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+                >
+                  Check status on {BLOCK_EXPLORER_NAME}
+                </a>
+              </>
+            ),
+          })
         }
       }
     } catch (error) {
@@ -566,10 +653,9 @@ export default function VerifierPage() {
       
       // Show alert for critical errors (chain mismatches, etc.)
       if (errorMessage.includes('CRITICAL') || errorMessage.includes('Chain') || errorMessage.includes('network')) {
-        alert(`❌ ${errorMessage}`)
+        setActionModal({ variant: 'error', title: 'Error', message: errorMessage })
       } else {
-        // For other errors, show a more user-friendly message
-        alert(`Failed to verify cleanup:\n\n${errorMessage}\n\nPlease check your wallet connection and network settings.`)
+        setActionModal({ variant: 'error', title: 'Verify failed', message: `Failed to verify cleanup:\n\n${errorMessage}\n\nPlease check your wallet connection and network settings.` })
       }
     } finally {
       setVerifying(false)
@@ -593,18 +679,110 @@ export default function VerifierPage() {
       
       // Show success with transaction hash
       const explorerUrl = getExplorerTxUrl(hash)
-      alert(
-        `✅ Rejection transaction submitted!\n\n` +
-        `Transaction Hash: ${hash}\n\n` +
-        `The cleanup will be marked as rejected once the transaction confirms.\n\n` +
-        `View on ${BLOCK_EXPLORER_NAME}: ${explorerUrl}`
-      )
+      setActionModal({
+        variant: 'success',
+        title: 'Rejection submitted',
+        message: (
+          <>
+            <p className="mb-3 text-gray-300">
+              Rejection transaction submitted. The cleanup will be marked as rejected once the transaction confirms.
+            </p>
+            <p className="mb-2 font-mono text-xs text-gray-400 break-all">{hash}</p>
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full break-all font-medium text-brand-green underline underline-offset-2"
+            >
+              View transaction on {BLOCK_EXPLORER_NAME}
+            </a>
+          </>
+        ),
+      })
     } catch (error) {
       console.error('Error rejecting cleanup:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setError(`Failed to reject: ${errorMessage}`)
+      setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject cleanup:\n\n${errorMessage}` })
     } finally {
       setRejecting(false)
+    }
+  }
+
+  async function handleApproveHypercert(requestId: string) {
+    if (!address) return
+    
+    setProcessingRequestId(requestId)
+    try {
+      console.log('Approving Hypercert request:', requestId)
+      
+      // Approve the request
+      const approvedRequest = approveHypercertRequest({
+        requestId,
+        verifierAddress: address,
+      })
+      
+      if (!approvedRequest) {
+        throw new Error('Failed to approve request')
+      }
+      
+      // TODO: In Phase 6, this will call the actual onchain mint function
+      // For now, just update the UI
+      console.log('✅ Hypercert request approved:', approvedRequest.id)
+      
+      setActionModal({
+        variant: 'success',
+        title: 'Hypercert approved',
+        message: `Hypercert request approved!\n\nRequest ID: ${requestId}\n\nNote: Onchain minting will be implemented in Phase 6.`,
+      })
+      
+      // Refresh the requests list
+      loadHypercertRequests()
+    } catch (error) {
+      console.error('Error approving Hypercert request:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setActionModal({ variant: 'error', title: 'Approve failed', message: `Failed to approve Hypercert request:\n\n${errorMessage}` })
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
+  async function handleRejectHypercert(requestId: string) {
+    if (!address) return
+    
+    const reason = prompt('Enter rejection reason (optional):')
+    
+    setProcessingRequestId(requestId)
+    try {
+      console.log('Rejecting Hypercert request:', requestId)
+      
+      // Reject the request
+      const rejectedRequest = rejectHypercertRequest({
+        requestId,
+        verifierAddress: address,
+        reason: reason || undefined,
+      })
+      
+      if (!rejectedRequest) {
+        throw new Error('Failed to reject request')
+      }
+      
+      console.log('❌ Hypercert request rejected:', rejectedRequest.id)
+      
+      setActionModal({
+        variant: 'success',
+        title: 'Hypercert rejected',
+        message: `Hypercert request rejected.\n\nRequest ID: ${requestId}\n${reason ? `Reason: ${reason}` : ''}`,
+      })
+      
+      // Refresh the requests list
+      loadHypercertRequests()
+    } catch (error) {
+      console.error('Error rejecting Hypercert request:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject Hypercert request:\n\n${errorMessage}` })
+    } finally {
+      setProcessingRequestId(null)
     }
   }
 
@@ -837,6 +1015,156 @@ export default function VerifierPage() {
       </div>
     )
   }
+
+          {/* Hypercert Impact Context */}
+          {verifierContext && (
+            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
+              <h3 className="mb-4 font-bold text-green-400">📊 HYPERCERT IMPACT CONTEXT</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                <div>
+                  <p className="text-gray-400">Total Requests</p>
+                  <p className="text-2xl font-bold text-white">{verifierContext.totalRequests}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Total Cleanups</p>
+                  <p className="text-2xl font-bold text-brand-green">{verifierContext.totalCleanups}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Total Reports</p>
+                  <p className="text-2xl font-bold text-brand-yellow">{verifierContext.totalReports}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Pending/Approved</p>
+                  <p className="text-2xl font-bold text-white">{verifierContext.status.PENDING}/{verifierContext.status.APPROVED}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+  {/* Pending Hypercert Requests */}
+        <div className="mb-8">
+          <h2 className="mb-4 text-2xl font-bold uppercase text-white">Pending Hypercert Requests</h2>
+          {hypercertRequests.length === 0 ? (
+            <div className="rounded-lg border border-gray-800 bg-gray-900 p-8 text-center text-gray-400">
+              No pending Hypercert requests to review.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {hypercertRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="rounded-lg border border-gray-800 bg-gray-900 p-6"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Hypercert Request</h3>
+                      <p className="mt-1 font-mono text-xs text-gray-400">ID: {request.id}</p>
+                    </div>
+                    <div className="rounded-full bg-yellow-500/20 px-3 py-1 text-sm font-medium text-yellow-400">
+                      PENDING
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="h-4 w-4" />
+                      <span className="font-mono text-xs">{request.requester}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Calendar className="h-4 w-4" />
+                      <span>{new Date(request.submittedAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Metadata Preview */}
+                  <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800 p-4">
+                    <h4 className="mb-2 text-sm font-semibold text-white">Impact Summary</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-400">Cleanups:</span>
+                        <span className="ml-2 font-bold text-white">
+                          {extractImpactSummaryFromMetadata(request.metadata)?.totalCleanups || 0}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Reports:</span>
+                        <span className="ml-2 font-bold text-white">
+                          {extractImpactSummaryFromMetadata(request.metadata)?.totalReports || 0}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-400">Timeframe:</span>
+                        <span className="ml-2 text-white">
+                          {extractImpactSummaryFromMetadata(request.metadata)?.timeframeStart && 
+                            new Date(extractImpactSummaryFromMetadata(request.metadata)?.timeframeStart).toLocaleDateString()
+                          } - {
+                            extractImpactSummaryFromMetadata(request.metadata)?.timeframeEnd &&
+                            new Date(extractImpactSummaryFromMetadata(request.metadata)?.timeframeEnd).toLocaleDateString()
+                          }
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Show branding if available */}
+                    {request.metadata?.branding && (
+                      <div className="mt-3 border-t border-gray-700 pt-3">
+                        <h5 className="mb-2 text-xs font-semibold uppercase text-gray-400">Branding</h5>
+                        {request.metadata.branding.title && (
+                          <div className="mb-1 text-sm text-white">
+                            Title: {request.metadata.branding.title}
+                          </div>
+                        )}
+                        {request.metadata.branding.description && (
+                          <div className="text-xs text-gray-400">
+                            {request.metadata.branding.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => handleRejectHypercert(request.id)}
+                      disabled={processingRequestId === request.id}
+                      variant="outline"
+                      className="flex-1 border-red-500 text-red-400 hover:bg-red-500/10"
+                    >
+                      {processingRequestId === request.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Rejecting...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleApproveHypercert(request.id)}
+                      disabled={processingRequestId === request.id}
+                      className="flex-1 bg-brand-green text-black hover:bg-brand-green/90"
+                    >
+                      {processingRequestId === request.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Approve & Mint
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
   const pendingCleanups = cleanups.filter((c) => !c.verified && !c.rejected)
   const verifiedCleanups = cleanups.filter((c) => c.verified)
@@ -1155,7 +1483,7 @@ export default function VerifierPage() {
                         {cleanup.referrer !== '0x0000000000000000000000000000000000000000' && (
                           <div className="flex items-center gap-2 text-xs text-yellow-400">
                             <Users className="h-3 w-3" />
-                            <span>Referred by: <span className="font-mono text-[10px]">{cleanup.referrer.slice(0, 6)}...{cleanup.referrer.slice(-4)}</span> (both will earn 3 $cDCU each when invitee claims their first level)</span>
+                            <span>Referred by: <span className="font-mono text-[10px]">{cleanup.referrer.slice(0, 6)}...{cleanup.referrer.slice(-4)}</span> (both will earn 3 DCU each when invitee claims their first level)</span>
                           </div>
                         )}
                         <div className="text-xs">
@@ -1697,6 +2025,20 @@ export default function VerifierPage() {
           )}
         </div>
       </div>
+
+      {actionModal && (
+        <AlertModal
+          isOpen
+          onClose={() => {
+            setActionModal(null)
+            router.refresh()
+          }}
+          title={actionModal.title}
+          message={actionModal.message}
+          variant={actionModal.variant}
+          autoCloseMs={actionModal.variant === 'success' ? 3000 : undefined}
+        />
+      )}
     </div>
   )
 }

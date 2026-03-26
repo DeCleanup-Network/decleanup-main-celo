@@ -3,6 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Typography: Bebas Neue = primary/headings (impact). Geist Sans = secondary/body, buttons, nav (readability, premium tech). */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -46,10 +47,26 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Design tokens aligned with decleanup.net landing (DeCleanup-Network/decleanup-network.github.io) */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: #000000;
+  --foreground: #ffffff;
+  --yellow: #FAFF00;
+  --green: #58B12F;
+  --green-dark: #4FA02A;
+  --gray-light: #1a1a1a;
+  --gray-medium: #2a2a2a;
+  --gray-dark: #111111;
+  --text-hero: 5rem;
+  --text-section: 3rem;
+  --text-sub: 1.875rem;
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-xs: 0.75rem;
+  /* Legacy theme vars (keep for components) */
+  --background-oklch: oklch(1 0 0);
+  --foreground-oklch: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -120,16 +137,21 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   }
   
-  /* Bebas Neue for all headings - ALL CAPS */
+  /* Bebas Neue for major headings and titles (decleanup.net landing: uppercase, condensed) */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-bebas-neue), sans-serif;
-    @apply font-normal uppercase tracking-wide;
+    font-weight: 400;
+    text-transform: uppercase;
     letter-spacing: 0.05em;
+    line-height: 1.1;
   }
+  h1 { font-size: clamp(2.5rem, 8vw, 5rem); }
+  h2 { font-size: clamp(2rem, 5vw, 3rem); }
+  h3 { font-size: clamp(1.5rem, 3vw, 1.875rem); }
   
   /* Better mobile touch targets */
   button, a {
@@ -159,5 +181,42 @@
   
   .border-brand-yellow {
     border-color: var(--color-brand-yellow);
+  }
+}
+
+/* Animations from decleanup.net landing */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes border-glow {
+  0%, 100% { border-color: rgba(88, 177, 47, 0.35); box-shadow: 0 0 0 1px rgba(88, 177, 47, 0.2); }
+  50% { border-color: rgba(88, 177, 47, 0.6); box-shadow: 0 0 20px rgba(88, 177, 47, 0.15); }
+}
+.animate-fade-in { animation: fade-in 0.8s ease-out; }
+.animate-fade-in-up { animation: fade-in-up 0.8s ease-out; }
+.card-border-glow { animation: border-glow 3s ease-in-out infinite; }
+.card-hover { transition: all 0.3s ease; }
+.card-hover:hover { transform: translateY(-4px); }
+
+/* Scrollbar (decleanup.net style) */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--gray-dark, #111); }
+::-webkit-scrollbar-thumb { background: var(--gray-medium, #2a2a2a); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--green, #58B12F); }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Mobile: reserve space above browser UI so content isn't cut off */
+.pb-mobile-safe {
+  padding-bottom: 1.5rem;
+}
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-mobile-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
 }

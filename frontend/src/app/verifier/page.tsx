@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAccount, useSignMessage } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, Loader2, Shield, ArrowLeft, MapPin, ExternalLink } from 'lucide-react'
@@ -16,6 +17,11 @@ import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import type { Address } from 'viem'
 import { REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/wagmi'
 import { ImpactReportDetails } from '@/components/verifier/ImpactReportDetails'
+import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
+import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
+import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
+import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
+import { AlertModal } from '@/components/ui/alert-modal'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -43,14 +49,8 @@ interface CleanupSubmission {
 const VERIFIER_AUTH_MESSAGE = 'I am requesting access to the DeCleanup Verifier Dashboard. This signature proves I control this wallet address.'
 const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 
-/**
- * Verifier System:
- * - Current: Verifiers are whitelisted addresses with VERIFIER_ROLE in smart contract
- * - Future: Verifiers will need to stake $cDCU tokens to become verifiers
- *   (staking mechanism to be implemented, will replace or supplement whitelist)
- */
-
 export default function VerifierPage() {
+    const router = useRouter()
     const [mounted, setMounted] = useState(false)
     const { address, isConnected } = useAccount()
     const { signMessageAsync, isPending: isSigning } = useSignMessage()
@@ -60,7 +60,10 @@ export default function VerifierPage() {
     const [cleanups, setCleanups] = useState<CleanupSubmission[]>([])
     const [processingId, setProcessingId] = useState<bigint | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [mlResults, setMlResults] = useState<Map<string, any>>(new Map())
+    const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
+    const [verifierContext, setVerifierContext] = useState<any>(null)
+    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+    const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error'; title: string; message: string | ReactNode } | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -71,17 +74,6 @@ export default function VerifierPage() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [address])
-    
-    // Auto-refresh cleanups every 30 seconds when verifier is logged in
-    useEffect(() => {
-        if (!isVerifierUser || !mounted) return
-        
-        const interval = setInterval(() => {
-            fetchCleanups()
-        }, 30000) // Refresh every 30 seconds
-        
-        return () => clearInterval(interval)
-    }, [isVerifierUser, mounted])
 
     const checkStoredVerification = () => {
         if (!address) {
@@ -121,8 +113,6 @@ export default function VerifierPage() {
         setLoading(true)
         setError(null)
         try {
-            // Current: Checks VERIFIER_ROLE (whitelisted addresses)
-            // Future: Will also check $cDCU staking status
             const status = await isVerifier(addr)
             setIsVerifierUser(status)
             if (status) {
@@ -177,37 +167,10 @@ export default function VerifierPage() {
         }
     }
 
-    const fetchMLResult = async (cleanupId: string) => {
-        try {
-            // Try API first
-            const response = await fetch(`/api/ml-verification/result?cleanupId=${cleanupId}`)
-            if (response.ok) {
-                const result = await response.json()
-                if (result.hasResult !== false) {
-                    return result
-                }
-            }
-            
-            // Fallback to localStorage (client-side only)
-            if (typeof window !== 'undefined') {
-                const mlKey = `ml_result_${cleanupId}`
-                const stored = localStorage.getItem(mlKey)
-                if (stored) {
-                    return JSON.parse(stored)
-                }
-            }
-            return null
-        } catch (error) {
-            console.error(`Error fetching ML result for ${cleanupId}:`, error)
-            return null
-        }
-    }
-
     const fetchCleanups = async () => {
         try {
             const count = await getCleanupCounter()
             const submissions: CleanupSubmission[] = []
-            const mlResultsMap = new Map<string, any>()
 
             // Fetch in reverse order (newest first)
             // Submission IDs are 0-indexed, so we go from count-1 down to 0
@@ -221,19 +184,22 @@ export default function VerifierPage() {
                         submissions.push({
                             ...details
                         })
-                        
-                        // Fetch ML result for this cleanup
-                        const mlResult = await fetchMLResult(id.toString())
-                        if (mlResult) {
-                            mlResultsMap.set(id.toString(), mlResult)
-                        }
                     }
                 } catch (err) {
                     console.warn(`Failed to fetch cleanup ${id}`, err)
                 }
             }
             setCleanups(submissions)
-            setMlResults(mlResultsMap)
+            
+            // Also load Hypercert requests
+            try {
+                const pending = getHypercertRequestsByStatus('PENDING')
+                console.log('📋 Pending Hypercert requests:', pending.length)
+                setHypercertRequests(pending)
+                setVerifierContext(buildVerifierContext(pending))
+            } catch (reqError) {
+                console.error('Error loading Hypercert requests:', reqError)
+            }
         } catch (error) {
             console.error('Error fetching cleanups:', error)
         }
@@ -249,8 +215,23 @@ export default function VerifierPage() {
             console.log('Verification successful, transaction hash:', txHash)
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-            const message = `Cleanup verified successfully!\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nView on block explorer: ${txUrl}`
-            alert(message)
+            const message = (
+                <>
+                    <p className="mb-3 text-gray-300">Cleanup verified successfully.</p>
+                    <p className="mb-3 font-mono text-xs text-gray-400 break-all">
+                        {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                    </p>
+                    <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full items-center gap-1 break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                        View transaction on explorer
+                    </a>
+                </>
+            )
+            setActionModal({ variant: 'success', title: 'Cleanup verified', message })
             
             // Refresh cleanups after a short delay to allow blockchain state to update
             setTimeout(() => {
@@ -266,9 +247,9 @@ export default function VerifierPage() {
             if (txHashMatch) {
                 const txHash = txHashMatch[0]
                 const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-                alert(`Failed to verify cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}`)
+                setActionModal({ variant: 'error', title: 'Verify failed', message: `Failed to verify cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}` })
             } else {
-                alert(`Failed to verify cleanup: ${errorMessage}`)
+                setActionModal({ variant: 'error', title: 'Verify failed', message: `Failed to verify cleanup: ${errorMessage}` })
             }
         } finally {
             setProcessingId(null)
@@ -284,8 +265,23 @@ export default function VerifierPage() {
             console.log('Rejection successful, transaction hash:', txHash)
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-            const message = `Cleanup rejected successfully!\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nView on block explorer: ${txUrl}`
-            alert(message)
+            const message = (
+                <>
+                    <p className="mb-3 text-gray-300">Cleanup rejected successfully.</p>
+                    <p className="mb-3 font-mono text-xs text-gray-400 break-all">
+                        {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                    </p>
+                    <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full items-center gap-1 break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                        View transaction on explorer
+                    </a>
+                </>
+            )
+            setActionModal({ variant: 'success', title: 'Cleanup rejected', message })
             
             // Refresh cleanups after a short delay to allow blockchain state to update
             setTimeout(() => {
@@ -301,12 +297,93 @@ export default function VerifierPage() {
             if (txHashMatch) {
                 const txHash = txHashMatch[0]
                 const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
-                alert(`Failed to reject cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}`)
+                setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject cleanup: ${errorMessage}\n\nTransaction may still be pending. Check: ${txUrl}` })
             } else {
-                alert(`Failed to reject cleanup: ${errorMessage}`)
+                setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject cleanup: ${errorMessage}` })
             }
         } finally {
             setProcessingId(null)
+        }
+    }
+
+    const handleApproveHypercert = async (requestId: string) => {
+        if (!address) return
+        
+        setProcessingRequestId(requestId)
+        setError(null)
+        try {
+            console.log('Approving Hypercert request:', requestId)
+            
+            // Approve the request
+            const approvedRequest = approveHypercertRequest({
+                requestId,
+                verifierAddress: address,
+            })
+            
+            if (!approvedRequest) {
+                throw new Error('Failed to approve request')
+            }
+            
+            // TODO: In Phase 6, this will call the actual onchain mint function
+            // For now, just update the UI
+            console.log('✅ Hypercert request approved:', approvedRequest.id)
+            
+            setActionModal({
+                variant: 'success',
+                title: 'Hypercert approved',
+                message: `Hypercert request approved!\n\nRequest ID: ${requestId}\n\nNote: Onchain minting will be implemented in Phase 6.`,
+            })
+            
+            // Refresh the data
+            fetchCleanups()
+        } catch (error: any) {
+            console.error('Error approving Hypercert request:', error)
+            const errorMessage = error?.message || 'Unknown error'
+            setError(`Failed to approve Hypercert request: ${errorMessage}`)
+            setActionModal({ variant: 'error', title: 'Approve failed', message: `Failed to approve Hypercert request:\n\n${errorMessage}` })
+        } finally {
+            setProcessingRequestId(null)
+        }
+    }
+
+    const handleRejectHypercert = async (requestId: string) => {
+        if (!address) return
+        
+        const reason = prompt('Enter rejection reason (optional):')
+        
+        setProcessingRequestId(requestId)
+        setError(null)
+        try {
+            console.log('Rejecting Hypercert request:', requestId)
+            
+            // Reject the request
+            const rejectedRequest = rejectHypercertRequest({
+                requestId,
+                verifierAddress: address,
+                reason: reason || undefined,
+            })
+            
+            if (!rejectedRequest) {
+                throw new Error('Failed to reject request')
+            }
+            
+            console.log('❌ Hypercert request rejected:', rejectedRequest.id)
+            
+            setActionModal({
+                variant: 'success',
+                title: 'Hypercert rejected',
+                message: `Hypercert request rejected.\n\nRequest ID: ${requestId}\n${reason ? `Reason: ${reason}` : ''}`,
+            })
+            
+            // Refresh the data
+            fetchCleanups()
+        } catch (error: any) {
+            console.error('Error rejecting Hypercert request:', error)
+            const errorMessage = error?.message || 'Unknown error'
+            setError(`Failed to reject Hypercert request: ${errorMessage}`)
+            setActionModal({ variant: 'error', title: 'Reject failed', message: `Failed to reject Hypercert request:\n\n${errorMessage}` })
+        } finally {
+            setProcessingRequestId(null)
         }
     }
 
@@ -496,28 +573,137 @@ export default function VerifierPage() {
                         <div className="mt-1 font-bebas text-2xl text-brand-green">
                             {address ? (
                                 verifiedCleanups.filter(c => c.approver?.toLowerCase() === address.toLowerCase()).length
-                            ) : 0} $cDCU
+                            ) : 0} DCU
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">1 $cDCU per verification</div>
+                        <div className="mt-1 text-xs text-gray-500">1 DCU per verification</div>
                     </div>
+                </div>
+
+                {/* Hypercert Impact Context */}
+                {verifierContext && (
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
+                    <h3 className="mb-4 font-bold text-green-400">📊 HYPERCERT IMPACT CONTEXT</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                      <div>
+                        <p className="text-gray-400">Total Requests</p>
+                        <p className="text-2xl font-bold text-white">{verifierContext.totalRequests}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Total Cleanups</p>
+                        <p className="text-2xl font-bold text-brand-green">{verifierContext.totalCleanups}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Total Reports</p>
+                        <p className="text-2xl font-bold text-brand-yellow">{verifierContext.totalReports}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Pending/Approved</p>
+                        <p className="text-2xl font-bold text-white">{verifierContext.status.PENDING}/{verifierContext.status.APPROVED}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending Hypercert Requests */}
+                <div className="mb-8">
+                    <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                        Pending Hypercert Requests
+                    </h2>
+                    {hypercertRequests.length === 0 ? (
+                        <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
+                            No pending Hypercert requests to review.
+                        </div>
+                    ) : (
+                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                            {hypercertRequests.map((request) => (
+                                <div key={request.id} className="rounded-lg border border-border bg-card overflow-hidden">
+                                    <div className="bg-gray-900 p-4">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <span className="font-bebas text-lg text-foreground">HYPERCERT REQUEST</span>
+                                            <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs text-yellow-500">
+                                                Pending
+                                            </span>
+                                        </div>
+                                        <p className="font-mono text-xs text-gray-400">ID: {request.id}</p>
+                                    </div>
+                                    <div className="p-4">
+                                        <div className="mb-3">
+                                            <p className="mb-2 text-xs text-gray-400">Requester:</p>
+                                            <p className="font-mono text-xs text-gray-300 break-all">
+                                                {request.requester}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="mb-3 rounded-lg border border-border bg-background p-3">
+                                            <p className="mb-2 text-xs font-semibold text-foreground">
+                                                Impact Summary
+                                            </p>
+                                            <div className="space-y-1 text-xs">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-400">Cleanups:</span>
+                                                    <span className="font-bold text-foreground">
+                                                        {extractImpactSummaryFromMetadata(request.metadata)?.totalCleanups || 0}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-400">Reports:</span>
+                                                    <span className="font-bold text-foreground">
+                                                        {extractImpactSummaryFromMetadata(request.metadata)?.totalReports || 0}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {request.metadata?.branding?.title && (
+                                                <div className="mt-2 border-t border-border pt-2">
+                                                    <p className="text-xs text-gray-400">Title:</p>
+                                                    <p className="text-xs text-foreground">
+                                                        {request.metadata.branding.title}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <p className="mb-3 text-xs text-gray-400">
+                                            Submitted: {new Date(request.submittedAt).toLocaleString()}
+                                        </p>
+                                        
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleRejectHypercert(request.id)}
+                                                disabled={processingRequestId === request.id}
+                                                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                                                size="sm"
+                                            >
+                                                {processingRequestId === request.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    'Reject'
+                                                )}
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleApproveHypercert(request.id)}
+                                                disabled={processingRequestId === request.id}
+                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                                                size="sm"
+                                            >
+                                                {processingRequestId === request.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    'Approve'
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Pending Cleanups */}
                 <div className="mb-8">
-                    <div className="mb-4 flex items-center justify-between">
-                        <h2 className="font-bebas text-2xl uppercase tracking-wide text-foreground">
+                    <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
                         Pending Verification
                     </h2>
-                        <Button
-                            onClick={() => {
-                                fetchCleanups()
-                            }}
-                            className="bg-brand-green text-black hover:bg-[#4a9a26]"
-                            size="sm"
-                        >
-                            Refresh
-                        </Button>
-                    </div>
                     {pendingCleanups.length === 0 ? (
                         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
                             No pending cleanups to verify.
@@ -564,89 +750,6 @@ export default function VerifierPage() {
                                         <p className="mb-2 font-mono text-xs text-gray-400 break-all">
                                             User: {cleanup.user}
                                         </p>
-                                        {/* AI Analysis Results */}
-                                        {(() => {
-                                          const mlResult = mlResults.get(cleanup.id.toString())
-                                          if (mlResult) {
-                                            const score = mlResult.score || mlResult
-                                            const verdict = score?.verdict || mlResult.verdict
-                                            const beforeCount = score?.beforeCount ?? mlResult.beforeCount ?? 0
-                                            const afterCount = score?.afterCount ?? mlResult.afterCount ?? 0
-                                            const delta = score?.delta ?? mlResult.delta ?? 0
-                                            const confidence = score?.score ?? mlResult.score ?? 0
-                                            const hash = score?.hash || mlResult.hash
-                                            
-                                            return (
-                                              <div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                                                <div className="mb-2 flex items-center justify-between">
-                                                  <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-semibold text-blue-400">🤖 AI Analysis (Step 1)</span>
-                                                    <span className={`rounded-full px-2 py-0.5 text-xs ${
-                                                      verdict === 'AUTO_VERIFIED'
-                                                        ? 'bg-green-500/20 text-green-400'
-                                                        : verdict === 'REJECTED'
-                                                        ? 'bg-red-500/20 text-red-400'
-                                                        : 'bg-yellow-500/20 text-yellow-400'
-                                                    }`}>
-                                                      {verdict === 'AUTO_VERIFIED' ? 'AI Approved' 
-                                                        : verdict === 'REJECTED' ? 'AI Rejected'
-                                                        : 'Needs Review'}
-                                                    </span>
-                                                  </div>
-                                                </div>
-                                                <div className="mb-2 text-xs text-gray-400">
-                                                  AI detected waste objects in images. Review the analysis below before making your decision.
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                                  <div>
-                                                    <span className="text-gray-400">Before Photo:</span>
-                                                    <span className="ml-1 font-mono text-white">{beforeCount} objects</span>
-                                                  </div>
-                                                  <div>
-                                                    <span className="text-gray-400">After Photo:</span>
-                                                    <span className="ml-1 font-mono text-white">{afterCount} objects</span>
-                                                  </div>
-                                                  <div>
-                                                    <span className="text-gray-400">Change (Δ):</span>
-                                                    <span className={`ml-1 font-mono ${
-                                                      delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-400'
-                                                    }`}>
-                                                      {delta > 0 ? '+' : ''}{delta}
-                                                    </span>
-                                                  </div>
-                                                  <div>
-                                                    <span className="text-gray-400">Confidence:</span>
-                                                    <span className="ml-1 font-mono text-white">
-                                                      {(confidence * 100).toFixed(1)}%
-                                                    </span>
-                                                  </div>
-                                                </div>
-                                                {hash && (
-                                                  <div className="mt-2 pt-2 border-t border-blue-500/20">
-                                                    <span className="text-xs text-gray-400">Verification Hash: </span>
-                                                    <span className="font-mono text-xs text-gray-300 break-all">
-                                                      {hash.slice(0, 16)}...
-                                                    </span>
-                                                  </div>
-                                                )}
-                                                <div className="mt-2 pt-2 border-t border-blue-500/20">
-                                                  <p className="text-xs text-gray-400">
-                                                    <span className="font-semibold">Note:</span> This is AI analysis only. 
-                                                    You can override the AI decision based on your review of the photos.
-                                                  </p>
-                                                </div>
-                                              </div>
-                                            )
-                                          }
-                                          return (
-                                            <div className="mb-3 rounded-lg border border-gray-500/30 bg-gray-500/10 p-3">
-                                              <div className="text-xs text-gray-400">
-                                                🤖 AI analysis not available (may still be processing or was not performed)
-                                              </div>
-                                            </div>
-                                          )
-                                        })()}
-                                        
                                         {/* Additional info badges */}
                                         <div className="mb-3 flex flex-wrap gap-1">
                                             {cleanup.hasImpactForm && (
@@ -754,6 +857,20 @@ export default function VerifierPage() {
                     )}
                 </div>
             </div>
+
+            {actionModal && (
+                <AlertModal
+                    isOpen
+                    onClose={() => {
+                        setActionModal(null)
+                        router.refresh()
+                    }}
+                    title={actionModal.title}
+                    message={actionModal.message}
+                    variant={actionModal.variant}
+                    autoCloseMs={actionModal.variant === 'success' ? 3000 : undefined}
+                />
+            )}
         </div>
     )
 }

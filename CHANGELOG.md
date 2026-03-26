@@ -6,66 +6,94 @@ This project adheres to Semantic Versioning.
 
 ---
 
-## [AI Verification with YOLOv8 on TACO Dataset] – 2026-01-05
+## [$cDCU Claim UX, Unlock & Governance 250] – 2026-03
 
-This release implements Phase-2 DMRV (Digital Measurement, Reporting, and Verification) with AI-assisted verification using YOLOv8 waste detection fine-tuned on the TACO dataset.
+Claim flow fixes, simpler copy, unlock endpoint, and governance threshold set to 250 $cDCU.
 
-### 🤖 ML Verification (DMRV) - Phase 2
+### Deployed contracts (reference)
 
-**Added**
-- GPU Inference Service (`gpu-inference-service/`) - FastAPI-based service running YOLOv8 for waste detection
-  - YOLOv8 fine-tuned on TACO dataset (60+ waste categories)
-  - REST API for inference requests with shared secret authentication
-  - Health check endpoint for monitoring
-  - Confidence threshold: 0.15 (optimized for better detection)
-- ML Verification Pipeline - Complete AI verification workflow
-  - Automated verification scoring (AUTO_VERIFIED/NEEDS_REVIEW/REJECTED)
-  - Before/after photo comparison with object count delta calculation
-  - Weighted scoring algorithm (40% confidence, 60% trash reduction)
-  - On-chain hash storage for immutable audit trail
-- Frontend AI Integration
-  - AI verification results displayed to users in modal
-  - Detailed AI analysis metrics (object counts, delta, confidence scores)
-  - User appeal/complaint option for rejected submissions
-  - Verifier dashboard with AI analysis display and auto-refresh
-- Duplicate Image Detection - Validates before upload if same image is used for both before/after photos
-- Enhanced Logging - Detailed object detection information for debugging
+No contract redeploys in this release. Addresses below are from existing deployment artifacts (Celo Sepolia unless noted).
 
-**Changed**
-- Lowered confidence threshold from 0.25 to 0.15 for better object detection
-- Improved AI scoring algorithm to be more lenient for legitimate cleanups
-- Enhanced location error handling with better HTTPS requirement messaging
-- Updated verification workflow to show AI results before human review
+| Contract | Address | Source |
+|----------|---------|--------|
+| DCUToken | `0xa282c26245d116aB5600fBF7901f2E4827c16B7A` | deployed_addresses.json |
+| DCURewardManager | `0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a` | deployed_addresses.json |
+| Submission | `0x1e355123f9dec3939552d80ad1a24175fd10688f` | deployed_addresses.json |
+| ImpactProductNFT | `0x97448790fd64dd36504d7f5ce7c2d27794b01959` | deployed_addresses.json |
+| CDCUToken | `0x98bcb22234527bbcb11b6f1987b5202719302621` | cdcu-deployed.json |
+| ClaimVault | `0x0c970ede1641a4c75458f8b1496b83f1ae33d879` | cdcu-deployed.json |
 
-**Fixed**
-- Location geolocation error handling for HTTPS requirement
-- AI verification not detecting objects in legitimate cleanup photos
-- Submissions not appearing in verifier cabinet after AI review
-- Same image uploaded twice causing false rejections
+**Submission.sol and its mentions were not changed.** Same as dev: on approval, Submission already calls `rewardManager.rewardImpactReports(submitter, 1)` for both impact form and recyclables (separate blocks), so recyclables get +5 DCU on-chain without any contract change. DCU points are calculated and stored on-chain (DCURewardManager / DCUToken balance); the claim backend only **reads** that balance for eligibility and claimable amount. No redeploy of Submission required.
 
-**Documentation**
-- Added comprehensive YOLOv8 on TACO Dataset integration explanation in README
-- Created verification workflow documentation
-- Some docs fixes
+### Claim flow: record only on success
 
-### 📊 Statistics
+- **Problem:** Backend was marking the full claim amount as “issued” when returning the signed claim. If the user cancelled the wallet popup, the next request saw “No claimable $cDCU left.”
+- **Fix:** Issued is recorded only after the user’s tx confirms. When we sign, we set a **pending** amount per recipient; claimable = cap − issued − pending.
+- **frontend/src/lib/cdcu/claim-signing.ts** – Added `pendingKey`, `getPendingAmount`, `setPendingAmount`, `recordIssued`, `clearPending`, `resetIssuedAndPending`. Store holds both issued (on-chain confirmed) and pending (signed, not yet submitted) per address.
+- **POST /api/cdcu/claim-request** – Sets pending when returning the signature; no longer adds to issued. Claimable computed as `claimableCapWei - totalIssued - pending`.
+- **GET /api/cdcu/eligibility** – `claimableNow` subtracts pending so the UI shows correct remaining amount.
+- **POST /api/cdcu/record-issued** – Body: `{ recipient, amount }`. Called by the frontend **after** `claimCdcu()` succeeds; moves pending → issued.
+- **POST /api/cdcu/clear-pending** – Body: `{ recipient }`. Clears pending so the user can request a new signature (e.g. after cancelling the tx).
+- **DashboardClaimCdcu** – After tx success, calls `record-issued`; on wallet cancel, calls `clear-pending` and shows “You cancelled the request.”
 
-- Total files changed: 38 files
-- Lines added: ~5,624
-- Lines removed: ~155
-- Net change: +5,469 lines
-- New services: GPU Inference Service (Python FastAPI)
-- New API routes: 3 (ML verification endpoints)
+### Unlock (reset issued/pending)
 
-### ✅ Key Achievements
+- **POST /api/cdcu/unlock** – Body: `{ recipient, secret }`. Resets issued and pending for an address so they can claim again. Use when the claim tx failed or tokens never arrived but the backend had already recorded it. Requires `CLAIM_VAULT_UNLOCK_SECRET` in env; document in ENV_TEMPLATE.md.
 
-- ✅ Implemented complete AI verification pipeline
-- ✅ GPU service running on systemd with YOLOv8 model
-- ✅ Automated verification scoring with three-tier verdict system
-- ✅ On-chain hash storage for audit trail
-- ✅ User-facing AI analysis results
-- ✅ Verifier dashboard with AI metrics
-- ✅ Duplicate image detection and validation
+### Claim card copy
+
+- **DashboardClaimCdcu** – Replaced long line (“At X points you can claim up to Y $cDCU total — you already claimed… remaining”) with: **“Based on your DCU score you will receive X $cDCU.”** Button and disabled state unchanged.
+
+### Governance threshold: 500 → 250 $cDCU
+
+- **docs/TOKEN_SPEC.md** – Governance section and all references updated: minimum balance for voting and creating proposals is **250 $cDCU** (was 500). Table “1 to 499” → “1 to 249”, “500+” → “250+”; eligibility and Decisions table updated; changelog entry 1.4 added.
+- **frontend/src/config/cdcu.ts** – New file with `GOVERNANCE_MIN_CDCU = 250` for UI and future governance checks.
+
+---
+
+## [$cDCU Claim Flow, Eligibility & Deployment] – 2026-03
+
+This release adds the full **$cDCU mint-on-claim** flow: eligibility at 50 DCU points, a multiplier formula for claimable amount, backend signing API, frontend eligibility UI, and deployment script for CDCUToken + ClaimVault. **No contract logic changes** were required for eligibility or the formula—those live in the backend; contracts only verify EIP-712 and mint.
+
+### Contracts (no logic changes)
+
+- **CDCUToken.sol** – Unchanged. ERC-20, 10M cap, only ClaimVault can mint.
+- **ClaimVault.sol** – Unchanged for eligibility. Already has: EIP-712 claim verification, category caps, 30-day max expiry (`MAX_CLAIM_EXPIRY_WINDOW`), one-time liquidity mint, signer rotation. Eligibility (50 points) and claimable amount formula are **off-chain** (backend).
+
+### Deployment
+
+- **contracts/scripts/deploy-cdcu.ts** – Deploys CDCUToken → ClaimVault(token, authorizedSigner) → setClaimVault(ClaimVault); optional transfer of ClaimVault ownership to multisig. Output: `contracts/scripts/cdcu-deployed.json`. Next-steps log updated (frontend env, backend env, eligibility doc ref).
+- **Deployer vs signer:** The **deployer** wallet (e.g. `0x520e40e346ea85d72661fce3ba3f81cb2c560d84` from setup-roles) is used only to deploy and optionally transfer ownership. The **authorized signer** is a **separate** wallet (backend); its **private key** is only needed in backend env (`CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`). **The dev does not need the project owner’s deployer private key**—either the owner deploys and shares contract addresses + authorized signer address, or the dev deploys with a team/dev wallet and the owner provides only `AUTHORIZED_SIGNER_ADDRESS` (and keeps the signer key on their backend). See “For the dev” below.
+
+### Backend (eligibility + signing)
+
+- **frontend/src/lib/cdcu/claim-signing.ts** – Server-only:
+  - `ELIGIBILITY_THRESHOLD_WEI = 50` DCU points; `claimableCapFromPoints(totalPointsWei)` = (points - 50) × 0.1 (wei).
+  - `getClaimableAmountFromChain(recipient)` – Reads DCURewardManager `getUserRewardStats`, returns total points (cleanups + impact + referral + streak).
+  - `getEligibilityAndClaimable(recipient)` – Returns `{ totalPointsWei, eligible, claimableCapWei }`.
+  - EIP-712 signing for ClaimVault (domain + Claim type), file store for “already issued” per recipient.
+- **POST /api/cdcu/claim-request** – Requires 50+ DCU points; claimable = cap minus already issued; signs and returns claim params for ClaimVault.claim().
+- **GET /api/cdcu/eligibility?recipient=0x...** – Returns `eligible`, `totalPoints`, `claimableCap`, `alreadyClaimed`, `claimableNow` for the dashboard.
+
+### Frontend
+
+- **DashboardClaimCdcu** – Card on dashboard (when `NEXT_PUBLIC_CLAIMVAULT_ADDRESS` is set): progress bar to 50 DCU points, “Claim $cDCU” when eligible and claimable > 0, disabled state when below 50 or nothing left to claim. Calls GET eligibility then POST claim-request then ClaimVault.claim().
+- **frontend/src/lib/blockchain/claim-vault.ts** – `claimCdcu(signed)` calls ClaimVault.claim(recipient, amount, category, nonce, expiry, v, r, s).
+- **CONTRACT_ADDRESSES.CLAIMVAULT** – From `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`.
+- **ENV_TEMPLATE.md** – `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`, `CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`, `CLAIM_VAULT_ISSUED_STORE_PATH`.
+
+### Docs
+
+- **docs/TOKEN_SPEC.md** – Eligibility at 50 DCU points and multiplier “(total − 50) × 0.1” documented; already-claimed tracked server-side.
+
+### For the dev (handoff)
+
+- **Contracts:** No Solidity changes are required for the 50-point rule or multiplier; they are enforced in the backend. Deploy with `deploy-cdcu.ts` when ready.
+- **Env for deploy:** `AUTHORIZED_SIGNER_ADDRESS` = address of the backend wallet that will sign claims (not the deployer). Optional: `CLAIMVAULT_OWNER_MULTISIG` to transfer ClaimVault ownership after deploy.
+- **Private keys:**
+  - **Deployer private key:** Only needed to run `deploy-cdcu.ts` (and optionally transfer ownership). **You do not need to share the project owner’s deployer private key with the dev.** Options: (1) Owner deploys, shares `cdcu-deployed.json` and backend config; (2) Dev deploys from a team wallet, owner only provides `AUTHORIZED_SIGNER_ADDRESS` and keeps the **signer** key on their backend.
+  - **Authorized signer private key:** Must live **only** on the server that runs the claim-request API (env `CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`). Never commit or share it; the dev does not need it unless they operate that backend.
+- **After deploy:** Set `NEXT_PUBLIC_CLAIMVAULT_ADDRESS` in the frontend; set the signer key and optional `CLAIM_VAULT_ISSUED_STORE_PATH` in the backend. Eligibility and claim flow work once RPC and DCURewardManager address are correct.
 
 ---
 

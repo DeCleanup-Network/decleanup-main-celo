@@ -28,7 +28,7 @@
 - `ImpactProductNFT.sol` (ERC721) – `0x97448790fd64dd36504d7f5ce7c2d27794b01959` – Dynamic Impact Product NFTs that level up based on verified cleanups
 - `DCURewardManager.sol` – `0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a` – Accrues DCU rewards for impact claims, streaks, referrals, impact reports, verifiers, and recyclables. Users claim aggregated balances when ready.
 - `Submission.sol` – `0x1e355123f9dec3939552d80ad1a24175fd10688f` – Receives cleanup submissions, stores IPFS hashes, approval status, location, impact/recyclables metadata, assigns rewards, and tracks verification workflow
-- `RecyclablesReward.sol` – `0xf8f9db39f83ea40d4f9aca72cdbec74b8f5a2900` – cRECY ERC20 reserve (5000 limit) that `Submission` calls once per eligible cleanup (disabled on testnet, uses mainnet cRecyToken address)
+- `RecyclablesReward.sol` – optional; not used by default. Recyclables are rewarded with DCU points (same as impact form) via `rewardImpactReports`.
 
 ### Hypercert workflow (Future Implementation)
 
@@ -43,8 +43,8 @@ Planned workflow (when implemented):
 6. On success we call `claimHypercertReward(hypercertNumber)` to grant the 10 $DCU bonus.
 
 ### Recyclables + Impact Reports
-- **Impact form**: optional after photos. Stored as JSON on IPFS (`impactFormDataHash`). Submission increments `userImpactFormCount` and rewards extra DCU via `rewardImpactReports`.
-- **Recyclables**: optional step with photo + receipt hash. Submission stores `hasRecyclables`, and on approval call `RecyclablesReward.rewardRecyclables` (5 cRECY per submission, respecting 5000 cRECY cap).
+- **Impact form**: optional after photos. Stored as JSON on IPFS (`impactFormDataHash`). Submission rewards extra DCU via `rewardImpactReports(submitter, 1)` (5 DCU per report).
+- **Recyclables**: optional step with photo + receipt hash. Submission stores `hasRecyclables`, and on approval calls `rewardImpactReports(submitter, 1)` so recyclables are rewarded with the same DCU points as impact form. DCU points count toward the multiplier; $cDCU is claimed later. No external token or partnership; optional legacy RecyclablesReward contract is not used by default.
 
 ### Data sources
 | Source            | Role |

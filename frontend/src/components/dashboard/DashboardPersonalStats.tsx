@@ -39,7 +39,7 @@ export function DashboardPersonalStats({
                 {/* Total cDCU */}
                 <div className="rounded-lg border border-brand-green/20 bg-black/50 p-2.5">
                     <div className="mb-2 flex items-center justify-between">
-                        <span className="font-sans text-sm font-semibold text-gray-400">Total $cDCU</span>
+                        <span className="font-sans text-sm font-semibold text-gray-400">Total DCU</span>
                         <TrendingUp className="h-4 w-4 text-brand-green" />
                     </div>
                     <p className="font-bebas text-3xl text-brand-green">{dcuBalance.toFixed(0)}</p>
@@ -64,28 +64,28 @@ export function DashboardPersonalStats({
                             <TrendingUp className="h-3 w-3 text-brand-green" />
                             Cleanups Done
                         </span>
-                        <span className="font-bebas text-base text-brand-green">{cleanupsDCU} $cDCU</span>
+                        <span className="font-bebas text-base text-brand-green">{cleanupsDCU} DCU</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1 text-xs text-gray-400">
                             <Users className="h-3 w-3 text-brand-green" />
                             Referrals ({referrals})
                         </span>
-                        <span className="font-bebas text-base text-brand-green">{referralsDCU} $cDCU</span>
+                        <span className="font-bebas text-base text-brand-green">{referralsDCU} DCU</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1 text-xs text-gray-400">
                             <Flame className="h-3 w-3 text-brand-yellow" />
                             Streak Bonus
                         </span>
-                        <span className="font-bebas text-base text-brand-green">{streakDCU} $cDCU</span>
+                        <span className="font-bebas text-base text-brand-green">{streakDCU} DCU</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1 text-xs text-gray-400">
                             <FileText className="h-3 w-3 text-brand-green" />
                             Enhanced Reports
                         </span>
-                        <span className="font-bebas text-base text-brand-green">{enhancedReportsDCU} $cDCU</span>
+                        <span className="font-bebas text-base text-brand-green">{enhancedReportsDCU} DCU</span>
                     </div>
                 </div>
 
@@ -96,7 +96,7 @@ export function DashboardPersonalStats({
                     className="w-full border-brand-green/30 font-bebas tracking-wider text-brand-green hover:bg-brand-green/10"
                 >
                     <Info className="mr-2 h-4 w-4" />
-                    Learn how to earn more $cDCU
+                    Learn how to earn more DCU
                 </Button>
             </div>
 
@@ -105,7 +105,7 @@ export function DashboardPersonalStats({
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setShowEarnModal(false)}>
                     <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border-2 border-brand-green/30 bg-black p-6" onClick={(e) => e.stopPropagation()}>
                         <h3 className="mb-6 font-bebas text-3xl tracking-wider text-brand-green">
-                            HOW TO EARN MORE $cDCU
+                            HOW TO EARN MORE DCU
                         </h3>
 
                         <div className="space-y-4">
@@ -116,7 +116,7 @@ export function DashboardPersonalStats({
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Impact Product Claims</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">10 $cDCU per level</span> by submitting before-and-after cleanup photos, waiting for verification, and claiming your level upgrade. Currently 10 levels available, with more to come.
+                                    Earn <span className="font-bold text-brand-green">10 DCU per level</span> by submitting before-and-after cleanup photos, waiting for verification, and claiming your level upgrade. Currently 10 levels available, with more to come.
                                 </p>
                             </div>
 
@@ -127,7 +127,7 @@ export function DashboardPersonalStats({
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Referrals</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">3 $cDCU</span> for each user who joins via your link, submits cleanup photos, gets it verified, and claims an Impact Product.
+                                    Earn <span className="font-bold text-brand-green">3 DCU</span> for each user who joins via your link, submits cleanup photos, gets it verified, and claims an Impact Product.
                                 </p>
                             </div>
 
@@ -138,7 +138,7 @@ export function DashboardPersonalStats({
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Streaks</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">3 $cDCU per level</span> if you submit cleanups at least once per week to maintain your streak.
+                                    Earn <span className="font-bold text-brand-green">3 DCU per level</span> if you submit cleanups at least once per week to maintain your streak.
                                 </p>
                             </div>
 
@@ -149,7 +149,7 @@ export function DashboardPersonalStats({
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Enhanced Impact Report</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">5 $cDCU</span> if you submit the optional form after each cleanup - used to generate your onchain impact certificate Hypercert (after 10 cleanups).
+                                    Earn <span className="font-bold text-brand-green">5 DCU</span> if you submit the optional form after each cleanup - used to generate your onchain impact certificate Hypercert (after 10 cleanups).
                                 </p>
                             </div>
 
@@ -160,7 +160,7 @@ export function DashboardPersonalStats({
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Become Verifier</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Stake <span className="font-bold text-brand-yellow">100 $cDCU</span> to get access to the verifier cabinet and earn <span className="font-bold text-brand-green">1 $cDCU per verified submission</span>.
+                                    Stake <span className="font-bold text-brand-yellow">100 DCU</span> to get access to the verifier cabinet and earn <span className="font-bold text-brand-green">1 DCU per verified submission</span>.
                                 </p>
                             </div>
                         </div>

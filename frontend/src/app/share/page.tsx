@@ -37,7 +37,7 @@ export async function generateMetadata({
         title = `Just minted Level ${level} Impact Product! - DeCleanup Rewards`
         description = `Just minted Level ${level} Impact Product for my recent cleanup. Earn tokens and trade on Celo with DeCleanup Rewards.`
     } else if (type === 'referral') {
-        title = 'Join DeCleanup Rewards - Clean Up, Snap, Earn'
+        title = 'Join DeCleanup Rewards — Log cleanups. Verified impact onchain.'
         description = 'Join me in DeCleanup Rewards! Clean up, share proof, earn tokens, and trade on Celo.'
     }
 

@@ -44,7 +44,7 @@ contract DCUToken is ERC20, ERC20Burnable, ERC20Permit, AccessControl {
     );
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    
+
     // State variables
     uint256 public totalMinted;
     uint256 public supplyCap;

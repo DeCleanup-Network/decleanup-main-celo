@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Award, ExternalLink, ChevronDown, Copy, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
+import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
 import { useAccount } from 'wagmi'
 import { getHypercertEligibility } from '@/lib/blockchain/contracts'
 import { getLevelName, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
-import { getIPFSUrl } from '@/lib/blockchain/ipfs'
+import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import { SectionHeading } from '@/components/dashboard/SectionHeading'
 
 interface ImpactProductProps {
     level: number
@@ -17,6 +18,7 @@ interface ImpactProductProps {
     impactValue: string | null
     tokenId: bigint | null
     contractAddress: string
+    onNotify?: (params: { variant: 'info'; title: string; message: string }) => void
 }
 
 export function DashboardImpactProduct({
@@ -27,6 +29,7 @@ export function DashboardImpactProduct({
     impactValue,
     tokenId,
     contractAddress,
+    onNotify,
 }: ImpactProductProps) {
     const { address } = useAccount()
     const [showManualImport, setShowManualImport] = useState(false)
@@ -45,11 +48,18 @@ export function DashboardImpactProduct({
     
     // Prefer IPFS URLs from metadata, then try IPFS with CID, fallback to local paths only if no CID
     const imagesCID = process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-    const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
+    const gateway = 'https://ipfs.io/ipfs/'
     
     // Always use IPFS if we have a CID, even if imageUrl prop is empty
-    const imageUrlToUse = imageUrl || (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) || getImpactProductImagePath(level)
-    const animationUrlToUse = animationUrl || (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) || (level === 10 ? getImpactProductAnimationPath() : null)
+    const rawImage =
+      imageUrl ||
+      (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) ||
+      getImpactProductImagePath(level)
+    const rawAnimation =
+      animationUrl || (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) || (level === 10 ? getImpactProductAnimationPath() : null)
+    // Same-origin proxy avoids Pinata CORS / 429 in Safari and dev (localhost)
+    const imageUrlToUse = proxyIpfsHttpUrl(rawImage)
+    const animationUrlToUse = rawAnimation ? proxyIpfsHttpUrl(rawAnimation) : null
 
     useEffect(() => {
         if (address && level > 0) {
@@ -84,7 +94,8 @@ export function DashboardImpactProduct({
             setTimeout(() => setCopying(null), 2000)
         } catch (error) {
             console.error('Failed to copy:', error)
-            alert(`${label}: ${value}`)
+            if (onNotify) onNotify({ variant: 'info', title: label, message: value })
+            else alert(`${label}: ${value}`)
         }
     }
 
@@ -93,61 +104,57 @@ export function DashboardImpactProduct({
         : null
 
     return (
-        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col">
-            <div className="mb-4 flex items-center gap-2 flex-shrink-0">
-                <Award className="h-5 w-5 text-brand-green" />
-                <h2 className="font-bebas text-xl sm:text-2xl tracking-wider text-brand-green">
-                    IMPACT PRODUCT
-                </h2>
-            </div>
+        <div className="flex flex-col rounded-2xl border border-border bg-card p-4 sm:p-6">
+            <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
 
             {level > 0 ? (
                 <div className="space-y-4 flex flex-col">
-                    {/* NFT Display */}
-                    <div className="w-full overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black flex-shrink-0 flex items-center justify-center p-4 sm:p-6 aspect-[3/4] max-h-[500px] relative">
+                    {/* NFT Display — absolute inner frame avoids flex min-size so object-contain isn’t clipped */}
+                    <div className="relative mx-auto w-full max-h-[min(500px,72vh)] aspect-[3/4] overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black">
                         {imageLoading && (
-                            <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
                                 <div className="relative">
                                     <div className="h-16 w-16 border-4 border-brand-green/30 border-t-brand-green rounded-full animate-spin"></div>
                                 </div>
                             </div>
                         )}
-                        {level === 10 && animationUrlToUse ? (
-                            <video
-                                src={animationUrlToUse}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="max-h-full max-w-full object-contain"
-                                onLoadedData={() => setImageLoading(false)}
-                                onError={(e) => {
-                                    setImageLoading(false)
-                                    // Fallback to static image if animation fails
-                                    const target = e.target as HTMLVideoElement
-                                    if (imageUrlToUse && target.parentElement) {
-                                        const img = document.createElement('img')
-                                        img.src = imageUrlToUse
-                                        img.className = 'max-h-full max-w-full object-contain'
-                                        img.alt = `Level ${level} Impact Product`
-                                        target.parentElement.replaceChild(img, target)
-                                    }
-                                }}
-                            />
-                        ) : imageUrlToUse ? (
-                            <img
-                                src={imageUrlToUse}
-                                alt={`Level ${level} Impact Product`}
-                                className="max-h-full max-w-full object-contain"
-                                loading="lazy"
-                                onLoad={() => setImageLoading(false)}
-                                onError={() => setImageLoading(false)}
-                            />
-                        ) : (
-                            <div className="flex h-full items-center justify-center">
-                                <Award className="h-24 w-24 text-gray-700" />
-                            </div>
-                        )}
+                        <div className="absolute inset-0 p-3 sm:p-5">
+                            {level === 10 && animationUrlToUse ? (
+                                <video
+                                    src={animationUrlToUse}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="h-full w-full object-contain object-center"
+                                    onLoadedData={() => setImageLoading(false)}
+                                    onError={(e) => {
+                                        setImageLoading(false)
+                                        const target = e.target as HTMLVideoElement
+                                        if (imageUrlToUse && target.parentElement) {
+                                            const img = document.createElement('img')
+                                            img.src = imageUrlToUse
+                                            img.className = 'h-full w-full object-contain object-center'
+                                            img.alt = `Level ${level} Impact Product`
+                                            target.parentElement.replaceChild(img, target)
+                                        }
+                                    }}
+                                />
+                            ) : imageUrlToUse ? (
+                                <img
+                                    src={imageUrlToUse}
+                                    alt={`Level ${level} Impact Product`}
+                                    className="h-full w-full object-contain object-center"
+                                    loading="lazy"
+                                    onLoad={() => setImageLoading(false)}
+                                    onError={() => setImageLoading(false)}
+                                />
+                            ) : (
+                                <div className="flex h-full items-center justify-center">
+                                    <Award className="h-24 w-24 text-gray-700" />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Stats Grid - Compact - All Same Design */}
@@ -157,7 +164,7 @@ export function DashboardImpactProduct({
                             <p className="font-bebas text-lg text-brand-green leading-none">{level}</p>
                         </div>
                         <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground uppercase mb-1">$cDCU</p>
+                            <p className="text-[10px] text-muted-foreground uppercase mb-1">DCU</p>
                             <p className="font-bebas text-lg text-brand-green leading-none">{dcuAttached}</p>
                         </div>
                         <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">

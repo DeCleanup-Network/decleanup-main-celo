@@ -83,7 +83,7 @@ export default function LeaderboardPage() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Top contributors by total $cDCU earned
+            Top contributors by total DCU earned
           </p>
         </div>
 
@@ -114,7 +114,7 @@ export default function LeaderboardPage() {
               NO RANKINGS YET
             </h3>
             <p className="text-sm text-muted-foreground">
-              Be the first to submit a cleanup and earn $cDCU!
+              Be the first to submit a cleanup and earn DCU!
             </p>
           </div>
         ) : (
@@ -159,7 +159,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-bebas text-2xl text-brand-green">
-                        {user.totalDCU.toFixed(2)} $cDCU
+                        {user.totalDCU.toFixed(2)} DCU
                       </p>
                     </div>
                   </div>
