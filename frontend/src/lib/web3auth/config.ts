@@ -41,6 +41,12 @@ const celoSepoliaChainConfig = {
   logo: 'https://celo.org/favicon.ico',
 }
 
+/** Popup works reliably for desktop OAuth; full-page redirect can strand the modal if the return URL isn’t completed. */
+function authUxMode(): 'popup' | 'redirect' {
+  if (typeof navigator === 'undefined') return 'popup'
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'redirect' : 'popup'
+}
+
 const web3AuthOptions: Web3AuthOptions = {
   clientId: clientId || '',
   web3AuthNetwork,
@@ -56,12 +62,12 @@ const web3AuthOptions: Web3AuthOptions = {
    */
   mfaLevel: MFA_LEVELS.NONE,
   /**
-   * Redirect-based OAuth is reliable on mobile Safari; popups often look like the app “closed” or lose focus.
-   * User returns to the same URL after provider auth.
+   * Desktop: popup OAuth (modal completes in-page). Mobile: redirect (Safari popups are flaky).
+   * Forcing redirect everywhere broke “pick Google account → nothing happens” when the SDK didn’t finish the return leg.
    */
   uiConfig: {
     appName: 'DeCleanup',
-    uxMode: 'redirect',
+    uxMode: authUxMode(),
   },
   // Social/email + MetaMask + WalletConnect. Do not add WALLET_CONNECTORS.COINBASE unless you
   // install the optional peer `@coinbase/wallet-sdk` (otherwise init throws: "Connector coinbase is not configured").

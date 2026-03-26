@@ -6,10 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir, readFile } from 'fs/promises'
+import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
-import { runFullVerification, hashVerificationResult } from '@/lib/dmrv/gpu-verification'
+import { runFullVerification } from '@/lib/dmrv/gpu-verification'
+
+export const dynamic = 'force-dynamic'
 
 // Configuration
 const UPLOAD_DIR = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
