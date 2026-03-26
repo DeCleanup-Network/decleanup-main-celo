@@ -6,6 +6,9 @@
  * - GPU_INFERENCE_SERVICE_URL — base URL (e.g. http://127.0.0.1:8000)
  * - GPU_SHARED_SECRET — sent as Authorization: Bearer <secret> when non-empty
  * - GPU_INFERENCE_PATH — optional path segment (default /infer)
+ *
+ * Scoring incorporates stability-aware logic (PR #29): negative-delta handling,
+ * confidence variance, and thresholds tuned to reduce false rejections.
  */
 
 import { createHash } from 'crypto'
@@ -26,6 +29,9 @@ export interface VerificationResult {
     delta: number
     score: number
     verdict: 'approved' | 'rejected' | 'pending'
+    /** Present when computed (debug / transparency). */
+    confidenceVariance?: number
+    isStable?: boolean
   }
   hash: string
 }
@@ -126,26 +132,58 @@ export async function inferImage(imageUrl: string): Promise<{ objectCount: numbe
 
 /**
  * Product scoring (see docs/DEVELOPER_SPECS.md — ML Verification Flow).
- * trashDelta = beforeCount - afterCount; higher means more waste removed.
+ * Aligns with PR #29 stability rules, then maps to API verdicts:
+ * AUTO_VERIFIED → approved, NEEDS_REVIEW → pending, REJECTED → rejected.
  */
 export function computeVerificationScore(
   before: { objectCount: number; meanConfidence: number },
   after: { objectCount: number; meanConfidence: number },
   impactDataBoost = 0
-): { delta: number; score: number; verdict: 'approved' | 'rejected' | 'pending' } {
-  const delta = before.objectCount - after.objectCount
-  const normalizedTrashDelta = Math.min(Math.max(delta, 0) / 50, 1)
+): VerificationScore {
+  const beforeCount = before.objectCount
+  const afterCount = after.objectCount
+  const delta = beforeCount - afterCount
+
+  const maxDelta = 50
+
+  let normalizedTrashDelta: number
+  if (delta < 0) {
+    normalizedTrashDelta = Math.max(delta / maxDelta, -0.3)
+    normalizedTrashDelta = (normalizedTrashDelta + 0.3) / 1.3
+  } else {
+    normalizedTrashDelta = Math.min(Math.max(delta / maxDelta, 0), 1.0)
+  }
+
   const meanConfidence = (before.meanConfidence + after.meanConfidence) / 2
+  let rawScore = meanConfidence * 0.5 + normalizedTrashDelta * 0.5
   const boost = clamp01(impactDataBoost)
-  const score = meanConfidence * 0.3 + normalizedTrashDelta * 0.7 + boost
-  const clampedScore = clamp01(score)
+  rawScore = clamp01(rawScore + boost)
 
-  let verdict: 'approved' | 'rejected' | 'pending'
-  if (clampedScore >= 0.35) verdict = 'approved'
-  else if (clampedScore >= 0.15) verdict = 'pending'
-  else verdict = 'rejected'
+  const confidenceVariance = Math.abs(before.meanConfidence - after.meanConfidence)
+  const isStable = confidenceVariance < 0.15
 
-  return { delta, score: clampedScore, verdict }
+  let internal: 'AUTO_VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
+  if (rawScore >= 0.6) internal = 'AUTO_VERIFIED'
+  else if (rawScore >= 0.3) internal = 'NEEDS_REVIEW'
+  else internal = 'REJECTED'
+
+  if (internal === 'AUTO_VERIFIED' && !isStable && delta >= 0) {
+    internal = 'NEEDS_REVIEW'
+  }
+  if (internal === 'REJECTED' && delta > 0) {
+    internal = 'NEEDS_REVIEW'
+  }
+
+  const verdict: VerificationScore['verdict'] =
+    internal === 'AUTO_VERIFIED' ? 'approved' : internal === 'NEEDS_REVIEW' ? 'pending' : 'rejected'
+
+  return {
+    delta,
+    score: rawScore,
+    verdict,
+    confidenceVariance,
+    isStable,
+  }
 }
 
 /**
@@ -195,7 +233,7 @@ export async function runFullVerification(
       inferImage(afterImageUrl),
     ])
 
-    const { delta, score, verdict } = computeVerificationScore(beforeInference, afterInference, boost)
+    const scoreBlock = computeVerificationScore(beforeInference, afterInference, boost)
 
     const result: VerificationResult = {
       beforeInference: {
@@ -206,11 +244,7 @@ export async function runFullVerification(
         objectCount: afterInference.objectCount,
         meanConfidence: afterInference.meanConfidence,
       },
-      score: {
-        delta,
-        score,
-        verdict,
-      },
+      score: scoreBlock,
       hash: '',
     }
 
