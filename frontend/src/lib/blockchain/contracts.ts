@@ -1,8 +1,9 @@
 import { Address } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { readContract, writeContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
+import { withContractCache, CONTRACT_READ_TTL_MS } from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
-import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from './chain-constants'
+import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID } from './chain-constants'
 import { getSmartAccountAddressFromClient } from './smart-account'
 import { keccak256, toBytes } from 'viem'
 import { getLogs as viemGetLogs } from 'viem/actions'
@@ -18,6 +19,16 @@ function isNoDataOrWrongChainError(error: unknown): boolean {
   if (typeof msg === 'string' && msg.includes('returned no data')) return true
   if (name === 'ContractFunctionZeroDataError') return true
   if (typeof msg === 'string' && msg.includes('is not a contract')) return true
+  return false
+}
+
+/** Impact product contract reverts when the user has not minted yet — not an error for the UI. */
+function isExpectedNoImpactNftError(error: unknown): boolean {
+  if (isNoDataOrWrongChainError(error)) return true
+  const msg = (error as { message?: string })?.message
+  if (typeof msg !== 'string') return false
+  if (msg.includes('User has no NFT')) return true
+  if (msg.includes('execution reverted') && msg.toLowerCase().includes('no nft')) return true
   return false
 }
 
@@ -269,6 +280,7 @@ export async function submitCleanup(
 
   try {
     const submissionCountBefore = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -318,10 +330,11 @@ export async function submitCleanup(
         account: account.address,
       }
       if (_fee && _fee > 0n) contractConfig.value = _fee
-      hash = await writeContract(getConfig(), contractConfig)
+      hash = await writeContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
     }
 
     const receipt = await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -329,6 +342,7 @@ export async function submitCleanup(
     })
 
     const submissionCountAfter = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -370,7 +384,7 @@ export async function submitCleanup(
   }
 }
 
-export async function getCleanupDetails(
+async function getCleanupDetailsImpl(
   cleanupId: bigint
 ): Promise<CleanupDetails> {
   if (!SUBMISSION_ADDRESS) {
@@ -391,6 +405,7 @@ export async function getCleanupDetails(
 
   try {
     const result: any = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionDetails',
@@ -464,6 +479,14 @@ export async function getCleanupDetails(
   }
 }
 
+export async function getCleanupDetails(cleanupId: bigint): Promise<CleanupDetails> {
+  return withContractCache(
+    `details:${REQUIRED_CHAIN_ID}:${cleanupId.toString()}`,
+    CONTRACT_READ_TTL_MS,
+    () => getCleanupDetailsImpl(cleanupId)
+  )
+}
+
 export async function getCleanupCounter(): Promise<bigint> {
   if (!SUBMISSION_ADDRESS) {
     return 0n
@@ -471,6 +494,7 @@ export async function getCleanupCounter(): Promise<bigint> {
 
   try {
     const count = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -482,13 +506,14 @@ export async function getCleanupCounter(): Promise<bigint> {
   }
 }
 
-export async function getUserSubmissions(user: Address): Promise<bigint[]> {
+async function getUserSubmissionsImpl(user: Address): Promise<bigint[]> {
   if (!SUBMISSION_ADDRESS) {
     return []
   }
 
   try {
     const submissionIds = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionsByUser',
@@ -499,6 +524,14 @@ export async function getUserSubmissions(user: Address): Promise<bigint[]> {
     if (!isNoDataOrWrongChainError(error)) console.error('Error getting user submissions:', error)
     return []
   }
+}
+
+export async function getUserSubmissions(user: Address): Promise<bigint[]> {
+  return withContractCache(
+    `submissions:${REQUIRED_CHAIN_ID}:${user.toLowerCase()}`,
+    CONTRACT_READ_TTL_MS,
+    () => getUserSubmissionsImpl(user)
+  )
 }
 
 /**
@@ -513,6 +546,7 @@ export async function getVerifierRewardsCount(verifierAddress: Address): Promise
   try {
     // Get total submission count
     const totalSubmissions = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -584,6 +618,7 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
 
   try {
     const referrer = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: REWARD_MANAGER_ADDRESS,
       abi: [
         {
@@ -689,6 +724,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
         if (details.verified && details.rewarded && !details.rejected && REWARD_MANAGER_ADDRESS) {
           try {
             const balance = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
               address: REWARD_MANAGER_ADDRESS,
               abi: [
                 {
@@ -759,12 +795,14 @@ export async function isVerifier(_address: Address): Promise<boolean> {
 
   try {
     const verifierRole = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'VERIFIER_ROLE',
     })
 
     const hasRole = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'hasRole',
@@ -800,6 +838,7 @@ export async function verifyCleanup(
     })
 
     hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'approveSubmission',
@@ -817,7 +856,8 @@ export async function verifyCleanup(
     
     while (retries < maxRetries) {
       try {
-        receipt = await waitForTransactionReceipt(getConfig(), { 
+        receipt = await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID, 
           hash,
           confirmations: 1, // Wait for 1 confirmation
           pollingInterval: 2000, // Poll every 2 seconds
@@ -904,6 +944,7 @@ export async function rejectCleanup(
     })
 
     hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'rejectSubmission',
@@ -921,7 +962,8 @@ export async function rejectCleanup(
     
     while (retries < maxRetries) {
       try {
-        receipt = await waitForTransactionReceipt(getConfig(), { 
+        receipt = await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID, 
           hash,
           confirmations: 1, // Wait for 1 confirmation
           pollingInterval: 2000, // Poll every 2 seconds
@@ -996,7 +1038,7 @@ export async function getClaimableRewards(
   return 0n
 }
 
-export async function getDCUBalance(userAddress: Address): Promise<bigint> {
+async function getDCUBalanceImpl(userAddress: Address): Promise<bigint> {
   if (!REWARD_MANAGER_ADDRESS) {
     return 0n
   }
@@ -1013,6 +1055,7 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
     ] as const
 
     const dcuTokenAddress = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: REWARD_MANAGER_ADDRESS,
       abi: REWARD_MANAGER_DCU_ABI,
       functionName: 'dcuToken',
@@ -1029,6 +1072,7 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
     ] as const
 
     const balance = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: dcuTokenAddress,
       abi: DCU_TOKEN_ABI,
       functionName: 'balanceOf',
@@ -1040,6 +1084,14 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
     if (!isNoDataOrWrongChainError(error)) console.error('Error getting DCU balance:', error)
     return 0n
   }
+}
+
+export async function getDCUBalance(userAddress: Address): Promise<bigint> {
+  return withContractCache(
+    `dcuBalance:${REQUIRED_CHAIN_ID}:${userAddress.toLowerCase()}`,
+    CONTRACT_READ_TTL_MS,
+    () => getDCUBalanceImpl(userAddress)
+  )
 }
 
 export interface UserRewardStats {
@@ -1085,6 +1137,7 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
     ] as const
 
     const result = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: REWARD_MANAGER_ADDRESS,
       abi: REWARD_MANAGER_STATS_ABI,
       functionName: 'getUserRewardStats',
@@ -1141,6 +1194,7 @@ export async function verifyRewardManagerSetup(): Promise<{
     ] as const
 
     const dcuTokenAddress = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: REWARD_MANAGER_ADDRESS,
       abi: REWARD_MANAGER_ABI,
       functionName: 'dcuToken',
@@ -1167,12 +1221,14 @@ export async function verifyRewardManagerSetup(): Promise<{
     ] as const
 
     const minterRole = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: dcuTokenAddress,
       abi: DCU_TOKEN_ABI,
       functionName: 'MINTER_ROLE',
     })
 
     const hasMinterRole = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: dcuTokenAddress,
       abi: DCU_TOKEN_ABI,
       functionName: 'hasRole',
@@ -1194,7 +1250,7 @@ export async function verifyRewardManagerSetup(): Promise<{
   }
 }
 
-export async function getUserLevel(userAddress: Address): Promise<number> {
+async function getUserLevelImpl(userAddress: Address): Promise<number> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     return 0
   }
@@ -1215,6 +1271,7 @@ export async function getUserLevel(userAddress: Address): Promise<number> {
     ] as const
 
     const result = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'getUserNFTData',
@@ -1223,9 +1280,19 @@ export async function getUserLevel(userAddress: Address): Promise<number> {
 
     return Number(result[2])
   } catch (error: unknown) {
-    if (!isNoDataOrWrongChainError(error)) console.log('User has no Impact Product NFT or contract not configured:', (error as { message?: string })?.message)
+    if (!isExpectedNoImpactNftError(error)) {
+      console.warn('getUserLevel / getUserNFTData:', (error as { message?: string })?.message)
+    }
     return 0
   }
+}
+
+export async function getUserLevel(userAddress: Address): Promise<number> {
+  return withContractCache(
+    `userLevel:${REQUIRED_CHAIN_ID}:${userAddress.toLowerCase()}`,
+    CONTRACT_READ_TTL_MS,
+    () => getUserLevelImpl(userAddress)
+  )
 }
 
 export async function claimImpactProductFromVerification(
@@ -1302,6 +1369,7 @@ export async function claimImpactProductFromVerification(
   ] as const
 
   const balance = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
     address: REWARD_MANAGER_ADDRESS,
     abi: REWARD_MANAGER_ABI,
     functionName: 'getBalance',
@@ -1368,6 +1436,7 @@ export async function claimImpactProductFromVerification(
         })
       } else {
         hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
           address: REWARD_MANAGER_ADDRESS,
           abi: REWARD_MANAGER_ABI,
           functionName: 'claimRewards',
@@ -1380,6 +1449,7 @@ export async function claimImpactProductFromVerification(
       console.log('Waiting for transaction receipt...')
 
       receipt = await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         hash,
         confirmations: 1,
         pollingInterval: 2000,
@@ -1412,7 +1482,7 @@ export async function claimImpactProductFromVerification(
     
     // Only check for RewardsClaimed event if we actually called claimRewards
     if (hash && receipt) {
-      const publicClient = getPublicClient(getConfig())
+      const publicClient = getPublicClient(getConfig(), { chainId: REQUIRED_CHAIN_ID })
       
       if (publicClient) {
         try {
@@ -1471,6 +1541,7 @@ export async function claimImpactProductFromVerification(
         ] as const
 
         const dcuTokenAddress = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
           address: REWARD_MANAGER_ADDRESS,
           abi: REWARD_MANAGER_DCU_ABI,
           functionName: 'dcuToken',
@@ -1487,6 +1558,7 @@ export async function claimImpactProductFromVerification(
         ] as const
 
         const dcuBalanceAfter = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
           address: dcuTokenAddress,
           abi: DCU_TOKEN_ABI,
           functionName: 'balanceOf',
@@ -1504,6 +1576,7 @@ export async function claimImpactProductFromVerification(
         console.error('Error checking DCU token balance:', checkError)
       }
       const balanceAfter = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         address: REWARD_MANAGER_ADDRESS,
         abi: REWARD_MANAGER_ABI,
         functionName: 'getBalance',
@@ -1556,12 +1629,14 @@ export async function claimImpactProductFromVerification(
         ] as const
 
         const dcuTokenAddress = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
           address: REWARD_MANAGER_ADDRESS,
           abi: REWARD_MANAGER_DCU_ABI,
           functionName: 'dcuToken',
         }) as Address
 
         const dcuBalance = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
           address: dcuTokenAddress,
           abi: DCU_TOKEN_ABI,
           functionName: 'balanceOf',
@@ -1606,6 +1681,7 @@ export async function claimImpactProductFromVerification(
           for (let attempt = 0; attempt < 3; attempt++) {
             try {
               isVerifiedPOI = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
                 address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
                 abi: IMPACT_PRODUCT_ABI,
                 functionName: 'verifiedPOI',
@@ -1778,6 +1854,7 @@ export async function getUserTokenId(userAddress: Address): Promise<bigint | nul
     ] as const
 
     const result = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'getUserNFTData',
@@ -1807,6 +1884,7 @@ export async function getTokenURI(tokenId: bigint): Promise<string> {
     ] as const
 
     const uri = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'tokenURI',
@@ -1854,11 +1932,13 @@ export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> 
 
     const [fee, enabled] = await Promise.all([
       readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'claimFee',
       }) as Promise<bigint>,
       readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'feeEnabled',
@@ -1913,6 +1993,7 @@ export async function mintImpactProductNFT(options?: {
       })
     } else {
       hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'safeMint',
@@ -1922,6 +2003,7 @@ export async function mintImpactProductNFT(options?: {
     }
 
     await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -1980,6 +2062,7 @@ export async function upgradeImpactProductNFT(
       })
     } else {
       hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'upgradeNFT',
@@ -1990,6 +2073,7 @@ export async function upgradeImpactProductNFT(
     }
 
     await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -2054,6 +2138,7 @@ export async function attachRecyclablesToSubmission(
       })
     } else {
       hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
         address: SUBMISSION_ADDRESS,
         abi: SUBMISSION_ABI,
         functionName: 'attachRecyclables',
@@ -2063,6 +2148,7 @@ export async function attachRecyclablesToSubmission(
     }
 
     await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       hash,
       confirmations: 1,
       pollingInterval: 2000,
@@ -2096,12 +2182,14 @@ export async function grantVerifierRole(targetAddress: Address): Promise<`0x${st
 
   try {
     const verifierRole = (await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'VERIFIER_ROLE',
     })) as `0x${string}`
 
     const hash = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'grantRole',
@@ -2110,6 +2198,7 @@ export async function grantVerifierRole(targetAddress: Address): Promise<`0x${st
     })
 
     await waitForTransactionReceipt(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       hash,
       confirmations: 1,
       pollingInterval: 2000,

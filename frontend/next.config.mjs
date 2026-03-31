@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    optimizePackageImports: ['viem', 'wagmi', '@rainbow-me/rainbowkit'],
+  },
   // Serve .well-known directory correctly
   async headers() {
     return [

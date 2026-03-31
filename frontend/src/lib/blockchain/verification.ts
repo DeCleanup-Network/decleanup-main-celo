@@ -9,9 +9,10 @@ import {
 /** Verified submissions (approved, not rejected) for this user — drives level claim eligibility vs NFT userLevel. */
 export async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
   const submissionIds = await getUserSubmissions(user)
+  if (submissionIds.length === 0) return 0
+  const detailsList = await Promise.all(submissionIds.map((sid) => getCleanupDetails(sid)))
   let n = 0
-  for (const sid of submissionIds) {
-    const d = await getCleanupDetails(sid)
+  for (const d of detailsList) {
     if (d.verified && !d.rejected) n++
   }
   return n

@@ -29,6 +29,7 @@ import {
   REQUIRED_BLOCK_EXPLORER_URL,
   REQUIRED_CHAIN_IS_TESTNET,
 } from '@/lib/blockchain/wagmi'
+import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 
 type Step = 'photos' | 'enhanced' | 'recyclables' | 'review'
 
@@ -48,10 +49,83 @@ const describeChain = (id?: number) => {
       return 'Celo Alfajores'
     case 11142220:
       return 'Celo Sepolia'
-      return 'VeChain (Carbon)'
     default:
       return 'Unknown Network'
   }
+}
+
+type MlScorePayload = { score?: { verdict?: string; score?: number; delta?: number } }
+
+function parseMlScore(payload: MlScorePayload | null): {
+  verdict: string
+  score: number
+  delta: number
+} | null {
+  const s = payload?.score
+  if (s == null || typeof s.score !== 'number' || typeof s.delta !== 'number') return null
+  const verdict = typeof s.verdict === 'string' && s.verdict ? s.verdict : 'pending'
+  return { verdict, score: s.score, delta: s.delta }
+}
+
+/** Multi-line block for the success AlertModal when ML finishes. */
+function formatMlResultForModal(payload: MlScorePayload | null): string {
+  const p = parseMlScore(payload)
+  if (!p) {
+    return 'The automated model finished, but returned no numeric score. Human verifiers will still review your photos.'
+  }
+  const deltaLabel = p.delta > 0 ? `+${p.delta}` : String(p.delta)
+  return (
+    `Verdict: ${p.verdict}\n` +
+    `AI score: ${p.score}\n` +
+    `Detected waste change (before → after): ${deltaLabel}\n\n` +
+    `This is advisory only. Human verifiers see the same summary and make the final on-chain decision.`
+  )
+}
+
+function userFacingMlSummary(
+  payload: MlScorePayload | null,
+  mode: 'ok' | 'http_error' | 'exception'
+): string {
+  if (mode === 'http_error' || mode === 'exception') {
+    return 'We could not finish the automatic photo check right now. Your submission is still on-chain and human verifiers will review it.'
+  }
+  const s = payload?.score
+  if (s == null || typeof s.score !== 'number' || typeof s.delta !== 'number') {
+    return 'AI screening completed. Human verifiers still make the final decision on your cleanup.'
+  }
+  const verdictLine =
+    s.verdict === 'approved'
+      ? 'Your before/after photos look consistent with a real cleanup in our automated check.'
+      : s.verdict === 'rejected'
+        ? 'Our automated check flagged this pair for extra human review. This does not cancel your submission.'
+        : 'Automated screening will be combined with human review for a final decision.'
+  const deltaLabel = s.delta > 0 ? `+${s.delta}` : String(s.delta)
+  return `${verdictLine} Model score: ${s.score} (change in detected items: ${deltaLabel}). Queued for human verifiers with this AI note attached.`
+}
+
+function successModalMessageInitial(cleanupId: bigint): string {
+  return (
+    `Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\n` +
+    `Your cleanup is on-chain.\n\n` +
+    `AI is reviewing your before/after photos now. This message will update when the check finishes — you will see the verdict and score here and on the page below.`
+  )
+}
+
+function successModalMessageAfterMl(cleanupId: bigint, mlModalBlock: string): string {
+  return (
+    `Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\n` +
+    `━━ Automated (AI) review — done ━━\n${mlModalBlock}\n\n` +
+    `━━ What happens next ━━\n` +
+    `Your submission is in the human verifier queue. They see this AI score to help their review. You will get a notification-style update on your profile when they approve or reject (usually 2–12 hours).`
+  )
+}
+
+function successModalMessageMlFailed(cleanupId: bigint): string {
+  return (
+    `Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\n` +
+    `We could not run the automated photo check from this device or server, but your submission is saved on-chain.\n\n` +
+    `Human verifiers will still review your before/after photos. Check your profile for status.`
+  )
 }
 
 function CleanupContent() {
@@ -94,7 +168,19 @@ function CleanupContent() {
   const [clearingPending, setClearingPending] = useState(false)
   const [feeInfo, setFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
   const [resolvingContributorIndex, setResolvingContributorIndex] = useState<number | null>(null)
-  const [alertModal, setAlertModal] = useState<{ title?: string; message: string; variant?: AlertModalVariant } | null>(null)
+  const [alertModal, setAlertModal] = useState<{
+    title?: string
+    message: string
+    variant?: AlertModalVariant
+    closeOnBackdropClick?: boolean
+  } | null>(null)
+  const [mlVerificationLoading, setMlVerificationLoading] = useState(false)
+  const [mlVerificationSummary, setMlVerificationSummary] = useState<string | null>(null)
+  const [mlVerificationStats, setMlVerificationStats] = useState<{
+    verdict: string
+    score: number
+    delta: number
+  } | null>(null)
   const [confirmModal, setConfirmModal] = useState<{ title?: string; message: string; onConfirm: () => void; confirmLabel?: string } | null>(null)
   const [impactProductLevel, setImpactProductLevel] = useState<number | null>(null)
   const [checkingImpactLevel, setCheckingImpactLevel] = useState(false)
@@ -460,30 +546,55 @@ function CleanupContent() {
     input.accept = 'image/*'
 
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        // Validate file size (10 MB max)
+      void (async () => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
         if (file.size > 10 * 1024 * 1024) {
           setAlertModal({ message: 'Image size must be less than 10 MB', variant: 'warning' })
           return
         }
-        if (type === 'before') {
-          setBeforePhoto(file)
-        } else if (type === 'after') {
-          setAfterPhoto(file)
-        } else if (type === 'recyclables') {
-          setRecyclablesPhoto(file)
-        } else if (type === 'recyclablesReceipt') {
-          setRecyclablesReceipt(file)
+        let ready = file
+        try {
+          ready = await normalizeImageFileForUpload(file)
+        } catch (err) {
+          console.warn('Browser HEIC conversion failed, passing raw file to server:', err)
+          ready = file
         }
-      }
+        if (ready.size > 10 * 1024 * 1024) {
+          setAlertModal({ message: 'Image size must be less than 10 MB after conversion', variant: 'warning' })
+          return
+        }
+        if (type === 'before') {
+          setBeforePhoto(ready)
+        } else if (type === 'after') {
+          setAfterPhoto(ready)
+        } else if (type === 'recyclables') {
+          setRecyclablesPhoto(ready)
+        } else if (type === 'recyclablesReceipt') {
+          setRecyclablesReceipt(ready)
+        }
+      })()
     }
     input.click()
   }
 
   const getLocation = () => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      const message = 'Geolocation is not supported or allowed in this browser. Please enter coordinates manually below.'
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    // Browsers only expose geolocation on HTTPS or localhost (secure context).
+    if (!window.isSecureContext) {
+      setLocationError(
+        'Location is blocked on plain HTTP (browser security). Use manual coordinates below, or serve the site over HTTPS.'
+      )
+      setManualLocationMode(true)
+      return
+    }
+
+    if (!navigator.geolocation) {
+      const message =
+        'Geolocation is not supported in this browser. Please enter coordinates manually below.'
       setLocationError(message)
       setManualLocationMode(true)
       console.warn(message)
@@ -807,6 +918,9 @@ function CleanupContent() {
     }
 
     setIsSubmitting(true)
+    setMlVerificationLoading(false)
+    setMlVerificationSummary(null)
+    setMlVerificationStats(null)
     try {
       // Upload photos to IPFS
       console.log('Uploading photos to IPFS...')
@@ -986,31 +1100,6 @@ function CleanupContent() {
           console.warn('⚠️ Recyclables were selected but IPFS upload failed - recyclables not attached to submission')
         }
 
-        // ML / AI verification (server downloads from IPFS, runs scoring pipeline; non-blocking for UX)
-        try {
-          console.log('[ML Verification] Triggering AI verification for cleanup:', cleanupId.toString())
-          const mlVerificationResponse = await fetch('/api/ml-verification/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              submissionId: cleanupId.toString(),
-              beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
-              afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
-              gps: { latitude: location.lat, longitude: location.lng },
-              timestamp: Date.now(),
-            }),
-          })
-          if (mlVerificationResponse.ok) {
-            const mlData = await mlVerificationResponse.json()
-            console.log('[ML Verification] Result:', mlData)
-          } else {
-            const errText = await mlVerificationResponse.text()
-            console.warn('[ML Verification] API returned:', mlVerificationResponse.status, errText)
-          }
-        } catch (mlError) {
-          console.warn('[ML Verification] AI verification error (non-critical):', mlError)
-        }
-
         setCleanupId(cleanupId)
         
         // Store cleanup ID in localStorage for verification checking (scoped to onchain submitter: Safe or EOA)
@@ -1048,21 +1137,67 @@ function CleanupContent() {
           console.log('[Cleanup] Pending cleanup state should now lock submit button')
         }
 
-        // Show success message and redirect to review step
         setIsSubmitting(false)
         setStep('review')
-        
-        // Show success modal (styled)
+
+        setMlVerificationLoading(true)
+        setMlVerificationSummary(null)
+
         setAlertModal({
           title: 'Success',
-          message: `Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\nYour cleanup is now pending verification. You'll be redirected to the home page.`,
+          message: successModalMessageInitial(cleanupId),
           variant: 'success',
+          closeOnBackdropClick: false,
         })
-        
-        // Redirect to home after 3 seconds
-        setTimeout(() => {
-          router.push('/')
-        }, 3000)
+
+        void (async () => {
+          try {
+            console.log('[ML Verification] Triggering AI verification for cleanup:', cleanupId.toString())
+            const mlVerificationResponse = await fetch('/api/ml-verification/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                submissionId: cleanupId.toString(),
+                beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
+                afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
+                gps: { latitude: location.lat, longitude: location.lng },
+                timestamp: Date.now(),
+              }),
+            })
+            if (mlVerificationResponse.ok) {
+              const mlData = await mlVerificationResponse.json()
+              console.log('[ML Verification] Result:', mlData)
+              setMlVerificationSummary(userFacingMlSummary(mlData, 'ok'))
+              setMlVerificationStats(parseMlScore(mlData))
+              setAlertModal((prev) => {
+                if (!prev || prev.variant !== 'success' || prev.title !== 'Success') return prev
+                return {
+                  ...prev,
+                  message: successModalMessageAfterMl(cleanupId, formatMlResultForModal(mlData)),
+                }
+              })
+            } else {
+              const errText = await mlVerificationResponse.text()
+              console.warn('[ML Verification] API returned:', mlVerificationResponse.status, errText)
+              setMlVerificationSummary(userFacingMlSummary(null, 'http_error'))
+              setMlVerificationStats(null)
+              setAlertModal((prev) => {
+                if (!prev || prev.variant !== 'success' || prev.title !== 'Success') return prev
+                return { ...prev, message: successModalMessageMlFailed(cleanupId) }
+              })
+            }
+          } catch (mlError) {
+            console.warn('[ML Verification] AI verification error (non-critical):', mlError)
+            setMlVerificationSummary(userFacingMlSummary(null, 'exception'))
+            setMlVerificationStats(null)
+            setAlertModal((prev) => {
+              if (!prev || prev.variant !== 'success' || prev.title !== 'Success') return prev
+              return { ...prev, message: successModalMessageMlFailed(cleanupId) }
+            })
+          } finally {
+            setMlVerificationLoading(false)
+          }
+        })()
       } catch (submitError: any) {
         console.error('Error submitting cleanup:', submitError)
         const errorMessage = submitError?.message || submitError?.shortMessage || String(submitError) || 'Unknown error'
@@ -1579,6 +1714,7 @@ function CleanupContent() {
           title={alertModal.title}
           message={alertModal.message}
           variant={alertModal.variant}
+          closeOnBackdropClick={alertModal.closeOnBackdropClick ?? true}
         />
       )}
       {confirmModal && (
@@ -2510,6 +2646,105 @@ function CleanupContent() {
             </p>
           </div>
 
+          <div className="mb-6 rounded-xl border-2 border-cyan-500/50 bg-gradient-to-b from-cyan-950/60 to-gray-950/90 p-5 text-left shadow-lg shadow-cyan-950/20">
+            <p className="mb-1 text-center text-xs font-semibold uppercase tracking-widest text-cyan-200/90">
+              AI pre-screening complete
+            </p>
+            {mlVerificationLoading ? (
+              <div className="mt-3 flex flex-col items-center gap-3 py-2">
+                <Loader2 className="h-8 w-8 shrink-0 animate-spin text-cyan-400" aria-hidden />
+                <p className="text-center text-sm text-gray-300">
+                  Running YOLO / model check on your before and after photos…
+                </p>
+              </div>
+            ) : mlVerificationStats ? (
+              <>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+                      mlVerificationStats.verdict === 'approved'
+                        ? 'bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-500/40'
+                        : mlVerificationStats.verdict === 'rejected'
+                          ? 'bg-amber-500/25 text-amber-200 ring-1 ring-amber-500/40'
+                          : 'bg-yellow-500/20 text-yellow-200 ring-1 ring-yellow-500/35'
+                    }`}
+                  >
+                    {mlVerificationStats.verdict}
+                  </span>
+                </div>
+                {(() => {
+                  const confidence = Math.max(0, Math.min(100, Math.round(mlVerificationStats.score * 100)))
+                  const confidenceColor =
+                    mlVerificationStats.score < 0.3
+                      ? 'bg-red-500'
+                      : mlVerificationStats.score <= 0.6
+                        ? 'bg-yellow-400'
+                        : 'bg-emerald-500'
+                  const delta = mlVerificationStats.delta
+                  const wastePillClass =
+                    delta > 0
+                      ? 'bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-500/30'
+                      : delta === 0
+                        ? 'bg-gray-500/20 text-gray-200 ring-1 ring-gray-400/30'
+                        : 'bg-red-500/20 text-red-200 ring-1 ring-red-500/30'
+                  const wastePillText =
+                    delta > 0
+                      ? `✓ +${delta} items detected`
+                      : delta === 0
+                        ? '~ No change detected'
+                        : `⚠ ${delta} items detected`
+                  const verdictText =
+                    mlVerificationStats.score > 0.5
+                      ? 'Strong signals detected - sent to verifiers ✓'
+                      : mlVerificationStats.score >= 0.2
+                        ? 'Signals detected - sent to verifiers ✓'
+                        : 'Sent to verifiers for manual review ✓'
+
+                  return (
+                    <>
+                      <div className="mt-4 rounded-lg bg-black/40 p-3 ring-1 ring-white/10">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[10px] uppercase tracking-wider text-gray-400">AI confidence</p>
+                          <p className="text-xs font-semibold text-white">{confidence}%</p>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className={`h-full rounded-full transition-all ${confidenceColor}`}
+                            style={{ width: `${confidence}%` }}
+                            aria-hidden
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex justify-center">
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${wastePillClass}`}>
+                          {wastePillText}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-center text-sm font-bold text-white">{verdictText}</p>
+
+                      <div className="mt-4 space-y-1 text-center text-sm text-gray-300">
+                        <p>Our AI scanned your photos and queued this cleanup for verifier review.</p>
+                        <p>Results are usually confirmed within 2-12 hours.</p>
+                      </div>
+                    </>
+                  )
+                })()}
+                <p className="mt-4 border-t border-cyan-500/25 pt-3 text-center text-[11px] text-cyan-100/60">
+                  All cleanups are reviewed by human verifiers. AI pre-screening helps them prioritize.
+                </p>
+              </>
+            ) : mlVerificationSummary ? (
+              <p className="mt-3 text-sm leading-relaxed text-gray-300">{mlVerificationSummary}</p>
+            ) : (
+              <p className="mt-3 text-center text-sm text-gray-500">
+                Waiting for AI screening… If this stays empty, your submission is still valid — verifiers
+                review manually.
+              </p>
+            )}
+          </div>
+
           {beforePhoto && afterPhoto && (
             <div className="mb-6 grid grid-cols-2 gap-4">
               <div>
@@ -2534,8 +2769,8 @@ function CleanupContent() {
           <div className="mb-6 rounded-lg border border-brand-green/50 bg-brand-green/10 p-4 text-left">
             <p className="mb-2 text-sm font-semibold text-brand-green">What's Next?</p>
             <ul className="space-y-1 text-xs text-gray-300 list-disc list-inside">
-              <li>Your submission is being reviewed by our verifiers</li>
-              <li>After verification, claim your Impact Product level to receive rewards (usually 2-12 hours)</li>
+              <li>Human verifiers see your photos plus the AI score above and approve or reject on-chain</li>
+              <li>After verification, claim your Impact Product level to receive rewards (usually 2–12 hours)</li>
               <li>Check your profile to see submission status</li>
               <li>Contact us in Telegram if you have questions</li>
             </ul>
@@ -2550,7 +2785,7 @@ function CleanupContent() {
           </Button>
 
           <p className="mt-4 text-xs text-gray-500">
-            Redirecting automatically in a few seconds...
+            Go home when you are finished — there is no automatic redirect.
           </p>
         </div>
       </div>
@@ -2569,6 +2804,7 @@ function CleanupContent() {
           title={alertModal.title}
           message={alertModal.message}
           variant={alertModal.variant}
+          closeOnBackdropClick={alertModal.closeOnBackdropClick ?? true}
         />
       )}
       {confirmModal && (
