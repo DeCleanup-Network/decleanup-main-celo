@@ -922,3 +922,250 @@ Ready for: Trinity integration, Landing page metrics, Capital formation narrativ
 
 Remaining: Mainnet deployment + final testing
 
+---
+
+## STEP 20 — Supabase Integration (Phase 9 - Database Layer) (2026-02-19)
+
+**Overview**
+Implemented persistent database layer with Supabase PostgreSQL. Replaced in-memory storage with production-grade persistence. Full type safety with auto-generated Supabase types.
+
+**Architecture: Production Database Layer**
+- ✅ Supabase PostgreSQL backend
+- ✅ Full TypeScript typing (database.types.ts)
+- ✅ Lazy initialization (no build-time errors)
+- ✅ Persistent application storage
+- ✅ Audit trail logging
+- ✅ Impact snapshot storage
+- ✅ Zod validation schemas
+- ✅ Admin role verification on-chain
+
+**New Files Created**
+
+`frontend/src/lib/supabase/client.ts` (28 lines)
+- Lazy Supabase client initialization
+- Avoids build-time environment variable errors
+- Returns actual client instance at runtime
+
+`frontend/src/lib/supabase/types.ts` (41 lines)
+- Type definitions for Supabase tables
+- VerifierApplication, VerifierAuditLog, ImpactSnapshot
+- Maps to database schema
+
+`frontend/src/lib/supabase/database.types.ts` (AUTO-GENERATED)
+- Full TypeScript types from Supabase schema
+- Row, Insert, Update types for each table
+- Type-safe database operations
+
+`frontend/src/lib/supabase/applications.ts` (265 lines)
+- Repository pattern for verifier applications
+- CRUD operations with full type safety
+- Atomic operations (lock/unlock for race conditions)
+- Audit trail logging
+- Stats aggregation
+
+`frontend/src/lib/validation/verifier-schemas.ts` (65 lines)
+- Zod schemas for API input validation
+- VerifierApplySchema: address + metrics
+- VerifierReviewSchema: applicationId + decision + notes
+- validateInput() helper with proper typing
+
+**Modified Files**
+
+`frontend/src/app/api/verifier/apply/route.ts` (91 lines)
+- Now uses Supabase persistence
+- Input validation via Zod
+- Proper error handling
+- Audit logging on application creation
+
+`frontend/src/app/api/verifier/applications/route.ts` (37 lines)
+- Fetches from Supabase
+- Returns applications + stats
+- No auth check (to be added in Phase 10)
+
+`frontend/src/app/api/verifier/review/route.ts` (112 lines)
+- Updates application status in Supabase
+- Admin role verification (on-chain)
+- Race condition prevention (atomic lock)
+- Audit trail for all decisions
+- NOTE: grantRole called client-side (not here)
+
+`frontend/src/lib/verifier/admin-check.ts` (75 lines)
+- Lazy loading of wagmi config
+- On-chain role verification
+- Executed at runtime, not build time
+- Prevents build-time contract calls
+
+`frontend/package.json`
+- Added: @supabase/supabase-js
+- Added: zod
+- Added: @upstash/ratelimit, @upstash/redis
+
+**Database Schema (Supabase)**
+```sql
+CREATE TABLE verifier_applications (
+  id UUID PRIMARY KEY,
+  address VARCHAR(42) UNIQUE NOT NULL,
+  applied_at BIGINT NOT NULL,
+  status VARCHAR(20) NOT NULL ('PENDING'|'APPROVED'|'REJECTED'),
+  reviewed_by VARCHAR(42),
+  reviewed_at BIGINT,
+  notes TEXT,
+  tx_hash VARCHAR(66),
+  processing BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+CREATE TABLE verifier_audit_log (
+  id UUID PRIMARY KEY,
+  application_id UUID REFERENCES verifier_applications,
+  action VARCHAR(50) NOT NULL,
+  actor_address VARCHAR(42) NOT NULL,
+  details JSONB,
+  timestamp TIMESTAMP
+);
+
+CREATE TABLE impact_snapshots (
+  id UUID PRIMARY KEY,
+  snapshot_date DATE NOT NULL,
+  generated_at TIMESTAMP NOT NULL,
+  total_cleanups INT,
+  total_contributors INT,
+  total_area_sqm FLOAT,
+  total_weight_kg FLOAT,
+  total_bags INT,
+  total_time_minutes INT,
+  top_locations JSONB,
+  waste_breakdown JSONB,
+  sdg_impact JSONB,
+  raw_data JSONB,
+  created_at TIMESTAMP
+);
+```
+
+**Environment Variables Added**
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://dhykmgtynlctpdpbznqj.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_XFC9oGRohtHFOgB-dhFyvA_HmMr_LJ6
+```
+
+**Key Design Decisions**
+
+Decision 1: Lazy Initialization
+- ✅ Client initialized at runtime, not build time
+- ❌ No static imports of environment variables
+- Avoids "Missing Supabase env vars" during build
+
+Decision 2: Repository Pattern
+- ✅ All database operations in applications.ts
+- ✅ Clean separation from API routes
+- ✅ Easy to test independently
+- ✅ Easy to swap implementations later
+
+Decision 3: Atomic Locking
+- ✅ Processing flag prevents race conditions
+- ✅ Lock acquired before update
+- ✅ Lock released in finally block
+- Ensures no duplicate approvals
+
+Decision 4: Audit Trail
+- ✅ Every decision logged to audit_log table
+- ✅ Immutable record of actions
+- ✅ Actor address stored
+- ✅ Details stored as JSON
+
+Decision 5: Zod Validation
+- ✅ All inputs validated before processing
+- ✅ Type-safe error messages
+- ✅ Prevents invalid data reaching database
+
+**Technical Challenges Solved**
+
+Challenge 1: Build-time contract calls
+- Problem: readContract() called at build time
+- Solution: Lazy load wagmi config at runtime
+
+Challenge 2: Build-time environment variables
+- Problem: Supabase env vars not available during build
+- Solution: Lazy initialization of Supabase client
+
+Challenge 3: Type mismatch in VerifierApplication
+- Problem: types.ts used camelCase, database used snake_case
+- Solution: mapRowToApplication() converter function
+
+Challenge 4: Supabase type inference
+- Problem: TypeScript couldn't infer table schemas
+- Solution: Manual database.types.ts definition
+
+**Files Modified/Created**
+
+NEW:
+- frontend/src/lib/supabase/client.ts
+- frontend/src/lib/supabase/types.ts
+- frontend/src/lib/supabase/database.types.ts
+- frontend/src/lib/supabase/applications.ts
+- frontend/src/lib/validation/verifier-schemas.ts
+
+MODIFIED:
+- frontend/src/app/api/verifier/apply/route.ts
+- frontend/src/app/api/verifier/applications/route.ts
+- frontend/src/app/api/verifier/review/route.ts
+- frontend/src/lib/verifier/admin-check.ts
+- frontend/package.json
+
+**Stats**
+- Lines of code: 1,238
+- New modules: 5
+- Database tables: 3
+- API endpoints updated: 3
+- Build status: ✅ Passing
+- Test coverage: Manual (ready for automated)
+
+**Build Results**
+```
+✓ Linting and checking validity of types
+✓ Collecting page data
+✓ Generating static pages (12/12)
+✓ Finalizing page optimization
+```
+
+**Commits**
+```
+feat: Complete Supabase integration + validation + admin check (Step 1 Phase 9)
+```
+
+**Data Persistence Flow**
+
+1. User applies: POST /api/verifier/apply
+   → Zod validation
+   → Check eligibility
+   → Create in Supabase
+   → Log audit event
+
+2. Admin reviews: POST /api/verifier/review
+   → Zod validation
+   → Admin role verification (on-chain)
+   → Lock application (atomic)
+   → Update status in Supabase
+   → Log audit event
+   → Release lock
+
+3. Data survives:
+   → Server restart (in Supabase)
+   → Multiple admin approvers (lock prevents duplicates)
+   → System failures (audit trail recoverable)
+
+**Ready for Next Steps**
+
+- ✅ Persistent storage implemented
+- ✅ Type-safe operations
+- ✅ Audit trail complete
+- ⏳ Rate limiting (Phase 10)
+- ⏳ Admin panel UI (Phase 10)
+- ⏳ Email notifications (Phase 11)
+
+**Next Phase**
+- Phase 9.5: Hardening & Security
+- Phase 10: Admin Panel UI
+- Phase 11: Production Deployment
+
