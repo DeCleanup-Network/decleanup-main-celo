@@ -3,7 +3,11 @@
  * Generated from schema definition
  */
 
-import type { VerifierApplicationStatus } from '../verifier/types'
+type VerifierApplicationStatus =
+  | 'PENDING'
+  | 'PENDING_ONCHAIN'
+  | 'APPROVED'
+  | 'REJECTED'
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
