@@ -38,7 +38,12 @@ const envLocal = loadEnvLocal()
 
 // Helper to get env var from .env.local or process.env
 function getEnv(key, defaultValue = '') {
-  return envLocal[key] || process.env[key] || defaultValue
+  const raw = envLocal[key] ?? process.env[key]
+  if (raw == null || raw === '') return defaultValue
+  const t = String(raw).trim()
+  // Broken exports like UPLOAD_DIR= or KEY= with no path
+  if (!t || /^[A-Z0-9_]+=$/.test(t)) return defaultValue
+  return t
 }
 
 module.exports = {
@@ -77,16 +82,20 @@ module.exports = {
       
       // ML Verification / GPU Service
       ML_VERIFICATION_ENABLED: getEnv('ML_VERIFICATION_ENABLED', 'true'),
-      GPU_INFERENCE_SERVICE_URL: getEnv('GPU_INFERENCE_SERVICE_URL', 'http://207.180.203.243:8000'),
+      GPU_INFERENCE_SERVICE_URL: getEnv('GPU_INFERENCE_SERVICE_URL', 'http://127.0.0.1:8000'),
       GPU_SHARED_SECRET: getEnv('GPU_SHARED_SECRET', ''),
+      // Same value as Vercel; required on ml host when locking ingress. Do NOT set ML_BACKEND_ORIGIN here.
+      ML_PROXY_SHARED_SECRET: getEnv('ML_PROXY_SHARED_SECRET', ''),
       
       // File Upload Configuration
       UPLOAD_DIR: getEnv('UPLOAD_DIR', '/var/www/decleanup/uploads'),
       PUBLIC_URL_BASE: getEnv('PUBLIC_URL_BASE', 'http://207.180.203.243:3000'),
       
-      // Pinata (for IPFS uploads)
+      // Pinata (for IPFS uploads) — PINATA_JWT preferred per Pinata pinFileToIPFS docs
+      PINATA_JWT: getEnv('PINATA_JWT', ''),
       PINATA_API_KEY: getEnv('PINATA_API_KEY', ''),
       PINATA_SECRET_KEY: getEnv('PINATA_SECRET_KEY', ''),
+      PINATA_SECRET_API_KEY: getEnv('PINATA_SECRET_API_KEY', ''),
     },
     
     // Process management

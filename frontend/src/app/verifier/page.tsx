@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useSignMessage } from 'wagmi'
 import { Button } from '@/components/ui/button'
@@ -11,17 +11,24 @@ import {
     getCleanupCounter,
     getCleanupDetails,
     verifyCleanup,
-    rejectCleanup
+    rejectCleanup,
+    grantVerifierRole
 } from '@/lib/blockchain/contracts'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import type { Address } from 'viem'
 import { REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/wagmi'
 import { ImpactReportDetails } from '@/components/verifier/ImpactReportDetails'
-import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
+import {
+    fetchHypercertRequestsByStatus,
+    approveHypercertRequest,
+    rejectHypercertRequest,
+} from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { AlertModal } from '@/components/ui/alert-modal'
+import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
+import { isAdminOnChain } from '@/lib/verifier/admin-check'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -46,6 +53,14 @@ interface CleanupSubmission {
     approver?: string
 }
 
+interface VerifierApplicationRow {
+    id: string
+    address: string
+    appliedAt: number
+    status: 'PENDING' | 'PENDING_ONCHAIN' | 'APPROVED' | 'REJECTED'
+    notes?: string
+}
+
 const VERIFIER_AUTH_MESSAGE = 'I am requesting access to the DeCleanup Verifier Dashboard. This signature proves I control this wallet address.'
 const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 
@@ -56,6 +71,7 @@ export default function VerifierPage() {
     const { signMessageAsync, isPending: isSigning } = useSignMessage()
     const [loading, setLoading] = useState(true)
     const [isVerifierUser, setIsVerifierUser] = useState(false)
+    const [isAdminUser, setIsAdminUser] = useState(false)
     const [needsSignature, setNeedsSignature] = useState(false)
     const [cleanups, setCleanups] = useState<CleanupSubmission[]>([])
     const [processingId, setProcessingId] = useState<bigint | null>(null)
@@ -63,75 +79,148 @@ export default function VerifierPage() {
     const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
     const [verifierContext, setVerifierContext] = useState<any>(null)
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+    const [verifierApplications, setVerifierApplications] = useState<VerifierApplicationRow[]>([])
+    const [loadingVerifierApplications, setLoadingVerifierApplications] = useState(false)
+    const [processingVerifierAppId, setProcessingVerifierAppId] = useState<string | null>(null)
     const [actionModal, setActionModal] = useState<{ variant: 'success' | 'error'; title: string; message: string | ReactNode } | null>(null)
+    const [grantTxInputByAppId, setGrantTxInputByAppId] = useState<Record<string, string>>({})
+    const addressRef = useRef<string | undefined>(undefined)
+    addressRef.current = address
+    const isAdminUserRef = useRef(false)
+    isAdminUserRef.current = isAdminUser
 
     useEffect(() => {
         setMounted(true)
-        if (address) {
-            checkStoredVerification()
-        } else {
-            setLoading(false)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [address])
+    }, [])
 
-    const checkStoredVerification = () => {
+    useEffect(() => {
+        if (!isAdminUser) {
+            setHypercertRequests([])
+            setVerifierContext(null)
+        }
+    }, [isAdminUser])
+
+    useEffect(() => {
         if (!address) {
             setLoading(false)
+            setIsVerifierUser(false)
+            setIsAdminUser(false)
+            setNeedsSignature(false)
+            setVerifierApplications([])
+            setCleanups([])
+            setHypercertRequests([])
+            setVerifierContext(null)
+            setError(null)
             return
         }
 
-        // Only access localStorage on client side
-        if (typeof window === 'undefined') {
-            setNeedsSignature(true)
-            setLoading(false)
-            return
-        }
+        const wallet = address as Address
+        const walletLc = wallet.toLowerCase()
+        let cancelled = false
 
-        try {
-            const stored = localStorage.getItem(VERIFIED_VERIFIER_KEY)
-            if (stored) {
-                const { verifiedAddress, timestamp } = JSON.parse(stored)
-                // Check if stored address matches current address and is recent (within 24 hours)
-                if (verifiedAddress?.toLowerCase() === address.toLowerCase() && 
-                    Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-                    // Verify against contract
-                    verifyAgainstContract(address)
+        async function bootstrapVerifierAccess() {
+            setLoading(true)
+            setError(null)
+            setIsVerifierUser(false)
+            setIsAdminUser(false)
+            setVerifierApplications([])
+
+            try {
+                const ok = await isVerifier(wallet)
+                if (cancelled || addressRef.current?.toLowerCase() !== walletLc) return
+
+                if (!ok) {
+                    try {
+                        const raw = localStorage.getItem(VERIFIED_VERIFIER_KEY)
+                        if (raw) {
+                            const { verifiedAddress } = JSON.parse(raw) as { verifiedAddress?: string }
+                            if (verifiedAddress?.toLowerCase() !== walletLc) {
+                                localStorage.removeItem(VERIFIED_VERIFIER_KEY)
+                            }
+                        }
+                    } catch {
+                        /* ignore */
+                    }
+                    setNeedsSignature(false)
+                    setLoading(false)
+                    router.replace('/')
                     return
                 }
+
+                const stored = localStorage.getItem(VERIFIED_VERIFIER_KEY)
+                if (stored) {
+                    try {
+                        const { verifiedAddress, timestamp } = JSON.parse(stored) as {
+                            verifiedAddress?: string
+                            timestamp?: number
+                        }
+                        if (verifiedAddress?.toLowerCase() !== walletLc) {
+                            localStorage.removeItem(VERIFIED_VERIFIER_KEY)
+                        } else if (
+                            typeof timestamp === 'number' &&
+                            Date.now() - timestamp < 24 * 60 * 60 * 1000
+                        ) {
+                            await verifyAgainstContract(wallet)
+                            return
+                        }
+                    } catch (e) {
+                        console.error('Error reading verifier session:', e)
+                    }
+                }
+
+                setNeedsSignature(true)
+                setLoading(false)
+            } catch (e) {
+                if (cancelled) return
+                console.error('Verifier access bootstrap failed:', e)
+                setError(e instanceof Error ? e.message : 'Failed to verify wallet')
+                setIsVerifierUser(false)
+                setIsAdminUser(false)
+                setNeedsSignature(true)
+                setLoading(false)
             }
-        } catch (error) {
-            console.error('Error checking stored verification:', error)
         }
 
-        // No stored verification or expired - require signature
-        setNeedsSignature(true)
-        setLoading(false)
-    }
+        void bootstrapVerifierAccess()
+        return () => {
+            cancelled = true
+        }
+    }, [address, router])
 
     const verifyAgainstContract = async (addr: Address) => {
         setLoading(true)
         setError(null)
         try {
             const status = await isVerifier(addr)
+            if (addressRef.current?.toLowerCase() !== addr.toLowerCase()) return
+
             setIsVerifierUser(status)
             if (status) {
-                // Store verification
+                const adminStatus = await isAdminOnChain(addr)
+                if (addressRef.current?.toLowerCase() !== addr.toLowerCase()) return
+
+                setIsAdminUser(adminStatus)
+                isAdminUserRef.current = adminStatus
                 localStorage.setItem(VERIFIED_VERIFIER_KEY, JSON.stringify({
                     verifiedAddress: addr,
                     timestamp: Date.now(),
                 }))
                 setNeedsSignature(false)
-                fetchCleanups()
+                void fetchCleanups()
+                if (adminStatus) {
+                    void fetchVerifierApplications()
+                }
             } else {
                 setError(`Address ${addr} is not authorized as a verifier.`)
                 setIsVerifierUser(false)
-                setNeedsSignature(true)
+                setIsAdminUser(false)
+                setNeedsSignature(false)
             }
         } catch (error) {
             console.error('Error verifying against contract:', error)
             setError(`Failed to verify: ${error instanceof Error ? error.message : 'Unknown error'}`)
             setIsVerifierUser(false)
+            setIsAdminUser(false)
             setNeedsSignature(true)
         } finally {
             setLoading(false)
@@ -190,18 +279,244 @@ export default function VerifierPage() {
                 }
             }
             setCleanups(submissions)
-            
-            // Also load Hypercert requests
-            try {
-                const pending = getHypercertRequestsByStatus('PENDING')
-                console.log('📋 Pending Hypercert requests:', pending.length)
-                setHypercertRequests(pending)
-                setVerifierContext(buildVerifierContext(pending))
-            } catch (reqError) {
-                console.error('Error loading Hypercert requests:', reqError)
+
+            if (isAdminUserRef.current) {
+                try {
+                    const pending = await fetchHypercertRequestsByStatus('PENDING')
+                    console.log('📋 Pending Hypercert requests:', pending.length)
+                    setHypercertRequests(pending)
+                    setVerifierContext(buildVerifierContext(pending))
+                } catch (reqError) {
+                    console.error('Error loading Hypercert requests:', reqError)
+                }
+            } else {
+                setHypercertRequests([])
+                setVerifierContext(null)
             }
         } catch (error) {
             console.error('Error fetching cleanups:', error)
+        }
+    }
+
+    const fetchVerifierApplications = async () => {
+        setLoadingVerifierApplications(true)
+        try {
+            const response = await fetch(`/api/verifier/applications?t=${Date.now()}`, { cache: 'no-store' })
+            const payload = await response.json()
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.error || 'Failed to load verifier applications')
+            }
+            const baseApps = (payload.applications || []) as VerifierApplicationRow[]
+
+            let mergedApps = baseApps
+            const hasPending = baseApps.some((a) => a.status === 'PENDING' || a.status === 'PENDING_ONCHAIN')
+            if (!hasPending && typeof window !== 'undefined') {
+                const lastApplicant = localStorage.getItem('decleanup_last_verifier_applicant')?.trim()
+                if (lastApplicant) {
+                    const byAddressRes = await fetch(
+                        `/api/verifier/applications?address=${encodeURIComponent(lastApplicant)}`,
+                        { cache: 'no-store' }
+                    )
+                    const byAddressPayload = await byAddressRes.json().catch(() => ({}))
+                    const app = byAddressPayload?.application as VerifierApplicationRow | null
+                    if (byAddressRes.ok && app && (app.status === 'PENDING' || app.status === 'PENDING_ONCHAIN')) {
+                        const exists = baseApps.some((a) => a.id === app.id)
+                        if (!exists) {
+                            mergedApps = [app, ...baseApps]
+                        }
+                    }
+                }
+            }
+
+            setVerifierApplications(mergedApps)
+        } catch (e) {
+            console.error('Error loading verifier applications:', e)
+        } finally {
+            setLoadingVerifierApplications(false)
+        }
+    }
+
+    useEffect(() => {
+        if (!isAdminUser) return
+        const intervalId = setInterval(() => {
+            void fetchVerifierApplications()
+        }, 10_000)
+        return () => clearInterval(intervalId)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAdminUser])
+
+    const handleApproveVerifierApplication = async (application: VerifierApplicationRow) => {
+        if (!address) return
+        setProcessingVerifierAppId(application.id)
+        setError(null)
+        try {
+            const initRes = await fetch('/api/verifier/review/init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    applicationId: application.id,
+                    reviewedBy: address,
+                }),
+            })
+            const initPayload = await initRes.json()
+            if (!initRes.ok || !initPayload?.readyForGrant) {
+                throw new Error(initPayload?.error || 'Failed to initialize approval')
+            }
+            setVerifierApplications((prev) =>
+                prev.map((item) =>
+                    item.id === application.id ? { ...item, status: 'PENDING_ONCHAIN' } : item
+                )
+            )
+
+            const txHash = await grantVerifierRole(initPayload.applicantAddress as Address)
+
+            const confirmRes = await fetch('/api/verifier/review/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    applicationId: application.id,
+                    txHash,
+                }),
+            })
+            const confirmPayload = await confirmRes.json()
+            if (!confirmRes.ok || !confirmPayload?.success) {
+                throw new Error(confirmPayload?.error || 'Failed to confirm approval')
+            }
+            const confirmed = confirmPayload?.application as VerifierApplicationRow | undefined
+            setVerifierApplications((prev) =>
+                prev.map((item) =>
+                    item.id === application.id
+                        ? {
+                              ...item,
+                              status: 'APPROVED',
+                              ...(confirmed ? { notes: confirmed.notes } : {}),
+                          }
+                        : item
+                )
+            )
+
+            await fetchVerifierApplications()
+            setActionModal({
+                variant: 'success',
+                title: 'Verifier approved',
+                message: (
+                    <>
+                        <p className="mb-3 text-gray-300">
+                            Verifier role confirmed on-chain and application marked approved.
+                        </p>
+                        <a
+                            href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex max-w-full items-center gap-1 break-all font-medium text-brand-green underline underline-offset-2"
+                        >
+                            View grantRole transaction
+                        </a>
+                    </>
+                ),
+            })
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Failed to approve verifier application'
+            setError(message)
+            setActionModal({ variant: 'error', title: 'Approve failed', message })
+        } finally {
+            setProcessingVerifierAppId(null)
+        }
+    }
+
+    const handleRejectVerifierApplication = async (application: VerifierApplicationRow) => {
+        if (!address) return
+        setProcessingVerifierAppId(application.id)
+        setError(null)
+        try {
+            const response = await fetch('/api/verifier/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    applicationId: application.id,
+                    decision: 'REJECT',
+                    reviewedBy: address,
+                }),
+            })
+            const payload = await response.json()
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.error || 'Failed to reject verifier application')
+            }
+            setVerifierApplications((prev) =>
+                prev.map((item) =>
+                    item.id === application.id ? { ...item, status: 'REJECTED' } : item
+                )
+            )
+
+            await fetchVerifierApplications()
+            setActionModal({
+                variant: 'success',
+                title: 'Application rejected',
+                message: 'Verifier application rejected successfully.',
+            })
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Failed to reject verifier application'
+            setError(message)
+            setActionModal({ variant: 'error', title: 'Reject failed', message })
+        } finally {
+            setProcessingVerifierAppId(null)
+        }
+    }
+
+    const handleConfirmGrantFromTxHash = async (application: VerifierApplicationRow) => {
+        const raw = (grantTxInputByAppId[application.id] || '').trim()
+        if (!/^0x[a-fA-F0-9]{64}$/.test(raw)) {
+            setActionModal({
+                variant: 'error',
+                title: 'Invalid transaction',
+                message: 'Paste a full 0x… transaction hash from the successful grantRole call.',
+            })
+            return
+        }
+        setProcessingVerifierAppId(application.id)
+        setError(null)
+        try {
+            const confirmRes = await fetch('/api/verifier/review/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    applicationId: application.id,
+                    txHash: raw,
+                }),
+            })
+            const confirmPayload = await confirmRes.json()
+            if (!confirmRes.ok || !confirmPayload?.success) {
+                throw new Error(confirmPayload?.error || 'Failed to confirm approval')
+            }
+            const confirmed = confirmPayload?.application as VerifierApplicationRow | undefined
+            setVerifierApplications((prev) =>
+                prev.map((item) =>
+                    item.id === application.id
+                        ? {
+                              ...item,
+                              status: 'APPROVED',
+                              ...(confirmed ? { notes: confirmed.notes } : {}),
+                          }
+                        : item
+                )
+            )
+            setGrantTxInputByAppId((prev) => {
+                const next = { ...prev }
+                delete next[application.id]
+                return next
+            })
+            await fetchVerifierApplications()
+            setActionModal({
+                variant: 'success',
+                title: 'On-chain approval recorded',
+                message: 'The grant transaction was confirmed and the application is marked approved.',
+            })
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Failed to confirm grant transaction'
+            setError(message)
+            setActionModal({ variant: 'error', title: 'Confirm failed', message })
+        } finally {
+            setProcessingVerifierAppId(null)
         }
     }
 
@@ -213,6 +528,7 @@ export default function VerifierPage() {
             console.log('Starting verification for submission:', id.toString())
             const txHash = await verifyCleanup(id, 1)
             console.log('Verification successful, transaction hash:', txHash)
+            void fetchCleanups()
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
             const message = (
@@ -232,11 +548,9 @@ export default function VerifierPage() {
                 </>
             )
             setActionModal({ variant: 'success', title: 'Cleanup verified', message })
-            
-            // Refresh cleanups after a short delay to allow blockchain state to update
             setTimeout(() => {
-                fetchCleanups()
-            }, 2000)
+                void fetchCleanups()
+            }, 2500)
         } catch (error: any) {
             console.error('Error verifying cleanup:', error)
             const errorMessage = error?.message || 'Failed to verify cleanup. Please check the console for details.'
@@ -263,7 +577,8 @@ export default function VerifierPage() {
             console.log('Starting rejection for submission:', id.toString())
             const txHash = await rejectCleanup(id)
             console.log('Rejection successful, transaction hash:', txHash)
-            
+            void fetchCleanups()
+
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
             const message = (
                 <>
@@ -282,11 +597,9 @@ export default function VerifierPage() {
                 </>
             )
             setActionModal({ variant: 'success', title: 'Cleanup rejected', message })
-            
-            // Refresh cleanups after a short delay to allow blockchain state to update
             setTimeout(() => {
-                fetchCleanups()
-            }, 2000)
+                void fetchCleanups()
+            }, 2500)
         } catch (error: any) {
             console.error('Error rejecting cleanup:', error)
             const errorMessage = error?.message || 'Failed to reject cleanup. Please check the console for details.'
@@ -307,17 +620,26 @@ export default function VerifierPage() {
     }
 
     const handleApproveHypercert = async (requestId: string) => {
-        if (!address) return
-        
+        if (!address || !isAdminUser) return
+        if (!signMessageAsync) {
+            setActionModal({
+                variant: 'error',
+                title: 'Wallet not ready',
+                message: 'Message signing is required to approve Hypercert requests.',
+            })
+            return
+        }
+
         setProcessingRequestId(requestId)
         setError(null)
         try {
             console.log('Approving Hypercert request:', requestId)
             
             // Approve the request
-            const approvedRequest = approveHypercertRequest({
+            const approvedRequest = await approveHypercertRequest({
                 requestId,
                 verifierAddress: address,
+                signMessageAsync,
             })
             
             if (!approvedRequest) {
@@ -331,7 +653,7 @@ export default function VerifierPage() {
             setActionModal({
                 variant: 'success',
                 title: 'Hypercert approved',
-                message: `Hypercert request approved!\n\nRequest ID: ${requestId}\n\nNote: Onchain minting will be implemented in Phase 6.`,
+                message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can mint from the Hypercerts page when ready.`,
             })
             
             // Refresh the data
@@ -347,8 +669,16 @@ export default function VerifierPage() {
     }
 
     const handleRejectHypercert = async (requestId: string) => {
-        if (!address) return
-        
+        if (!address || !isAdminUser) return
+        if (!signMessageAsync) {
+            setActionModal({
+                variant: 'error',
+                title: 'Wallet not ready',
+                message: 'Message signing is required to reject Hypercert requests.',
+            })
+            return
+        }
+
         const reason = prompt('Enter rejection reason (optional):')
         
         setProcessingRequestId(requestId)
@@ -357,10 +687,11 @@ export default function VerifierPage() {
             console.log('Rejecting Hypercert request:', requestId)
             
             // Reject the request
-            const rejectedRequest = rejectHypercertRequest({
+            const rejectedRequest = await rejectHypercertRequest({
                 requestId,
                 verifierAddress: address,
                 reason: reason || undefined,
+                signMessageAsync,
             })
             
             if (!rejectedRequest) {
@@ -546,7 +877,10 @@ export default function VerifierPage() {
                         Verifier Dashboard
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        Review and verify cleanup submissions.
+                        Review and verify cleanup submissions. Flow:{' '}
+                        <span className="text-gray-400">
+                            user submits on-chain → server runs AI (YOLO) on photos → you confirm with Verify / Reject on-chain.
+                        </span>
                     </p>
                 </div>
 
@@ -579,32 +913,152 @@ export default function VerifierPage() {
                     </div>
                 </div>
 
-                {/* Hypercert Impact Context */}
-                {verifierContext && (
-                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
-                    <h3 className="mb-4 font-bold text-green-400">📊 HYPERCERT IMPACT CONTEXT</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                      <div>
-                        <p className="text-gray-400">Total Requests</p>
-                        <p className="text-2xl font-bold text-white">{verifierContext.totalRequests}</p>
+                {isAdminUser ? (
+                  <div className="mb-8">
+                      <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                          Verifier Applications
+                      </h2>
+                      {loadingVerifierApplications ? (
+                          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                              Loading verifier applications...
+                          </div>
+                      ) : verifierApplications.filter((a) => a.status === 'PENDING' || a.status === 'PENDING_ONCHAIN').length === 0 ? (
+                          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                              No pending verifier applications.
+                          </div>
+                      ) : (
+                          <div className="space-y-3">
+                              {verifierApplications
+                                  .filter((a) => a.status === 'PENDING' || a.status === 'PENDING_ONCHAIN')
+                                  .map((app) => (
+                                      <div key={app.id} className="rounded-lg border border-border bg-card p-4">
+                                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                              <div className="min-w-0 flex-1 space-y-2">
+                                                  <p className="font-mono text-xs text-gray-400 break-all">{app.address}</p>
+                                                  <p className="text-xs text-muted-foreground">
+                                                      Applied: {new Date(app.appliedAt).toLocaleString()}
+                                                  </p>
+                                                  <p className="text-xs text-muted-foreground">Status: {app.status}</p>
+                                                  <Link
+                                                      href={`/impact/${app.address}`}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="inline-flex max-w-full items-center gap-1 break-all text-xs font-medium text-brand-green underline underline-offset-2"
+                                                  >
+                                                      Impact portfolio
+                                                      <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                                                  </Link>
+                                              </div>
+                                              <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                                                  {app.status === 'PENDING' ? (
+                                                      <div className="flex flex-wrap gap-2">
+                                                          <Button
+                                                              onClick={() => void handleRejectVerifierApplication(app)}
+                                                              disabled={processingVerifierAppId === app.id}
+                                                              className="bg-red-600 text-white hover:bg-red-700"
+                                                              size="sm"
+                                                          >
+                                                              {processingVerifierAppId === app.id ? (
+                                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                              ) : (
+                                                                  'Reject'
+                                                              )}
+                                                          </Button>
+                                                          <Button
+                                                              onClick={() => void handleApproveVerifierApplication(app)}
+                                                              disabled={processingVerifierAppId === app.id}
+                                                              className="bg-green-600 text-white hover:bg-green-700"
+                                                              size="sm"
+                                                          >
+                                                              {processingVerifierAppId === app.id ? (
+                                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                              ) : (
+                                                                  'Approve'
+                                                              )}
+                                                          </Button>
+                                                      </div>
+                                                  ) : (
+                                                      <div className="flex w-full max-w-md flex-col gap-2 sm:items-end">
+                                                          <span className="rounded-full bg-yellow-500/20 px-3 py-1 text-xs text-yellow-400 sm:text-right">
+                                                              Waiting for on-chain confirmation
+                                                          </span>
+                                                          <p className="text-xs text-muted-foreground sm:text-right">
+                                                              If grantRole was sent from another wallet or device, paste the
+                                                              transaction hash here to sync the dashboard.
+                                                          </p>
+                                                          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+                                                              <input
+                                                                  type="text"
+                                                                  placeholder="0x… transaction hash"
+                                                                  value={grantTxInputByAppId[app.id] || ''}
+                                                                  onChange={(e) =>
+                                                                      setGrantTxInputByAppId((prev) => ({
+                                                                          ...prev,
+                                                                          [app.id]: e.target.value,
+                                                                      }))
+                                                                  }
+                                                                  className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground"
+                                                              />
+                                                              <Button
+                                                                  type="button"
+                                                                  onClick={() => void handleConfirmGrantFromTxHash(app)}
+                                                                  disabled={processingVerifierAppId === app.id}
+                                                                  className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90"
+                                                                  size="sm"
+                                                              >
+                                                                  {processingVerifierAppId === app.id ? (
+                                                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                                                  ) : (
+                                                                      'Confirm tx'
+                                                                  )}
+                                                              </Button>
+                                                          </div>
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ))}
+                          </div>
+                      )}
+                  </div>
+                ) : null}
+
+                {/* Hypercert queue + impact stats: admins only (same as API) */}
+                {isAdminUser && verifierContext && (
+                  <div className="mb-6 rounded-xl border border-brand-green/20 bg-card p-6">
+                    <div className="mb-4">
+                      <h3 className="font-bebas text-xl uppercase tracking-wide text-foreground">
+                        Hypercert Impact Context
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Live context for verifier-side Hypercert review activity.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                      <div className="rounded-lg border border-border bg-background/60 p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Requests</p>
+                        <p className="mt-1 font-bebas text-2xl text-foreground">{verifierContext.totalRequests}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Total Cleanups</p>
-                        <p className="text-2xl font-bold text-brand-green">{verifierContext.totalCleanups}</p>
+                      <div className="rounded-lg border border-border bg-background/60 p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Cleanups</p>
+                        <p className="mt-1 font-bebas text-2xl text-brand-green">{verifierContext.totalCleanups}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Total Reports</p>
-                        <p className="text-2xl font-bold text-brand-yellow">{verifierContext.totalReports}</p>
+                      <div className="rounded-lg border border-border bg-background/60 p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Reports</p>
+                        <p className="mt-1 font-bebas text-2xl text-brand-yellow">{verifierContext.totalReports}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Pending/Approved</p>
-                        <p className="text-2xl font-bold text-white">{verifierContext.status.PENDING}/{verifierContext.status.APPROVED}</p>
+                      <div className="rounded-lg border border-border bg-background/60 p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending / Approved</p>
+                        <p className="mt-1 font-bebas text-2xl text-foreground">
+                          {verifierContext.status.PENDING}/{verifierContext.status.APPROVED}
+                        </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Pending Hypercert Requests */}
+                {isAdminUser && (
                 <div className="mb-8">
                     <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
                         Pending Hypercert Requests
@@ -698,6 +1152,7 @@ export default function VerifierPage() {
                         </div>
                     )}
                 </div>
+                )}
 
                 {/* Pending Cleanups */}
                 <div className="mb-8">
@@ -763,6 +1218,8 @@ export default function VerifierPage() {
                                                 </span>
                                             )}
                                         </div>
+
+                                        <VerifierMlScoreBlock cleanupId={cleanup.id.toString()} />
                                         
                                         {/* Impact Report Details */}
                                         {cleanup.hasImpactForm && cleanup.impactFormDataHash && (
@@ -773,11 +1230,19 @@ export default function VerifierPage() {
                                                 />
                                             </div>
                                         )}
+                                        {address && cleanup.user.toLowerCase() === address.toLowerCase() && (
+                                            <p className="mb-3 text-xs text-red-400">
+                                                You cannot verify your own submission.
+                                            </p>
+                                        )}
                                         
                                         <div className="flex gap-2">
                                             <Button
                                                 onClick={() => handleVerify(cleanup.id)}
-                                                disabled={processingId === cleanup.id}
+                                                disabled={
+                                                    processingId === cleanup.id ||
+                                                    (address ? cleanup.user.toLowerCase() === address.toLowerCase() : false)
+                                                }
                                                 className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                                                 size="sm"
                                             >

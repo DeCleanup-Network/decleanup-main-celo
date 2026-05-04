@@ -13,9 +13,8 @@ import {
  *
  * Configure mainnet contracts (recommended: server-only env on Vercel):
  * - IMPACT_STATS_CELO_SUBMISSION_CONTRACT: Submission.sol on Celo mainnet (42220)
- * - IMPACT_STATS_BASE_SUBMISSION_CONTRACT: same on Base mainnet (8453), if deployed
- * - IMPACT_STATS_CELO_CDCU_CONTRACT: $cDCU token on Celo
- * - IMPACT_STATS_BASE_BDCU_CONTRACT: $bDCU token on Base
+ * - IMPACT_STATS_BASE_SUBMISSION_CONTRACT: optional Submission on Base (8453) for combined cleanup counts only
+ * - IMPACT_STATS_CELO_CDCU_CONTRACT: $cDCU token on Celo (minted supply from Transfer logs)
  * - IMPACT_STATS_CELO_RPC_URL / IMPACT_STATS_BASE_RPC_URL: optional RPC overrides
  * - IMPACT_STATS_CELO_FROM_BLOCK / IMPACT_STATS_BASE_FROM_BLOCK: optional start block (decimal or 0x hex)
  *
@@ -55,11 +54,22 @@ export async function GET() {
   const celoSubmission = asAddress(cfg.celoSubmission)
   const baseSubmission = asAddress(cfg.baseSubmission)
   const celoCdcu = asAddress(cfg.celoCdcu)
-  const baseBdcu = asAddress(cfg.baseBdcu)
+
+  const baseEnabled = Boolean(baseSubmission)
 
   const [celoRes, baseRes] = await Promise.all([
     fetchChainMetrics(cfg.celoRpc, celo, celoSubmission, celoCdcu, cfg.celoFromBlock),
-    fetchChainMetrics(cfg.baseRpc, base, baseSubmission, baseBdcu, cfg.baseFromBlock),
+    baseEnabled
+      ? fetchChainMetrics(cfg.baseRpc, base, baseSubmission, undefined, cfg.baseFromBlock)
+      : Promise.resolve({
+          metrics: {
+            cleanupsVerified: 0,
+            participantAddresses: new Set<string>(),
+            tokenMintedWei: 0n,
+          },
+          submission: { ok: true },
+          token: { ok: true },
+        }),
   ])
 
   const participants = new Set<string>()
@@ -71,22 +81,23 @@ export async function GET() {
 
   const errors = {
     celo: combineChainWarnings(celoRes),
-    base: combineChainWarnings(baseRes),
+    base: baseEnabled ? combineChainWarnings(baseRes) : null,
   }
 
   const partial = errors.celo !== null || errors.base !== null
+
+  const chains = baseEnabled ? (['celo', 'base'] as const) : (['celo'] as const)
 
   const body = {
     project: 'DeCleanup Network',
     website: 'https://decleanup.network',
     sdgs: [12, 13, 15] as const,
-    chains: ['celo', 'base'] as const,
+    chains,
     metrics: {
       total_cleanups_verified: totalCleanupsVerified,
       total_participants: participants.size,
       total_tokens_distributed: {
         cDCU: tokenWeiToNumber(celoRes.metrics.tokenMintedWei),
-        bDCU: tokenWeiToNumber(baseRes.metrics.tokenMintedWei),
       },
     },
     last_updated: new Date().toISOString(),

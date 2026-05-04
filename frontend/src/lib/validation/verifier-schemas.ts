@@ -38,6 +38,27 @@ export const VerifierReviewSchema = z.object({
 export type VerifierReviewInput = z.infer<typeof VerifierReviewSchema>
 
 /**
+ * POST /api/verifier/review/init
+ */
+export const VerifierReviewInitSchema = z.object({
+  applicationId: z.string().uuid('Invalid application ID'),
+  reviewedBy: WalletAddressSchema,
+  notes: z.string().max(500, 'Notes too long').optional(),
+})
+
+export type VerifierReviewInitInput = z.infer<typeof VerifierReviewInitSchema>
+
+/**
+ * POST /api/verifier/review/confirm
+ */
+export const VerifierReviewConfirmSchema = z.object({
+  applicationId: z.string().uuid('Invalid application ID'),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction hash'),
+})
+
+export type VerifierReviewConfirmInput = z.infer<typeof VerifierReviewConfirmSchema>
+
+/**
  * Validation result type
  */
 type ValidationSuccess<T> = { success: true; data: T }

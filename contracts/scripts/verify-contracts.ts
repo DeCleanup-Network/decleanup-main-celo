@@ -27,15 +27,10 @@ import * as path from "path"
 // Helper function to get constructor arguments from deployed addresses
 function getConstructorArgs(contractName: string, deployedAddresses: any): any[] {
   switch (contractName) {
-    case "DCUToken":
-      return [] // No constructor args
     case "DCURewardManager":
-      // Constructor: (address _dcuToken, address _nftCollection)
-      return [deployedAddresses.DCUToken, deployedAddresses.ImpactProductNFT]
+      return [deployedAddresses.ImpactProductNFT]
     case "Submission":
-      // Constructor: (address _dcuToken, address _rewardManager, uint256 _defaultRewardAmount)
-      // Default reward is 10 DCU = 10000000000000000000 wei
-      return [deployedAddresses.DCUToken, deployedAddresses.DCURewardManager, "10000000000000000000"]
+      return [deployedAddresses.DCURewardManager, "10000000000000000000"]
     case "ImpactProductNFT":
       // Constructor: (address _rewardsContract)
       return [deployedAddresses.DCURewardManager]
@@ -136,17 +131,11 @@ async function main() {
   console.log(`Network: ${network}`)
   console.log(`Chain ID: ${deployedAddresses.chainId || "N/A"}\n`)
 
-  // Prepare contracts to verify (order matters - verify dependencies first)
-  // DCUToken has no dependencies, so verify it first
-  // Then ImpactProductNFT (depends on DCURewardManager, but we'll use the deployed address)
-  // Then DCURewardManager (depends on DCUToken and ImpactProductNFT)
-  // Then Submission (depends on DCUToken and DCURewardManager)
   const contractsToVerify: ContractInfo[] = [
-    { name: "DCUToken", address: deployedAddresses.DCUToken, constructorArgs: getConstructorArgs("DCUToken", deployedAddresses) },
     { name: "ImpactProductNFT", address: deployedAddresses.ImpactProductNFT, constructorArgs: getConstructorArgs("ImpactProductNFT", deployedAddresses) },
     { name: "DCURewardManager", address: deployedAddresses.DCURewardManager, constructorArgs: getConstructorArgs("DCURewardManager", deployedAddresses) },
     { name: "Submission", address: deployedAddresses.Submission, constructorArgs: getConstructorArgs("Submission", deployedAddresses) },
-  ].filter(contract => contract.address) // Filter out undefined addresses
+  ].filter(contract => contract.address)
 
   if (contractsToVerify.length === 0) {
     console.error("❌ No contracts found to verify!")

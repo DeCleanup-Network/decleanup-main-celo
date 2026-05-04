@@ -4,7 +4,7 @@ import path from "path"
 import type { Address } from "viem"
 
 type DeployedAddresses = {
-  DCUToken: Address
+  DCUToken?: Address
   DCURewardManager: Address
   Submission: Address
   ImpactProductNFT: Address
@@ -13,6 +13,11 @@ type DeployedAddresses = {
   note?: string
   [key: string]: unknown
 }
+
+/**
+ * Optional: `REDEPLOY_IMPACT_CLAIM_REWARDS_ENABLED=false` to leave impactClaimRewardsEnabled off after redeploy.
+ * Default when unset: true (production — mint/upgrade triggers rewardImpactProductClaim when rewardsContract is set).
+ */
 
 async function main() {
   if (process.env.CONFIRM_REDEPLOY_NFT !== "YES") {
@@ -74,19 +79,21 @@ async function main() {
   await publicClient.waitForTransactionReceipt({ hash: setRewardNftHash })
   console.log("Linked new ImpactProductNFT in DCURewardManager")
 
-  // Policy default: no automatic cDCU accrual on Impact Product claim flow.
-  const disableImpactRewardsHash = await newImpactNft.write.setImpactClaimRewardsEnabled([false], {
+  // Production default: accrue per-level DCU via rewardImpactProductClaim when user mints/upgrades.
+  // Opt out with REDEPLOY_IMPACT_CLAIM_REWARDS_ENABLED=false (e.g. staging only-NFT policy).
+  const impactClaimRewardsEnabled = process.env.REDEPLOY_IMPACT_CLAIM_REWARDS_ENABLED !== "false"
+  const impactRewardsHash = await newImpactNft.write.setImpactClaimRewardsEnabled([impactClaimRewardsEnabled], {
     account: walletClient.account,
   })
-  await publicClient.waitForTransactionReceipt({ hash: disableImpactRewardsHash })
-  console.log("Confirmed impactClaimRewardsEnabled=false")
+  await publicClient.waitForTransactionReceipt({ hash: impactRewardsHash })
+  console.log(`Set impactClaimRewardsEnabled=${impactClaimRewardsEnabled} (REDEPLOY_IMPACT_CLAIM_REWARDS_ENABLED=false to disable)`)
 
   const updated: DeployedAddresses = {
     ...current,
     oldImpactProductNFT: oldImpactNft,
     ImpactProductNFT: newImpactNft.address,
     updatedAt: new Date().toISOString(),
-    note: "ImpactProductNFT redeployed with gated rewardImpactProductClaim (default disabled)",
+    note: `ImpactProductNFT redeployed; impactClaimRewardsEnabled=${impactClaimRewardsEnabled}`,
   }
 
   fs.writeFileSync(deployedPath, JSON.stringify(updated, null, 2) + "\n")

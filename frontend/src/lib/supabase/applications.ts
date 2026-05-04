@@ -85,9 +85,9 @@ export async function getLatestApplicationByAddress(address: string): Promise<Ve
     .eq('address', address.toLowerCase())
     .order('applied_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (error && error.code !== 'PGRST116') throw error
+  if (error) throw error
   if (!data) return null
 
   return mapRowToApplication(data as VerifierAppRow)

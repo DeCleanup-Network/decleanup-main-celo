@@ -4,17 +4,17 @@ This document explains how the Celo dashboard generates Hypercerts, why we colle
 
 ## Impact reporting flow
 
-1. **Cleanup submission** – User uploads before/after photos + location.
-2. **Impact form (optional but encouraged)** – Weight removed, area covered, time spent, waste types, context notes, contributors, challenges, prevention ideas.
-3. **Recyclables add-on** – Photo / receipt hash if materials were recycled.
-4. **Submission approval** – Verifier/Admin approves, triggering:
+1. **Cleanup submission** - User uploads before/after photos + location.
+2. **Impact form (optional but encouraged)** - Weight removed, area covered, time spent, waste types, context notes, contributors, challenges, prevention ideas.
+3. **Recyclables add-on** - Photo / receipt hash if materials were recycled.
+4. **Submission approval** - Verifier/Admin approves, triggering:
    - `userCleanupCount++`
    - Impact form rewards via `rewardImpactReports`
    - Recyclables: 5 DCU in same bucket as impact form (no separate contract)
    - Hypercert eligibility check (every 10 cleanups)
 
 Why collect the impact form?
-- Hypercert metadata needs more than photos—it captures quantifiable metrics for long-term certificates.
+- Hypercert metadata needs more than photos - it captures quantifiable metrics for long-term certificates.
 - Data feeds SDG reporting, corporate ESG dashboards, and future impact marketplaces.
 - Aggregated stats (weight/area/hours) make Hypercerts meaningful and comparable across cohorts.
 
@@ -23,11 +23,11 @@ Why collect the impact form?
 ```
 Cleanup approvals ➀➁➂ … ➉ ──▶ Frontend aggregates data ──▶ Hypercert metadata/imgs ──▶ Hypercerts SDK mint
                                                                                          │
-                                                                                         └─▶ claimHypercertReward (10 $DCU)
+                                                                                         └─▶ claimHypercertReward (DCU bonus on DCURewardManager)
 ```
 
-1. **Eligibility** – `Submission.sol` emits `HypercertEligible` when `userCleanupCount % 10 == 0`.
-2. **Data aggregation** (`lib/blockchain/hypercerts-data.ts`):
+1. **Eligibility** - `Submission.sol` emits `HypercertEligible` when milestones align with **Impact Product level** (see contract comments; UI uses `hypercerts/eligibility.ts` thresholds).
+2. **Data aggregation** (`lib/blockchain/hypercerts/aggregation.ts` and related modules):
    - Fetch each cleanup via `getCleanupDetails`.
    - Fetch impact form JSON from IPFS (`impactFormDataHash`) with multi-gateway retries.
    - Normalize units (kg/lb→kg, sqft/sqm→sqm, minutes/hours) and sum totals.
@@ -37,19 +37,21 @@ Cleanup approvals ➀➁➂ … ➉ ──▶ Frontend aggregates data ──▶
    - **Banner** with gradient + stat tiles.
    - **Logo** with level badge + DeCleanup branding.
    - Upload each canvas result to IPFS via the same Pinata proxy.
-4. **Metadata build** (`hypercerts-metadata.ts`):
+4. **Metadata build** (`lib/blockchain/hypercerts/metadata.ts`):
    - Constant traits: Type, Impact category, Level, Hypercert #.
    - Dynamic traits: Cleanups aggregated, weight removed, area covered, hours worked, waste categories, contributors count, location anchors.
    - External links: Impact Product on CeloScan, leaderboard, docs.
    - `image` & `external_url` point to IPFS hashes from step 3.
 5. **Mint** (`hypercerts-minting.ts`):
    - Upload metadata JSON to IPFS first (so token references live hash).
-   - Use `HypercertClient.mintClaim` with `TransferRestrictions.FromCreatorOnly`.
-   - Await tx receipt and surface hyperlink to `hypercerts.org/app/view/<txHash>`.
-6. **Reward** – Call `claimHypercertReward(hypercertNumber)`:
+   - Submit a transaction to the configured **Hypercert minter** (see `hypercerts/config.ts`); the app uses the Hypercerts contracts stack and wagmi/viem for the onchain write.
+   - Await the receipt and surface a link to the Hypercerts viewer / explorer as appropriate.
+6. **Reward** - Call `claimHypercertReward(hypercertNumber)`:
    - Contract confirms `userHypercertCount >= hypercertNumber`.
    - Prevents double rewards via `hypercertRewardsClaimed`.
-   - Accrues 10 $DCU into the user’s balance.
+   - Accrues the configured **DCU bonus** (`hypercertBonus` on `DCURewardManager`) into the user’s onchain participation balance (same ledger used for other DCU sources - not `$cDCU` until claimed via ClaimVault rules).
+
+For a concise engineering summary, see **`docs/HYPERCERTS.md`**.
 
 ## Error handling
 

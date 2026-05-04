@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Coins, CheckCircle, Lock } from 'lucide-react'
-import { CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
+import { Loader2, CheckCircle, HelpCircle, ExternalLink, Copy } from 'lucide-react'
+import { CONTRACT_ADDRESSES, REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/chain-constants'
+import { GOVERNANCE_MIN_CDCU } from '@/config/cdcu'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { formatEther } from 'viem'
 
@@ -13,9 +14,15 @@ interface EligibilityData {
   eligible: boolean
   totalPoints: string
   claimableCap: string
+  claimableNextTranche?: string
   alreadyClaimed: string
   claimableNow: string
   thresholdPoints: string
+  milestonesClaimed?: number
+  nextMilestonePoints?: string
+  dcuPointsPerTranche?: number
+  /** e.g. "1.1" — from Reward Manager total DCU; each mint uses one 50-DCU slice under this multiplier curve */
+  activityMultiplier?: string | null
 }
 
 /** Format wei as integer for display */
@@ -23,23 +30,48 @@ function weiToNum(wei: string) {
   return Number(formatEther(BigInt(wei)))
 }
 
+function fmtCdcuAmount(n: number) {
+  if (!Number.isFinite(n)) return '0'
+  return Math.abs(n - Math.round(n)) > 1e-4 ? n.toFixed(1) : n.toFixed(0)
+}
+
 interface DashboardClaimCdcuProps {
   address: string
 }
 
 /**
- * $cDCU claim: eligibility at 50 DCU points; claimable = (points - 50) × 0.1 × progressive multiplier (1.1x-2x).
- * Shows progress to 50, claimable amount, and Claim button when eligible.
+ * $cDCU: each claim unlocks one 50-DCU tranche; the next claim needs 50 more DCU (next milestone).
  */
+const TOKENOMICS_URL = 'https://decleanup.net/tokenomics'
+
 export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [eligibility, setEligibility] = useState<EligibilityData | null>(null)
   const [eligibilityLoading, setEligibilityLoading] = useState(true)
+  const [showCdcuInfoModal, setShowCdcuInfoModal] = useState(false)
+  const [copyMsg, setCopyMsg] = useState<string | null>(null)
+  const [lockedClaimHint, setLockedClaimHint] = useState(false)
 
   const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT
-  if (!claimVaultAddress) return null
+  const cdcuTokenAddress = CONTRACT_ADDRESSES.DCU_TOKEN?.trim() ?? ''
+  const cdcuExplorerUrl =
+    cdcuTokenAddress && /^0x[a-fA-F0-9]{40}$/.test(cdcuTokenAddress)
+      ? `${REQUIRED_BLOCK_EXPLORER_URL}/token/${cdcuTokenAddress}`
+      : null
+
+  const copyContractAddress = useCallback(async () => {
+    if (!cdcuTokenAddress) return
+    try {
+      await navigator.clipboard.writeText(cdcuTokenAddress)
+      setCopyMsg('Address copied')
+      window.setTimeout(() => setCopyMsg(null), 2000)
+    } catch {
+      setCopyMsg('Select and copy the address below manually.')
+      window.setTimeout(() => setCopyMsg(null), 4000)
+    }
+  }, [cdcuTokenAddress])
 
   useEffect(() => {
     let cancelled = false
@@ -55,8 +87,18 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
       }
     }
     fetchEligibility()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [address, success])
+
+  useEffect(() => {
+    if (!lockedClaimHint) return
+    const id = window.setTimeout(() => setLockedClaimHint(false), 5000)
+    return () => window.clearTimeout(id)
+  }, [lockedClaimHint])
+
+  if (!claimVaultAddress) return null
 
   const handleClaim = async () => {
     setLoading(true)
@@ -89,8 +131,10 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipient: address, amount: data.amount }),
       })
-      const amountFormatted = (Number(data.amount) / 1e18).toFixed(0)
-      setSuccess(`Claimed ${amountFormatted} DCU. Tx: ${hash.slice(0, 10)}...`)
+      const amountNum = Number(data.amount) / 1e18
+      const amountFormatted =
+        amountNum >= 100 || Number.isInteger(amountNum) ? amountNum.toFixed(0) : amountNum.toFixed(1)
+      setSuccess(`Claimed ${amountFormatted} $cDCU · Tx ${hash.slice(0, 10)}…`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       const isUserCancel =
@@ -114,13 +158,34 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
   const pointsNum = eligibility ? weiToNum(eligibility.totalPoints) : 0
   const claimableCapNum = eligibility ? weiToNum(eligibility.claimableCap) : 0
   const claimableNum = eligibility ? weiToNum(eligibility.claimableNow) : 0
-  const progress = Math.min(100, (pointsNum / ELIGIBILITY_THRESHOLD) * 100)
+  const dcuStep = eligibility?.dcuPointsPerTranche ?? ELIGIBILITY_THRESHOLD
+  const multDisplay =
+    eligibility?.activityMultiplier != null && eligibility.activityMultiplier !== ''
+      ? Number(eligibility.activityMultiplier).toFixed(2)
+      : null
+  const mc = eligibility?.milestonesClaimed ?? 0
+  const segmentStart = mc * ELIGIBILITY_THRESHOLD
+  const segmentEnd = (mc + 1) * ELIGIBILITY_THRESHOLD
+  const progress =
+    segmentEnd > segmentStart
+      ? Math.min(100, Math.max(0, ((pointsNum - segmentStart) / (segmentEnd - segmentStart)) * 100))
+      : 0
+
+  const lockedClaimHintText = `unlocked with every ${dcuStep} collected DCU points`
 
   return (
+    <>
     <div className="w-full min-w-0 max-w-full rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-sans font-semibold text-muted-foreground tracking-wide">Claim $cDCU</span>
-        <Coins className="h-4 w-4 text-brand-green" />
+      <div className="mb-2 flex items-center gap-1">
+        <span className="text-xs font-sans font-semibold tracking-wide text-muted-foreground">Claim $cDCU</span>
+        <button
+          type="button"
+          onClick={() => setShowCdcuInfoModal(true)}
+          className="inline-flex rounded p-0.5 text-muted-foreground transition-colors hover:bg-brand-green/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
+          aria-label="About $cDCU, governance, tokenomics, and wallet import"
+        >
+          <HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </button>
       </div>
 
       {eligibilityLoading ? (
@@ -130,12 +195,13 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
         </div>
       ) : eligibility ? (
         <>
-          {/* Progress to 50 DCU points; stack on small screens to avoid "need298 50" */}
           <div className="mb-3">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5 sm:gap-2 text-xs mb-1">
-              <span className="text-muted-foreground">DCU points (need {ELIGIBILITY_THRESHOLD} to unlock)</span>
-              <span className={`shrink-0 ${eligibility.eligible ? 'text-brand-green font-medium' : 'text-muted-foreground'}`}>
-                {pointsNum.toFixed(0)} / {ELIGIBILITY_THRESHOLD}
+              <span className="text-muted-foreground">DCU points</span>
+              <span
+                className={`shrink-0 ${eligibility.eligible ? 'text-brand-green font-medium' : 'text-muted-foreground'}`}
+              >
+                {pointsNum.toFixed(0)} / {segmentEnd}
               </span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -148,8 +214,17 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
 
           {eligibility.eligible ? (
             <>
-              <p className="text-xs text-muted-foreground mb-2">
-                Based on your DCU score you will receive <strong className="text-foreground">{claimableCapNum.toFixed(0)} $cDCU</strong>.
+              <p className="text-xs text-muted-foreground mb-2 leading-snug">
+                Each <strong className="text-foreground">{dcuStep} DCU</strong> → one $cDCU mint, scaled by multiplier
+                {multDisplay != null ? (
+                  <strong className="text-foreground"> ×{multDisplay}</strong>
+                ) : (
+                  <span> (×1.1–×2)</span>
+                )}
+                . Now: <strong className="text-brand-green tabular-nums">{fmtCdcuAmount(claimableNum)} $cDCU</strong>
+                {claimableCapNum > 0 ? (
+                  <span className="text-muted-foreground"> · max {claimableCapNum.toFixed(0)} at your DCU</span>
+                ) : null}
               </p>
               <Button
                 size="sm"
@@ -175,20 +250,24 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
             </>
           ) : (
             <>
-              <p className="text-xs text-muted-foreground mb-2">
-                Earn <strong className="text-foreground">{ELIGIBILITY_THRESHOLD - pointsNum} more</strong> DCU points to unlock $cDCU claims.
-              </p>
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
-                className="h-auto min-h-[2.75rem] w-full border-muted px-3 py-2.5 text-muted-foreground cursor-not-allowed"
-                disabled
+                title={lockedClaimHintText}
+                aria-disabled="true"
+                className="h-auto min-h-[2.75rem] w-full cursor-not-allowed border-muted px-3 py-2.5 text-muted-foreground hover:bg-transparent hover:text-muted-foreground"
+                onClick={() => setLockedClaimHint(true)}
               >
-                <span className="inline-flex w-full min-w-0 items-center justify-center gap-2 text-center leading-snug">
-                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="min-w-0">Unlock at 50 points</span>
+                <span className="inline-flex w-full min-w-0 items-center justify-center text-center leading-snug">
+                  Claim $cDCU
                 </span>
               </Button>
+              {lockedClaimHint ? (
+                <p className="mt-2 text-center text-xs text-muted-foreground" role="status">
+                  {lockedClaimHintText}
+                </p>
+              ) : null}
             </>
           )}
         </>
@@ -199,5 +278,108 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       {success && <p className="mt-2 text-xs text-brand-green">{success}</p>}
     </div>
+
+    {showCdcuInfoModal ? (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
+        <div
+          className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cdcu-info-title"
+        >
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <h2 id="cdcu-info-title" className="font-bebas text-2xl tracking-wider text-foreground">
+              About $cDCU
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowCdcuInfoModal(false)}
+              className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <strong className="text-foreground">What is $cDCU?</strong> $cDCU is an ERC-20 on this network. You receive
+              it by converting earned DCU points: when you reach a claim slice, you request a signed mint from the Claim
+              Vault and confirm in your wallet.
+            </p>
+            <p>
+              <strong className="text-foreground">What can you do with it?</strong> Hold or send $cDCU like any token. You
+              can also vote and create governance proposals when your balance meets the snapshot rule (currently at least{' '}
+              <strong className="text-foreground">{GOVERNANCE_MIN_CDCU} $cDCU</strong>). Allocations, pools, and mechanics
+              are explained on the tokenomics page.
+            </p>
+            <p>
+              <a
+                href={TOKENOMICS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 font-medium text-brand-green underline-offset-4 hover:underline"
+              >
+                Tokenomics &amp; governance details
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </a>
+            </p>
+
+            {cdcuExplorerUrl ? (
+              <p>
+                <a
+                  href={cdcuExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-medium text-brand-green underline-offset-4 hover:underline"
+                >
+                  View $cDCU contract on the explorer
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                </a>
+              </p>
+            ) : (
+              <p className="text-xs">
+                Explorer link is unavailable until <code className="rounded bg-muted px-1 py-0.5 text-foreground">NEXT_PUBLIC_DCU_TOKEN_CONTRACT</code>{' '}
+                is set for this deployment.
+              </p>
+            )}
+
+            <div className="rounded-lg border border-border bg-background/80 p-4">
+              <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Import $cDCU in your wallet</h3>
+              <ol className="list-decimal space-y-2 pl-4 text-xs sm:text-sm">
+                <li>Open your wallet’s “Import token” / “Add token” flow.</li>
+                <li>
+                  Paste the token contract address (same as on the explorer). Symbol:{' '}
+                  <strong className="text-foreground">cDCU</strong>, decimals:{' '}
+                  <strong className="text-foreground">18</strong>.
+                </li>
+                <li>Confirm; your balance should appear after you mint or receive $cDCU.</li>
+              </ol>
+              {cdcuTokenAddress && /^0x[a-fA-F0-9]{40}$/.test(cdcuTokenAddress) ? (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <code className="block max-w-full break-all rounded border border-border bg-muted/40 px-2 py-1.5 text-[11px] text-foreground">
+                    {cdcuTokenAddress}
+                  </code>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void copyContractAddress()} className="shrink-0 gap-1.5">
+                    <Copy className="h-3.5 w-3.5" aria-hidden />
+                    Copy address
+                  </Button>
+                </div>
+              ) : null}
+              {copyMsg ? <p className="mt-2 text-xs text-brand-green">{copyMsg}</p> : null}
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            onClick={() => setShowCdcuInfoModal(false)}
+            className="mt-6 w-full bg-brand-green font-semibold uppercase text-black hover:bg-brand-green/90"
+          >
+            Got it
+          </Button>
+        </div>
+      </div>
+    ) : null}
+    </>
   )
 }

@@ -7,19 +7,13 @@ describe("Input Validation", function () {
   async function deployContractsFixture() {
     const [owner, user1, user2] = await hre.viem.getWalletClients();
 
-    const dcuToken = await hre.viem.deployContract("DCUToken");
-    const nftCollection = await hre.viem.deployContract("NFTCollection");
     const rewardManager = await hre.viem.deployContract("DCURewardManager", [
-      dcuToken.address,
-      nftCollection.address,
+      "0x0000000000000000000000000000000000000000",
     ]);
     const impactProductNft = await hre.viem.deployContract("ImpactProductNFT", [
       rewardManager.address,
     ]);
-
-    // Grant MINTER_ROLE to rewardManager
-    const MINTER_ROLE = await dcuToken.read.MINTER_ROLE();
-    await dcuToken.write.grantRole([MINTER_ROLE, rewardManager.address], {
+    await rewardManager.write.updateNftCollection([impactProductNft.address], {
       account: owner.account,
     });
 
@@ -35,7 +29,7 @@ describe("Input Validation", function () {
       { account: owner.account }
     );
 
-    return { dcuToken, nftCollection, rewardManager, impactProductNft, owner, user1, user2 };
+    return { rewardManager, impactProductNft, owner, user1, user2 };
   }
 
   describe("ImpactProductNFT Input Validation", function () {

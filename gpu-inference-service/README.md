@@ -18,6 +18,19 @@ This service runs YOLOv8 fine-tuned on the TACO dataset for waste detection. It'
 
 ### 1. Install Dependencies
 
+**macOS / Homebrew Python:** use a venv (system `pip` may error with “externally-managed-environment”; system `python3` often has no `uvicorn`).
+
+```bash
+cd gpu-inference-service
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Then run with `python main.py` (after `activate`) or `.venv/bin/python main.py`.
+
+**Other environments:**
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -182,6 +195,13 @@ docker run -p 8000:8000 \
   -v $(pwd)/yolov8-taco.pt:/app/yolov8-taco.pt \
   gpu-inference-service
 ```
+
+### PM2 on a VPS (with Next.js)
+
+1. Copy `best.pt` (or your `MODEL_PATH`) to the server under `gpu-inference-service/` (see `.env.gpu.example`).
+2. On the server, create `.env.gpu` with `SHARED_SECRET` matching the frontend `GPU_SHARED_SECRET` (same directory as `ecosystem.config.cjs`).
+3. From your laptop, repo root: `VPS_SSH=root@YOUR_VPS_IP ./scripts/vps/deploy-gpu-inference-pm2.sh`  -  or `VPS_HOST=YOUR_VPS_IP` if you use `root`. This rsyncs the service, builds `.venv`, installs deps, and runs `pm2 start` or `pm2 restart decleanup-gpu --update-env`.
+4. On the **same** VPS, in `frontend/.env.local`, set `GPU_INFERENCE_SERVICE_URL=http://127.0.0.1:8000`, then `npm run build` (if needed) and `pm2 restart decleanup --update-env`.
 
 ### GPU Server Setup
 

@@ -1,5 +1,9 @@
 # ML Verification Architecture
 
+## Stack context
+
+ML scoring is **advisory** for verifier UX; **onchain rewards and Impact Products** still flow through **Submission** + **DCURewardManager** on Celo. **`$cDCU`** mints only via **ClaimVault** (see **`docs/B_CDCU_ONLY_ARCHITECTURE.md`** / **`docs/TOKEN_SPEC.md`**). This document covers the optional **GPU inference** path only.
+
 ## Overview
 
 DeCleanup Network uses a two-service architecture for ML verification:
@@ -22,7 +26,7 @@ VPS Backend API (/api/ml-verification/verify)
     │   └─→ POST /infer (after image)
     ├─→ Compute verification score
     ├─→ Hash verification result
-    └─→ Store hash on-chain (Celo)
+    └─→ Store hash onchain (Celo)
 ```
 
 ## Service Responsibilities
@@ -38,7 +42,7 @@ VPS Backend API (/api/ml-verification/verify)
 - Call GPU inference service for both images
 - Compute verification score from inference results
 - Hash verification result
-- Store hash on-chain via `storeVerificationHash()`
+- Store hash onchain via `storeVerificationHash()`
 
 **Must NOT:**
 - Run ML inference
@@ -57,7 +61,7 @@ VPS Backend API (/api/ml-verification/verify)
 **Must be:**
 - Stateless
 - Replaceable
-- No blockchain logic
+- No onchain contract logic
 - No persistent storage
 
 ## Verification Scoring
@@ -93,14 +97,14 @@ function storeVerificationHash(uint256 submissionId, bytes32 hash) external only
 **What's stored:**
 - Only the SHA256 hash of the verification result JSON
 - NOT the ML output itself
-- Full result stored off-chain (VPS filesystem or IPFS)
+- Full result stored offchain (VPS filesystem or IPFS)
 
 ## Security
 
 1. **Request Validation**: GPU service validates `Authorization: Bearer <SHARED_SECRET>`
 2. **Rate Limiting**: Implement in VPS backend (by submissionId)
 3. **File Validation**: Photo serving endpoint validates filenames
-4. **Role-Based Access**: Only VERIFIER_ROLE can store hashes on-chain
+4. **Role-Based Access**: Only VERIFIER_ROLE can store hashes onchain
 
 ## Deployment
 
@@ -184,17 +188,17 @@ Served via: `/api/uploads/{submissionId}/before.jpg`
 6. VPS calls GPU service for after image
 7. VPS computes verification score
 8. VPS hashes result
-9. VPS stores hash on-chain (if VERIFIER_ROLE available)
+9. VPS stores hash onchain (if VERIFIER_ROLE available)
 10. Frontend displays result
 
 ## Acceptance Criteria
 
 ✅ VPS never runs ML
-✅ GPU service never touches blockchain
+✅ GPU service never touches onchain contracts
 ✅ Photos stored on VPS
 ✅ YOLOv8 inference returns structured detections
 ✅ Verification score is reproducible
-✅ Only hashes are written on-chain
+✅ Only hashes are written onchain
 ✅ System is fully auditable
 
 ## Troubleshooting
@@ -210,7 +214,7 @@ Served via: `/api/uploads/{submissionId}/before.jpg`
 - Verify disk space
 - Check file permissions
 
-**Hash not storing on-chain:**
+**Hash not storing onchain:**
 - Verify account has VERIFIER_ROLE
 - Check contract address is correct
 - Verify network connection

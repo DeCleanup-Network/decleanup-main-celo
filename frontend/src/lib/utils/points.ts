@@ -1,25 +1,18 @@
 import { Address } from 'viem'
 
 /**
- * DCU Points System
+ * Participation vs tokens (product mental model)
  *
- * DCU points act as the multiplier for earning; $cDCU is claimed later (e.g. via ClaimVault or
- * Impact Product NFT claim) and the claim amount is calculated based on the user's multiplier.
- * Impact form and/or recyclables add 5 DCU points total per submission (same bucket onchain).
+ * - **Participation score (“DCU points”)**: accrued **inside `DCURewardManager`** (`totalEarned`,
+ *   per-bucket counters). The app reads these via `getUserRewardStats` for eligibility, barriers,
+ *   verifier gates, and **off-chain math for $cDCU mint-on-claim**. That score is **not** the same
+ *   as “wallet balance of $cDCU”.
  *
- * DCU Points are stored ONCHAIN through the RewardDistributor contract's internal DCUToken contract.
+ * - **`$cDCU` (`CDCUToken`)**: the **governance / tokenomics** ERC-20 users mint via **`ClaimVault`**
+ *   after a backend EIP-712 signature. Caps and categories live on ClaimVault.
  *
- * How it works:
- * 1. RewardDistributor contract uses a DCUToken contract internally to track points
- * 2. When rewards are distributed (level claim, streak, referral, impact form/recyclables),
- *    the RewardDistributor calls dcuToken.mintReward() which transfers tokens from
- *    the contract's rewards pool to the user
- * 3. User's DCU points balance = their balance in the DCUToken contract
- * 4. Points are stored with 18 decimals (like standard ERC-20 tokens)
- *
- * Storage Location:
- * - Onchain: DCUToken contract (accessed via RewardDistributor.dcuToken())
- * - This file provides fallback localStorage functions for development/testing
+ * This file’s localStorage helpers are **dev fallbacks** only; production reads on-chain stats from
+ * `@/lib/blockchain/contracts` / RewardManager views.
  */
 
 const STORAGE_KEY_PREFIX = 'decleanup_points_'
@@ -110,7 +103,8 @@ export async function getStakedPoints(userAddress: Address): Promise<number> {
 export const POINTS_REWARDS = {
   LEVEL_REWARD: 10, // 10 points per level
   STREAK_REWARD: 2, // 2 points per week streak
-  IMPACT_FORM_REWARD: 5, // 5 points for impact form and/or recyclables (single bucket onchain)
+  IMPACT_FORM_REWARD: 5, // 5 points for impact form (onchain impact-report bucket)
+  RECYCLABLES_REWARD: 5, // 5 points for recyclables (separate onchain bucket)
   CLEANUP_REWARD: 10, // 10 points per verified cleanup (adjust as needed)
 } as const
 

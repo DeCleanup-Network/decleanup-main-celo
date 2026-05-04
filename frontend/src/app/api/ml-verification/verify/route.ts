@@ -10,11 +10,20 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { runFullVerification } from '@/lib/dmrv/gpu-verification'
+import { checkInMemoryRateLimit, getRateLimitKey, tooManyRequestsResponse } from '@/lib/server/rate-limit'
+import { mlVerifyBodySchema, parseJsonBody } from '@/lib/server/api-request-guards'
+import { resolveUploadDir } from '@/lib/server/resolve-upload-dir'
+import { getMlBackendProxyConfig, forwardMlVerifyPost } from '@/lib/server/ml-backend-proxy'
+import { rejectUnauthorizedMlIngress } from '@/lib/server/ml-ingress'
+import { isMlVerificationEnabled } from '@/lib/server/ml-verification-enabled'
 
 export const dynamic = 'force-dynamic'
 
+/** IPFS gateway fetch when pulling CIDs for ML pipeline */
+const IPFS_GATEWAY_FETCH_TIMEOUT_MS = 90_000
+
 // Configuration
-const UPLOAD_DIR = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+const UPLOAD_DIR = resolveUploadDir()
 const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE || 'http://localhost:3000'
 const GPU_SERVICE_URL = process.env.GPU_INFERENCE_SERVICE_URL || 'http://localhost:8000'
 const GPU_SHARED_SECRET = process.env.GPU_SHARED_SECRET || ''
@@ -67,8 +76,10 @@ async function downloadAndStore(
   // Consistent with frontend/src/lib/dmrv/ipfs.ts
   const cleanCid = ipfsCid.replace(/^ipfs:\/\//, '').split('?')[0].split('#')[0]
   const ipfsUrl = `${ipfsGateway}${cleanCid}`
-  
-  const response = await fetch(ipfsUrl)
+
+  const response = await fetch(ipfsUrl, {
+    signal: AbortSignal.timeout(IPFS_GATEWAY_FETCH_TIMEOUT_MS),
+  })
   if (!response.ok) {
     throw new Error(`Failed to fetch image from IPFS: ${response.status}`)
   }
@@ -82,17 +93,51 @@ async function downloadAndStore(
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    // Validate required fields
-    const { submissionId, beforeImageCid, afterImageCid } = body
-    
-    if (!submissionId || !beforeImageCid || !afterImageCid) {
-      return NextResponse.json(
-        { error: 'Missing required fields: submissionId, beforeImageCid, afterImageCid' },
-        { status: 400 }
-      )
+    const ingress = rejectUnauthorizedMlIngress(request)
+    if (ingress) return ingress
+
+    const parsed = await parseJsonBody(request, mlVerifyBodySchema)
+    if (!parsed.ok) return parsed.response
+
+    const body = parsed.data
+
+    if (!isMlVerificationEnabled()) {
+      return NextResponse.json({
+        mlVerificationDisabled: true,
+        submissionId: body.submissionId,
+        message:
+          'Automated photo verification is turned off. Your submission is on-chain; human verifiers will still review your photos.',
+      })
     }
+    const walletAddress =
+      body.walletAddress ||
+      body.wallet ||
+      body.address ||
+      request.headers.get('x-wallet-address') ||
+      request.headers.get('x-address') ||
+      null
+    const rateLimit = checkInMemoryRateLimit({
+      key: getRateLimitKey(request, walletAddress),
+      maxRequests: 8,
+      windowMs: 60_000,
+    })
+    if (!rateLimit.ok) {
+      return tooManyRequestsResponse(rateLimit.resetAt)
+    }
+
+    const proxy = getMlBackendProxyConfig()
+    if (proxy.enabled) {
+      const upstream = await forwardMlVerifyPost(JSON.stringify(body))
+      const text = await upstream.text()
+      return new NextResponse(text, {
+        status: upstream.status,
+        headers: {
+          'Content-Type': upstream.headers.get('content-type') || 'application/json',
+        },
+      })
+    }
+
+    const { submissionId, beforeImageCid, afterImageCid } = body
     
     console.log(`[ML Verification] Processing submission ${submissionId}...`)
     
@@ -180,9 +225,50 @@ export async function POST(request: NextRequest) {
 }
 
 // Health check
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const ingress = rejectUnauthorizedMlIngress(request)
+  if (ingress) return ingress
+
+  if (!isMlVerificationEnabled()) {
+    return NextResponse.json({
+      service: 'ML Verification API',
+      mlVerificationEnabled: false,
+      message: 'Automated verification is disabled on this deployment.',
+      timestamp: Date.now(),
+    })
+  }
+
+  const proxy = getMlBackendProxyConfig()
+  if (proxy.enabled) {
+    try {
+      const upstream = await fetch(`${proxy.origin}/api/ml-verification/verify`, {
+        method: 'GET',
+        headers: { 'x-ml-proxy-secret': proxy.secret },
+        signal: AbortSignal.timeout(15_000),
+      })
+      const text = await upstream.text()
+      return new NextResponse(text, {
+        status: upstream.status,
+        headers: {
+          'Content-Type': upstream.headers.get('content-type') || 'application/json',
+        },
+      })
+    } catch (e) {
+      return NextResponse.json(
+        {
+          service: 'ML Verification (Vercel proxy)',
+          error: e instanceof Error ? e.message : 'Upstream unreachable',
+          backend: proxy.origin,
+          timestamp: Date.now(),
+        },
+        { status: 502 }
+      )
+    }
+  }
+
   return NextResponse.json({
     service: 'ML Verification API',
+    mlVerificationEnabled: true,
     gpuServiceUrl: GPU_SERVICE_URL,
     uploadDir: UPLOAD_DIR,
     timestamp: Date.now(),

@@ -1,12 +1,22 @@
+/** Public dapp origin for share/referral links (env in prod, current origin in dev when unset). */
+export function getDappOriginForLinks(): string {
+    if (typeof window !== 'undefined') {
+        const fromEnv = process.env.NEXT_PUBLIC_WEB_APP_URL || process.env.NEXT_PUBLIC_SITE_URL
+        if (fromEnv) return fromEnv.replace(/\/$/, '')
+        return window.location.origin.replace(/\/$/, '')
+    }
+    return (
+        process.env.NEXT_PUBLIC_WEB_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        'https://dapp.decleanup.net'
+    ).replace(/\/$/, '')
+}
+
 /**
- * Generate a referral link for the given address
- * @param address - User's wallet address
- * @param platform - Platform identifier (for tracking)
- * @returns Full referral URL
+ * Generate a referral link for the given address (onchain submitter / smart account).
  */
-export function generateReferralLink(address: string, platform: string = 'web'): string {
-    // Always use the production dapp URL for referral links
-    return `https://dapp.decleanup.net?ref=${address}`
+export function generateReferralLink(address: string, _platform: string = 'web'): string {
+    return `${getDappOriginForLinks()}?ref=${address}`
 }
 
 /**
@@ -34,19 +44,9 @@ export function shareOnX(text: string, link: string): void {
 }
 
 /**
- * Share on Farcaster
- * @param text - Text to share (will include link)
+ * Open Warpcast compose with pre-filled text (include your link in the string).
  */
 export function shareOnFarcaster(text: string): void {
-    const encodedText = encodeURIComponent(text)
-    window.open(`https://warpcast.com/~/compose?text=${encodedText}`, '_blank')
+    const encoded = encodeURIComponent(text)
+    window.open(`https://warpcast.com/~/compose?text=${encoded}`, '_blank', 'noopener,noreferrer')
 }
-
-/**
- * Legacy function for backward compatibility
- * @deprecated Use shareOnFarcaster instead
- */
-export async function shareCast(text: string, link: string): Promise<void> {
-    shareOnFarcaster(`${text}\n\n${link}`)
-}
-

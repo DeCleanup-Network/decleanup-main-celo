@@ -71,6 +71,7 @@ export type PublicPortfolioRewards = {
   referralsDCU: number
   streakDCU: number
   reportsDCU: number
+  recyclablesDCU: number
   hypercertsDCU: number
   verifierDCU: number
   totalEarned: number
@@ -144,6 +145,7 @@ function sumRewardStats(a: UserRewardStats, b: UserRewardStats): UserRewardStats
     streakRewardsAmount: a.streakRewardsAmount + b.streakRewardsAmount,
     referralRewardsAmount: a.referralRewardsAmount + b.referralRewardsAmount,
     impactReportRewardsAmount: a.impactReportRewardsAmount + b.impactReportRewardsAmount,
+    recyclablesRewardsAmount: a.recyclablesRewardsAmount + b.recyclablesRewardsAmount,
   }
 }
 
@@ -353,10 +355,17 @@ export async function fetchPublicPortfolioData(
   const referralsDCU = Number(formatEther(rewardStats.referralRewardsAmount))
   const streakDCU = Number(formatEther(rewardStats.streakRewardsAmount))
   const reportsDCU = Number(formatEther(rewardStats.impactReportRewardsAmount))
+  const recyclablesDCU = Number(formatEther(rewardStats.recyclablesRewardsAmount))
   const hypercertsDCU = 0
   const verifierDCU = verifierCount
   const totalDcuBreakdown =
-    cleanupsDCU + referralsDCU + streakDCU + reportsDCU + hypercertsDCU + verifierDCU
+    cleanupsDCU +
+    referralsDCU +
+    streakDCU +
+    reportsDCU +
+    recyclablesDCU +
+    hypercertsDCU +
+    verifierDCU
   const totalEarned = Number(formatEther(rewardStats.totalEarned))
   const rewardManagerBalance = Number(formatEther(rewardStats.currentBalance))
 
@@ -379,6 +388,7 @@ export async function fetchPublicPortfolioData(
       referralsDCU,
       streakDCU,
       reportsDCU,
+      recyclablesDCU,
       hypercertsDCU,
       verifierDCU,
       totalEarned,

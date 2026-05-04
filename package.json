@@ -4,7 +4,9 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "enable-impact-claim-rewards": "hardhat run contracts/scripts/enable-impact-claim-rewards.ts --network celoSepolia",
+    "check:claimvault-signer": "npm run check:claimvault-signer --prefix frontend"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

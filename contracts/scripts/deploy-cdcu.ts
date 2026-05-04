@@ -85,11 +85,30 @@ async function main() {
   const outPath = path.join(__dirname, "cdcu-deployed.json");
   fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
   console.log("\n📄 Addresses written to", outPath);
+
+  const deployedPath = path.join(__dirname, "deployed_addresses.json");
+  if (fs.existsSync(deployedPath)) {
+    try {
+      const merged = JSON.parse(fs.readFileSync(deployedPath, "utf8")) as Record<string, unknown>;
+      merged.CDCUToken = cdcuToken.address;
+      merged.ClaimVault = claimVault.address;
+      merged.cdcuDeployedAt = new Date().toISOString();
+      delete merged.DCUToken;
+      fs.writeFileSync(deployedPath, JSON.stringify(merged, null, 2) + "\n");
+      console.log("📄 Merged CDCUToken + ClaimVault into", deployedPath);
+    } catch {
+      console.log("   (Could not merge into deployed_addresses.json — merge manually)");
+    }
+  }
+
   console.log("\nNext steps:");
   console.log("   1. Set frontend env: NEXT_PUBLIC_CLAIMVAULT_ADDRESS=" + claimVault.address);
-  console.log("   2. Backend: CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY (key for " + authorizedSigner + "), optional CLAIM_VAULT_ISSUED_STORE_PATH");
-  console.log("   3. Eligibility (50 DCU points) and multiplier formula are backend-only; see docs/TOKEN_SPEC.md and frontend/src/lib/cdcu/claim-signing.ts");
-  console.log("   4. When LP is ready: ClaimVault.mintLiquidityTo(lpContract) (owner, one-time).");
+  console.log(
+    "   2. Optional UI balance: NEXT_PUBLIC_CDCU_TOKEN_ADDRESS=" + cdcuToken.address
+  );
+  console.log("   3. Backend: CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY (key for " + authorizedSigner + "), optional CLAIM_VAULT_ISSUED_STORE_PATH");
+  console.log("   4. Eligibility (50 DCU points) and multiplier formula are backend-only; see docs/TOKEN_SPEC.md and frontend/src/lib/cdcu/claim-signing.ts");
+  console.log("   5. When LP is ready: ClaimVault.mintLiquidityTo(lpContract) (owner, one-time).");
 }
 
 main()

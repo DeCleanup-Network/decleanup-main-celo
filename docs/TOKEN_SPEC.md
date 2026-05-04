@@ -1,18 +1,19 @@
-# $cDCU Tokenomics Specification v1.1
+# $cDCU Tokenomics Specification v1.6
 
-## Token Parameters
+## Token parameters
 
 | Parameter | Value |
 |---|---|
 | Name | DeCleanup Proof Token |
-| Symbol | $cDCU |
-| Network | Celo Mainnet (Chain ID: 42220) |
+| Symbol (marketing) | $cDCU |
+| Symbol (onchain / wallets) | `cDCU` |
+| Networks | **Celo** - Mainnet chain ID **42220**, Sepolia **11142220** (match `NEXT_PUBLIC_CHAIN_ID` + ClaimVault deploy) |
 | Standard | ERC-20 |
 | Decimals | 18 |
-| Max Supply | 10,000,000 (10M) |
-| Max Supply Enforcement | The token contract enforces a hardcoded `MAX_SUPPLY` (10M). ClaimVault cannot mint above it—any mint that would exceed the cap reverts in the token contract. |
-| Mintability | Controlled. Mint-on-claim only via ClaimVault. No direct mint to user wallets. |
-| Transferability | Transferable. Governance and staking use locked positions. |
+| Max supply | 10,000,000 (10M) |
+| Max supply enforcement | `CDCUToken.MAX_SUPPLY`; ClaimVault cannot exceed it (mints revert). |
+| Mintability | **Mint-on-claim only** via ClaimVault; no user-facing direct `mint`. |
+| Transferability | Transferable ERC-20 once minted. Governance participation uses **balance at snapshot** (see `frontend/src/config/cdcu.ts` for UI threshold). |
 
 ---
 
@@ -72,11 +73,11 @@ User Wallet
 - ClaimVault only mints against a valid, unexpired, single-use EIP-712 authorization
 - Authorizations are generated server-side by the authorized signer wallet
 - **Nonce:** One global nonce per user (any category). Each claim increments the user’s nonce; replays are rejected.
-- **Staking/verifier claims:** Backend-driven. Backend monitors staking state, decides “period complete,” then issues the signed claim. ClaimVault only validates signature and caps; no on-chain query to external contracts.
+- **Staking/verifier claims:** Backend-driven. Backend monitors staking state, decides “period complete,” then issues the signed claim. ClaimVault only validates signature and caps; no onchain query to external contracts.
 - No admin, team, or multisig address can mint directly to users
 - The $cDCU contract includes a hardcoded MAX_SUPPLY constant. Any mint call that would exceed this cap will revert.
-- **EIP-712 domain:** Include `chainId: 42220` and `verifyingContract: [ClaimVault address]` explicitly for cross-chain clarity.
-- **Claim expiry:** 30-day max expiry on-chain (from `block.timestamp`). Backend may use shorter windows (e.g. 7 days) as policy.
+- **EIP-712 domain:** OpenZeppelin EIP-712 uses **`block.chainid`** at runtime - must match the network where ClaimVault is deployed (e.g. **42220** mainnet, **11142220** Sepolia). Backend signing must use the **same** chain ID as the frontend RPC / `NEXT_PUBLIC_CHAIN_ID`.
+- **Claim expiry:** 30-day max expiry onchain (from `block.timestamp`). Backend may use shorter windows (e.g. 7 days) as policy.
 
 ---
 
@@ -95,28 +96,27 @@ The authorized signer wallet generates all EIP-712 claim authorizations. Because
 
 ## Earning Mechanics
 
-**DCU points = multiplier; $cDCU = claim amount.** DCU points (from cleanups, impact form, recyclables, referrals, streaks, NFT level, organizer credits, etc.) **multiply** into a claimable $cDCU amount. **$cDCU** is not sent automatically; the user **claims** it (e.g. via ClaimVault), and the **claim amount is computed from the user’s aggregate DCU points**, not from a fixed “X cleanups = Y tokens” rule. Impact form and recyclables both add +5 DCU points each (same as on-chain); other weights (e.g. 10 per cleanup/level, 3 referral/streak) align with DCURewardManager / product.
+**DCU points = multiplier; $cDCU = claim amount.** DCU points (from cleanups, impact form, recyclables, referrals, streaks, NFT level, organizer credits, etc.) **multiply** into a claimable $cDCU amount. **$cDCU** is not sent automatically; the user **claims** it (e.g. via ClaimVault), and the **claim amount is computed from the user’s aggregate DCU points**, not from a fixed “X cleanups = Y tokens” rule. Impact form and recyclables both add +5 DCU points each (same as onchain); other weights (e.g. 10 per cleanup/level, 3 referral/streak) align with DCURewardManager / product.
 
 **Claim amount = multiplier, not “5 cleanups”.** The backend computes **how much** $cDCU a user can claim from their **aggregate DCU points** (cleanups, impact form, recyclables, referrals, streaks, NFT level, organizer credits). So a user with e.g. **3 cleanups** but with impact forms, recyclables, or other points can already have enough to claim 250+ $cDCU. Governance’s **250** is a **balance** threshold (see below), not “5 cleanups.”
 
-**Path 1: Base Bridge (indirect)**
-- User completes verified cleanups (and optional impact/recyclables) on the Base mini app.
-- Backend **computes claimable $cDCU from DCU points** (cleanups, impact, recyclables, organizer credits, etc.).
-- Backend builds EIP-712 claim and signs; user receives the signed claim (e.g. via API).
-- User visits Celo dApp and **submits the authorization to ClaimVault manually** (no relayer at launch).
-- ClaimVault mints the **computed amount** of $cDCU to the user wallet.
-
-**Path 2: Celo Full Platform (direct)**
-- Same logic: backend derives **claim amount from DCU points** (verified cleanups, impact form, recyclables, referrals, streaks, Impact Product NFT level, organizer credits).
+**Celo platform (direct)**
+- Backend derives **claim amount from DCU points** (verified cleanups, impact form, recyclables, referrals, streaks, Impact Product NFT level, organizer credits).
 - Point weights and caps are set by the team at launch; governance can adjust later.
 
-**Organizer credits (both paths)**
+**Organizer credits**
 - Organizing a verified campaign earns **cleanup credits** equal to verified participant count (e.g. 10 participants = 10 credits).
 - Credits count in the multiplier like cleanups (e.g. 1:1); they increase aggregate points and thus **claimable $cDCU**.
 
-**Eligibility and multiplier (Celo dApp):**
-- **Eligibility:** User can claim $cDCU when they reach **50 DCU points** (on-chain total from DCURewardManager: cleanups, impact reports, referrals, streaks).
-- **Multiplier formula:** Claimable $cDCU = **(total DCU points − 50) × 0.1** (10% of points above the threshold). So 50 points → 0 $cDCU (unlocks eligibility), 60 → 1, 100 → 5, 150 → 10. Already-claimed amount is tracked server-side and subtracted so users don’t double-claim.
+**Eligibility and multiplier (Celo dApp, implemented):**
+
+Canonical implementation: **`frontend/src/lib/cdcu/claim-signing.ts`** reading **`DCURewardManager.getUserRewardStats`** (`totalEarned` in 1e18 “points”):
+
+- **Unlock:** need at least **50** DCU points to start claiming.
+- **Progressive multiplier:** **1.1×** at 50 points, **+0.1 per additional 50** points, **max 2.0×** (`getProgressiveMultiplierWei`).
+- **Cap from points:** `claimableCapFromPoints` ≈ `totalPoints × multiplier / 1e18` (see code comments for examples).
+- **Tranches:** each successful claim targets **one 50-DCU milestone slice** (`incrementalClaimWei`); the server tracks how many slices were already issued so users cannot double-claim.
+- **Category:** dashboard claims are signed for ClaimVault category **`CleanupCampaign` (1)** unless you change policy (see **`docs/B_CDCU_ONLY_ARCHITECTURE.md`**).
 
 ---
 
@@ -130,7 +130,7 @@ The authorized signer wallet generates all EIP-712 claim authorizations. Because
 
 250 $cDCU is the minimum balance required for governance participation, including **voting** and **creating** proposals, funding pool allocations, and verification rule changes.
 
-**Eligibility:** **Balance** at **snapshot** when the proposal is created (or as defined by the governance module). So “250” here means **250 $cDCU tokens held**, not “5 cleanups.” No staking/locking required for basic voting. Same 250+ balance threshold for proposal creation; no verifier-only or higher bar at launch—governance can evolve this later.
+**Eligibility:** **Balance** at **snapshot** when the proposal is created (or as defined by the governance module). So “250” here means **250 $cDCU tokens held**, not “5 cleanups.” No staking/locking required for basic voting. Same 250+ balance threshold for proposal creation; no verifier-only or higher bar at launch - governance can evolve this later.
 
 ---
 
@@ -138,7 +138,7 @@ The authorized signer wallet generates all EIP-712 claim authorizations. Because
 
 The backend that issues ClaimVault authorizations **uses logic from cleanups/NFTs** to compute **how much** $cDCU a user can claim:
 
-1. **Read on-chain or from your DB**
+1. **Read onchain or from your DB**
    - Verified cleanups (Submission events or indexer),
    - Impact form / recyclables per submission,
    - Impact Product NFT level,
@@ -150,30 +150,15 @@ The backend that issues ClaimVault authorizations **uses logic from cleanups/NFT
    - Referral: 3, streak: 3, etc.
 3. **Compute claimable $cDCU** from the user’s aggregate points (and any caps or vesting you enforce).
 4. **Issue EIP-712 claim:** `Claim(recipient, amount, category, nonce, expiry)` signed by the authorized signer; give signature + params to the user (or relayer).
-5. User (or relayer) calls **ClaimVault.claim(...)** on Celo; ClaimVault checks signature, expiry, nonce, category cap—**it does not read** Submission or NFT contracts.
+5. User calls **ClaimVault.claim(...)** on Celo; ClaimVault checks signature, expiry, nonce, category cap - **it does not read** Submission or NFT contracts (policy is entirely in your signing backend).
 
 So a user with e.g. 3 cleanups + impact + recyclables + referrals can already have a claim amount ≥ 250 $cDCU; the backend computes that amount from points, and governance’s “250” is only the **balance** required to vote, not a fixed “5 cleanups” rule.
 
 ---
 
-## $bDCU and $cDCU Relationship
-
-$bDCU (Base) and $cDCU (Celo) serve complementary roles within the DeCleanup ecosystem:
-
-| Token | Chain | Role | Acquisition |
-|---|---|---|---|
-| $bDCU | Base | Community support and engagement token | Tradeable on DEX. Fair launched via Clanker. |
-| $cDCU | Celo | Impact reputation and governance token | Primarily earned through verified impact activity. Not offered for sale by the protocol; transferable, so secondary market (e.g. DEX) may exist. |
-
-**Priority claim access:** $bDCU holders who complete verified cleanups on Base are **eligible** for the Base→Celo claim path (eligibility only—no different cap or rate at launch). Non-holders use Celo direct path only. *Optional later: consider a small rate bonus (e.g. 10–20% more $cDCU per claim) for $bDCU holders to reward early supporters.*
-
-**Flow:** Always “do action on Base → backend issues signed claim → user submits on Celo.” No auto-relayer at launch (manual claim); keeps complexity and gas abstraction minimal.
-
----
-
 ## Token Metadata
 
-**Symbol:** `cDCU` on-chain and in metadata; `$cDCU` in marketing copy and UI. Standard pattern.
+**Symbol:** `cDCU` onchain and in metadata; `$cDCU` in marketing copy and UI. Standard pattern.
 
 ```json
 {
@@ -199,23 +184,27 @@ $bDCU (Base) and $cDCU (Celo) serve complementary roles within the DeCleanup eco
 
 ---
 
-## Contract Addresses
+## Contract addresses (do not hardcode in docs)
 
-| Contract | Address | Status |
-|---|---|---|
-| $cDCU Token | TBD | Deploy Phase 2 |
-| ClaimVault | TBD | Deploy Phase 2 |
-| Authorized Signer | TBD | Server wallet |
+**Source of truth:** `contracts/scripts/deployed_addresses.json` in this repo (updated whenever you redeploy).
 
-Contract addresses will be populated in TOKEN_SPEC.md v2.0 upon Phase 2 deployment.
+Example **Celo Sepolia** snapshot (verify before relying on hexes):
+
+| Contract | Example address (Sepolia) |
+|---|---|
+| CDCUToken (`$cDCU`) | `0x915b58aa293aa5a8ca6bc6df4adc26f96f2a992f` |
+| ClaimVault | `0x7056d9e9b124bddda2f7f2398d50e1db388901b2` |
+| DCURewardManager | `0xbb2eb0f58f8435e44b167e88fb5bd5b2937a6555` |
+| Submission | `0x69ef8e25c5db30c0b231d3e476f80bf06de056b2` |
+| ImpactProductNFT | `0x60d389864c6d23b38d8302106d6db3654fc5646e` |
 
 ### Implementation (this repo)
 
-- **$cDCU:** `contracts/contracts/tokens/CDCUToken.sol` — ERC-20, `MAX_SUPPLY` 10M, only ClaimVault can mint. Call `setClaimVault(vault)` once after ClaimVault is deployed.
-- **ClaimVault:** `contracts/contracts/ClaimVault.sol` — EIP-712 claim verification, category caps, global nonce per user, **30-day max expiry on-chain** (`MAX_CLAIM_EXPIRY_WINDOW`). Constructor: `(tokenAddress, authorizedSigner)`. **Owner:** multisig at launch (2-of-3 minimum). One-time `mintLiquidityTo(lpContract)` by owner; `updateAuthorizedSigner(newSigner)` for signer rotation (owner). EIP-712 domain (OpenZeppelin) includes chainId and verifyingContract when deployed.
-- **Deployment order:** 1) Deploy CDCUToken. 2) Deploy ClaimVault(CDCUToken, authorizedSigner). 3) CDCUToken.setClaimVault(ClaimVault). 4) (Optional) Transfer ClaimVault ownership to multisig. 5) (When ready) ClaimVault.mintLiquidityTo(lpContract).
+- **$cDCU:** `contracts/contracts/tokens/CDCUToken.sol` - ERC-20, `MAX_SUPPLY` 10M, only ClaimVault can mint. Call `setClaimVault(vault)` once after ClaimVault is deployed.
+- **ClaimVault:** `contracts/contracts/ClaimVault.sol` - EIP-712 claim verification, category caps, nonce replay protection, **30-day max expiry** (`MAX_CLAIM_EXPIRY_WINDOW`). Owner can rotate signer / run one-time liquidity mint per contract rules.
+- **Deployment order:** 1) Deploy CDCUToken. 2) Deploy ClaimVault(CDCUToken, authorizedSigner). 3) `CDCUToken.setClaimVault(ClaimVault)`. 4) Optional ownership transfer. 5) Optional `mintLiquidityTo`.
 
-**Deploy script:** `AUTHORIZED_SIGNER_ADDRESS=0x... npx hardhat run scripts/deploy-cdcu.ts --network celo` (or `celoSepolia`). Optional: `CLAIMVAULT_OWNER_MULTISIG=0x...` to transfer ClaimVault ownership. Output: `contracts/scripts/cdcu-deployed.json`.
+**Deploy scripts:** see **`docs/B_CDCU_ONLY_ARCHITECTURE.md`**. Scripts merge **`CDCUToken`** and **`ClaimVault`** (and core stack) into **`contracts/scripts/deployed_addresses.json`** for the frontend.
 
 ### Pre-deploy checklist
 
@@ -227,9 +216,9 @@ Before deploying CDCUToken + ClaimVault, confirm:
 | **Nonce replay protection** | ClaimVault uses `usedNonces[nonce]`; each signed claim can be used only once (revert if already used). |
 | **Category caps** | ClaimVault enforces `categoryMinted[idx] + amount <= categoryCaps[idx]` per category; no category can mint beyond its allocation. |
 | **EIP-712 domain / chainId** | OpenZeppelin EIP712 uses `block.chainid` at runtime, so the domain has the correct chainId for the network you deploy to. For **Celo mainnet** use `--network celo` (chainId 42220). Backend signing must use the **same** chainId: set `NEXT_PUBLIC_CHAIN_ID=42220` (and mainnet RPC) when running on Celo mainnet. |
-| **Deploy script output** | Script writes `CDCUToken`, `ClaimVault`, `authorizedSigner`, `chainId`, `network` to `contracts/scripts/cdcu-deployed.json`. Set frontend env `NEXT_PUBLIC_CLAIMVAULT_ADDRESS` to the ClaimVault address from that file. |
+| **Deploy script output** | `deploy-cdcu.ts` merges into **`contracts/scripts/deployed_addresses.json`**. Set `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`, `NEXT_PUBLIC_DCU_TOKEN_CONTRACT` (cDCU), and related vars per **`frontend/ENV_TEMPLATE.md`**. |
 
-Once these are confirmed, the architecture is consistent and there is no blocker for deploying CDCUToken + ClaimVault. The same points → backend eligibility → signed claim → ClaimVault mint flow will work for the Base → Celo claim bridge later.
+Once these are confirmed, the architecture is consistent for **Celo**. Keep signing logic and chain ID aligned with the deployed ClaimVault.
 
 ---
 
@@ -237,34 +226,31 @@ Once these are confirmed, the architecture is consistent and there is no blocker
 
 | Topic | Decision |
 |--------|----------|
-| Base earning | Claim amount computed from DCU points (cleanups, impact, recyclables, etc.); not fixed “5 cleanups = 250”. |
-| Celo earning | Same: backend computes claim from multiplier/points; governance can adjust point weights later. |
+| Earning / claims | Claim amount computed from DCU points (cleanups, impact, recyclables, etc.); not fixed “5 cleanups = 250”. |
+| Celo mint path | Backend computes claim from multiplier/points; governance can adjust point weights later. |
 | Organizer credits | Count in multiplier like cleanups (1:1); increase aggregate points and thus claimable $cDCU. |
 | Governance 250 | Minimum **$cDCU balance** at snapshot to vote/create proposals; not “5 cleanups.” |
 | Verification Treasury | Governance passes → multisig submits claim to ClaimVault (category VerificationTreasury). |
 | Community Incentives | Backend authorizes claim (category Community) to grantee/campaign lead; internal approval at launch. |
-| $bDCU priority | Eligibility only (access to Base→Celo path). Optional later: 10–20% rate bonus. |
-| Base→Celo flow | Manual claim; no relayer at launch. |
 | Governance eligibility | Balance at snapshot; same 250+ for voting and proposal creation; no locking. |
 | Nonce | One global nonce per user (any category). |
-| Staking/verifier | Backend-driven; no on-chain query from ClaimVault. |
-| Symbol | `cDCU` on-chain/metadata; `$cDCU` in marketing. |
+| Staking/verifier | Backend-driven; no onchain query from ClaimVault. |
+| Symbol | `cDCU` onchain/metadata; `$cDCU` in marketing. |
 | Telegram | `t.me/DecentralizedCleanup`. |
 | Litepaper / tokenomics | `decleanup.net/litepaper`, `decleanup.net/tokenomics`; tokenomics URL live before deploy. |
 | Tags | Add: refi, dmrv, public-goods. |
 | ClaimVault owner | Multisig at launch (2-of-3 min). |
 | Liquidity pre-mint | Single call by owner to LP address; not in constructor. |
-| EIP-712 | Include chainId 42220 and verifyingContract. |
-| Claim expiry | 30-day max on-chain; backend may use 7 days as policy. |
+| EIP-712 | Domain uses deployed chainId (`42220` or `11142220`, etc.) + ClaimVault `verifyingContract`. |
+| Claim expiry | 30-day max onchain; backend may use 7 days as policy. |
 
 ---
 
-## Still undefined (blockers before deploy)
+## Open items (ops / product, not spec blockers)
 
-1. **Point weights and claim formula** — Backend must implement multiplier (cleanup/level, impact, recyclables, referral, streak, organizer) and document in product/backend; governance 250 = balance only.
-2. **$bDCU holder rate bonus** — Optional (10–20%); decide yes/no and document if yes.
-3. **logoURI** — Final hosted asset from design team (replace placeholder if needed).
-4. **Multisig addresses** — ClaimVault owner (2-of-3) and, if different, Verification Treasury executor.
+1. **Mainnet deploy** - Repeat deploy + env wiring for chain **42220**; re-verify all addresses and signer keys.
+2. **logoURI** - Confirm hosted branding asset in wallet metadata.
+3. **Multisig / treasury** - Production ClaimVault owner and treasury executors should be multisig where possible.
 
 ---
 
@@ -273,8 +259,10 @@ Once these are confirmed, the architecture is consistent and there is no blocker
 | Version | Date | Notes |
 |---|---|---|
 | 1.0 | 2026-03 | Initial Phase 1 documentation. No contract deployed. |
-| 1.1 | 2026-03 | Added max supply enforcement, clarified mint-on-claim model, added signer security architecture, increased liquidity to 3%, updated "earned not purchased" language, defined $bDCU relationship. |
+| 1.1 | 2026-03 | Added max supply enforcement, clarified mint-on-claim model, added signer security architecture, increased liquidity to 3%, updated "earned not purchased" language. |
 | 1.1a | 2026-03 | Clarified: token enforces MAX_SUPPLY (ClaimVault cannot mint above cap); allocation = caps, mint only on claim; signer rotation/multisig for centralization; liquidity % may be adjusted; "primarily earned through impact" and transferability note. Added "Questions for contract & metadata readiness" and "What I don't understand (need your input)". |
-| 1.2 | 2026-03 | Incorporated Q&A: recurring 5:250 rate (Base + Celo); organizer credits 1:1; Verification Treasury + Community claim flows; $bDCU eligibility + optional bonus; governance snapshot + 250+ for proposals; global nonce; backend-driven staking; metadata (symbol, Telegram, tags); multisig owner; EIP-712 domain + 30-day expiry. Replaced Q&A sections with "Decisions" table and "Still undefined" blockers. |
+| 1.2 | 2026-03 | Incorporated Q&A: recurring 5:250 rate; organizer credits 1:1; Verification Treasury + Community claim flows; governance snapshot + 250+ for proposals; global nonce; backend-driven staking; metadata (symbol, Telegram, tags); multisig owner; EIP-712 domain + 30-day expiry. Replaced Q&A sections with "Decisions" table and "Still undefined" blockers. |
 | 1.3 | 2026-03 | Clarified: claim amount derived from DCU points / multiplier (not fixed "5 cleanups = 250"); governance 250 = minimum **balance** at snapshot, not cleanups. Added "Backend claim logic (ClaimVault flow)" and updated Decisions table. |
 | 1.4 | 2026-03 | Governance threshold updated from 500 to 250 $cDCU (minimum balance for voting and proposal creation). |
+| 1.5 | 2026-04 | Aligned with app: Sepolia chain ID, `deployed_addresses.json`, progressive multiplier + tranche claims (`claim-signing.ts`), removed stale “TBD” deploy table, clarified EIP-712 chainId. |
+| 1.6 | 2026-04 | Removed Base bridge / companion-token product copy; spec describes Celo `$cDCU` + ClaimVault only. |

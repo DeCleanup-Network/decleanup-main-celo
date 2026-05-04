@@ -55,22 +55,24 @@ export async function POST(request: Request) {
       )
     }
 
-    const { totalPointsWei, eligible, claimableCapWei } = await getEligibilityAndClaimable(recipient as Address)
+    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(recipient as Address)
     if (!eligible) {
       return NextResponse.json(
-        { error: 'Eligibility requires 50 DCU points. Keep earning to unlock $cDCU claims.' },
+        {
+          error:
+            'Need 50 more DCU points for the next claim (each claim unlocks after another 50 DCU milestone).',
+        },
         { status: 400 }
       )
     }
 
     const store = loadIssuedStore()
-    const totalIssued = BigInt(store[recipient.toLowerCase()] ?? '0')
     const pending = getPendingAmount(store, recipient)
-    const claimable = claimableCapWei > totalIssued + pending ? claimableCapWei - totalIssued - pending : 0n
+    const claimable = claimableNextTrancheWei > pending ? claimableNextTrancheWei - pending : 0n
 
     if (claimable === 0n) {
       return NextResponse.json(
-        { error: 'No claimable $cDCU left for this address (already claimed for your current points).' },
+        { error: 'No claimable $cDCU for this tranche (pending signature or wait for more DCU).' },
         { status: 400 }
       )
     }

@@ -6,30 +6,42 @@
 'use client'
 
 import { HypercertClient, TransferRestrictions } from '@hypercerts-org/sdk'
-import { getWalletClient, getAccount } from '@wagmi/core'
-import { config, REQUIRED_CHAIN_ID } from '@/lib/blockchain/wagmi'
+import { getWalletClient, getAccount, getPublicClient } from '@wagmi/core'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/wagmi'
+import { getConfig } from './get-wagmi-config'
+import { HYPERCERTS_CONFIG } from './hypercerts/config'
 
 let hypercertClient: HypercertClient | null = null
+let hypercertClientAccount: string | null = null
+let hypercertClientChainId: number | null = null
 
 /**
  * Get or create Hypercert client instance
  * Uses wagmi walletClient
  */
 export async function getHypercertClient(): Promise<HypercertClient> {
-  // Check if account is connected first
-  const account = getAccount(config)
-  if (!account.isConnected || !account.address) {
+  const activeConfig = getConfig()
+
+  // Some connector flows can transiently report `isConnected=false` even when
+  // a walletClient is already available; resolve address from either source.
+  const account = getAccount(activeConfig)
+  const walletClient = await getWalletClient(activeConfig)
+  const resolvedAddress = walletClient?.account?.address ?? account.address
+
+  const chainId = walletClient?.chain?.id ?? account.chainId ?? REQUIRED_CHAIN_ID
+
+  // Return existing client only when still bound to the same account+chain.
+  if (!resolvedAddress) {
     throw new Error('Wallet not connected. Please connect your wallet first.')
   }
-
-  // Return existing client if available (but reset if account changed)
-  if (hypercertClient) {
-    // Verify the client is still valid for current account
+  const normalizedAddress = resolvedAddress.toLowerCase()
+  if (
+    hypercertClient &&
+    hypercertClientAccount === normalizedAddress &&
+    hypercertClientChainId === chainId
+  ) {
     return hypercertClient
   }
-
-  // Get wallet client from wagmi
-  const walletClient = await getWalletClient(config)
 
   if (!walletClient) {
     throw new Error('Wallet client not available. Please connect your wallet and ensure it is unlocked.')
@@ -41,15 +53,28 @@ export async function getHypercertClient(): Promise<HypercertClient> {
   }
 
   // Initialize Hypercert client
-  // The SDK will use the default Celo deployment addresses
-  // Chain ID 42220 for Celo mainnet, 44787 for Alfajores testnet
-  // Use 'production' for mainnet, 'test' for testnet
-  const environment = REQUIRED_CHAIN_ID === 42220 ? 'production' : 'test'
+  // The SDK default test deployments do not include Celo Sepolia (11142220),
+  // so we provide an explicit deployment map for this app's chain.
+  const environment = chainId === 42220 ? 'production' : 'test'
+  const publicClient = getPublicClient(activeConfig, { chainId }) ?? undefined
 
   hypercertClient = new HypercertClient({
     walletClient: walletClient as any, // SDK accepts viem walletClient
+    publicClient: publicClient as any,
     environment,
-  })
+    readOnly: false,
+    deployments: {
+      decleanup: {
+        chainId: chainId as any,
+        isTestnet: environment === 'test',
+        addresses: {
+          HypercertMinterUUPS: HYPERCERTS_CONFIG.contract.address,
+        },
+      },
+    } as any,
+  } as any)
+  hypercertClientAccount = normalizedAddress
+  hypercertClientChainId = chainId
 
   return hypercertClient
 }
@@ -59,6 +84,8 @@ export async function getHypercertClient(): Promise<HypercertClient> {
  */
 export function resetHypercertClient() {
   hypercertClient = null
+  hypercertClientAccount = null
+  hypercertClientChainId = null
 }
 
 export { TransferRestrictions }

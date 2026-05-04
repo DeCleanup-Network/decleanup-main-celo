@@ -5,7 +5,8 @@
 
 import { Address } from 'viem'
 import { writeContract, readContract } from '@wagmi/core'
-import { config } from '@/lib/blockchain/wagmi'
+import { getConfig } from '@/lib/blockchain/get-wagmi-config'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { keccak256, toBytes, toHex } from 'viem'
 
 const SUBMISSION_ADDRESS = process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT as Address | undefined
@@ -70,7 +71,8 @@ export async function storeVerificationHashOnChain(
   }
   
   try {
-    const hash_tx = await writeContract(config, {
+    const hash_tx = await writeContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'storeVerificationHash',
@@ -95,7 +97,8 @@ export async function getVerificationHashFromChain(
   }
   
   try {
-    const hash = await readContract(config, {
+    const hash = await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
       functionName: 'getVerificationHash',

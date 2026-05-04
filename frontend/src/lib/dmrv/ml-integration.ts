@@ -79,6 +79,5 @@ export async function runMLVerification(
  * Check if ML verification should be used
  */
 export function isMLVerificationEnabled(): boolean {
-  return process.env.ML_VERIFICATION_ENABLED === 'true' && 
-         !!process.env.GPU_INFERENCE_SERVICE_URL
+  return process.env.ML_VERIFICATION_ENABLED === 'true'
 }

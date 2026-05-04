@@ -1,17 +1,46 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import localFont from "next/font/local";
 import { Bebas_Neue } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/lib/providers";
-import { NetworkChecker } from "@/components/network/NetworkChecker";
-import { Header } from "@/components/layout/Header";
-import { RootErrorBoundary } from "@/components/RootErrorBoundary";
+
+const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"), {
+  ssr: true,
+  loading: () => (
+    <div className="flex min-h-screen flex-col bg-black">
+      <div className="h-14 border-b border-brand-green/20 bg-gray-900/40" aria-hidden />
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-800" aria-label="Loading" />
+      </div>
+    </div>
+  ),
+});
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas-neue",
   weight: "400",
   subsets: ["latin"],
+});
+
+// Same file as geist/font/mono; preload off so Chrome does not warn when monospace is not in first paint.
+const geistMono = localFont({
+  src: "../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  adjustFontFallback: false,
+  fallback: [
+    "ui-monospace",
+    "SFMono-Regular",
+    "Roboto Mono",
+    "Menlo",
+    "Monaco",
+    "Liberation Mono",
+    "DejaVu Sans Mono",
+    "Courier New",
+    "monospace",
+  ],
+  preload: false,
 });
 
 const OG_IMAGE_URL =
@@ -108,15 +137,9 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
+        className={`${GeistSans.variable} ${geistMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
       >
-        <RootErrorBoundary>
-          <Providers>
-            <NetworkChecker />
-            <Header />
-            <main className="flex-1 pb-mobile-safe">{children}</main>
-          </Providers>
-        </RootErrorBoundary>
+        <RootClientBody>{children}</RootClientBody>
       </body>
     </html>
   );

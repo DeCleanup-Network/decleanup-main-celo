@@ -3,7 +3,7 @@
 import type { Web3AuthContextConfig } from '@web3auth/modal/react'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
 import { MFA_LEVELS } from '@web3auth/auth'
-import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
+import { getCeloSepoliaRpcTargetForWeb3Auth } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
 const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID?.trim()
 
@@ -19,15 +19,19 @@ if (!clientId && typeof window !== 'undefined') {
 // "Network mismatch ... sapphire_mainnet ... sapphire_devnet". Fix: remove the env var (use devnet) or move the project to Mainnet in the dashboard.
 // If the console shows 403 on .../signer-service/api/feature-access?...&is_wallet_service=true — the Client ID may lack
 // Wallet Services / embedded-wallet entitlements on that Sapphire tier; check dashboard billing & product flags, or use Devnet until enabled.
-const web3AuthNetwork =
+const requestedNetwork =
   process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === 'mainnet'
     ? WEB3AUTH_NETWORK.SAPPHIRE_MAINNET
     : WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
 
-// Celo Sepolia: match wagmi (same-origin /api/rpc/celo-sepolia in browser avoids public-RPC CORS failures).
-// SDK requires chainId as hex string (e.g. '0xAA044C'), not number.
-const celoSepoliaRpc = getCeloSepoliaHttpRpcUrl()
-const CELO_SEPOLIA_CHAIN_ID_HEX = '0xAA044C' as const // 11142220 in hex
+const web3AuthNetwork = requestedNetwork
+
+// Celo Sepolia: Web3Auth runs RPC from wallet.web3auth.io — must not use localhost /api/rpc (loopback blocked).
+// Parent page wagmi still uses getCeloSepoliaHttpRpcUrl() elsewhere for same-origin proxy when helpful.
+// SDK requires chainId as hex string, and Web3Auth compares this value literally.
+// Use lowercase because wallet chainChanged events commonly emit lowercase (e.g. 0xaa044c).
+const celoSepoliaRpc = getCeloSepoliaRpcTargetForWeb3Auth()
+const CELO_SEPOLIA_CHAIN_ID_HEX = '0xaa044c' as const // 11142220 in hex
 
 const celoSepoliaChainConfig = {
   chainNamespace: CHAIN_NAMESPACES.EIP155,

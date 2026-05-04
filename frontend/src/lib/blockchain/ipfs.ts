@@ -13,7 +13,10 @@ export interface IPFSUploadResult {
  * @param file File to upload
  * @returns IPFS hash (CID) and URL
  */
-export async function uploadToIPFS(file: File): Promise<IPFSUploadResult> {
+export async function uploadToIPFS(
+  file: File,
+  options?: { pinataKeyvalueType?: string }
+): Promise<IPFSUploadResult> {
   try {
     // Use API route to avoid CORS issues
     const formData = new FormData()
@@ -23,18 +26,17 @@ export async function uploadToIPFS(file: File): Promise<IPFSUploadResult> {
     const metadata = JSON.stringify({
       name: file.name,
       keyvalues: {
-        type: 'cleanup-photo',
+        type: options?.pinataKeyvalueType ?? 'cleanup-photo',
         timestamp: new Date().toISOString(),
       },
     })
     formData.append('metadata', metadata)
 
-    // Add options
-    const options = JSON.stringify({
+    const pinataBodyOptions = JSON.stringify({
       cidVersion: 1,
       wrapWithDirectory: false,
     })
-    formData.append('options', options)
+    formData.append('options', pinataBodyOptions)
 
     // Upload via our API route (avoids CORS)
     const response = await fetch('/api/ipfs/upload', {
@@ -95,8 +97,8 @@ export async function uploadJSONToIPFS(data: any, name: string = 'data'): Promis
     const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const jsonFile = new File([jsonBlob], `${name}.json`, { type: 'application/json' })
 
-    // Use the same upload function (which uses API route)
-    return await uploadToIPFS(jsonFile)
+    // Same API route as photos; server accepts application/json + .json filename
+    return await uploadToIPFS(jsonFile, { pinataKeyvalueType: 'impact-report-json' })
   } catch (error) {
     console.error('IPFS JSON upload error:', error)
     if (error instanceof Error) {
@@ -113,10 +115,10 @@ export async function uploadJSONToIPFS(data: any, name: string = 'data'): Promis
  */
 export function getIPFSUrl(hash: string): string {
   if (!hash) return ''
-  
+
   // Clean hash (remove any query params or fragments)
   const cleanHash = hash.split('?')[0].split('#')[0]
-  
+
   // Use configured gateway or default to ipfs.io (better CORS support)
   const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://ipfs.io/ipfs/'
   return `${gateway}${cleanHash}`
@@ -129,9 +131,9 @@ export function getIPFSUrl(hash: string): string {
  */
 export function getIPFSFallbackUrls(hash: string): string[] {
   if (!hash) return []
-  
+
   const cleanHash = hash.split('?')[0].split('#')[0]
-  
+
   // List of IPFS gateways that support CORS
   const gateways = [
     'https://ipfs.io/ipfs/',

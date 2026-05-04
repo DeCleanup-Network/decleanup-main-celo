@@ -46,6 +46,10 @@ const nextConfig = {
     // Disable persistent cache in dev to avoid 500s from stale vendor-chunks (ERR_ABORTED on layout.css, app/page.js, etc.)
     if (dev) {
       config.cache = false;
+      // Default webpack devtool wraps each module in eval(). SES lockdown (some wallet/MetaMask-related
+      // extensions) rejects that and the browser reports: Uncaught SyntaxError: Invalid or unexpected token
+      // at layout.js (eval line). Use a non-eval devtool so local dev works with those extensions.
+      config.devtool = "cheap-module-source-map";
     }
     return config;
   },

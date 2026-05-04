@@ -1,7 +1,12 @@
-import { Address } from 'viem'
+import { Address, formatEther } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { readContract, writeContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
-import { withContractCache, CONTRACT_READ_TTL_MS } from '@/lib/contractCache'
+import {
+  withContractCache,
+  CONTRACT_READ_TTL_MS,
+  invalidateImpactProductClaimCaches,
+  invalidateSubmissionDetailsCache,
+} from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
 import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID } from './chain-constants'
 import { getSmartAccountAddressFromClient } from './smart-account'
@@ -10,6 +15,19 @@ import { getLogs as viemGetLogs } from 'viem/actions'
 
 /** Smart account client (e.g. from permissionless) for gasless submit. Has sendTransaction({ to, data?, value? }). */
 export type GaslessClient = { sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`> }
+
+/**
+ * Optional on-chain hook: `Submission.claimSubmissionBonusRewards` after Impact Product mint/upgrade.
+ * Default: enabled. Set `NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM=0` to skip `claimSubmissionBonusRewards` after mint/upgrade.
+ */
+function isSubmissionBonusClaimEnabled(): boolean {
+  const v = process.env.NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM?.trim()
+  if (v === '0' || v?.toLowerCase() === 'false' || v?.toLowerCase() === 'off' || v?.toLowerCase() === 'no') {
+    return false
+  }
+  // Default on: impact report + recyclables buckets on RewardManager need claimSubmissionBonusRewards after mint/upgrade.
+  return true
+}
 
 /** True when the error is from calling a contract on wrong chain or at an address with no contract (viem "returned no data"). */
 function isNoDataOrWrongChainError(error: unknown): boolean {
@@ -276,7 +294,13 @@ export async function submitCleanup(
   const referrer = (_referrer && _referrer !== '0x0000000000000000000000000000000000000000') 
     ? (_referrer as Address)
     : '0x0000000000000000000000000000000000000000' as Address
-  const impactFormDataHash = _hasImpactForm && _impactReportHash ? _impactReportHash : ''
+  const trimmedImpact = (_impactReportHash || '').trim()
+  if (_hasImpactForm && !trimmedImpact) {
+    throw new Error(
+      'Impact report was marked complete but no IPFS hash was provided. Do not submit without a successful impact report upload, or the chain will not record impact report DCU.'
+    )
+  }
+  const impactFormDataHash = _hasImpactForm && trimmedImpact ? trimmedImpact : ''
 
   try {
     const submissionCountBefore = await readContract(getConfig(), {
@@ -487,6 +511,11 @@ export async function getCleanupDetails(cleanupId: bigint): Promise<CleanupDetai
   )
 }
 
+/** Bypass read cache — verifier UI and other snapshots that must reflect recent mints / claims. */
+export async function getCleanupDetailsFresh(cleanupId: bigint): Promise<CleanupDetails> {
+  return getCleanupDetailsImpl(cleanupId)
+}
+
 export async function getCleanupCounter(): Promise<bigint> {
   if (!SUBMISSION_ADDRESS) {
     return 0n
@@ -532,6 +561,10 @@ export async function getUserSubmissions(user: Address): Promise<bigint[]> {
     CONTRACT_READ_TTL_MS,
     () => getUserSubmissionsImpl(user)
   )
+}
+
+export async function getUserSubmissionsFresh(user: Address): Promise<bigint[]> {
+  return getUserSubmissionsImpl(user)
 }
 
 /**
@@ -829,6 +862,12 @@ export async function verifyCleanup(
     throw new Error('Wallet not connected')
   }
 
+  // Hard guard: a verifier must never verify their own submission.
+  const details = await getCleanupDetails(cleanupId)
+  if (details.user && details.user.toLowerCase() === account.address.toLowerCase()) {
+    throw new Error('You cannot verify your own submission.')
+  }
+
   let hash: `0x${string}` | undefined
   try {
     console.log('Verifying cleanup:', {
@@ -893,6 +932,7 @@ export async function verifyCleanup(
       throw new Error('Transaction reverted onchain')
     }
 
+    invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
     return hash
   } catch (error: any) {
     console.error('Error verifying cleanup:', error)
@@ -1000,6 +1040,7 @@ export async function rejectCleanup(
       throw new Error('Transaction reverted onchain')
     }
 
+    invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
     return hash
   } catch (error: any) {
     console.error('Error rejecting cleanup:', error)
@@ -1044,44 +1085,25 @@ async function getDCUBalanceImpl(userAddress: Address): Promise<bigint> {
   }
 
   try {
-    const REWARD_MANAGER_DCU_ABI = [
+    const REWARD_MANAGER_BALANCE_ABI = [
       {
         type: 'function',
-        name: 'dcuToken',
+        name: 'getBalance',
         stateMutability: 'view',
-        inputs: [],
-        outputs: [{ name: '', type: 'address' }],
-      },
-    ] as const
-
-    const dcuTokenAddress = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: REWARD_MANAGER_ADDRESS,
-      abi: REWARD_MANAGER_DCU_ABI,
-      functionName: 'dcuToken',
-    }) as Address
-
-    const DCU_TOKEN_ABI = [
-      {
-        type: 'function',
-        name: 'balanceOf',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
+        inputs: [{ name: 'user', type: 'address' }],
         outputs: [{ name: '', type: 'uint256' }],
       },
     ] as const
 
-    const balance = await readContract(getConfig(), {
+    return (await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
-      address: dcuTokenAddress,
-      abi: DCU_TOKEN_ABI,
-      functionName: 'balanceOf',
+      address: REWARD_MANAGER_ADDRESS,
+      abi: REWARD_MANAGER_BALANCE_ABI,
+      functionName: 'getBalance',
       args: [userAddress],
-    }) as bigint
-
-    return balance
+    })) as bigint
   } catch (error) {
-    if (!isNoDataOrWrongChainError(error)) console.error('Error getting DCU balance:', error)
+    if (!isNoDataOrWrongChainError(error)) console.error('Error getting participation balance:', error)
     return 0n
   }
 }
@@ -1094,6 +1116,10 @@ export async function getDCUBalance(userAddress: Address): Promise<bigint> {
   )
 }
 
+export async function getDCUBalanceFresh(userAddress: Address): Promise<bigint> {
+  return getDCUBalanceImpl(userAddress)
+}
+
 export interface UserRewardStats {
   currentBalance: bigint
   totalEarned: bigint
@@ -1102,48 +1128,109 @@ export interface UserRewardStats {
   streakRewardsAmount: bigint
   referralRewardsAmount: bigint
   impactReportRewardsAmount: bigint
+  /** Separate onchain bucket from impact reports (5 DCU per verified recyclables submission) */
+  recyclablesRewardsAmount: bigint
+}
+
+const REWARD_MANAGER_STATS_ABI_8 = [
+  {
+    type: 'function',
+    name: 'getUserRewardStats',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [
+      { name: 'currentBalance', type: 'uint256' },
+      { name: 'totalEarned', type: 'uint256' },
+      { name: 'totalClaimed', type: 'uint256' },
+      { name: 'claimRewardsAmount', type: 'uint256' },
+      { name: 'streakRewardsAmount', type: 'uint256' },
+      { name: 'referralRewardsAmount', type: 'uint256' },
+      { name: 'impactReportRewardsAmount', type: 'uint256' },
+      { name: 'recyclablesRewardsAmount', type: 'uint256' },
+    ],
+  },
+] as const
+
+const REWARD_MANAGER_STATS_ABI_7 = [
+  {
+    type: 'function',
+    name: 'getUserRewardStats',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [
+      { name: 'currentBalance', type: 'uint256' },
+      { name: 'totalEarned', type: 'uint256' },
+      { name: 'totalClaimed', type: 'uint256' },
+      { name: 'claimRewardsAmount', type: 'uint256' },
+      { name: 'streakRewardsAmount', type: 'uint256' },
+      { name: 'referralRewardsAmount', type: 'uint256' },
+      { name: 'impactReportRewardsAmount', type: 'uint256' },
+    ],
+  },
+] as const
+
+/** Public mapping on DCURewardManager — source of truth for recyclables bucket (7-tuple stats ABI omits this field). */
+const REWARD_MANAGER_RECYCLABLES_LEDGER_ABI = [
+  {
+    type: 'function',
+    name: 'recyclablesRewardsAmount',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const
+
+async function readRecyclablesRewardsLedger(userAddress: Address): Promise<bigint> {
+  if (!REWARD_MANAGER_ADDRESS) return 0n
+  try {
+    return (await readContract(getConfig(), {
+      chainId: REQUIRED_CHAIN_ID,
+      address: REWARD_MANAGER_ADDRESS,
+      abi: REWARD_MANAGER_RECYCLABLES_LEDGER_ABI,
+      functionName: 'recyclablesRewardsAmount',
+      args: [userAddress],
+    })) as bigint
+  } catch (error) {
+    if (!isNoDataOrWrongChainError(error)) {
+      console.warn('Error reading recyclablesRewardsAmount ledger:', error)
+    }
+    return 0n
+  }
+}
+
+function emptyUserRewardStats(): UserRewardStats {
+  return {
+    currentBalance: 0n,
+    totalEarned: 0n,
+    totalClaimed: 0n,
+    claimRewardsAmount: 0n,
+    streakRewardsAmount: 0n,
+    referralRewardsAmount: 0n,
+    impactReportRewardsAmount: 0n,
+    recyclablesRewardsAmount: 0n,
+  }
 }
 
 export async function getUserRewardStats(userAddress: Address): Promise<UserRewardStats> {
   if (!REWARD_MANAGER_ADDRESS) {
-    return {
-      currentBalance: 0n,
-      totalEarned: 0n,
-      totalClaimed: 0n,
-      claimRewardsAmount: 0n,
-      streakRewardsAmount: 0n,
-      referralRewardsAmount: 0n,
-      impactReportRewardsAmount: 0n,
-    }
+    return emptyUserRewardStats()
   }
 
-  try {
-    const REWARD_MANAGER_STATS_ABI = [
-      {
-        type: 'function',
-        name: 'getUserRewardStats',
-        stateMutability: 'view',
-        inputs: [{ name: 'user', type: 'address' }],
-        outputs: [
-          { name: 'currentBalance', type: 'uint256' },
-          { name: 'totalEarned', type: 'uint256' },
-          { name: 'totalClaimed', type: 'uint256' },
-          { name: 'claimRewardsAmount', type: 'uint256' },
-          { name: 'streakRewardsAmount', type: 'uint256' },
-          { name: 'referralRewardsAmount', type: 'uint256' },
-          { name: 'impactReportRewardsAmount', type: 'uint256' },
-        ],
-      },
-    ] as const
+  const recyclablesLedgerP = readRecyclablesRewardsLedger(userAddress)
 
-    const result = await readContract(getConfig(), {
+  try {
+    const result = (await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
       address: REWARD_MANAGER_ADDRESS,
-      abi: REWARD_MANAGER_STATS_ABI,
+      abi: REWARD_MANAGER_STATS_ABI_8,
       functionName: 'getUserRewardStats',
       args: [userAddress],
-    }) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+    })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint]
 
+    const recyclablesLedger = await recyclablesLedgerP
+    const fromTuple = result[7]
+    const recyclablesRewardsAmount =
+      fromTuple > recyclablesLedger ? fromTuple : recyclablesLedger
     return {
       currentBalance: result[0],
       totalEarned: result[1],
@@ -1152,30 +1239,54 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
       streakRewardsAmount: result[4],
       referralRewardsAmount: result[5],
       impactReportRewardsAmount: result[6],
+      recyclablesRewardsAmount,
     }
-  } catch (error) {
-    if (!isNoDataOrWrongChainError(error)) console.error('Error getting user reward stats:', error)
-    return {
-      currentBalance: 0n,
-      totalEarned: 0n,
-      totalClaimed: 0n,
-      claimRewardsAmount: 0n,
-      streakRewardsAmount: 0n,
-      referralRewardsAmount: 0n,
-      impactReportRewardsAmount: 0n,
+  } catch (error8) {
+    try {
+      const result = (await readContract(getConfig(), {
+        chainId: REQUIRED_CHAIN_ID,
+        address: REWARD_MANAGER_ADDRESS,
+        abi: REWARD_MANAGER_STATS_ABI_7,
+        functionName: 'getUserRewardStats',
+        args: [userAddress],
+      })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+
+      const recyclablesLedger = await recyclablesLedgerP
+      return {
+        currentBalance: result[0],
+        totalEarned: result[1],
+        totalClaimed: result[2],
+        claimRewardsAmount: result[3],
+        streakRewardsAmount: result[4],
+        referralRewardsAmount: result[5],
+        impactReportRewardsAmount: result[6],
+        recyclablesRewardsAmount: recyclablesLedger,
+      }
+    } catch (error7) {
+      try {
+        await recyclablesLedgerP
+      } catch {
+        // ignore ledger failure when stats are unavailable
+      }
+      if (!isNoDataOrWrongChainError(error8) && !isNoDataOrWrongChainError(error7)) {
+        console.error('Error getting user reward stats:', error8)
+      }
+      return emptyUserRewardStats()
     }
   }
 }
 
 export async function verifyRewardManagerSetup(): Promise<{
-  hasMinterRole: boolean
+  /** Participation ledger readable on-chain (getBalance / stats). */
+  ledgerReadable: boolean
   rewardManagerAddress: Address | null
+  /** @deprecated DCURewardManager no longer exposes dcuToken (participation-only ledger). */
   dcuTokenAddress: Address | null
   error?: string
 }> {
   if (!REWARD_MANAGER_ADDRESS) {
     return {
-      hasMinterRole: false,
+      ledgerReadable: false,
       rewardManagerAddress: null,
       dcuTokenAddress: null,
       error: 'Reward Manager address not configured. Set NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT',
@@ -1183,66 +1294,32 @@ export async function verifyRewardManagerSetup(): Promise<{
   }
 
   try {
-    const REWARD_MANAGER_ABI = [
+    const REWARD_MANAGER_BALANCE_ABI = [
       {
         type: 'function',
-        name: 'dcuToken',
+        name: 'getBalance',
         stateMutability: 'view',
-        inputs: [],
-        outputs: [{ name: '', type: 'address' }],
+        inputs: [{ name: 'user', type: 'address' }],
+        outputs: [{ name: '', type: 'uint256' }],
       },
     ] as const
 
-    const dcuTokenAddress = await readContract(getConfig(), {
+    await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
       address: REWARD_MANAGER_ADDRESS,
-      abi: REWARD_MANAGER_ABI,
-      functionName: 'dcuToken',
-    }) as Address
-
-    const DCU_TOKEN_ABI = [
-      {
-        type: 'function',
-        name: 'MINTER_ROLE',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ name: '', type: 'bytes32' }],
-      },
-      {
-        type: 'function',
-        name: 'hasRole',
-        stateMutability: 'view',
-        inputs: [
-          { name: 'role', type: 'bytes32' },
-          { name: 'account', type: 'address' },
-        ],
-        outputs: [{ name: '', type: 'bool' }],
-      },
-    ] as const
-
-    const minterRole = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: dcuTokenAddress,
-      abi: DCU_TOKEN_ABI,
-      functionName: 'MINTER_ROLE',
+      abi: REWARD_MANAGER_BALANCE_ABI,
+      functionName: 'getBalance',
+      args: ['0x0000000000000000000000000000000000000000'],
     })
 
-    const hasMinterRole = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: dcuTokenAddress,
-      abi: DCU_TOKEN_ABI,
-      functionName: 'hasRole',
-      args: [minterRole as `0x${string}`, REWARD_MANAGER_ADDRESS],
-    }) as boolean
-
     return {
-      hasMinterRole,
+      ledgerReadable: true,
       rewardManagerAddress: REWARD_MANAGER_ADDRESS,
-      dcuTokenAddress,
+      dcuTokenAddress: null,
     }
   } catch (error: any) {
     return {
-      hasMinterRole: false,
+      ledgerReadable: false,
       rewardManagerAddress: REWARD_MANAGER_ADDRESS,
       dcuTokenAddress: null,
       error: error?.message || 'Failed to verify setup',
@@ -1293,6 +1370,10 @@ export async function getUserLevel(userAddress: Address): Promise<number> {
     CONTRACT_READ_TTL_MS,
     () => getUserLevelImpl(userAddress)
   )
+}
+
+export async function getUserLevelFresh(userAddress: Address): Promise<number> {
+  return getUserLevelImpl(userAddress)
 }
 
 export async function claimImpactProductFromVerification(
@@ -1351,451 +1432,165 @@ export async function claimImpactProductFromVerification(
   const submissionOwner = cleanupDetails.user
   /** Execute writes as Safe UserOp only when cleanup owner is the smart account. */
   const useGasless = matchesSmart && !!options?.gaslessClient
-  const REWARD_MANAGER_ABI = [
-    {
-      type: 'function',
-      name: 'getBalance',
-      stateMutability: 'view',
-      inputs: [{ name: 'user', type: 'address' }],
-      outputs: [{ name: '', type: 'uint256' }],
-    },
-    {
-      type: 'function',
-      name: 'claimRewards',
-      stateMutability: 'nonpayable',
-      inputs: [{ name: 'amount', type: 'uint256' }],
-      outputs: [],
-    },
-  ] as const
-
-  const balance = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-    address: REWARD_MANAGER_ADDRESS,
-    abi: REWARD_MANAGER_ABI,
-    functionName: 'getBalance',
-    args: [submissionOwner],
-  }) as bigint
-
-  console.log('User balance before claim:', balance.toString())
   console.log('Submission owner (claim address):', submissionOwner)
   console.log('Connected EOA:', eoaAddress)
   console.log('Cleanup ID:', cleanupId.toString())
   console.log('Cleanup verified:', cleanupDetails.verified)
   console.log('Cleanup rewarded (from contract):', cleanupDetails.rewarded)
 
-  // Rewards are now distributed when NFT is minted/upgraded (via rewardImpactProductClaim)
-  // The 10 $cDCU cleanup reward, referral rewards, and impact report rewards are all
-  // distributed during the claim flow when the NFT is minted/upgraded
-  // So we always proceed to NFT mint/upgrade, which will trigger reward distribution
-  
   console.log('✅ Cleanup is verified - proceeding to claim flow')
-  console.log('Rewards will be distributed when NFT is minted/upgraded:')
-  console.log('  - 10 $cDCU for cleanup (via rewardImpactProductClaim)')
-  console.log('  - 5 $cDCU for impact report (if submitted, already distributed during verification)')
-  console.log('  - 3 $cDCU each for referral (if referred, distributed during NFT claim)')
   
-  // Check if this is a pre-fix cleanup (verified before this fix was deployed)
-  // These might have balance > 0 from old distributeRewards call
-  if (balance > 0n) {
-    console.log(`User has existing balance: ${(Number(balance) / 1e18).toFixed(2)} $cDCU`)
-    console.log('This may include rewards from previous verification flow')
-    console.log('Proceeding with claim - NFT mint/upgrade will add additional rewards')
-  } else {
-    console.log('User balance is 0 - all rewards will be distributed during NFT claim')
-  }
-  
-  // Always proceed to claim - no need to check balance or throw errors
-  // The NFT mint/upgrade will handle reward distribution
+  // Mint/upgrade must succeed before submission bonuses when both apply, or users only see recyclables/report
+  // DCU while cleanup DCU (claimRewardsAmount) stays 0 — a failed mint must not be masked by a bonus tx.
 
-  // Initialize variables for claim flow
   let hash: `0x${string}` | null = null
-  let receipt: any = null
-  
+
   try {
-  // Claim flow:
-  // 1. If user has existing balance (from old cleanups or impact reports), claim it first
-  // 2. Then proceed to NFT mint/upgrade which will:
-  //    - Distribute 10 $cDCU for cleanup (via rewardImpactProductClaim)
-  //    - Distribute referral rewards (3 $cDCU each if referred)
-  //    - Mint/upgrade NFT
-  
-  if (balance > 0n) {
-    // User has existing balance - claim it first (might be from old cleanups or impact reports)
-    console.log(`Claiming existing balance: ${(Number(balance) / 1e18).toFixed(2)} $cDCU`)
-    try {
-      if (useGasless) {
-        const data = encodeFunctionData({
-          abi: REWARD_MANAGER_ABI,
-          functionName: 'claimRewards',
-          args: [balance],
+    let nftStepRequired = false
+
+    if (CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+      const currentTokenId = await getUserTokenId(submissionOwner)
+      const currentLevel = await getUserLevel(submissionOwner)
+
+      console.log('Current NFT state:', { tokenId: currentTokenId?.toString() ?? 'null', level: currentLevel })
+
+      const needsMint = currentTokenId === null && currentLevel === 0
+      const needsUpgrade =
+        currentTokenId !== null && currentLevel > 0 && currentLevel < 10
+
+      nftStepRequired = needsMint || needsUpgrade
+
+      if (needsMint) {
+        console.log('Minting Impact Product NFT')
+        hash = await mintImpactProductNFT({
+          gaslessClient: useGasless ? options?.gaslessClient : undefined,
         })
-        hash = await options!.gaslessClient!.sendTransaction({
-          to: REWARD_MANAGER_ADDRESS as Address,
-          data,
-          value: 0n,
+        console.log('Impact Product NFT minted:', hash)
+      } else if (needsUpgrade) {
+        console.log(`Upgrading Impact Product NFT: level ${currentLevel} → ${currentLevel + 1}`)
+        hash = await upgradeImpactProductNFT(currentTokenId, {
+          gaslessClient: useGasless ? options?.gaslessClient : undefined,
         })
+        console.log('Impact Product NFT upgraded:', hash)
       } else {
-        hash = await writeContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-          address: REWARD_MANAGER_ADDRESS,
-          abi: REWARD_MANAGER_ABI,
-          functionName: 'claimRewards',
-          args: [balance],
-          account: eoaAddress,
-        })
-      }
-
-      console.log('✅ Claim transaction hash:', hash)
-      console.log('Waiting for transaction receipt...')
-
-      receipt = await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-        hash,
-        confirmations: 1,
-        pollingInterval: 2000,
-        timeout: 120000,
-      })
-
-      console.log('Claim transaction confirmed:', receipt)
-
-      if (receipt.status === 'reverted' || receipt.status === 0) {
-        throw new Error('Transaction reverted onchain. DCURewardManager may not have MINTER_ROLE on DCUToken.')
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 3000))
-    } catch (claimError: any) {
-      const errorMsg = claimError?.message || String(claimError)
-      if (errorMsg.includes('REWARD__InsufficientBalance')) {
-        console.warn('Balance changed - proceeding to NFT mint/upgrade')
-        hash = null // Continue to NFT operations
-      } else {
-        throw claimError
-      }
-    }
-  } else {
-    // Balance is 0 - rewards will be distributed when NFT is minted/upgraded
-    console.log('Balance is 0 - rewards will be distributed during NFT mint/upgrade')
-  }
-
-    let claimVerified = false
-    let claimedAmount = 0n
-    
-    // Only check for RewardsClaimed event if we actually called claimRewards
-    if (hash && receipt) {
-      const publicClient = getPublicClient(getConfig(), { chainId: REQUIRED_CHAIN_ID })
-      
-      if (publicClient) {
-        try {
-          const REWARDS_CLAIMED_EVENT_ABI = {
-            type: 'event',
-            name: 'RewardsClaimed',
-            inputs: [
-              { name: 'user', type: 'address', indexed: true },
-              { name: 'amount', type: 'uint256', indexed: false },
-              { name: 'timestamp', type: 'uint256', indexed: false },
-            ],
-          } as const
-
-          const logs = await viemGetLogs(publicClient, {
-            address: REWARD_MANAGER_ADDRESS,
-            event: REWARDS_CLAIMED_EVENT_ABI,
-            args: {
-              user: submissionOwner,
-            },
-            fromBlock: receipt.blockNumber,
-            toBlock: receipt.blockNumber,
-          })
-
-          if (logs && logs.length > 0) {
-            const claimLog = logs.find(log => log.transactionHash === hash)
-            if (claimLog && claimLog.args.amount) {
-              claimVerified = true
-              claimedAmount = claimLog.args.amount as bigint
-              console.log('✅ RewardsClaimed event found in transaction:', {
-                user: claimLog.args.user,
-                amount: claimedAmount.toString(),
-                timestamp: claimLog.args.timestamp?.toString(),
-              })
-            }
-          }
-        } catch (logError) {
-          console.error('Error checking transaction logs:', logError)
-        }
+        console.log('No Impact Product mint/upgrade needed (max level or already synced)')
       }
     } else {
-      console.log('Skipping RewardsClaimed event check - claimRewards was not called (balance was 0)')
+      throw new Error(
+        'Impact Product NFT contract not configured. Set NEXT_PUBLIC_IMPACT_PRODUCT_NFT (or NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT) in the environment.'
+      )
     }
 
-    // Only verify claim if we actually called claimRewards
-    if (hash && receipt) {
-      let tokensMinted = false
-      try {
-        const REWARD_MANAGER_DCU_ABI = [
-          {
-            type: 'function',
-            name: 'dcuToken',
-            stateMutability: 'view',
-            inputs: [],
-            outputs: [{ name: '', type: 'address' }],
-          },
-        ] as const
+    /** Optional: `claimSubmissionBonusRewards` after NFT (impact + recyclables on RewardManager). */
+    const wantsSubmissionBonus = isSubmissionBonusClaimEnabled()
 
-        const dcuTokenAddress = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-          address: REWARD_MANAGER_ADDRESS,
-          abi: REWARD_MANAGER_DCU_ABI,
-          functionName: 'dcuToken',
-        }) as Address
-
-        const DCU_TOKEN_ABI = [
-          {
-            type: 'function',
-            name: 'balanceOf',
-            stateMutability: 'view',
-            inputs: [{ name: 'account', type: 'address' }],
-            outputs: [{ name: '', type: 'uint256' }],
-          },
-        ] as const
-
-        const dcuBalanceAfter = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-          address: dcuTokenAddress,
-          abi: DCU_TOKEN_ABI,
-          functionName: 'balanceOf',
-          args: [submissionOwner],
-        }) as bigint
-
-        console.log('cDCU token balance after claim:', dcuBalanceAfter.toString())
-        console.log('Expected cDCU tokens to increase by:', balance.toString())
-        
-        if (dcuBalanceAfter > 0n && balance > 0n) {
-          tokensMinted = true
-          console.log('✅ cDCU tokens were minted successfully')
-        }
-      } catch (checkError) {
-        console.error('Error checking DCU token balance:', checkError)
-      }
-      const balanceAfter = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-        address: REWARD_MANAGER_ADDRESS,
-        abi: REWARD_MANAGER_ABI,
-        functionName: 'getBalance',
-        args: [submissionOwner],
-      }) as bigint
-
-      console.log('RewardManager balance before claim:', balance.toString())
-      console.log('RewardManager balance after claim:', balanceAfter.toString())
-
-      if (claimVerified || tokensMinted) {
-        console.log('✅ Claim verified via transaction logs or token minting')
-        if (balanceAfter >= balance) {
-          console.warn('⚠️ Balance check shows no decrease, but claim was verified via logs/tokens. This may be an RPC caching issue.')
-        }
-      } else if (balanceAfter >= balance) {
-        console.warn('WARNING: Balance did not decrease after claim and no RewardsClaimed event found.')
-        throw new Error(
-          'Claim transaction completed but balance was not reduced and no RewardsClaimed event found. ' +
-          'This may indicate that DCURewardManager does not have MINTER_ROLE on DCUToken, ' +
-          'or the mint() call failed. ' +
-          'Please check the transaction on the block explorer: ' +
-          `${REQUIRED_BLOCK_EXPLORER_URL}/tx/${hash}`
-        )
-      }
-    } else {
-      console.log('Skipping claim verification - proceeding directly to NFT mint/upgrade')
-    }
-    // Only check DCU token balance if we actually called claimRewards
-    if (hash && balance > 0n) {
-      const DCU_TOKEN_ABI = [
+    // After NFT mint/upgrade, submission bonus (impact report + recyclables on RewardManager) unless env disables it.
+    if (wantsSubmissionBonus) {
+      const SUBMISSION_BONUS_ABI = [
         {
           type: 'function',
-          name: 'balanceOf',
-          stateMutability: 'view',
-          inputs: [{ name: 'account', type: 'address' }],
-          outputs: [{ name: '', type: 'uint256' }],
+          name: 'claimSubmissionBonusRewards',
+          stateMutability: 'nonpayable',
+          inputs: [{ name: 'submissionId', type: 'uint256' }],
+          outputs: [],
         },
       ] as const
 
       try {
-        // Get cDCU token address from RewardManager
-        const REWARD_MANAGER_DCU_ABI = [
-          {
-            type: 'function',
-            name: 'dcuToken',
-            stateMutability: 'view',
-            inputs: [],
-            outputs: [{ name: '', type: 'address' }],
-          },
-        ] as const
-
-        const dcuTokenAddress = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-          address: REWARD_MANAGER_ADDRESS,
-          abi: REWARD_MANAGER_DCU_ABI,
-          functionName: 'dcuToken',
-        }) as Address
-
-        const dcuBalance = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-          address: dcuTokenAddress,
-          abi: DCU_TOKEN_ABI,
-          functionName: 'balanceOf',
-          args: [submissionOwner],
-        }) as bigint
-
-        console.log('cDCU token balance after claim:', dcuBalance.toString())
-        console.log('Expected increase:', balance.toString())
-
-        if (dcuBalance === 0n && balance > 0n) {
-          throw new Error(
-            'Claim transaction completed but no cDCU tokens were minted. ' +
-            'DCURewardManager may not have MINTER_ROLE on DCUToken. ' +
-            'Transaction hash: ' + hash + '. Please contact support.'
-          )
+        let bonusHash: `0x${string}`
+        if (useGasless) {
+          const data = encodeFunctionData({
+            abi: SUBMISSION_BONUS_ABI,
+            functionName: 'claimSubmissionBonusRewards',
+            args: [cleanupId],
+          })
+          bonusHash = await options!.gaslessClient!.sendTransaction({
+            to: SUBMISSION_ADDRESS,
+            data,
+            value: 0n,
+          })
+        } else {
+          bonusHash = await writeContract(getConfig(), {
+            chainId: REQUIRED_CHAIN_ID,
+            address: SUBMISSION_ADDRESS,
+            abi: SUBMISSION_BONUS_ABI,
+            functionName: 'claimSubmissionBonusRewards',
+            args: [cleanupId],
+            account: eoaAddress,
+          })
         }
-      } catch (error) {
-        console.error('Error checking DCU token balance:', error)
-      }
-    }
 
-    // Always attempt NFT mint/upgrade - this will trigger rewardImpactProductClaim which distributes rewards
-    // This is especially important when balance was 0 (newly verified cleanup)
-    if (CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
-      try {
-        const IMPACT_PRODUCT_ABI = [
-          {
-            type: 'function',
-            name: 'verifiedPOI',
-            stateMutability: 'view',
-            inputs: [{ name: 'user', type: 'address' }],
-            outputs: [{ name: '', type: 'bool' }],
-          },
-        ] as const
-
-        let isVerifiedPOI = false
+        await waitForTransactionReceipt(getConfig(), {
+          chainId: REQUIRED_CHAIN_ID,
+          hash: bonusHash,
+          confirmations: 1,
+          pollingInterval: 2000,
+          timeout: 120000,
+        })
+        console.log('✅ Submission bonus rewards claimed:', bonusHash)
+        invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
         try {
-          // Wait longer for POI verification to propagate (Submission contract calls verifyPOI when cleanup is approved)
-          await new Promise(resolve => setTimeout(resolve, 5000))
-          
-          // Try multiple times in case of RPC sync delay
-          for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-              isVerifiedPOI = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-                address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-                abi: IMPACT_PRODUCT_ABI,
-                functionName: 'verifiedPOI',
-                args: [submissionOwner],
-              }) as boolean
-              
-              if (isVerifiedPOI) {
-                console.log('✅ POI verification confirmed on attempt', attempt + 1)
-                break
-              }
-              
-              if (attempt < 2) {
-                console.log(`POI not verified yet, waiting 2s before retry ${attempt + 2}/3...`)
-                await new Promise(resolve => setTimeout(resolve, 2000))
-              }
-            } catch (retryError) {
-              console.warn(`POI check attempt ${attempt + 1} failed:`, retryError)
-              if (attempt < 2) {
-                await new Promise(resolve => setTimeout(resolve, 2000))
-              }
-            }
+          const d = await getCleanupDetails(cleanupId)
+          const stats = await getUserRewardStats(submissionOwner)
+          console.log('[Claim] Bonus submission snapshot:', {
+            submissionId: cleanupId.toString(),
+            hasImpactForm: d.hasImpactForm,
+            hasRecyclables: d.hasRecyclables,
+            impactFormDataHashLen: (d.impactFormDataHash || '').length,
+            rewardManagerImpactReportDCU: formatEther(stats.impactReportRewardsAmount),
+            rewardManagerRecyclablesDCU: formatEther(stats.recyclablesRewardsAmount),
+          })
+          if (!d.hasImpactForm && !d.hasRecyclables) {
+            console.warn(
+              '[Claim] This submission has no impact report hash and no recyclables on-chain. ' +
+                'claimSubmissionBonusRewards still succeeded but credited +0 to report/recyclables buckets. ' +
+                'For new cleanups: complete the impact step (IPFS hash stored) and attach recyclables before approval, or extend the contract to combine create + recyclables in one tx.'
+            )
           }
-          
-          console.log('POI verification status:', isVerifiedPOI)
-        } catch (poiError: any) {
-          const errorMsg = poiError?.message || String(poiError)
-          if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
-            console.log('⚠️ RPC error checking POI status - will attempt NFT operations anyway')
-            isVerifiedPOI = false
-          } else {
-            console.warn('Error checking POI status:', errorMsg)
-            isVerifiedPOI = false
-          }
+        } catch (e) {
+          console.warn('[Claim] Could not read post-bonus submission / reward stats:', e)
         }
-
-        // Always attempt NFT mint/upgrade even if POI is not verified yet
-        // The contract will revert if POI is not verified, but at least we tried
-        // This ensures there's always a transaction hash returned
-
-        const currentTokenId = await getUserTokenId(submissionOwner)
-        const currentLevel = await getUserLevel(submissionOwner)
-        
-        console.log('Current NFT state:', { tokenId: currentTokenId?.toString() || 'null', level: currentLevel })
-        
-        if (currentTokenId === null && currentLevel === 0) {
-          try {
-            console.log('Attempting to mint Impact Product NFT...')
-            console.log('This will trigger rewardImpactProductClaim which distributes rewards')
-            const mintHash = await mintImpactProductNFT({ gaslessClient: useGasless ? options?.gaslessClient : undefined })
-            console.log('✅ Impact Product NFT minted successfully:', mintHash)
-            // Return the mint hash if we don't have a claim hash
-            if (!hash) {
-              hash = mintHash
-            }
-          } catch (mintError: any) {
-            const errorMsg = mintError?.message || String(mintError)
-            if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
-              console.log('⚠️ RPC error during NFT mint - user can mint manually later')
-            } else {
-              console.error('Could not mint Impact Product NFT:', errorMsg)
-              // If balance was 0 and NFT mint fails, we need to throw an error
-              if (balance === 0n) {
-                throw new Error(`Failed to mint NFT and distribute rewards: ${errorMsg}. Please try again or contact support.`)
-              }
-            }
+        if (!hash) hash = bonusHash
+      } catch (bonusError: any) {
+        const message = bonusError?.message || String(bonusError)
+        // Keep retries idempotent: if already claimed, continue without failing whole claim flow.
+        if (message.includes('BonusRewardsAlreadyClaimed')) {
+          console.log('Submission bonus rewards were already claimed; continuing')
+          if (!hash) {
+            throw new Error(
+              'Submission bonuses were already claimed. Refresh the page to see updated balances.'
+            )
           }
-        } else if (currentTokenId !== null && currentLevel > 0 && currentLevel < 10) {
-          try {
-            console.log(`Attempting to upgrade Impact Product NFT from level ${currentLevel} to ${currentLevel + 1}...`)
-            console.log('This will trigger rewardImpactProductClaim which distributes rewards')
-            const upgradeHash = await upgradeImpactProductNFT(currentTokenId, {
-              gaslessClient: useGasless ? options?.gaslessClient : undefined,
-            })
-            console.log('✅ Impact Product NFT upgraded successfully:', upgradeHash)
-            // Return the upgrade hash if we don't have a claim hash
-            if (!hash) {
-              hash = upgradeHash
-            }
-          } catch (upgradeError: any) {
-            const errorMsg = upgradeError?.message || String(upgradeError)
-            if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
-              console.log('⚠️ RPC error during NFT upgrade - user can upgrade manually later')
-            } else {
-              console.error('Could not upgrade Impact Product NFT:', errorMsg)
-              // If balance was 0 and NFT upgrade fails, we need to throw an error
-              if (balance === 0n) {
-                throw new Error(`Failed to upgrade NFT and distribute rewards: ${errorMsg}. Please try again or contact support.`)
-              }
-            }
-          }
+        } else if (hash) {
+          // NFT mint/upgrade already succeeded; bonus UserOp can still fail (missing fn on Submission, Pimlico, etc.).
+          console.warn(
+            'claimSubmissionBonusRewards failed after NFT success. Check Submission/NFT wiring and RewardManager; ensure NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM is intended for this deployment.',
+            bonusError
+          )
         } else {
-          console.log('User already has max level NFT - no upgrade needed')
+          throw bonusError
         }
-      } catch (nftError: any) {
-        const errorMsg = nftError?.message || String(nftError)
-        if (errorMsg.includes('block is out of range') || errorMsg.includes('400')) {
-          console.log('⚠️ RPC error during NFT check - skipping NFT operations')
-        } else {
-          console.error('NFT operation error:', errorMsg)
-          // If balance was 0, we need NFT operations to succeed to distribute rewards
-          if (balance === 0n) {
-            throw nftError
-          }
-        }
-      }
-    } else {
-      console.warn('Impact Product NFT contract not configured - NFT mint/upgrade skipped')
-      if (balance === 0n) {
-        throw new Error('Cannot distribute rewards: Impact Product NFT contract not configured and balance is 0. Please contact support.')
       }
     }
 
-    // Return the hash (either from claimRewards or from NFT mint/upgrade)
-    return hash || ('0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`)
+    const needsBonus = wantsSubmissionBonus
+
+    if (!hash) {
+      if (nftStepRequired) {
+        throw new Error('Claim flow did not complete onchain. No transaction hash returned.')
+      }
+      if (needsBonus) {
+        throw new Error('Could not record submission bonuses. Try again in a few seconds.')
+      }
+      throw new Error('Nothing new to claim for this cleanup onchain.')
+    }
+
+    invalidateImpactProductClaimCaches({
+      chainId: REQUIRED_CHAIN_ID,
+      ownerAddress: submissionOwner,
+      cleanupId,
+    })
+    return hash
   } catch (error: any) {
     console.error('Error claiming rewards:', error)
     
@@ -1805,14 +1600,6 @@ export async function claimImpactProductFromVerification(
     } else if (error?.shortMessage) {
       errorMessage = error.shortMessage
     }
-    if (errorMessage.includes('MINTER_ROLE') || errorMessage.includes('Reward claim failed')) {
-      throw new Error('Claim failed: DCURewardManager does not have MINTER_ROLE on DCUToken. Please contact the contract administrator.')
-    }
-
-    if (errorMessage.includes('InsufficientBalance')) {
-      throw new Error('Insufficient balance to claim. This may indicate a contract configuration issue.')
-    }
-
     throw new Error(`Failed to claim rewards: ${errorMessage}`)
   }
 }
@@ -2014,7 +1801,12 @@ export async function mintImpactProductNFT(options?: {
   } catch (error: any) {
     const errorMessage = error?.message || error?.shortMessage || 'Unknown error'
     if (errorMessage.includes('verified POI') || errorMessage.includes('not a verified POI')) {
-      throw new Error('You must be verified as a POI (Proof of Impact) before minting. Please contact support.')
+      throw new Error(
+        'Not marked as a verified Proof of Impact (POI) on the Impact Product contract — minting requires that flag. ' +
+          'If your cleanup is already approved, the Submission contract may not be linked on Impact Product (deploy script should call setSubmissionContract), ' +
+          'or you were approved before that fix and need the contract owner to call verifyPOI for your address. ' +
+          'Ask the team to run `npx hardhat run contracts/scripts/setup-roles.ts --network celoSepolia` and retry.'
+      )
     }
     throw new Error(`Failed to mint Impact Product NFT: ${errorMessage}`)
   }

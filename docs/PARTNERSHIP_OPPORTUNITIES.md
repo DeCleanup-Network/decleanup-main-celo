@@ -1,6 +1,8 @@
-# DeCleanup Partnership Opportunities
+# DeCleanup partnership opportunities
 
-## Methodology & Verification Partners
+**Note:** Informal outreach notes only - not tied to release engineering or contract deploys.
+
+## Methodology & verification partners
 
 ### Verra
 - **Plastic Program** methodology
@@ -18,6 +20,8 @@
 - Ready-made blockchain for plastic credits
 - Experience in verification
 - **Action:** Explore integration/partnership
+
+Technical documentation for the product lives in **`docs/README.md`**.
 
 ## Local Cleanup Organizations
 
@@ -87,7 +91,7 @@
 2. **Offer Credits:**
    - Verified cleanup = plastic credits
    - Can be retired for ESG compliance
-   - Trackable on blockchain
+   - Trackable onchain
 
 3. **Pilot Program:**
    - Start small (100 cleanups)

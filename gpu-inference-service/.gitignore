@@ -1,0 +1,11 @@
+# YOLO / PyTorch weights (large; keep local or use CI artifact)
+*.pt
+*.pth
+*.onnx
+
+.venv/
+venv/
+__pycache__/
+
+# Local secrets for PM2 (SHARED_SECRET, etc.)
+.env.gpu

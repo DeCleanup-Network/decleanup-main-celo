@@ -26,9 +26,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyCleanup } from '@/lib/dmrv/verification'
 import { VerificationRequest } from '@/lib/dmrv/types'
 import { getDMRVConfig } from '@/lib/dmrv/config'
+import { checkInMemoryRateLimit, getRateLimitKey, tooManyRequestsResponse } from '@/lib/server/rate-limit'
+import { dmrvVerifyBodySchema, parseJsonBody } from '@/lib/server/api-request-guards'
 
 export async function POST(request: NextRequest) {
   try {
+    const parsed = await parseJsonBody(request, dmrvVerifyBodySchema)
+    if (!parsed.ok) return parsed.response
+
+    const body = parsed.data
+    const walletAddress =
+      body.walletAddress ||
+      body.wallet ||
+      body.address ||
+      request.headers.get('x-wallet-address') ||
+      request.headers.get('x-address') ||
+      null
+    const rateLimit = checkInMemoryRateLimit({
+      key: getRateLimitKey(request, walletAddress),
+      maxRequests: 8,
+      windowMs: 60_000,
+    })
+    if (!rateLimit.ok) {
+      return tooManyRequestsResponse(rateLimit.resetAt)
+    }
+
     // Check if DMRV is enabled
     const config = getDMRVConfig()
     if (!config.enabled) {
@@ -37,46 +59,17 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       )
     }
-    
-    // Parse request body
-    const body = await request.json()
-    
-    // Validate required fields
-    const requiredFields = ['submissionId', 'beforeImageCid', 'afterImageCid', 'gps', 'timestamp']
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        )
-      }
-    }
-    
-    // Validate GPS structure - ensure it's an object before accessing properties
-    if (typeof body.gps !== 'object' || body.gps === null || Array.isArray(body.gps)) {
-      return NextResponse.json(
-        { error: 'GPS must be an object with latitude and longitude' },
-        { status: 400 }
-      )
-    }
-    
-    if (!body.gps.latitude || !body.gps.longitude) {
-      return NextResponse.json(
-        { error: 'Invalid GPS coordinates: missing latitude or longitude' },
-        { status: 400 }
-      )
-    }
-    
+
     // Build verification request
     const verificationRequest: VerificationRequest = {
-      submissionId: String(body.submissionId),
-      beforeImageCid: String(body.beforeImageCid),
-      afterImageCid: String(body.afterImageCid),
+      submissionId: body.submissionId,
+      beforeImageCid: body.beforeImageCid,
+      afterImageCid: body.afterImageCid,
       gps: {
-        latitude: Number(body.gps.latitude),
-        longitude: Number(body.gps.longitude),
+        latitude: body.gps.latitude,
+        longitude: body.gps.longitude,
       },
-      timestamp: Number(body.timestamp),
+      timestamp: body.timestamp,
     }
     
     // Run verification

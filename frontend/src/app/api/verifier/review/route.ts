@@ -1,9 +1,9 @@
 /**
- * POST /api/verifier/review
- * 
- * Admin endpoint: Approve or reject verifier application
- * 
- * IMPORTANT: grantRole must be called CLIENT-SIDE before this endpoint
+ * POST /api/verifier/review (legacy)
+ *
+ * Backwards-compatible endpoint for REJECT only.
+ * APPROVE is intentionally blocked so approval must use:
+ *   /api/verifier/review/init -> on-chain grantRole -> /api/verifier/review/confirm
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -49,7 +49,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // STEP 3: Get application
+    // STEP 3: Hard-guard legacy APPROVE path
+    if (decision === 'APPROVE') {
+      await logAuditEvent(applicationId, 'LEGACY_APPROVE_BLOCKED', reviewedBy, {
+        reason: 'Use /api/verifier/review/init + /confirm pipeline',
+      })
+      return NextResponse.json(
+        {
+          error:
+            'Deprecated approve path. Use /api/verifier/review/init, execute grantRole on-chain, then /api/verifier/review/confirm.',
+        },
+        { status: 410 }
+      )
+    }
+
+    // STEP 4: Get application
     const app = await getApplicationById(applicationId)
     if (!app) {
       return NextResponse.json(
@@ -58,7 +72,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // STEP 4: Check status
+    // STEP 5: Check status
     if (app.status !== 'PENDING') {
       return NextResponse.json(
         { error: `Application already ${app.status.toLowerCase()}` },
@@ -66,7 +80,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // STEP 5: 🔴 CRITICAL - Lock application to prevent race conditions
+    // STEP 6: 🔴 CRITICAL - Lock application to prevent race conditions
     locked = await lockApplication(applicationId)
     if (!locked) {
       return NextResponse.json(
@@ -75,28 +89,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // STEP 6: If APPROVE - just update status (grantRole called client-side)
-    if (decision === 'APPROVE') {
-      const updated = await updateApplicationStatus(
-        applicationId,
-        'APPROVED',
-        reviewedBy,
-        notes
-      )
-
-      // Audit log
-      await logAuditEvent(applicationId, 'APPROVED', reviewedBy, {
-        notes,
-      })
-
-      return NextResponse.json({
-        success: true,
-        application: updated,
-        message: 'Application approved. User must call grantRole client-side.',
-      })
-    }
-
-    // STEP 7: If REJECT - update status
+    // STEP 7: REJECT path (kept for backwards compatibility)
     if (decision === 'REJECT') {
       const updated = await updateApplicationStatus(
         applicationId,
@@ -114,6 +107,11 @@ export async function POST(request: NextRequest) {
         message: 'Application rejected',
       })
     }
+
+    return NextResponse.json(
+      { error: `Unsupported decision: ${decision}` },
+      { status: 400 }
+    )
 
   } catch (error) {
     console.error('Error in POST /api/verifier/review:', error)

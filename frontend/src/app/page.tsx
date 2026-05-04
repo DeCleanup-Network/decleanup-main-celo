@@ -1,11 +1,26 @@
 'use client'
 
 import { useEffect, useState, useRef, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAccount } from 'wagmi'
 import { useSearchParams } from 'next/navigation'
-import { Leaf, Award, Users, Heart, Info, Trophy, CheckSquare, Loader2, X, TrendingUp } from 'lucide-react'
+import {
+  Leaf,
+  Award,
+  Clock,
+  Users,
+  Heart,
+  Trophy,
+  CheckSquare,
+  Loader2,
+  X,
+  TrendingUp,
+  HelpCircle,
+  ExternalLink,
+  ShieldCheck,
+} from 'lucide-react'
 import { getUserCleanupStatus } from '@/lib/blockchain/verification'
 import {
   claimImpactProductFromVerification,
@@ -20,29 +35,49 @@ import {
   getCleanupDetails,
   getClaimFee,
   getVerifierRewardsCount,
+  isVerifier,
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
 import { formatEther } from 'viem'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
+import { CONTRACT_ADDRESSES, MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import { VERIFIER_CONFIG } from '@/config/verifier'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { VerifierApplyCard } from '@/components/dashboard/VerifierApplyCard'
-import { useIsVerifier } from '@/hooks/useIsVerifier'
-import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { DashboardClaimCdcu } from '@/components/dashboard/DashboardClaimCdcu'
+import { FeeDisplay } from '@/components/ui/fee-display'
 import { AlertModal } from '@/components/ui/alert-modal'
 import { markCleanupAsClaimed, clearPendingCleanup } from '@/lib/blockchain/verification'
 import { resetCleanupState, resetAllCleanupState } from '@/lib/utils/reset-cleanup'
-import { generateReferralLink } from '@/lib/utils/sharing'
+import { DashboardReferralLinkCard } from '@/components/dashboard/DashboardReferralLinkCard'
+import { ReferralInviteMessage } from '@/components/referral/ReferralInviteMessage'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
-import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { fetchViaIpfsGatewayProxy } from '@/lib/utils/ipfs-gateway-proxy'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { cn } from '@/lib/utils'
 import type { Address } from 'viem'
+
+const WalletConnect = dynamic(
+  () =>
+    import('@/features/wallet/components/WalletConnect').then((m) => ({
+      default: m.WalletConnect,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="inline-flex h-10 min-w-[10rem] items-center justify-center rounded-md border border-border bg-muted/50 px-4 text-sm text-muted-foreground"
+        aria-busy="true"
+      >
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+      </div>
+    ),
+  }
+)
 
 interface ImpactAttribute {
   trait_type?: string
@@ -56,23 +91,6 @@ interface ImpactMetadata {
   image?: string
   animation_url?: string
   attributes?: ImpactAttribute[]
-}
-
-function extractImpactStats(metadata: ImpactMetadata | null) {
-  let impactValue: string | null = null
-  let dcuReward: string | null = null
-
-  metadata?.attributes?.forEach((attr) => {
-    const trait = attr?.trait_type?.toLowerCase()
-    if (!trait) return
-    if (trait === 'impact value') {
-      impactValue = attr.value != null ? String(attr.value) : null
-    } else if (trait === '$dcu' || trait === 'dcu' || trait.includes('dcu')) {
-      dcuReward = attr.value != null ? String(attr.value) : null
-    }
-  })
-
-  return { impactValue, dcuReward }
 }
 
 function convertIPFSToGateway(ipfsUrl: string): string {
@@ -146,15 +164,34 @@ type ImpactProductDisplayState = {
   imageUrl: string
   animationUrl: string
   tokenId: bigint | null
-  impactValue: string | null
-  dcuReward: string | null
+  metadataName: string | null
+  metadataDescription: string | null
+  metadataExternalUrl: string | null
+  metadataAttributes: { trait_type: string; value: string }[]
 }
 
 /** Load Impact Product image/metadata; prefers tokenId-based URI when minted. */
 async function loadImpactProductDisplay(level: number, tokenId: bigint | null): Promise<ImpactProductDisplayState> {
-  if (level <= 0) {
-    return { level: 0, imageUrl: '', animationUrl: '', tokenId: null, impactValue: null, dcuReward: null }
+  const emptyExtras = {
+    metadataName: null as string | null,
+    metadataDescription: null as string | null,
+    metadataExternalUrl: null as string | null,
+    metadataAttributes: [] as { trait_type: string; value: string }[],
   }
+  if (level <= 0) {
+    return {
+      level: 0,
+      imageUrl: '',
+      animationUrl: '',
+      tokenId: null,
+      ...emptyExtras,
+    }
+  }
+
+  let metadataName: string | null = null
+  let metadataDescription: string | null = null
+  let metadataExternalUrl: string | null = null
+  let metadataAttributes: { trait_type: string; value: string }[] = []
 
   try {
     let tokenURI = ''
@@ -164,11 +201,8 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
     if (!tokenURI) {
       tokenURI = await getTokenURIForLevel(level)
     }
-
     let imageUrl = ''
     let animationUrl = ''
-    let impactValue: string | null = null
-    let dcuReward: string | null = null
 
     if (tokenURI) {
       try {
@@ -176,9 +210,15 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
         if (metadataResponse.ok) {
           const metadata = await parseMetadataJsonFromResponse(metadataResponse)
 
-          const stats = extractImpactStats(metadata)
-          impactValue = stats.impactValue
-          dcuReward = stats.dcuReward
+          metadataName = metadata?.name ?? null
+          metadataDescription = metadata?.description ?? null
+          metadataExternalUrl = metadata?.external_url ?? null
+          metadataAttributes = (metadata?.attributes ?? [])
+            .filter((a) => a?.trait_type != null)
+            .map((a) => ({
+              trait_type: String(a.trait_type),
+              value: a.value != null ? String(a.value) : '—',
+            }))
 
           if (metadata?.image) {
             let fixedImagePath = metadata.image
@@ -238,8 +278,10 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
       imageUrl: finalImageUrl,
       animationUrl: finalAnimationUrl,
       tokenId,
-      impactValue,
-      dcuReward,
+      metadataName,
+      metadataDescription,
+      metadataExternalUrl,
+      metadataAttributes,
     }
   } catch (error) {
     console.error('Error fetching Impact Product data:', error)
@@ -267,8 +309,10 @@ async function loadImpactProductDisplay(level: number, tokenId: bigint | null): 
       imageUrl: fallbackImageUrl,
       animationUrl: fallbackAnimationUrl,
       tokenId,
-      impactValue: null,
-      dcuReward: null,
+      metadataName,
+      metadataDescription,
+      metadataExternalUrl,
+      metadataAttributes,
     }
   }
 }
@@ -333,7 +377,9 @@ function HomeContent() {
   }, [address])
   const chainId = useResolvedChainId()
   const { submissionOwnerAddress, client: gaslessClient } = useSmartAccountClient()
-  const { isVerifier: isVerifierUser } = useIsVerifier()
+  const rewardIdentityAddress = (submissionOwnerAddress ?? address ?? undefined) as Address | undefined
+  const [isRewardIdentityVerifier, setIsRewardIdentityVerifier] = useState(false)
+  const [showVerifierRulesModal, setShowVerifierRulesModal] = useState(false)
   const [cleanupStatus, setCleanupStatus] = useState<{
     hasPendingCleanup: boolean
     canClaim: boolean
@@ -350,11 +396,19 @@ function HomeContent() {
   const [dcuBalance, setDcuBalance] = useState<bigint>(BigInt(0))
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [rewardStats, setRewardStats] = useState({
+    /** RewardManager `totalEarned` (wei → DCU); same basis as $cDCU milestone API. */
+    totalEarnedDCU: 0,
+    /** `claimRewardsAmount`: DCU from `rewardImpactProductClaim` only (requires NFT `impactClaimRewardsEnabled`). */
     cleanupsDCU: 0,
+    /** Verified cleanups from indexer/contract details (for UX copy; onchain cleanup DCU still comes from claimRewardsAmount). */
+    verifiedCleanupsCount: 0,
     cleanupsCount: 0,
     referralsDCU: 0,
     streakDCU: 0,
     reportsDCU: 0,
+    recyclablesDCU: 0,
+    impactReportsCount: 0,
+    recyclablesTaggedCount: 0,
     hypercertsDCU: 0,
     verifierDCU: 0,
     userLevel: 0,
@@ -367,10 +421,11 @@ function HomeContent() {
     imageUrl: '',
     animationUrl: '',
     tokenId: null as bigint | null,
-    impactValue: null as string | null,
-    dcuReward: null as string | null,
+    metadataName: null as string | null,
+    metadataDescription: null as string | null,
+    metadataExternalUrl: null as string | null,
+    metadataAttributes: [] as { trait_type: string; value: string }[],
   })
-  const [mintingHypercert, setMintingHypercert] = useState(false)
   const [isClaiming, setIsClaiming] = useState(false)
   const [claimFeeInfo, setClaimFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
   const [claimModal, setClaimModal] = useState<{
@@ -388,13 +443,32 @@ function HomeContent() {
     setMounted(true)
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    if (!rewardIdentityAddress) {
+      setIsRewardIdentityVerifier(false)
+      return
+    }
+    void isVerifier(rewardIdentityAddress)
+      .then((v) => {
+        if (!cancelled) setIsRewardIdentityVerifier(v)
+      })
+      .catch(() => {
+        if (!cancelled) setIsRewardIdentityVerifier(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [rewardIdentityAddress])
+
   // Handle referral link detection - ONLY show notification if user was actually referred (check contract)
   useEffect(() => {
     if (!mounted || !address || !isConnected) return
 
     const checkReferral = async () => {
       try {
-        const owner = submissionOwnerAddress ?? address
+        if (!submissionOwnerAddress) return
+        const owner = submissionOwnerAddress
         // First, check if user was actually referred by checking the contract
         const { getUserReferrer } = await import('@/lib/blockchain/contracts')
         const contractReferrer = await getUserReferrer(owner)
@@ -540,7 +614,8 @@ function HomeContent() {
 
     async function checkStatus() {
       if (!address) return
-      const owner = submissionOwnerAddress ?? address
+      if (!submissionOwnerAddress) return
+      const owner = submissionOwnerAddress
       try {
         // Parallelize independent RPCs (was: submissions + sequential getCleanupDetails, then Promise.all; large waterfall).
         const [
@@ -569,10 +644,12 @@ function HomeContent() {
         )
         let verifiedCleanupsCount = 0
         let impactReportsCount = 0
+        let recyclablesTaggedCount = 0
         for (const details of detailsList) {
           if (details?.verified) {
             verifiedCleanupsCount++
             if (details.hasImpactForm) impactReportsCount++
+            if (details.hasRecyclables) recyclablesTaggedCount++
           }
         }
         const eligibilityResult = checkHypercertEligibility({
@@ -613,32 +690,36 @@ function HomeContent() {
         setDcuBalance(balance)
 
         // Calculate breakdown from reward stats
-        // Cleanups DCU = claimRewardsAmount (10 DCU per cleanup when NFT is claimed)
-        // This represents completed cleanup cycles: submit → verify → claim NFT
-        // The 10 DCU is distributed when user claims their Impact Product NFT level
+        // "Impact levels" DCU = claimRewardsAmount (filled by `rewardImpactProductClaim` on the NFT contract).
+        // That hook only runs when the deployed NFT has `impactClaimRewardsEnabled` — mint/upgrade can still succeed with it off.
+        const totalEarnedDCU = Number(formatEther(rewardStatsData.totalEarned))
         const cleanupsDCU = Number(formatEther(rewardStatsData.claimRewardsAmount))
-        // Calculate cleanup count from DCU amount (10 DCU per cleanup/level)
         const cleanupsCount = Math.floor(cleanupsDCU / 10)
         // Referrals DCU
         const referralsDCU = Number(formatEther(rewardStatsData.referralRewardsAmount))
         // Streak DCU
         const streakDCU = Number(formatEther(rewardStatsData.streakRewardsAmount))
-        // Reports DCU (Enhanced Impact Reports)
+        // Reports DCU (impact reports) and recyclables DCU (separate onchain buckets, 5 each per verified submission)
         const reportsDCU = Number(formatEther(rewardStatsData.impactReportRewardsAmount))
+        const recyclablesDCU = Number(formatEther(rewardStatsData.recyclablesRewardsAmount))
 
         if (process.env.NODE_ENV === 'development') {
           console.log('[Reward Stats] Full breakdown:', {
+            totalEarnedDCU,
             cleanupsDCU,
             cleanupsCount,
             referralsDCU,
             streakDCU,
             reportsDCU,
+            recyclablesDCU,
+            recyclablesTaggedCount,
             totalEarned: Number(formatEther(rewardStatsData.totalEarned)),
             currentBalance: Number(formatEther(rewardStatsData.currentBalance)),
             raw: {
               claimRewardsAmount: rewardStatsData.claimRewardsAmount.toString(),
               referralRewardsAmount: rewardStatsData.referralRewardsAmount.toString(),
               impactReportRewardsAmount: rewardStatsData.impactReportRewardsAmount.toString(),
+              recyclablesRewardsAmount: rewardStatsData.recyclablesRewardsAmount.toString(),
               totalEarned: rewardStatsData.totalEarned.toString(),
             }
           })
@@ -650,8 +731,12 @@ function HomeContent() {
             (d) => d && d.verified && !d.rejected
           ).length
           if (verifiedNotRejected > 0) {
-            console.log(`[Reward Stats] User has ${verifiedNotRejected} verified cleanup(s) but cleanupsDCU is 0`)
-            console.log('[Reward Stats] Cleanup verified but NFT not claimed yet; claim level for cleanup DCU')
+            console.log(
+              `[Reward Stats] ${verifiedNotRejected} verified cleanup(s) in history but claimRewardsAmount (impact-level ledger) is 0 — you may also have a newer submission still pending review; counts all verified IDs.`
+            )
+            console.log(
+              '[Reward Stats] Expected if ImpactProductNFT.impactClaimRewardsEnabled is false on-chain, or level rewards reverted; mint/upgrade can still succeed without this bucket.'
+            )
           }
         }
 
@@ -668,17 +753,20 @@ function HomeContent() {
         }
 
         if (process.env.NODE_ENV === 'development' && reportsDCU === 0 && address && submissions.length > 0) {
-          try {
-            const first = detailsList[0]
-            if (first?.hasImpactForm) {
-              console.log(
-                '[Reward Stats] Impact form on submission',
-                submissions[0].toString(),
-                'but impact report rewards are 0'
-              )
-            }
-          } catch (error) {
-            console.warn('[Reward Stats] Could not check impact forms:', error)
+          const verifiedWithForm = detailsList.filter((d) => d?.verified && !d.rejected && d.hasImpactForm).length
+          const verifiedWithRecyclables = detailsList.filter((d) => d?.verified && !d.rejected && d.hasRecyclables).length
+          if (verifiedWithForm > 0 || verifiedWithRecyclables > 0) {
+            console.log(
+              '[Reward Stats] On-chain RewardManager buckets: impact reports',
+              reportsDCU,
+              'DCU, recyclables',
+              recyclablesDCU,
+              'DCU. Verified cleanups with impact hash:',
+              verifiedWithForm,
+              'with recyclables:',
+              verifiedWithRecyclables,
+              '— if these counts are >0 but buckets stay 0, claim level must run claimSubmissionBonusRewards for each submission (after mint); old submissions may have claimed bonus before flags existed.'
+            )
           }
         }
         // Hypercerts DCU (10 per hypercert, calculate from count)
@@ -697,11 +785,16 @@ function HomeContent() {
         }
 
         setRewardStats({
+          totalEarnedDCU,
           cleanupsDCU,
+          verifiedCleanupsCount: verifiedCleanupsCount,
           cleanupsCount,
           referralsDCU,
           streakDCU,
           reportsDCU,
+          recyclablesDCU,
+          impactReportsCount: Math.floor(reportsDCU / 5),
+          recyclablesTaggedCount: Math.floor(recyclablesDCU / 5),
           hypercertsDCU,
           verifierDCU,
           userLevel: level,
@@ -723,8 +816,10 @@ function HomeContent() {
                   imageUrl: '',
                   animationUrl: '',
                   tokenId,
-                  impactValue: null,
-                  dcuReward: null,
+                  metadataName: null,
+                  metadataDescription: null,
+                  metadataExternalUrl: null,
+                  metadataAttributes: [],
                 })
               }
             })
@@ -734,8 +829,10 @@ function HomeContent() {
             imageUrl: '',
             animationUrl: '',
             tokenId: null,
-            impactValue: null,
-            dcuReward: null,
+            metadataName: null,
+            metadataDescription: null,
+            metadataExternalUrl: null,
+            metadataAttributes: [],
           })
         }
 
@@ -760,80 +857,16 @@ function HomeContent() {
     }
   }, [mounted, isConnected, address, submissionOwnerAddress, chainId])
 
-  const handleMintHypercert = async () => {
-    if (!address || !hypercertEligibility?.isEligible) return
-
-    setMintingHypercert(true)
-    try {
-      const hypercertNumber = Number(hypercertEligibility.hypercertCount) + 1
-
-      const result = await mintHypercert(address, hypercertNumber)
-
-      const message =
-        `Transaction: ${result.txHash}\n` +
-        `Hypercert ID: ${result.hypercertId}\n` +
-        `Metadata CID: ${result.metadataCid}\n\n` +
-        `Your Hypercert is now onchain!`
-
-      setNotifyModal({ variant: 'success', title: 'Hypercert minted', message })
-
-      // Recalculate eligibility
-      const mintOwner = submissionOwnerAddress ?? address
-      const submissions = await getUserSubmissions(mintOwner)
-      let verifiedCleanupsCount = 0
-      let impactReportsCount = 0
-      for (const id of submissions) {
-        try {
-          const details = await getCleanupDetails(id)
-          if (details.verified) {
-            verifiedCleanupsCount++
-            if (details.hasImpactForm) impactReportsCount++
-          }
-        } catch (error) {
-          // ignore
-        }
-      }
-      const eligibilityResult = checkHypercertEligibility({
-        cleanupsCount: verifiedCleanupsCount,
-        reportsCount: impactReportsCount,
-        chainId: chainId ?? undefined,
-      })
-      const newEligibility = {
-        isEligible: eligibilityResult.eligible,
-        cleanupCount: eligibilityResult.cleanupsCount,
-        hypercertCount: 0,
-        testingOverride: eligibilityResult.testingOverride
-      }
-      setHypercertEligibility(newEligibility)
-    } catch (error) {
-      console.error('Error minting hypercert:', error)
-
-      // Provide user-friendly error messages
-      let errorMessage = 'Unknown error occurred'
-      if (error instanceof Error) {
-        errorMessage = error.message
-        // Make error messages more user-friendly
-        if (errorMessage.includes('Network error')) {
-          errorMessage = 'Network connection issue. Please check your internet and try again.'
-        } else if (errorMessage.includes('IPFS')) {
-          errorMessage = 'Failed to upload metadata. Please try again in a moment.'
-        } else if (errorMessage.includes('transaction') || errorMessage.includes('wallet')) {
-          errorMessage = 'Transaction failed. Please check your wallet and try again.'
-        }
-      }
-
-      setNotifyModal({ variant: 'error', title: 'Mint failed', message: `Failed to mint hypercert:\n\n${errorMessage}\n\nPlease try again or contact support if the issue persists.` })
-    } finally {
-      setMintingHypercert(false)
-    }
-  }
-
   const handleClaimImpactLevel = async () => {
     if (cleanupStatus?.cleanupId === undefined || cleanupStatus?.cleanupId === null || isClaiming) {
       console.warn('[Home] Claim blocked:', {
         cleanupId: cleanupStatus?.cleanupId?.toString(),
         isClaiming,
       })
+      return
+    }
+    if (!submissionOwnerAddress) {
+      console.warn('[Home] Claim blocked: submission owner not ready (gasless wallet still loading)')
       return
     }
 
@@ -846,7 +879,7 @@ function HomeContent() {
       )
 
       if (address && cleanupStatus.cleanupId !== undefined && cleanupStatus.cleanupId !== null) {
-        const claimOwner = (submissionOwnerAddress ?? address) as Address
+        const claimOwner = submissionOwnerAddress as Address
         console.log('[Home] Marking cleanup as claimed:', cleanupStatus.cleanupId.toString())
         markCleanupAsClaimed(claimOwner, cleanupStatus.cleanupId)
         const claimedKey = `claimed_cleanup_ids_${claimOwner.toLowerCase()}`
@@ -874,7 +907,7 @@ function HomeContent() {
 
       const runRefreshAfterClaim = async () => {
         if (!address) return
-        const refreshOwner = (submissionOwnerAddress ?? address) as Address
+        const refreshOwner = submissionOwnerAddress as Address
         console.log('[Home] Refreshing cleanup status and reward stats after claim...')
         const status = await getUserCleanupStatus(refreshOwner)
         console.log('[Home] New cleanup status after claim:', status)
@@ -883,12 +916,14 @@ function HomeContent() {
         const submissions = await getUserSubmissions(refreshOwner)
         let verifiedCleanupsCount = 0
         let impactReportsCount = 0
+        let recyclablesTaggedCount = 0
         for (const id of submissions) {
           try {
             const details = await getCleanupDetails(id)
             if (details.verified) {
               verifiedCleanupsCount++
               if (details.hasImpactForm) impactReportsCount++
+              if (details.hasRecyclables) recyclablesTaggedCount++
             }
           } catch (error) {
             // ignore
@@ -917,11 +952,13 @@ function HomeContent() {
           ])
           setDcuBalance(balance)
 
+          const totalEarnedDCU = Number(formatEther(rewardStatsData.totalEarned))
           const cleanupsDCU = Number(formatEther(rewardStatsData.claimRewardsAmount))
           const cleanupsCount = Math.floor(cleanupsDCU / 10)
           const referralsDCU = Number(formatEther(rewardStatsData.referralRewardsAmount))
           const streakDCU = Number(formatEther(rewardStatsData.streakRewardsAmount))
           const reportsDCU = Number(formatEther(rewardStatsData.impactReportRewardsAmount))
+          const recyclablesDCU = Number(formatEther(rewardStatsData.recyclablesRewardsAmount))
 
           const hypercertsDCU = eligibility ? Number(eligibility.hypercertCount) * 10 : 0
 
@@ -940,11 +977,16 @@ function HomeContent() {
           }
 
           setRewardStats({
+            totalEarnedDCU,
             cleanupsDCU,
+            verifiedCleanupsCount: verifiedCleanupsCount,
             cleanupsCount,
             referralsDCU,
             streakDCU,
             reportsDCU,
+            recyclablesDCU,
+            impactReportsCount: Math.floor(reportsDCU / 5),
+            recyclablesTaggedCount: Math.floor(recyclablesDCU / 5),
             hypercertsDCU,
             verifierDCU,
             userLevel: level,
@@ -1021,6 +1063,17 @@ function HomeContent() {
           </div>
         </main>
 
+        <div className="w-full border-t border-brand-green/25 bg-brand-green/10 py-4">
+          <div className="container mx-auto flex flex-col items-center justify-center gap-3 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
+            <p className="font-sans text-sm text-muted-foreground max-w-xl">
+              Past contributors can claim $cDCU airdrop here.
+            </p>
+            <Button asChild className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90">
+              <Link href="/airdrop">Claim airdrop</Link>
+            </Button>
+          </div>
+        </div>
+
         {/* Footer */}
         <footer className="border-t border-border py-6 flex-shrink-0">
           <div className="container mx-auto px-4">
@@ -1051,6 +1104,14 @@ function HomeContent() {
                   Donate on Giveth
                 </a>
               </div>
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground sm:text-sm">
+                <Link href="/terms" className="font-medium hover:text-brand-green transition-colors">
+                  Terms of Service
+                </Link>
+                <Link href="/privacy" className="font-medium hover:text-brand-green transition-colors">
+                  Privacy Policy
+                </Link>
+              </div>
               <div className="font-sans flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest opacity-50">
                 <span>Built on</span>
                 <span className="font-bold">CELO</span>
@@ -1062,27 +1123,92 @@ function HomeContent() {
     )
   }
 
+  const canHeroSubmit =
+    !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim && rewardStats.userLevel < MAX_IMPACT_PRODUCT_LEVEL
+  const heroMaxLevelLocked = rewardStats.userLevel >= MAX_IMPACT_PRODUCT_LEVEL
+  const showHeroClaimCta = !!cleanupStatus?.canClaim
+  const showHeroUnderReview = !!cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
+
+  /** Hero primary CTA: full-width on mobile; centered fixed span from sm up */
+  const heroCtaClass =
+    'h-auto min-h-0 w-full gap-2 px-8 py-[14px] font-bebas text-lg tracking-wider sm:mx-auto sm:w-auto sm:min-w-[260px] sm:max-w-[360px] sm:text-xl'
+
   // Dashboard after login
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 sm:gap-6 px-4 py-4 sm:px-6 sm:py-6">
-        {/* Header Section: gradient + pulse on first word (DeCleanupLandingPage HeroSection) */}
-        <div className="mb-2 min-w-0 max-w-3xl animate-fade-in-up space-y-2 sm:space-y-3">
-          <h1
-            className="py-1 font-bebas text-3xl leading-none tracking-wider sm:py-2 sm:text-5xl md:text-6xl lg:text-7xl"
-            style={{ fontFamily: 'var(--font-bebas-neue), sans-serif', letterSpacing: '0.05em', lineHeight: 1.1 }}
-          >
-            <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
-              DeCleanup
-            </span>{' '}
-            Rewards
-          </h1>
-          <h2 className="font-sans text-sm font-normal normal-case leading-relaxed text-muted-foreground sm:text-lg md:text-xl">
-            Log cleanups. Build a verified record. Earn your voice in the network.
-          </h2>
-        </div>
+      <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 md:gap-10 px-4 py-4 sm:px-6 sm:py-6">
+        {/* HERO — primary CTA first */}
+        <section className="min-w-0 space-y-4 sm:space-y-5">
+          <div className="text-center sm:text-left">
+            <h1
+              className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
+              style={{ fontFamily: 'var(--font-bebas-neue), sans-serif', letterSpacing: '0.05em' }}
+            >
+              <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent">
+                DECLEANUP
+              </span>{' '}
+              <span className="text-foreground">REWARDS</span>
+            </h1>
+            <p className="mt-2 font-sans text-sm text-muted-foreground sm:text-base">
+              Log cleanups. Build your record. Earn rewards.
+            </p>
+          </div>
+          <div className="flex w-full flex-col items-center gap-3">
+            {canHeroSubmit && !heroMaxLevelLocked && (
+              <Button
+                asChild
+                className={`${heroCtaClass} inline-flex bg-brand-green text-black hover:bg-brand-green/90`}
+              >
+                <Link href="/cleanup" className="inline-flex items-center justify-center">
+                  <Leaf className="h-5 w-5 shrink-0" />
+                  SUBMIT CLEANUP
+                </Link>
+              </Button>
+            )}
+            {heroMaxLevelLocked && !showHeroClaimCta && !showHeroUnderReview && (
+              <p className="max-w-md text-center text-sm text-muted-foreground sm:text-left">
+                You&apos;re at the maximum Impact Product level — new submissions are closed for this program phase.
+              </p>
+            )}
+            {showHeroClaimCta && (
+              <Button
+                type="button"
+                onClick={() => void handleClaimImpactLevel()}
+                disabled={isClaiming}
+                className={`${heroCtaClass} inline-flex bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-70`}
+              >
+                {isClaiming ? (
+                  <>
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                    CLAIMING…
+                  </>
+                ) : (
+                  <>
+                    <Award className="h-5 w-5 shrink-0" />
+                    CLAIM LEVEL
+                  </>
+                )}
+              </Button>
+            )}
+            {showHeroUnderReview && (
+              <div
+                className={`${heroCtaClass} inline-flex cursor-default select-none items-center justify-center border border-brand-green/45 bg-brand-green/10 text-brand-green`}
+                role="status"
+                aria-live="polite"
+              >
+                <Clock className="h-5 w-5 shrink-0" aria-hidden />
+                UNDER REVIEW
+              </div>
+            )}
+            {showHeroUnderReview ? (
+              <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
+                Your cleanup is being verified. This usually takes a few hours.
+              </p>
+            ) : null}
+          </div>
+        </section>
 
-        {/* Referral Notification - Only show if user hasn't submitted yet */}
+        {/* Referral notification — right after hero */}
         {showReferralNotification && referrerAddress && (
           <div className="rounded-lg border-2 border-brand-green bg-brand-green/10 p-4 flex-shrink-0">
             <div className="flex items-start gap-3">
@@ -1090,27 +1216,19 @@ function HomeContent() {
                 <Users className="h-5 w-5 text-brand-green" />
               </div>
               <div className="flex-1">
-                <h3 className="mb-1 text-sm font-bold uppercase text-brand-green">
-                  🎉 You Were Invited!
-                </h3>
-                <p className="text-sm text-gray-300">
-                  You've been referred to DeCleanup Rewards! When you submit your first cleanup, get it verified, and claim your first Impact Product level, both you and your referrer will earn <strong className="text-white">3 DCU</strong> each as referral rewards. Additionally, you'll receive <strong className="text-white">10 DCU</strong> for claiming your first level (separate from referral rewards).
-                </p>
-                <p className="mt-2 text-xs text-gray-400">
-                  Your referrer will be automatically credited when you claim your first level.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Link href="/cleanup">
-                    <Button className="bg-brand-green text-black hover:bg-[#4a9a26]">
-                      Submit Your First Cleanup
-                    </Button>
-                  </Link>
-                </div>
+                <ReferralInviteMessage
+                  afterRewards={
+                    <div className="mt-3 flex gap-2">
+                      <Link href="/cleanup">
+                        <Button className="bg-brand-green text-black hover:bg-[#4a9a26]">Submit Your First Cleanup</Button>
+                      </Link>
+                    </div>
+                  }
+                />
               </div>
               <button
                 onClick={() => {
                   setShowReferralNotification(false)
-                  // Remember dismissal so we don't show it again for this referrer
                   if (referrerAddress) {
                     const dismissedKey = `referral_notification_dismissed_${referrerAddress.toLowerCase()}`
                     localStorage.setItem(dismissedKey, 'true')
@@ -1125,89 +1243,292 @@ function HomeContent() {
           </div>
         )}
 
-        {/* Hero Section: Impact Product */}
-        <div className="mb-6">
+        <section className="flex flex-col gap-4 lg:gap-6">
+          <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
+            <div className="flex min-h-0 min-w-0 flex-col lg:h-full">
           {impactProduct.level > 0 ? (
             <DashboardImpactProduct
+              className="lg:h-full"
               level={impactProduct.level}
               imageUrl={impactProduct.imageUrl}
               animationUrl={impactProduct.animationUrl}
-              dcuAttached={impactProduct.dcuReward ? Number(impactProduct.dcuReward) : impactProduct.level * 10}
-              impactValue={impactProduct.impactValue}
               tokenId={impactProduct.tokenId}
               contractAddress={CONTRACT_ADDRESSES.IMPACT_PRODUCT || ''}
-              onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
+              metadataName={impactProduct.metadataName}
+              metadataDescription={impactProduct.metadataDescription}
+              metadataExternalUrl={impactProduct.metadataExternalUrl}
+              metadataAttributes={impactProduct.metadataAttributes}
+              verifiedCleanupsCount={hasLoadedDashboardOnce ? rewardStats.verifiedCleanupsCount : null}
             />
           ) : cleanupStatus?.canClaim ? (
-            <div className="flex min-h-[min(70dvh,420px)] flex-col rounded-2xl border border-brand-yellow/30 bg-card p-5 sm:min-h-[500px] sm:p-8">
-              <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
-
-              <div className="flex flex-1 flex-col items-center justify-center text-center min-h-0">
+            <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-brand-yellow/30 bg-card p-5 sm:p-8 lg:h-full">
+              <SectionHeading icon={Award}>Your Impact Product level</SectionHeading>
+              <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    Your cleanup is verified! Claim your Impact Product (Level {cleanupStatus.level ?? 1}) to mint your
-                    NFT and unlock rewards.
+                    Your cleanup is verified! Claim your Impact Product (level {cleanupStatus.level ?? 1}) using the yellow
+                    button in the section above to mint and unlock rewards.
                   </p>
                 </div>
-                <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8 sm:p-12">
-                  <Award className="h-16 w-16 sm:h-20 sm:w-20 text-brand-yellow mx-auto" />
+                <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
+                  <Award className="mx-auto h-16 w-16 text-brand-yellow sm:h-20 sm:w-20" />
                 </div>
-                <h3 className="mb-2 font-bebas text-2xl sm:text-3xl tracking-wider text-foreground">
-                  READY TO CLAIM
-                </h3>
-                <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
-                  Complete your claim to mint Level {cleanupStatus.level ?? 1}.
-                </p>
-                <Button
-                  type="button"
-                  onClick={handleClaimImpactLevel}
-                  disabled={isClaiming}
-                  className="mt-4 gap-2 bg-brand-yellow px-6 py-2.5 sm:px-8 sm:py-3 font-bebas text-sm sm:text-base tracking-wider text-black hover:bg-brand-yellow/90 disabled:opacity-50"
-                >
-                  {isClaiming ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      CLAIMING...
-                    </>
-                  ) : (
-                    <>
-                      <Award className="h-4 w-4" />
-                      CLAIM LEVEL
-                    </>
-                  )}
-                </Button>
+                <h3 className="mb-2 font-bebas text-2xl tracking-wider text-foreground sm:text-3xl">Ready to claim</h3>
               </div>
             </div>
           ) : (
-            <div className="flex min-h-[min(70dvh,420px)] flex-col rounded-2xl border border-border bg-card p-5 sm:min-h-[500px] sm:p-8">
-              <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
-
-              <div className="flex flex-1 flex-col items-center justify-center text-center min-h-0">
+            <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 sm:p-8 lg:h-full">
+              <SectionHeading icon={Award}>Your Impact Product level</SectionHeading>
+              <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 rounded-2xl border-2 border-border/50 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
-                  <Award className="h-16 w-16 sm:h-20 sm:w-20 text-muted-foreground/50 mx-auto" />
+                  <Award className="mx-auto h-16 w-16 text-muted-foreground/50 sm:h-20 sm:w-20" />
                 </div>
-                <h3 className="mb-2 font-bebas text-2xl sm:text-3xl tracking-wider text-foreground">
-                  NOT YET MINTED
-                </h3>
-                <p className="text-sm sm:text-base text-muted-foreground max-w-xs">
-                  Submit your first cleanup to earn your Impact Product and start your journey
+                <h3 className="mb-2 font-bebas text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
+                <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
+                  Submit your first cleanup to mint your Impact Product. Use <span className="text-foreground">Submit cleanup</span>{' '}
+                  at the top of the page to begin.
                 </p>
-                <Link href="/cleanup" className="mt-4">
-                  <Button className="gap-2 bg-brand-yellow px-6 py-2.5 sm:px-8 sm:py-3 font-bebas text-sm sm:text-base tracking-wider text-black hover:bg-brand-yellow/90">
-                    <Leaf className="h-4 w-4" />
-                    GET STARTED
-                  </Button>
-                </Link>
               </div>
             </div>
           )}
+            </div>
+            <aside className="flex min-h-0 min-w-0 flex-col gap-4 lg:h-full">
+              <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+                <SectionHeading icon={TrendingUp}>Profile and Rewards</SectionHeading>
+                {isRewardIdentityVerifier ? (
+                  <div className="mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowVerifierRulesModal(true)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-brand-green/45 bg-brand-green/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-green transition-colors hover:bg-brand-green/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Verifier
+                    </button>
+                  </div>
+                ) : null}
+                <p
+                  className={cn(
+                    'mb-4 text-xs leading-relaxed text-muted-foreground sm:text-sm',
+                    !isRewardIdentityVerifier && '-mt-1'
+                  )}
+                >
+                  Complete cleanups, build your rank and reputation, create impact profile
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  {cleanupStatus?.canClaim ? (
+                    <Button
+                      type="button"
+                      onClick={() => void handleClaimImpactLevel()}
+                      disabled={isClaiming}
+                      className="w-full gap-2 bg-brand-yellow font-bebas text-black hover:bg-brand-yellow/90 sm:w-auto sm:min-w-[200px]"
+                    >
+                      {isClaiming ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                      ) : (
+                        <Award className="h-4 w-4 shrink-0" aria-hidden />
+                      )}
+                      Claim Impact Product level
+                    </Button>
+                  ) : null}
+                  {address ? (
+                    <Button variant="outline" asChild className="w-full border-border font-bebas tracking-wide sm:w-auto">
+                      <Link
+                        href={`/impact/${address}${
+                          submissionOwnerAddress &&
+                          submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
+                            ? `?sa=${submissionOwnerAddress}`
+                            : ''
+                        }`}
+                        className="inline-flex items-center justify-center gap-2"
+                      >
+                        <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+                        Impact portfolio
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
+                {cleanupStatus?.canClaim && claimFeeInfo && claimFeeInfo.enabled && claimFeeInfo.fee > 0n ? (
+                  <div className="mt-3">
+                    <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol="CELO" type="claim" className="mt-1" />
+                  </div>
+                ) : null}
+              </div>
+
+              {submissionOwnerAddress ? (
+                <DashboardReferralLinkCard
+                  title="Invite Friends"
+                  submissionOwnerAddress={submissionOwnerAddress}
+                  impactLevel={impactProduct.level > 0 ? impactProduct.level : 1}
+                  onNotify={(p) => setNotifyModal({ title: p.title, message: p.message, variant: p.variant || 'info' })}
+                />
+              ) : null}
+
+              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-4 sm:p-5">
+                <SectionHeading icon={TrendingUp}>REWARDS</SectionHeading>
+                <div className="mb-3 mt-2 grid min-h-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="min-w-0 rounded-xl border border-brand-green/30 bg-brand-green/5 p-3 sm:p-4">
+                    <div className="mb-1.5 flex items-center gap-1.5">
+                      <span className="text-[11px] font-sans font-semibold uppercase tracking-wide text-muted-foreground">
+                        Total DCU
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowEarnModal(true)}
+                        className="inline-flex rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
+                        aria-label="About DCU points, $cDCU, eligibility, and how to earn more"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      </button>
+                    </div>
+                    <p className="font-bebas text-2xl leading-none text-brand-green sm:text-3xl">
+                      {!hasLoadedDashboardOnce ? (
+                        <Loader2 className="h-7 w-7 animate-spin text-brand-green/80" aria-hidden />
+                      ) : (
+                        rewardStats.totalEarnedDCU.toFixed(0)
+                      )}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-snug text-muted-foreground">Total network points from all activities</p>
+                  </div>
+                  {address && submissionOwnerAddress ? (
+                    <div className="min-w-0 w-full">
+                      <DashboardClaimCdcu address={submissionOwnerAddress} />
+                    </div>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBreakdown(!showBreakdown)}
+                  className="mt-3 flex w-full items-center justify-between rounded-lg border border-border/50 bg-background/30 p-2.5 text-left hover:bg-background/50 sm:p-3"
+                >
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Breakdown</span>
+                  {showBreakdown ? (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
+            </aside>
+          </div>
+
+          {showBreakdown ? (
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+              <div className="mb-4 rounded-xl border border-border/80 bg-background/40 p-3 sm:p-4">
+                <h3 className="font-bebas text-lg tracking-wider text-foreground sm:text-xl">Impact Product level</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Level {hasLoadedDashboardOnce ? rewardStats.userLevel : '-'} of {MAX_IMPACT_PRODUCT_LEVEL}
+                </p>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-2 rounded-full bg-brand-green transition-all"
+                    style={{
+                      width: `${hasLoadedDashboardOnce
+                        ? Math.min(100, (rewardStats.userLevel / MAX_IMPACT_PRODUCT_LEVEL) * 100)
+                        : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[
+                  {
+                    label: 'Level rewards',
+                    value: rewardStats.cleanupsDCU.toFixed(0),
+                    showToken: true,
+                  },
+                  { label: 'Referrals', value: rewardStats.referralsDCU.toFixed(0), showToken: true },
+                  { label: 'Streak', value: rewardStats.streakDCU.toFixed(0), showToken: true },
+                  {
+                    label: 'Impact reports',
+                    value: rewardStats.reportsDCU.toFixed(0),
+                    showToken: true,
+                  },
+                  {
+                    label: 'Recyclables',
+                    value: rewardStats.recyclablesDCU.toFixed(0),
+                    showToken: true,
+                  },
+                  {
+                    label: 'Hypercerts (impact certificates)',
+                    value: rewardStats.hypercertsDCU.toFixed(0),
+                    showToken: true,
+                  },
+                  { label: 'Verifier', value: rewardStats.verifierDCU.toFixed(0), showToken: true },
+                  {
+                    label: 'Contributed cleanups',
+                    value: String(rewardStats.contributorCleanupCount),
+                    showToken: false,
+                    suffix: ' cleanups',
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-lg border border-border bg-background/50 p-3 transition-all hover:border-brand-green/50 hover:bg-background sm:p-3.5"
+                  >
+                    <div className="mb-1">
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {stat.label}
+                        {stat.count && ` (${stat.count})`}
+                      </span>
+                    </div>
+                    <p className="font-bebas text-xl leading-none text-foreground sm:text-2xl">
+                      {!hasLoadedDashboardOnce ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+                      ) : (
+                        <span>
+                          {stat.value}
+                          {stat.showToken ? ' DCU' : `${'suffix' in stat && stat.suffix ? stat.suffix : ''}`}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        {!isRewardIdentityVerifier ? <VerifierApplyCard /> : null}
+
+        {hypercertEligibility?.isEligible && (
+          <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
+            <Heart className="mb-2 h-5 w-5 text-brand-yellow" aria-hidden />
+            <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">
+              Hypercert
+              {hypercertEligibility.testingOverride && (
+                <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Sepolia Testnet)</span>
+              )}
+            </h3>
+            <Link href="/hypercerts" className="block">
+              <Button
+                size="sm"
+                className="h-8 w-full gap-1 bg-brand-yellow text-xs text-black hover:bg-brand-yellow/90"
+              >
+                <Heart className="h-3 w-3" />
+                Open Hypercerts certification
+              </Button>
+            </Link>
+            <p className="mt-2 text-[11px] text-muted-foreground">Minting runs from approved requests in the certification panel.</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6">
+          <div className="min-w-0">
+            <DashboardActions
+              address={address || ''}
+              userImpactLevel={rewardStats.userLevel}
+              cleanupStatus={cleanupStatus || null}
+              claimFeeInfo={claimFeeInfo}
+              onClaim={handleClaimImpactLevel}
+              isClaiming={isClaiming}
+              onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
+            />
+          </div>
         </div>
 
-        {/* Verifier Apply Card */}
-        <VerifierApplyCard />
-
-        {/* Explore: full-width row — avoids cramped 3-col squeeze beside stats on phones */}
-        <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-2 grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 sm:mt-4">
           <Link href="/leaderboard" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
               <Trophy className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
@@ -1215,7 +1536,6 @@ function HomeContent() {
               <p className="text-xs text-muted-foreground">Top contributors</p>
             </div>
           </Link>
-
           {isConnected && (
             <Link href="/verifier" className="block min-h-[88px]">
               <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
@@ -1225,197 +1545,13 @@ function HomeContent() {
               </div>
             </Link>
           )}
-
           <Link href="/hypercerts" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
               <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
               <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">HYPERCERTS</h3>
-              <p className="text-xs text-muted-foreground">Impact certificates</p>
+              <p className="text-xs text-muted-foreground">Impact certification</p>
             </div>
           </Link>
-
-          {hypercertEligibility?.isEligible && (
-            <div className="min-[480px]:col-span-2 lg:col-span-3">
-              <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
-                <Heart className="mb-2 h-5 w-5 text-brand-yellow" aria-hidden />
-                <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">
-                  HYPERCERT
-                  {hypercertEligibility.testingOverride && (
-                    <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Sepolia Testnet)</span>
-                  )}
-                </h3>
-                <Button
-                  onClick={handleMintHypercert}
-                  disabled={mintingHypercert}
-                  size="sm"
-                  className="h-8 w-full gap-1 bg-brand-yellow text-xs text-black hover:bg-brand-yellow/90 disabled:opacity-50"
-                >
-                  {mintingHypercert ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <>
-                      <Heart className="h-3 w-3" />
-                      MINT
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-          {/* Stats Section */}
-          <div className="flex flex-col gap-4 sm:gap-6 lg:col-span-2">
-            {/* Stats Grid */}
-            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
-              <SectionHeading
-                icon={TrendingUp}
-                aside={
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowEarnModal(true)}
-                      className="flex items-center gap-1.5 rounded-lg border border-brand-green/30 bg-brand-green/10 px-2.5 py-1.5 text-brand-green transition-colors hover:bg-brand-green/20 sm:gap-2 sm:px-3 sm:py-2"
-                      title="Learn how to earn more DCU"
-                    >
-                      <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
-                      <span className="font-bebas text-xs tracking-wide sm:text-sm">How to earn</span>
-                    </button>
-                    {address && (
-                      <Link
-                        href={`/impact/${address}${
-                          submissionOwnerAddress &&
-                          submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
-                            ? `?sa=${submissionOwnerAddress}`
-                            : ''
-                        }`}
-                        className="text-xs font-sans font-medium text-brand-green underline underline-offset-4 hover:text-brand-green/90"
-                      >
-                        Impact portfolio
-                      </Link>
-                    )}
-                  </>
-                }
-              >
-                YOUR STATS
-              </SectionHeading>
-
-              {/* Total Balances - Always Visible (stack on mobile so Claim $cDCU card is not clipped) */}
-              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="min-w-0 rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 transition-all hover:border-brand-green/50 hover:bg-brand-green/10">
-                  <div className="mb-2">
-                    <span className="text-xs font-sans font-semibold tracking-wide text-muted-foreground">
-                      Total DCU
-                    </span>
-                  </div>
-                  <p className="font-bebas text-3xl text-brand-green leading-none min-h-[2.25rem] flex items-center">
-                    {!hasLoadedDashboardOnce ? (
-                      <Loader2 className="h-8 w-8 animate-spin text-brand-green/80" aria-hidden />
-                    ) : (
-                      (
-                        rewardStats.cleanupsDCU +
-                        rewardStats.referralsDCU +
-                        rewardStats.streakDCU +
-                        rewardStats.reportsDCU +
-                        rewardStats.hypercertsDCU +
-                        rewardStats.verifierDCU
-                      ).toFixed(0)
-                    )}
-                  </p>
-                  <p className="mt-2 font-sans text-[11px] leading-snug text-muted-foreground">
-                    Sum of categories in the breakdown below (Reward Manager accounting).
-                  </p>
-                </div>
-                {address && (
-                  <div className="min-w-0 w-full">
-                    <DashboardClaimCdcu address={address} />
-                  </div>
-                )}
-              </div>
-
-              {/* Expandable Breakdown */}
-              <button
-                onClick={() => setShowBreakdown(!showBreakdown)}
-                className="w-full flex items-center justify-between rounded-lg border border-border/50 bg-background/30 p-3 hover:bg-background/50 transition-colors"
-              >
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Breakdown
-                </span>
-                {showBreakdown ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </button>
-
-              {showBreakdown && (
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Cleanups', value: rewardStats.cleanupsDCU.toFixed(0), showToken: true, count: rewardStats.cleanupsCount.toString() },
-                    { label: 'Referrals', value: rewardStats.referralsDCU.toFixed(0), showToken: true },
-                    { label: 'Streak', value: rewardStats.streakDCU.toFixed(0), showToken: true },
-                    { label: 'Reports', value: rewardStats.reportsDCU.toFixed(0), showToken: true },
-                    { label: 'Hypercerts', value: rewardStats.hypercertsDCU.toFixed(0), showToken: true, count: hypercertEligibility ? Number(hypercertEligibility.hypercertCount).toString() : '0' },
-                    { label: 'Verifier', value: rewardStats.verifierDCU.toFixed(0), showToken: true },
-                    {
-                      label: 'As contributor',
-                      value: String(rewardStats.contributorCleanupCount),
-                      showToken: false,
-                      count: rewardStats.impactReportsAttributed > 0 ? `${rewardStats.impactReportsAttributed} rep.` : undefined,
-                      suffix: ' cleanups',
-                      sub: 'Attribution only, no DCU',
-                    },
-                  ].map((stat) => (
-                      <div key={stat.label} className="rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-brand-green/50 hover:bg-background">
-                        <div className="mb-2">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {stat.label}
-                            {stat.count && ` (${stat.count})`}
-                          </span>
-                        </div>
-                        <p className="font-bebas text-2xl text-foreground leading-none min-h-[2rem] flex flex-col gap-0.5">
-                          {!hasLoadedDashboardOnce ? (
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
-                          ) : (
-                            <>
-                              <span>
-                                {stat.value}
-                                {stat.showToken ? ' DCU' : `${'suffix' in stat && stat.suffix ? stat.suffix : ''}`}
-                              </span>
-                              {'sub' in stat && stat.sub ? (
-                                <span className="font-sans text-[10px] font-normal normal-case text-muted-foreground">
-                                  {stat.sub}
-                                </span>
-                              ) : null}
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Actions Section */}
-          <div className="flex flex-col lg:col-span-1">
-            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 space-y-4 flex-1 overflow-auto">
-              {/* Action Buttons - Use DashboardActions for proper state management */}
-              <div className="flex-shrink-0">
-                <DashboardActions
-                  address={address || ''}
-                  userImpactLevel={rewardStats.userLevel}
-                  cleanupStatus={cleanupStatus || null}
-                  claimFeeInfo={claimFeeInfo}
-                  onClaim={handleClaimImpactLevel}
-                  isClaiming={isClaiming}
-                  onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </main>
 
@@ -1452,61 +1588,164 @@ function HomeContent() {
         />
       )}
 
-      {showEarnModal && (
+      {showVerifierRulesModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-2xl rounded-lg border border-border bg-card p-6">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="font-bebas text-2xl tracking-wider text-foreground uppercase">
-                How to earn more DCU
+          <div
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="verifier-rules-title"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <h2 id="verifier-rules-title" className="font-bebas text-2xl tracking-wider text-foreground">
+                Verifier guidelines
               </h2>
               <button
+                type="button"
+                onClick={() => setShowVerifierRulesModal(false)}
+                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+              New verifier applicants need Impact Product level{' '}
+              <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minLevel}</strong>, at least{' '}
+              <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minDCUBalance}</strong> DCU, and{' '}
+              <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minApprovedCleanups}</strong> verified
+              cleanups. Once you review, follow these rules every time:
+            </p>
+            <ul className="mb-6 space-y-2.5 text-sm leading-relaxed text-muted-foreground">
+              <li className="flex gap-2">
+                <span className="text-brand-green" aria-hidden>
+                  •
+                </span>
+                <span>Review submissions fairly, using the photo evidence as the source of truth.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-brand-green" aria-hidden>
+                  •
+                </span>
+                <span>Check that written reports match what the photos actually show.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-brand-green" aria-hidden>
+                  •
+                </span>
+                <span>Approve only legitimate cleanups; reject ones that look wrong, staged, or incomplete.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-brand-green" aria-hidden>
+                  •
+                </span>
+                <span>Do not review your own submissions.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-brand-green" aria-hidden>
+                  •
+                </span>
+                <span>The team may audit decisions and penalize misuse.</span>
+              </li>
+            </ul>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" asChild className="font-bebas tracking-wide">
+                <Link href="/verifier">Open verifier tools</Link>
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setShowVerifierRulesModal(false)}
+                className="bg-brand-green font-bebas uppercase tracking-wide text-black hover:bg-brand-green/90"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showEarnModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6">
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <h2 className="font-bebas text-2xl tracking-wider text-foreground uppercase">
+                DCU points &amp; how to earn more
+              </h2>
+              <button
+                type="button"
                 onClick={() => setShowEarnModal(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
+            <div className="mb-6 space-y-3 rounded-lg border border-border bg-background/80 p-4 text-sm text-muted-foreground">
+              <p>
+                <strong className="text-foreground">What is DCU?</strong> DCU (DeCleanup Units) are participation points you
+                earn on-chain for cleanups, referrals, streaks, reports, verification work, Hypercerts, and similar activity.
+              </p>
+              <p>
+                <strong className="text-foreground">Converting to $cDCU.</strong> Every{' '}
+                <strong className="text-foreground">50 DCU</strong> slice can unlock a claim: use{' '}
+                <strong className="text-foreground">Claim $cDCU</strong> on the dashboard to request a signed mint and confirm
+                in your wallet. How much $cDCU you mint per slice can grow with your activity (multiplier). If the card says
+                you still need DCU, keep contributing until the next threshold.
+              </p>
+              <p>
+                <strong className="text-foreground">Claims.</strong> You also need an active Claim Vault and token on this
+                network, and no conflicting pending claim for your address. Exact amounts follow the live eligibility check and
+                contracts.
+              </p>
+            </div>
+
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">1. Impact Product Claims</h3>
+                <h3 className="mb-2 font-bebas text-lg text-brand-green">1. Impact Products</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn 10 DCU per level by submitting before-and-after cleanup photos, waiting for verification and level upgrade. Each set of 10 cleanups mints a Hypercert and awards an additional 10 DCU. Currently 10 levels available, with more to come.
+                  Earn <strong className="text-foreground">10 DCU</strong> per level by submitting before-and-after cleanup
+                  photos and passing verification. Ten levels are live today; more may follow.
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-bebas text-lg text-brand-green">2. Referrals</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn 3 DCU for each user who joins via your link, submits cleanup photos, gets it verified and claims an Impact Product.
+                  Earn <strong className="text-foreground">3 DCU</strong> when someone joins through your link and completes a
+                  verified cleanup.
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-bebas text-lg text-brand-green">3. Streaks</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn 3 DCU per level if you submit cleanups at least once per week to maintain your streak.
+                  Earn <strong className="text-foreground">3 DCU</strong> per streak level by submitting at least one cleanup
+                  each calendar week.
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">4. Enhanced Impact Report</h3>
+                <h3 className="mb-2 font-bebas text-lg text-brand-green">4. Reports &amp; recyclables</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn 5 DCU if you submit optional form after each cleanup - used to generate your onchain impact certificate Hypercert (after 10 cleanups).
+                  Earn <strong className="text-foreground">5 DCU</strong> for each verified impact report or recyclables
+                  submission tied to a cleanup.
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">5. Become Verifier</h3>
+                <h3 className="mb-2 font-bebas text-lg text-brand-green">5. Verifier work</h3>
                 <p className="text-sm text-muted-foreground">
-                  Stake 100 DCU to get access to verifier cabinet and earn 1 DCU per verified submission.
+                  Earn <strong className="text-foreground">1 DCU</strong> per submission you review—approved or rejected with
+                  a clear reason—once you are an active verifier.
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">6. Hypercert Creation</h3>
+                <h3 className="mb-2 font-bebas text-lg text-brand-green">6. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn 10 DCU when you mint a Hypercert after completing every 10 verified cleanups. Hypercerts are onchain impact certificates that represent your environmental contributions.
+                  Earn <strong className="text-foreground">10 DCU</strong> for every ten verified cleanups when you create a
+                  Hypercert (impact certificate).
                 </p>
               </div>
             </div>
@@ -1515,13 +1754,30 @@ function HomeContent() {
               onClick={() => setShowEarnModal(false)}
               className="mt-6 w-full bg-brand-green font-semibold uppercase text-black hover:bg-brand-green/90"
             >
-              Got It
+              Got it
             </Button>
           </div>
         </div>
       )}
 
-      <footer className="border-t border-border py-8 mt-12 flex-shrink-0">
+      <section
+        aria-label="$cDCU airdrop for past contributors"
+        className="w-full border-t border-brand-green/25 bg-brand-green/10 py-5 sm:py-6"
+      >
+        <div className="mx-auto flex max-w-[1200px] flex-col items-stretch gap-4 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p className="text-center font-sans text-sm leading-relaxed text-muted-foreground sm:text-left sm:max-w-xl">
+            Past contributor? You may qualify for the $cDCU airdrop.
+          </p>
+          <Button
+            asChild
+            className="w-full shrink-0 bg-brand-green font-bebas text-sm uppercase tracking-wider text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[11rem]"
+          >
+            <Link href="/airdrop">Claim airdrop</Link>
+          </Button>
+        </div>
+      </section>
+
+      <footer className="border-t border-border py-8 mt-0 flex-shrink-0">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-6">
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
@@ -1545,6 +1801,15 @@ function HomeContent() {
                   {link.label}
                 </a>
               ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground sm:text-sm">
+              <Link href="/terms" className="font-normal hover:text-brand-green transition-colors">
+                Terms of Service
+              </Link>
+              <Link href="/privacy" className="font-normal hover:text-brand-green transition-colors">
+                Privacy Policy
+              </Link>
             </div>
 
             <div className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest opacity-30 select-none">

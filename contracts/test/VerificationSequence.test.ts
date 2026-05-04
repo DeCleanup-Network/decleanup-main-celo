@@ -7,18 +7,13 @@ describe("Verification Sequence", function () {
     const [owner, user1, user2, user3] = await hre.viem.getWalletClients();
     const publicClient = await hre.viem.getPublicClient();
 
-    const dcuToken = await hre.viem.deployContract("DCUToken");
-    const impactProductNft = await hre.viem.deployContract("ImpactProductNFT", [
-      owner.account.address,
-    ]);
     const dcuRewardManager = await hre.viem.deployContract("DCURewardManager", [
-      dcuToken.address,
-      impactProductNft.address,
+      "0x0000000000000000000000000000000000000000",
     ]);
-
-    // Grant MINTER_ROLE to dcuRewardManager
-    const MINTER_ROLE = await dcuToken.read.MINTER_ROLE();
-    await dcuToken.write.grantRole([MINTER_ROLE, dcuRewardManager.address], {
+    const impactProductNft = await hre.viem.deployContract("ImpactProductNFT", [
+      dcuRewardManager.address,
+    ]);
+    await dcuRewardManager.write.updateNftCollection([impactProductNft.address], {
       account: owner.account,
     });
 
@@ -27,7 +22,6 @@ describe("Verification Sequence", function () {
     });
 
     return {
-      dcuToken,
       impactProductNft,
       dcuRewardManager,
       owner,

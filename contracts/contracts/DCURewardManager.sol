@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "./interfaces/IDCUToken.sol";
 
 interface ISubmissionHypercerts {
     function userHypercertCount(address user) external view returns (uint256);
@@ -11,7 +10,8 @@ interface ISubmissionHypercerts {
 
 /**
  * @title DCURewardManager
- * @dev Handles reward accrual and distribution for the DeCleanup Network
+ * @dev Participation ledger (scores / buckets) for DeCleanup. Accrues balances in mappings only.
+ *      Fungible payout is $cDCU via ClaimVault off-chain signing — this contract does not mint ERC-20.
  */
 contract DCURewardManager is Ownable, ReentrancyGuard {
     enum RewardSource {
@@ -21,7 +21,8 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
         ImpactReport,
         Verifier,
         Hypercert,
-        Submission
+        Submission,
+        Recyclables
     }
 
     struct UserRewardStats {
@@ -32,9 +33,9 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
         uint256 streakRewardsAmount;
         uint256 referralRewardsAmount;
         uint256 impactReportRewardsAmount;
+        uint256 recyclablesRewardsAmount;
     }
 
-    IDCUToken public immutable dcuToken;
     address public nftCollection;
     address public submissionContract;
     address public treasury;
@@ -43,6 +44,7 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
     uint256 public referralReward = 3 ether; // standardized per Issue #5
     uint256 public streakReward = 3 ether;
     uint256 public impactReportReward = 5 ether;
+    uint256 public recyclablesReward = 5 ether;
     uint256 public verifierReward = 1 ether;
     uint256 public hypercertBonus = 10 ether;
 
@@ -58,6 +60,7 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
     mapping(address => uint256) public streakRewardsAmount;
     mapping(address => uint256) public referralRewardsAmount;
     mapping(address => uint256) public impactReportRewardsAmount;
+    mapping(address => uint256) public recyclablesRewardsAmount;
     mapping(address => bool) public poiVerified;
     mapping(address => bool) public nftMinted;
     mapping(address => bool) private manualEligibility;
@@ -69,7 +72,6 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
     mapping(bytes32 => bool) public hypercertRewardsClaimed;
 
     event RewardAccrued(address indexed user, uint256 amount, uint8 rewardType, uint256 timestamp);
-    event RewardsClaimed(address indexed user, uint256 amount, uint256 timestamp);
     event ReferralRegistered(address indexed invitee, address indexed referrer);
     event ReferralRewarded(address indexed referrer, address indexed invitee, uint256 amount);
     event PoiVerificationUpdated(address indexed user, bool verified);
@@ -81,6 +83,7 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
     event RewardAmountsUpdated(uint256 claimReward, uint256 referralReward, uint256 streakReward);
     event ReferralRewardUpdated(uint256 oldAmount, uint256 newAmount);
     event ImpactReportRewardUpdated(uint256 oldAmount, uint256 newAmount);
+    event RecyclablesRewardUpdated(uint256 oldAmount, uint256 newAmount);
     event VerifierRewardUpdated(uint256 oldAmount, uint256 newAmount);
     event HypercertBonusUpdated(uint256 oldAmount, uint256 newAmount);
     event HypercertRewardClaimed(address indexed user, uint256 hypercertNumber, uint256 amount);
@@ -101,9 +104,7 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _dcuToken, address _nftCollection) Ownable(msg.sender) {
-        require(_dcuToken != address(0), "REWARD__InvalidAddress");
-        dcuToken = IDCUToken(_dcuToken);
+    constructor(address _nftCollection) Ownable(msg.sender) {
         nftCollection = _nftCollection;
         treasury = msg.sender;
     }
@@ -166,6 +167,17 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
         uint256 old = impactReportReward;
         impactReportReward = newImpactReportReward;
         emit ImpactReportRewardUpdated(old, newImpactReportReward);
+    }
+
+    /**
+     * @dev Update recyclables reward amount (separate bucket from impact reports; same default 5 DCU)
+     */
+    function updateRecyclablesReward(uint256 newRecyclablesReward) external onlyOwner {
+        require(newRecyclablesReward > 0, "REWARD__ZeroAmount");
+        _validateRewardAmount(newRecyclablesReward);
+        uint256 old = recyclablesReward;
+        recyclablesReward = newRecyclablesReward;
+        emit RecyclablesRewardUpdated(old, newRecyclablesReward);
     }
 
     /**
@@ -303,6 +315,14 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
         impactReportRewardsAmount[user] += rewardAmount;
     }
 
+    function rewardRecyclables(address user, uint256 count) external onlySubmissionOrOwner {
+        require(user != address(0), "REWARD__InvalidAddress");
+        require(count > 0, "REWARD__ZeroAmount");
+        uint256 rewardAmount = recyclablesReward * count;
+        _addReward(user, rewardAmount, RewardSource.Recyclables);
+        recyclablesRewardsAmount[user] += rewardAmount;
+    }
+
     function rewardHypercertMint(address user) external onlyOwner {
         require(user != address(0), "REWARD__InvalidAddress");
         _addReward(user, hypercertBonus, RewardSource.Hypercert);
@@ -327,19 +347,6 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
 
     function distributeRewards(address user, uint256 amount) external onlySubmissionOrOwner {
         _addReward(user, amount, RewardSource.Submission);
-    }
-
-    // ----------- Claiming -----------
-
-    function claimRewards(uint256 amount) external nonReentrant {
-        require(amount > 0, "REWARD__ZeroAmount");
-        require(userBalances[msg.sender] >= amount, "REWARD__InsufficientBalance");
-
-        userBalances[msg.sender] -= amount;
-        totalClaimed[msg.sender] += amount;
-
-        require(dcuToken.mint(msg.sender, amount), "Reward claim failed");
-        emit RewardsClaimed(msg.sender, amount, block.timestamp);
     }
 
     // ----------- Views -----------
@@ -379,7 +386,8 @@ contract DCURewardManager is Ownable, ReentrancyGuard {
                 claimRewardsAmount: claimRewardsAmount[user],
                 streakRewardsAmount: streakRewardsAmount[user],
                 referralRewardsAmount: referralRewardsAmount[user],
-                impactReportRewardsAmount: impactReportRewardsAmount[user]
+                impactReportRewardsAmount: impactReportRewardsAmount[user],
+                recyclablesRewardsAmount: recyclablesRewardsAmount[user]
             });
     }
 

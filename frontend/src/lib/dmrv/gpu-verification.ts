@@ -7,6 +7,9 @@
  * - GPU_SHARED_SECRET — sent as Authorization: Bearer <secret> when non-empty
  * - GPU_INFERENCE_PATH — optional path segment (default /infer)
  *
+ * The GPU service (gpu-inference-service/main.py) expects POST /infer with JSON:
+ * { submissionId, imageUrl, phase: "before"|"after" } — it downloads the image itself.
+ *
  * Scoring incorporates stability-aware logic (PR #29): negative-delta handling,
  * confidence variance, and thresholds tuned to reduce false rejections.
  */
@@ -98,26 +101,26 @@ function clamp01(n: number): number {
 }
 
 /**
- * POST multipart image to GPU service /infer (or GPU_INFERENCE_PATH).
+ * Ask GPU service /infer to run YOLO on an image reachable at imageUrl (service downloads it).
  */
-export async function inferImage(imageUrl: string): Promise<{ objectCount: number; meanConfidence: number }> {
-  const imageRes = await fetch(imageUrl, {
-    signal: AbortSignal.timeout(INFER_TIMEOUT_MS),
-  })
-  if (!imageRes.ok) {
-    throw new Error(`Failed to download image for inference: ${imageRes.status} ${imageUrl}`)
+export async function inferImage(
+  submissionId: string,
+  phase: 'before' | 'after',
+  imageUrl: string
+): Promise<{ objectCount: number; meanConfidence: number }> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
   }
-  const contentType = imageRes.headers.get('content-type') || 'image/jpeg'
-  const arrayBuffer = await imageRes.arrayBuffer()
-  const blob = new Blob([arrayBuffer], { type: contentType })
-
-  const form = new FormData()
-  form.append('file', blob, 'image.jpg')
 
   const inferRes = await fetch(getInferUrl(), {
     method: 'POST',
-    headers: getAuthHeaders(),
-    body: form,
+    headers,
+    body: JSON.stringify({
+      submissionId,
+      imageUrl,
+      phase,
+    }),
     signal: AbortSignal.timeout(INFER_TIMEOUT_MS),
   })
 
@@ -229,8 +232,8 @@ export async function runFullVerification(
 
   try {
     const [beforeInference, afterInference] = await Promise.all([
-      inferImage(beforeImageUrl),
-      inferImage(afterImageUrl),
+      inferImage(submissionId, 'before', beforeImageUrl),
+      inferImage(submissionId, 'after', afterImageUrl),
     ])
 
     const scoreBlock = computeVerificationScore(beforeInference, afterInference, boost)

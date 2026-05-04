@@ -6,6 +6,7 @@
 import { Address } from 'viem'
 import { readContract } from 'wagmi/actions'
 import { config } from '../blockchain/wagmi'
+import { REQUIRED_CHAIN_ID } from '../blockchain/chain-constants'
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIG / ABI                                 */
@@ -78,6 +79,7 @@ export async function findCleanupsByWallet(
   for (let i = 1; i <= maxSearchRange; i++) {
     try {
       const details: any = await readContract(config, {
+        chainId: REQUIRED_CHAIN_ID,
         address: VERIFICATION_CONTRACT,
         abi: VERIFICATION_ABI,
         functionName: 'getSubmissionDetails',

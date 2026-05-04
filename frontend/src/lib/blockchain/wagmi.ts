@@ -4,7 +4,7 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { http } from 'wagmi'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
-// Must be Celo mainnet (42220), not Alfajores (deprecated testnet) — wrong RPC causes CORS + wrong-chain reads.
+// Must be Celo mainnet (42220), not a deprecated testnet RPC - wrong RPC causes CORS + wrong-chain reads.
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
 /** Browser-safe default: public forno sepolia often has no CORS; same-origin proxy + drpc fallback. */
 const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
