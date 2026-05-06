@@ -113,7 +113,11 @@ export default function ProfilePage() {
   const [isClaiming, setIsClaiming] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [claimModal, setClaimModal] = useState<{ variant: 'success' | 'error'; message: string } | null>(null)
-  const [notifyModal, setNotifyModal] = useState<{ variant: 'success' | 'info'; title: string; message: string } | null>(null)
+  const [notifyModal, setNotifyModal] = useState<{
+    variant: 'success' | 'info' | 'error'
+    title: string
+    message: string
+  } | null>(null)
 
   // Prevent hydration mismatch by ensuring we render only after mounting
   useEffect(() => {
