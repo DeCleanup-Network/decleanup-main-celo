@@ -1470,7 +1470,6 @@ function HomeContent() {
                     <div className="mb-1">
                       <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                         {stat.label}
-                        {stat.count && ` (${stat.count})`}
                       </span>
                     </div>
                     <p className="font-bebas text-xl leading-none text-foreground sm:text-2xl">
