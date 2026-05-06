@@ -4,15 +4,22 @@
  * (which loads RainbowKit/Lit and triggers "Lit is in dev mode" etc.).
  */
 
+import { resolveCeloSepoliaUpstreamRpc, CELO_SEPOLIA_FORNO_RPC } from './celo-sepolia-upstream-rpc'
+
 const CELO_SEPOLIA_CHAIN_ID = 11142220
 const CELO_MAINNET_CHAIN_ID = 42220
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
-// Public forno can return 403 (rate limit); dRPC is a free alternative
-const celoSepoliaRpcUrl =
-  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://celo-sepolia.drpc.org'
+const celoSepoliaRpcUrl = resolveCeloSepoliaUpstreamRpc(
+  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || CELO_SEPOLIA_FORNO_RPC
+)
 
-const requiredChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || CELO_SEPOLIA_CHAIN_ID)
+const parsedChainEnv = Number(process.env.NEXT_PUBLIC_CHAIN_ID || '')
+const requiredChainId =
+  parsedChainEnv === CELO_MAINNET_CHAIN_ID || parsedChainEnv === CELO_SEPOLIA_CHAIN_ID
+    ? parsedChainEnv
+    : CELO_SEPOLIA_CHAIN_ID
+
 const isTestnet = requiredChainId !== CELO_MAINNET_CHAIN_ID
 
 export const REQUIRED_CHAIN_ID = requiredChainId
@@ -40,6 +47,7 @@ export const CONTRACT_ADDRESSES = {
     process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT ||
     process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS ||
     '',
-  DCU_TOKEN: process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT || '',
+  DCU_TOKEN:
+    process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT || process.env.NEXT_PUBLIC_CDCU_TOKEN_ADDRESS || '',
   CLAIMVAULT: process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS || '',
 } as const

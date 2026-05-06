@@ -7,7 +7,9 @@ import { isVerifier as checkIsVerifier } from '@/lib/blockchain/contracts'
 
 /**
  * Hook to check if the connected wallet is a verifier
- * Queries the smart contract for verifier status
+ * 
+ * Current: Queries the smart contract for VERIFIER_ROLE (whitelisted addresses)
+ * Future: Will also check $cDCU staking status
  */
 export function useIsVerifier() {
     const { address, isConnected } = useAccount()

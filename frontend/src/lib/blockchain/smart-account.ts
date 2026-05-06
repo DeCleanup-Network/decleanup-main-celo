@@ -1,13 +1,8 @@
 /**
- * Smart account + Pimlico paymaster scaffold for gasless txs on Celo Sepolia.
- * See docs/PAYMASTER_AA_PLAN.md.
+ * Optional ERC-4337 / Pimlico scaffold for gasless txs (not wired into main product flows).
+ * The app runs fine with EOAs only; enable only after dependency and ops review.
  *
- * Requires: npm install permissionless
- * Env: NEXT_PUBLIC_PIMLICO_API_KEY (or PIMLICO_API_KEY)
- *
- * The Web3Auth embedded wallet is an EOA; to use this you must pass an EOA Account
- * (e.g. derived from the connected WalletClient). A future helper can wrap
- * useWalletClient() into a viem Account for use here.
+ * Env: NEXT_PUBLIC_PIMLICO_API_KEY (or PIMLICO_API_KEY). May require `permissionless`.
  */
 
 import type { Account, Address } from 'viem'

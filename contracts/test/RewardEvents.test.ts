@@ -10,15 +10,16 @@ describe("Reward Events", function () {
     const user1Address = user1.account.address;
     const user2Address = user2.account.address;
 
-    const dcuToken = await hre.viem.deployContract("DCUToken");
-    const nftCollection = await hre.viem.deployContract("NFTCollection");
     const dcuRewardManager = await hre.viem.deployContract("DCURewardManager", [
-      dcuToken.address,
-      nftCollection.address,
+      "0x0000000000000000000000000000000000000000",
     ]);
-
-    const MINTER_ROLE = await dcuToken.read.MINTER_ROLE();
-    await dcuToken.write.grantRole([MINTER_ROLE, dcuRewardManager.address], {
+    const impactProductNft = await hre.viem.deployContract("ImpactProductNFT", [
+      dcuRewardManager.address,
+    ]);
+    await dcuRewardManager.write.updateNftCollection([impactProductNft.address], {
+      account: deployer.account,
+    });
+    await impactProductNft.write.setRewardsContract([dcuRewardManager.address], {
       account: deployer.account,
     });
 
@@ -31,7 +32,7 @@ describe("Reward Events", function () {
       account: deployer.account,
     });
 
-    return { dcuToken, nftCollection, dcuRewardManager, deployer, user1, user2 };
+    return { dcuRewardManager, deployer, user1, user2 };
   }
 
   it("should deploy all contracts successfully and verify events", async function () {

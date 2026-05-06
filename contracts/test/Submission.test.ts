@@ -12,25 +12,14 @@ describe("Submission", function () {
     const [owner, user, admin] = await hre.viem.getWalletClients();
     const publicClient = await hre.viem.getPublicClient();
 
-    const dcuToken = await hre.viem.deployContract("DCUToken");
-
-    const rewardManager = await hre.viem.deployContract(
-      "DCURewardManager",
-      [dcuToken.address, zeroAddress]
-    );
-
-    const MINTER_ROLE = await dcuToken.read.MINTER_ROLE();
-    await dcuToken.write.grantRole(
-      [MINTER_ROLE, rewardManager.address],
-      { account: owner.account }
-    );
+    const rewardManager = await hre.viem.deployContract("DCURewardManager", [zeroAddress]);
 
     const defaultReward = parseEther("10");
 
-    const submission = await hre.viem.deployContract(
-      "Submission",
-      [dcuToken.address, rewardManager.address, defaultReward]
-    );
+    const submission = await hre.viem.deployContract("Submission", [
+      rewardManager.address,
+      defaultReward,
+    ]);
 
     await rewardManager.write.setSubmissionContract(
       [submission.address],
@@ -60,7 +49,6 @@ describe("Submission", function () {
       owner,
       user,
       admin,
-      dcuToken,
       rewardManager,
       submission,
       publicClient,
@@ -124,7 +112,7 @@ describe("Submission", function () {
   });
 
   describe("Submission Approval", function () {
-    it("Should approve and make rewards claimable", async function () {
+    it("Should approve and reward verifier (submitter DCU accrues via NFT / bonus paths, not at approve)", async function () {
       const { submission, user, admin, rewardManager } =
         await loadFixture(deployFixture);
 
@@ -132,19 +120,18 @@ describe("Submission", function () {
         account: user.account,
       });
 
-      const initial = await rewardManager.read.getBalance([
-        user.account.address,
-      ]);
-      expect(initial).to.equal(0n);
+      const initialUser = await rewardManager.read.getBalance([user.account.address]);
+      expect(initialUser).to.equal(0n);
 
       await submission.write.approveSubmission([0n], {
         account: admin.account, // MUST be VERIFIER
       });
 
-      const claimable = await rewardManager.read.getBalance([
-        user.account.address,
-      ]);
-      expect(claimable).to.equal(parseEther("10"));
+      const userAfter = await rewardManager.read.getBalance([user.account.address]);
+      expect(userAfter).to.equal(0n);
+
+      const verifierBal = await rewardManager.read.getBalance([admin.account.address]);
+      expect(verifierBal).to.equal(parseEther("1"));
     });
 
     it("Should prevent non-verifier from approving", async function () {
@@ -159,37 +146,6 @@ describe("Submission", function () {
           account: user.account,
         })
       ).to.be.rejectedWith("AccessControl");
-    });
-  });
-
-  describe("Reward Claiming", function () {
-    it("Should allow user to claim approved rewards", async function () {
-      const { submission, user, admin, rewardManager, dcuToken } =
-        await loadFixture(deployFixture);
-
-      await submission.write.createSubmission(buildArgs(), {
-        account: user.account,
-      });
-
-      await submission.write.approveSubmission([0n], {
-        account: admin.account, // VERIFIER
-      });
-
-      const amount = await rewardManager.read.getBalance([
-        user.account.address,
-      ]);
-
-      await rewardManager.write.claimRewards([amount], {
-        account: user.account,
-      });
-
-      const after = await rewardManager.read.getBalance([
-        user.account.address,
-      ]);
-      expect(after).to.equal(0n);
-
-      const balance = await dcuToken.read.balanceOf([user.account.address]);
-      expect(balance).to.equal(amount);
     });
   });
 

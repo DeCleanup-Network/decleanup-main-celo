@@ -4,26 +4,101 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
-import { getLatestApplicationByAddress } from '@/lib/verifier/applications'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { VERIFIER_CONFIG } from '@/config/verifier'
 import { Shield, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
+import type { VerifierApplication } from '@/lib/verifier/types'
+import type { Address } from 'viem'
+import { isVerifier as isVerifierOnChain } from '@/lib/blockchain/contracts'
+
+const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
 
 export function VerifierApplyCard() {
   const { address } = useAccount()
+  const { submissionOwnerAddress } = useSmartAccountClient()
+  const applicantAddress = submissionOwnerAddress
   const { eligibility, isLoading, error } = useVerifierEligibility()
   const [isApplying, setIsApplying] = useState(false)
   const [applyError, setApplyError] = useState<string | null>(null)
+  const [latestApp, setLatestApp] = useState<VerifierApplication | null>(null)
+  const [loadingApplication, setLoadingApplication] = useState(false)
+  const [isVerifierNow, setIsVerifierNow] = useState(false)
+  const [checkingVerifierRole, setCheckingVerifierRole] = useState(true)
 
-  if (!address) return null
+  const loadLatestApplication = useCallback(async () => {
+    if (!address && !applicantAddress) return
+    setLoadingApplication(true)
+    try {
+      const targets = [address, applicantAddress].filter(Boolean) as string[]
+      const rows = await Promise.all(
+        targets.map(async (candidate) => {
+          const res = await fetch(`/api/verifier/applications?address=${encodeURIComponent(candidate)}`, {
+            cache: 'no-store',
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok || !data?.success) return null
+          if (data.verifierApplicationsUnavailable) return null
+          return (data.application || null) as VerifierApplication | null
+        })
+      )
+      const mine = rows
+        .filter((row): row is VerifierApplication => !!row)
+        .sort((a, b) => b.appliedAt - a.appliedAt)
+      const next = mine[0] || null
+      setLatestApp((prev) => {
+        if (next) return next
+        return prev
+      })
+    } catch {
+      // Keep UI functional even if status fetch fails.
+    } finally {
+      setLoadingApplication(false)
+    }
+  }, [address, applicantAddress])
 
-  const latestApp = getLatestApplicationByAddress(address)
+  useEffect(() => {
+    void loadLatestApplication()
+  }, [loadLatestApplication])
+
+  useEffect(() => {
+    let cancelled = false
+    async function checkVerifierRole() {
+      if (!applicantAddress) {
+        setIsVerifierNow(false)
+        setCheckingVerifierRole(false)
+        return
+      }
+      try {
+        const status = await isVerifierOnChain(applicantAddress)
+        if (!cancelled) setIsVerifierNow(status)
+      } catch {
+        if (!cancelled) setIsVerifierNow(false)
+      } finally {
+        if (!cancelled) setCheckingVerifierRole(false)
+      }
+    }
+    void checkVerifierRole()
+    return () => {
+      cancelled = true
+    }
+  }, [applicantAddress, latestApp?.status])
+
+  useEffect(() => {
+    if (!latestApp?.status) return
+    if (latestApp.status !== 'PENDING' && latestApp.status !== 'PENDING_ONCHAIN') return
+    const id = window.setInterval(() => {
+      void loadLatestApplication()
+    }, 10_000)
+    return () => window.clearInterval(id)
+  }, [latestApp?.id, latestApp?.status, loadLatestApplication])
 
   const handleApply = async () => {
-    if (!eligibility?.eligible || !address) return
+    if (!eligibility?.eligible || !applicantAddress) return
     setIsApplying(true)
     setApplyError(null)
 
@@ -31,21 +106,48 @@ export function VerifierApplyCard() {
       const response = await fetch('/api/verifier/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, metrics: eligibility.metrics }),
+        body: JSON.stringify({ address: applicantAddress, metrics: eligibility.metrics }),
       })
+      const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        const data = await response.json()
+        const errorMessage =
+          [data?.error, data?.hint, data?.detail].filter(Boolean).join(' — ') ||
+          'Failed to submit application'
+        if (response.status === 409 && /pending application/i.test(errorMessage)) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('decleanup_last_verifier_applicant', applicantAddress.toLowerCase())
+          }
+          setLatestApp((prev) =>
+            prev ?? {
+              id: 'pending-local',
+              address: (applicantAddress as string).toLowerCase(),
+              appliedAt: Date.now(),
+              status: 'PENDING',
+            }
+          )
+          await loadLatestApplication()
+          setApplyError(null)
+          return
+        }
         throw new Error(data.error || 'Failed to submit application')
       }
-
-      window.location.reload()
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('decleanup_last_verifier_applicant', applicantAddress.toLowerCase())
+      }
+      const created = data?.application as VerifierApplication | undefined
+      if (created?.id) {
+        setLatestApp(created)
+      }
+      await loadLatestApplication()
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setIsApplying(false)
     }
   }
+
+  if (!address) return null
 
   if (isLoading) {
     return (
@@ -54,7 +156,7 @@ export function VerifierApplyCard() {
           icon={Shield}
           aside={<Loader2 className="h-5 w-5 shrink-0 animate-spin text-brand-yellow" aria-hidden />}
         >
-          VERIFIER REQUIREMENTS
+          BECOME A VERIFIER
         </SectionHeading>
         <p className="text-sm text-muted-foreground">Loading eligibility...</p>
       </div>
@@ -64,103 +166,190 @@ export function VerifierApplyCard() {
   if (error) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading icon={Shield}>VERIFIER REQUIREMENTS</SectionHeading>
+        <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
         <p className="text-sm text-red-400">{error}</p>
       </div>
     )
   }
 
+  if (loadingApplication && !latestApp) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
+        <p className="text-sm text-muted-foreground">Loading application status...</p>
+      </div>
+    )
+  }
+
+  if (!checkingVerifierRole && isVerifierNow && !latestApp) {
+    return (
+      <div className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-6">
+        <SectionHeading icon={Shield}>VERIFIER STATUS</SectionHeading>
+        <p className="text-sm text-green-400">You are now a verifier.</p>
+        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+          <li>• Review fairly using photo evidence.</li>
+          <li>• Check that reports match the photos.</li>
+          <li>• Approve only valid cleanups; reject suspicious ones.</li>
+          <li>• Do not review your own submissions.</li>
+          <li>• The team may audit decisions and penalize misuse.</li>
+        </ul>
+      </div>
+    )
+  }
+
   if (latestApp) {
+    const showApprovedState = latestApp.status === 'APPROVED' || isVerifierNow
+    const effectiveStatus = showApprovedState ? 'APPROVED' : latestApp.status
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
         <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm text-muted-foreground">Status:</span>
             <div className="flex items-center gap-2">
-              {latestApp.status === 'PENDING' && (
+              {loadingApplication && (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+              )}
+              {effectiveStatus === 'PENDING' && (
                 <>
                   <Clock className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm font-medium text-yellow-400">Pending Review</span>
+                  <span className="text-sm font-medium text-yellow-400">Under review</span>
                 </>
               )}
-              {latestApp.status === 'APPROVED' && (
+              {showApprovedState && (
                 <>
                   <CheckCircle className="w-4 h-4 text-green-400" />
                   <span className="text-sm font-medium text-green-400">Approved</span>
                 </>
               )}
-              {latestApp.status === 'REJECTED' && (
+              {effectiveStatus === 'REJECTED' && (
                 <>
                   <XCircle className="w-4 h-4 text-red-400" />
                   <span className="text-sm font-medium text-red-400">Rejected</span>
                 </>
               )}
+              {effectiveStatus === 'PENDING_ONCHAIN' && (
+                <>
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin text-brand-yellow" aria-hidden />
+                  <span className="text-sm font-medium text-brand-yellow">On-chain approval pending</span>
+                </>
+              )}
             </div>
           </div>
 
-          {latestApp.status === 'APPROVED' && (
-            <p className="text-sm text-green-400">✅ You are now a verifier!</p>
+          {showApprovedState && (
+            <>
+              <p className="text-sm text-green-400">You are now a verifier.</p>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                <li>• Review fairly using photo evidence.</li>
+                <li>• Check that reports match the photos.</li>
+                <li>• Approve only valid cleanups; reject suspicious ones.</li>
+                <li>• Do not review your own submissions.</li>
+                <li>• The team may audit decisions and penalize misuse.</li>
+              </ul>
+            </>
           )}
-          {latestApp.status === 'REJECTED' && latestApp.notes && (
+          {effectiveStatus === 'REJECTED' && latestApp.notes && (
             <p className="text-sm text-red-400">Reason: {latestApp.notes}</p>
           )}
-          {latestApp.status === 'PENDING' && (
-            <p className="text-sm text-muted-foreground">Under review...</p>
+          {effectiveStatus === 'PENDING' && (
+            <p className="text-sm text-muted-foreground">
+              Your application was received. An admin will review it; this page updates automatically.
+            </p>
+          )}
+          {effectiveStatus === 'PENDING_ONCHAIN' && (
+            <p className="text-sm text-muted-foreground">
+              Waiting for the admin approval transaction to confirm on-chain…
+            </p>
           )}
         </div>
       </div>
     )
   }
 
+  const metrics = eligibility?.metrics
+  const levelProgress = metrics ? Math.min((metrics.level / minLevel) * 100, 100) : 0
+  const dcuProgress = metrics ? Math.min((metrics.dcuBalance / minDCUBalance) * 100, 100) : 0
+  const cleanupProgress = metrics
+    ? Math.min((metrics.approvedCleanups / minApprovedCleanups) * 100, 100)
+    : 0
   if (!eligibility?.eligible) {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading icon={Shield}>VERIFIER REQUIREMENTS</SectionHeading>
+        <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
 
-        {eligibility?.reasons && (
-          <div className="space-y-2 text-sm text-muted-foreground">
-            {eligibility.reasons.map((reason, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-orange-400 mt-0.5">•</span>
-                <span>{reason}</span>
-              </div>
-            ))}
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+            <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Level</p>
+            <div className="h-2 overflow-hidden rounded bg-muted">
+              <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${levelProgress}%` }} />
+            </div>
+            <p className="mt-2 font-mono text-xs text-foreground">
+              {metrics?.level ?? 0} / {minLevel}
+            </p>
           </div>
-        )}
+          <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+            <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">DCU</p>
+            <div className="h-2 overflow-hidden rounded bg-muted">
+              <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${dcuProgress}%` }} />
+            </div>
+            <p className="mt-2 font-mono text-xs text-foreground">
+              {(metrics?.dcuBalance ?? 0).toFixed(0)} / {minDCUBalance}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+            <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Cleanups</p>
+            <div className="h-2 overflow-hidden rounded bg-muted">
+              <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${cleanupProgress}%` }} />
+            </div>
+            <p className="mt-2 font-mono text-xs text-foreground">
+              {metrics?.approvedCleanups ?? 0} / {minApprovedCleanups}
+            </p>
+          </div>
+        </div>
 
-        <p className="text-xs text-muted-foreground mt-4">
-          Meet all requirements to apply
-        </p>
+        <Button
+          onClick={handleApply}
+          disabled
+          className="mt-4 w-full bg-brand-green/60 text-black font-semibold disabled:opacity-60"
+        >
+          Apply to Be a Verifier
+        </Button>
+        <p className="mt-2 text-xs text-muted-foreground">Complete the above to unlock.</p>
+        {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
       </div>
     )
   }
 
   return (
     <div className="min-w-0 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6">
-      <SectionHeading icon={Shield}>VERIFIER REQUIREMENTS</SectionHeading>
+      <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
 
       <div className="mb-4 min-w-0 space-y-3">
         <div className="break-words text-sm text-foreground">
           <p className="mb-2 font-medium">You meet all requirements:</p>
           <ul className="space-y-1 text-xs text-muted-foreground">
-            <li>✓ Level: {eligibility?.metrics.level}</li>
-            <li>✓ DCU Balance: {eligibility?.metrics.dcuBalance.toFixed(2)}</li>
-            <li>✓ Approved Cleanups: {eligibility?.metrics.approvedCleanups}</li>
+            <li>
+              ✓ Impact Product level: {eligibility?.metrics.level} / {minLevel}
+            </li>
+            <li>✓ DCU: {eligibility?.metrics.dcuBalance.toFixed(2)} / {minDCUBalance}</li>
+            <li>
+              ✓ Approved cleanups: {eligibility?.metrics.approvedCleanups} / {minApprovedCleanups}
+            </li>
           </ul>
         </div>
       </div>
 
       <Button
         onClick={handleApply}
-        disabled={isApplying}
+        disabled={isApplying || !!latestApp}
         className="w-full bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
       >
         {isApplying ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Submitting...
+            Submitting…
           </>
         ) : (
           'Apply to Be a Verifier'

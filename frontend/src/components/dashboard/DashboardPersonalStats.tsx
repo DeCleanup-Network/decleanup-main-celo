@@ -104,63 +104,87 @@ export function DashboardPersonalStats({
             {showEarnModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setShowEarnModal(false)}>
                     <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border-2 border-brand-green/30 bg-black p-6" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="mb-6 font-bebas text-3xl tracking-wider text-brand-green">
-                            HOW TO EARN MORE DCU
+                        <h3 className="mb-4 font-bebas text-3xl tracking-wider text-brand-green">
+                            DCU &amp; HOW TO EARN MORE
                         </h3>
 
+                        <div className="mb-6 space-y-3 rounded-lg border border-brand-green/25 bg-black/40 p-4 text-sm text-gray-300">
+                            <p>
+                                <span className="font-semibold text-white">What is DCU?</span> DCU are on-chain participation
+                                points for cleanups, referrals, streaks, reports, verifier work, Hypercerts, and related
+                                activity.
+                            </p>
+                            <p>
+                                <span className="font-semibold text-white">Converting to $cDCU.</span> Every{' '}
+                                <span className="font-bold text-brand-green">50 DCU</span> slice can unlock a dashboard claim;
+                                minted amounts can scale with an activity multiplier.
+                            </p>
+                        </div>
+
                         <div className="space-y-4">
-                            {/* 1. Impact Product Claims */}
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-bebas text-lg text-black">1</span>
-                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Impact Product Claims</h4>
+                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Impact Products</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">10 DCU per level</span> by submitting before-and-after cleanup photos, waiting for verification, and claiming your level upgrade. Currently 10 levels available, with more to come.
+                                    Earn <span className="font-bold text-brand-green">10 DCU</span> per level with verified
+                                    before-and-after photos. Ten levels are live today.
                                 </p>
                             </div>
 
-                            {/* 2. Referrals */}
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-bebas text-lg text-black">2</span>
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Referrals</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">3 DCU</span> for each user who joins via your link, submits cleanup photos, gets it verified, and claims an Impact Product.
+                                    Earn <span className="font-bold text-brand-green">3 DCU</span> when someone uses your link
+                                    and completes a verified cleanup.
                                 </p>
                             </div>
 
-                            {/* 3. Streaks */}
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-bebas text-lg text-black">3</span>
                                     <h4 className="font-bebas text-xl tracking-wide text-brand-green">Streaks</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">3 DCU per level</span> if you submit cleanups at least once per week to maintain your streak.
+                                    Earn <span className="font-bold text-brand-green">3 DCU</span> per streak level by
+                                    submitting at least one cleanup each week.
                                 </p>
                             </div>
 
-                            {/* 4. Enhanced Impact Report */}
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-bebas text-lg text-black">4</span>
-                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Enhanced Impact Report</h4>
+                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Reports &amp; recyclables</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Earn <span className="font-bold text-brand-green">5 DCU</span> if you submit the optional form after each cleanup - used to generate your onchain impact certificate Hypercert (after 10 cleanups).
+                                    Earn <span className="font-bold text-brand-green">5 DCU</span> for each verified impact
+                                    report or recyclables submission.
                                 </p>
                             </div>
 
-                            {/* 5. Become Verifier */}
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-bebas text-lg text-black">5</span>
-                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Become Verifier</h4>
+                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Verifier work</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
-                                    Stake <span className="font-bold text-brand-yellow">100 DCU</span> to get access to the verifier cabinet and earn <span className="font-bold text-brand-green">1 DCU per verified submission</span>.
+                                    Earn <span className="font-bold text-brand-green">1 DCU</span> per reviewed submission—
+                                    approve or reject with a reason—as an active verifier.
+                                </p>
+                            </div>
+
+                            <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
+                                <div className="mb-2 flex items-center gap-2">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-bebas text-lg text-black">6</span>
+                                    <h4 className="font-bebas text-xl tracking-wide text-brand-green">Impact certificates</h4>
+                                </div>
+                                <p className="text-sm text-gray-300">
+                                    Earn <span className="font-bold text-brand-green">10 DCU</span> for every ten verified
+                                    cleanups when you create a Hypercert.
                                 </p>
                             </div>
                         </div>
@@ -169,7 +193,7 @@ export function DashboardPersonalStats({
                             onClick={() => setShowEarnModal(false)}
                             className="mt-6 w-full bg-brand-green font-bebas text-lg tracking-wider text-black hover:bg-brand-green/90"
                         >
-                            GOT IT!
+                            Got it
                         </Button>
                     </div>
                 </div>

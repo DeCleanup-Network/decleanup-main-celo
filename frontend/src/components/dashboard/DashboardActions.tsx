@@ -1,11 +1,18 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Leaf, Award, Loader2, Clock, Shield, Heart, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Leaf, Award, Loader2 } from 'lucide-react'
 import { FeeDisplay } from '@/components/ui/fee-display'
+import { ActionHint } from '@/components/ui/action-hint'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import { VERIFIER_CONFIG } from '@/config/verifier'
+import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { isVerifier as isVerifierOnChain } from '@/lib/blockchain/contracts'
+import type { Address } from 'viem'
 
 interface DashboardActionsProps {
     address: string
@@ -23,6 +30,18 @@ interface DashboardActionsProps {
     onNotify?: (params: { variant: 'success' | 'info'; title: string; message: string }) => void
 }
 
+function stepClass(active: boolean, done?: boolean) {
+    const base =
+        'inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-center font-bebas text-[11px] uppercase tracking-wide transition-colors sm:text-xs'
+    if (done) {
+        return `${base} border-brand-green/40 bg-brand-green/10 text-brand-green`
+    }
+    if (active) {
+        return `${base} border-brand-green bg-brand-green/15 text-foreground ring-1 ring-brand-green/40`
+    }
+    return `${base} border-border/80 bg-background/40 text-muted-foreground opacity-70`
+}
+
 export function DashboardActions({
     address,
     userImpactLevel = 0,
@@ -30,157 +49,178 @@ export function DashboardActions({
     onClaim,
     isClaiming,
     claimFeeInfo,
-    onNotify,
+    onNotify: _onNotify,
 }: DashboardActionsProps) {
-    // Button state logic:
-    // 1. Can submit: no pending cleanup, cannot claim → Submit active, Claim hidden
-    // 2. Under verification: has pending cleanup, cannot claim → Both hidden, show status
-    // 3. Verified: has pending cleanup, can claim → Claim active, Submit hidden
+    const { submissionOwnerAddress } = useSmartAccountClient()
+    const { eligibility } = useVerifierEligibility()
+    const [isVerifier, setIsVerifier] = useState(false)
+
+    const rewardIdentity = submissionOwnerAddress ?? (address as Address | undefined)
+
+    useEffect(() => {
+        let cancelled = false
+        if (!rewardIdentity) {
+            setIsVerifier(false)
+            return
+        }
+        void isVerifierOnChain(rewardIdentity as Address).then((v) => {
+            if (!cancelled) setIsVerifier(v)
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [rewardIdentity])
+
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
+    const submitAvailable = canSubmit && !submitLockedMaxLevel
     const canClaimLevel = cleanupStatus?.canClaim && !isClaiming
     const isUnderVerification = cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
-    
-    // Debug logging - only log when there's something actionable or unexpected
-    if (cleanupStatus?.canClaim) {
-        console.log('[DashboardActions] ✅ Claim button available:', {
-            cleanupId: cleanupStatus.cleanupId?.toString(),
-            level: cleanupStatus.level,
-        })
-    } else if (cleanupStatus?.hasPendingCleanup && !cleanupStatus.canClaim) {
-        // Under verification - this is expected, no need to log
-    } else if (!cleanupStatus) {
-        // No cleanup status - normal for new users, no need to log
-    }
-    // If cleanupStatus exists but canClaim is false and hasPendingCleanup is false,
-    // this is also normal (e.g., all cleanups claimed, or no cleanups yet)
+
+    const hypercertHighlighted = userImpactLevel > 0 && userImpactLevel % 10 === 0
+    const verifierHighlighted = !isVerifier && !!eligibility?.eligible
+
+    const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
+    const verifierApplyTitle = `Apply if you meet all requirements: Impact Product level ${minLevel}+, ${minDCUBalance}+ DCU points, and ${minApprovedCleanups}+ verified cleanups. Open to apply or check your status.`
+
+    const bonusExplicitlyOff =
+        process.env.NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM === '0' ||
+        process.env.NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM?.toLowerCase() === 'false'
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-2xl border border-border bg-card p-4 sm:p-6">
+        <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card p-4 sm:p-6">
             <SectionHeading icon={Leaf}>ACTIONS</SectionHeading>
 
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-                {/* Submit Cleanup Button - Only show when user can submit */}
-                {canSubmit && !submitLockedMaxLevel && (
-                    <Link href="/cleanup">
-                        <Button
-                            className="w-full gap-2 bg-brand-green py-4 sm:py-5 font-bebas text-lg sm:text-xl tracking-wider text-black hover:bg-brand-green/90 transition-all"
-                        >
-                            <Leaf className="h-5 w-5" />
-                            SUBMIT CLEANUP
-                        </Button>
-                    </Link>
+            <div className="flex flex-wrap justify-center gap-2 pb-1 sm:gap-2.5">
+                {submitAvailable ? (
+                    <ActionHint hint="Upload photos and optional impact report">
+                        <Link href="/cleanup" className={stepClass(true)}>
+                            <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            Submit cleanup
+                        </Link>
+                    </ActionHint>
+                ) : (
+                    <ActionHint
+                        hint={
+                            submitLockedMaxLevel
+                                ? 'Maximum Impact Product level reached'
+                                : 'Finish your current cleanup step first'
+                        }
+                    >
+                        <span className={stepClass(false)}>
+                            <Leaf className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
+                            Submit cleanup
+                        </span>
+                    </ActionHint>
                 )}
 
-                {canSubmit && submitLockedMaxLevel && (
-                    <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-4 space-y-2">
-                        <p className="font-bebas text-lg tracking-wide text-muted-foreground">
-                            SUBMIT CLEANUP LOCKED
-                        </p>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                            You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL} (the maximum). New cleanup
-                            submissions are closed for this program phase. Your completed journey is reflected in your
-                            stats, Hypercerts, and public impact portfolio.
-                        </p>
-                    </div>
-                )}
+                <ActionHint
+                    hint={
+                        isUnderVerification
+                            ? 'Usually takes 2-12 hours, come back later'
+                            : 'Shown while a cleanup is waiting for verifier review'
+                    }
+                >
+                    <span className={stepClass(isUnderVerification)}>
+                        <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        Wait for verification
+                    </span>
+                </ActionHint>
 
-                {/* Claim Level Button - Only show when verified and can claim */}
-                {cleanupStatus?.canClaim && (
-                    <div className="space-y-3" style={{ position: 'relative', zIndex: 10 }}>
-                        <div className="rounded-lg border border-brand-yellow/30 bg-brand-yellow/10 p-3 sm:p-4">
-                            <p className="text-sm sm:text-base text-brand-yellow">
-                                🎉 Your cleanup has been verified! You can now claim your Impact Product (Level {cleanupStatus.level || 1}).
-                            </p>
-                        </div>
+                {cleanupStatus?.canClaim ? (
+                    <ActionHint hint="Get your Impact Product and level-tied rewards">
                         <button
                             type="button"
                             onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              console.log('[DashboardActions] Claim button clicked', {
-                                canClaimLevel,
-                                isClaiming,
-                                cleanupId: cleanupStatus?.cleanupId?.toString(),
-                                hasOnClaim: !!onClaim,
-                              })
-                              if (canClaimLevel && !isClaiming && onClaim) {
-                                console.log('[DashboardActions] Calling onClaim...')
-                                onClaim().catch((error) => {
-                                  console.error('[DashboardActions] Error in onClaim:', error)
-                                })
-                              } else {
-                                console.warn('[DashboardActions] Claim button click ignored:', {
-                                  canClaimLevel,
-                                  isClaiming,
-                                  hasOnClaim: !!onClaim,
-                                })
-                              }
+                                e.preventDefault()
+                                e.stopPropagation()
+                                if (canClaimLevel && onClaim) {
+                                    void onClaim().catch(() => {})
+                                }
                             }}
                             disabled={!canClaimLevel}
-                            className="w-full gap-2 bg-brand-yellow py-4 sm:py-5 font-bebas text-lg sm:text-xl tracking-wider text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center rounded-md transition-all"
+                            className={`${stepClass(true)} cursor-pointer disabled:cursor-not-allowed disabled:opacity-50`}
                         >
                             {isClaiming ? (
-                                <>
-                                    <Loader2 className="h-5 w-5 animate-spin" />
-                                    CLAIMING...
-                                </>
+                                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
                             ) : (
-                                <>
-                                    <Award className="h-5 w-5" />
-                                    CLAIM LEVEL
-                                </>
+                                <Award className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             )}
+                            Claim level
                         </button>
-                        {/* Claim Fee Display */}
-                        {claimFeeInfo && claimFeeInfo.enabled && claimFeeInfo.fee > 0n && (
-                            <div className="mt-3">
-                                <FeeDisplay
-                                    feeAmount={claimFeeInfo.fee}
-                                    feeSymbol="CELO"
-                                    type="claim"
-                                    className="mt-2"
-                                />
-                            </div>
+                    </ActionHint>
+                ) : (
+                    <ActionHint hint="Get your Impact Product and level-tied rewards (available after a cleanup is verified)">
+                        <span className={stepClass(false)}>
+                            <Award className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
+                            Claim level
+                        </span>
+                    </ActionHint>
+                )}
+
+                <ActionHint hint={isVerifier ? 'You are a verifier' : verifierApplyTitle}>
+                    <Link href="/verifier" className={stepClass(verifierHighlighted, isVerifier)}>
+                        {isVerifier ? (
+                            <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        ) : (
+                            <Shield className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         )}
-                    </div>
-                )}
+                        {isVerifier ? 'Verifier' : 'Become verifier'}
+                    </Link>
+                </ActionHint>
 
-                {/* Pending Status - Show when under verification (both buttons hidden) */}
-                {isUnderVerification && (
-                    <div className="rounded-lg border border-brand-green/30 bg-brand-green/10 p-3 sm:p-4">
-                        <p className="mb-2 font-bebas text-lg sm:text-xl tracking-wide text-brand-green">
-                            ⏳ UNDER REVIEW
-                        </p>
-                        <p className="text-sm sm:text-base text-muted-foreground">
-                            Your cleanup is being verified. This usually takes a few hours.
-                        </p>
-                    </div>
-                )}
+                <ActionHint hint="Advanced documentation of your action with Hypercert impact certificate">
+                    <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
+                        <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        Impact certificate
+                    </Link>
+                </ActionHint>
+            </div>
 
-                {/* Future Features - Coming Soon */}
-                <div className="mt-4 space-y-2 border-t border-border pt-4">
-                    <p className="mb-3 text-sm sm:text-base font-bebas tracking-wide text-muted-foreground uppercase">COMING SOON</p>
-                    <Button
-                        disabled
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-border/50 font-bebas text-xs sm:text-sm tracking-wider text-muted-foreground opacity-50 cursor-not-allowed py-2 h-auto"
-                        title="Coming Soon"
-                    >
-                        CREATE IMPACT CIRCLE
-                    </Button>
-                    <Button
-                        disabled
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-border/50 font-bebas text-xs sm:text-sm tracking-wider text-muted-foreground opacity-50 cursor-not-allowed py-2 h-auto"
-                        title="Coming Soon"
-                    >
-                        JOIN IMPACT CIRCLE
-                    </Button>
+            <div className="mx-auto mt-4 w-full max-w-2xl border-t border-border/50 pt-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
+                    <div className="relative w-full">
+                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-bebas text-muted-foreground shadow-sm">
+                            SOON
+                        </span>
+                        <Button
+                            type="button"
+                            disabled
+                            variant="outline"
+                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-bebas text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
+                        >
+                            Create Impact Circle
+                        </Button>
+                    </div>
+                    <div className="relative w-full">
+                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-bebas text-muted-foreground shadow-sm">
+                            SOON
+                        </span>
+                        <Button
+                            type="button"
+                            disabled
+                            variant="outline"
+                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-bebas text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
+                        >
+                            Join Impact Circle
+                        </Button>
+                    </div>
                 </div>
             </div>
+
+            {cleanupStatus?.canClaim && claimFeeInfo && claimFeeInfo.enabled && claimFeeInfo.fee > 0n ? (
+                <div className="mt-3 flex justify-center">
+                    <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol="CELO" type="claim" className="mt-1" />
+                </div>
+            ) : null}
+
+            {bonusExplicitlyOff ? (
+                <p className="mx-auto mt-3 max-w-lg rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-center text-[11px] text-muted-foreground">
+                    <span className="font-medium text-yellow-600 dark:text-yellow-400">Bonus claim is off in this build.</span>{' '}
+                    Set <span className="font-mono text-[10px]">NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM=1</span> so
+                    impact report and recyclables DCU are written to the reward manager after Claim level.
+                </p>
+            ) : null}
         </div>
     )
 }

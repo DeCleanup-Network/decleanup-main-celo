@@ -3,12 +3,22 @@
  * Returns: eligible status, missing requirements, current metrics
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { checkEligibility } from '@/lib/verifier/eligibility'
 import { VerifierEligibility, VerifierMetrics } from '@/lib/verifier/types'
-import { getUserLevel, getDCUBalance, getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contracts'
+import {
+  getUserLevelFresh,
+  getUserSubmissionsFresh,
+  getCleanupDetailsFresh,
+  getUserRewardStats,
+} from '@/lib/blockchain/contracts'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { CONTRACT_READ_TTL_MS } from '@/lib/contractCache'
 import { Address } from 'viem'
+
+/** Re-fetch eligibility while the user stays on the page (level/DCU change without wallet reconnect). */
+const ELIGIBILITY_POLL_MS = Math.max(CONTRACT_READ_TTL_MS, 45_000)
 
 interface UseVerifierEligibilityResult {
   eligibility: VerifierEligibility | null
@@ -19,35 +29,36 @@ interface UseVerifierEligibilityResult {
 
 export function useVerifierEligibility(): UseVerifierEligibilityResult {
   const { address } = useAccount()
+  const { submissionOwnerAddress } = useSmartAccountClient()
+  /** Same identity as dashboard / submissions: Safe when gasless, else EOA (undefined while Safe resolves). */
+  const rewardOwner = submissionOwnerAddress
   const [eligibility, setEligibility] = useState<VerifierEligibility | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchEligibility = async () => {
-    if (!address) {
+  const fetchEligibility = useCallback(async (silent = false) => {
+    if (!rewardOwner) {
       setEligibility(null)
       return
     }
 
-    setIsLoading(true)
+    if (!silent) {
+      setIsLoading(true)
+    }
     setError(null)
 
     try {
-      // Fetch level
-      const level = await getUserLevel(address)
+      // Fresh reads: eligibility must not use stale cached level/DCU after mints or claims.
+      const level = await getUserLevelFresh(rewardOwner)
+      const rewardStats = await getUserRewardStats(rewardOwner)
+      const dcuPointsEarned = Number(rewardStats.totalEarned) / 1e18
 
-      // Fetch DCU balance
-      const dcuBalance = await getDCUBalance(address)
-      const dcuBalanceNumber = Number(dcuBalance) / 1e18 // Convert from wei
-
-      // Fetch approved cleanups count
-      const submissions = await getUserSubmissions(address)
+      const submissions = await getUserSubmissionsFresh(rewardOwner)
       let approvedCount = 0
 
       for (const submissionId of submissions) {
         try {
-          const details = await getCleanupDetails(submissionId)
-          // verified=true and rejected=false means approved
+          const details = await getCleanupDetailsFresh(submissionId)
           if (details.verified && !details.rejected) {
             approvedCount++
           }
@@ -56,10 +67,9 @@ export function useVerifierEligibility(): UseVerifierEligibilityResult {
         }
       }
 
-      // Check eligibility
       const metrics: VerifierMetrics = {
         level: Number(level),
-        dcuBalance: dcuBalanceNumber,
+        dcuBalance: dcuPointsEarned,
         approvedCleanups: approvedCount,
       }
 
@@ -69,18 +79,37 @@ export function useVerifierEligibility(): UseVerifierEligibilityResult {
       console.error('Error fetching verifier eligibility:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch eligibility')
     } finally {
-      setIsLoading(false)
+      if (!silent) {
+        setIsLoading(false)
+      }
     }
-  }
+  }, [rewardOwner])
 
   useEffect(() => {
-    fetchEligibility()
-  }, [address])
+    void fetchEligibility(false)
+  }, [fetchEligibility])
+
+  useEffect(() => {
+    if (!rewardOwner) return
+    const id = setInterval(() => {
+      void fetchEligibility(true)
+    }, ELIGIBILITY_POLL_MS)
+    return () => clearInterval(id)
+  }, [rewardOwner, fetchEligibility])
+
+  useEffect(() => {
+    if (!rewardOwner) return
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void fetchEligibility(true)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [rewardOwner, fetchEligibility])
 
   return {
     eligibility,
     isLoading,
     error,
-    refetch: fetchEligibility,
+    refetch: () => fetchEligibility(false),
   }
 }

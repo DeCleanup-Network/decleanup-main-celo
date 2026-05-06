@@ -1,7 +1,7 @@
 {
-  "CDCUToken": "0x98bcb22234527bbcb11b6f1987b5202719302621",
-  "ClaimVault": "0x0c970ede1641a4c75458f8b1496b83f1ae33d879",
-  "authorizedSigner": "0xc1dDd385E3cb1E7F8A31DaE528641B6550a952Bb",
-  "chainId": 11142220,
+  "CDCUToken": "0x915b58aa293aa5a8ca6bc6df4adc26f96f2a992f",
+  "ClaimVault": "0x7056d9e9b124bddda2f7f2398d50e1db388901b2",
+  "authorizedSigner": "0x520E40E346ea85D72661fcE3Ba3F81CB2c560d84",
+  "chainId": 0,
   "network": "celoSepolia"
 }

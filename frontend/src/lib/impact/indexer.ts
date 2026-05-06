@@ -39,6 +39,7 @@ const IPFS_TIMEOUT_MS = 8000
 // ============================================================================
 
 let cachedIndex: ImpactIndexCache | null = null
+let rebuildInFlight: Promise<ImpactEntry[]> | null = null
 
 // ============================================================================
 // PUBLIC: Get Impact Index (with caching)
@@ -61,10 +62,17 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
       return cachedIndex.entries
     }
   }
-  
+
+  // Single-flight guard: prevent duplicate rebuilds running in parallel on first load.
+  if (rebuildInFlight) {
+    console.log('⏭️ Impact index rebuild already in progress; skipping duplicate trigger')
+    return rebuildInFlight
+  }
+
   console.log('🔄 Rebuilding impact index from contract + IPFS...')
-  
-  try {
+
+  rebuildInFlight = (async () => {
+    try {
     const submissionCountBig = await getCleanupCounter()
     const submissionCount = Number(submissionCountBig)
     const count = Number(submissionCount)
@@ -106,18 +114,22 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
     
     console.log(`✅ Built impact index: ${normalizedEntries.length} entries`)
     
-    return normalizedEntries
-    
-  } catch (error) {
-    console.error('🔴 Failed to build impact index:', error)
-    
-    if (cachedIndex) {
-      console.warn('⚠️ Using stale cache as fallback')
-      return cachedIndex.entries
+      return normalizedEntries
+    } catch (error) {
+      console.error('🔴 Failed to build impact index:', error)
+
+      if (cachedIndex) {
+        console.warn('⚠️ Using stale cache as fallback')
+        return cachedIndex.entries
+      }
+
+      return []
+    } finally {
+      rebuildInFlight = null
     }
-    
-    return []
-  }
+  })()
+
+  return rebuildInFlight
 }
 
 // ============================================================================

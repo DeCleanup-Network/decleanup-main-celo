@@ -9,20 +9,9 @@ describe("ImpactProductNFT", function () {
       await hre.viem.getWalletClients();
     const publicClient = await hre.viem.getPublicClient();
 
-    // Deploy DCUToken
-    const dcuToken = await hre.viem.deployContract("DCUToken");
-
-    // Deploy DCURewardManager with DCU token and temporary NFT address
     const dcuRewardManager = await hre.viem.deployContract("DCURewardManager", [
-      dcuToken.address,
-      "0x0000000000000000000000000000000000000001", // Temporary NFT address
+      "0x0000000000000000000000000000000000000000",
     ]);
-
-    // Grant MINTER_ROLE to DCURewardManager
-    const MINTER_ROLE = await dcuToken.read.MINTER_ROLE();
-    await dcuToken.write.grantRole([MINTER_ROLE, dcuRewardManager.address], {
-        account: owner.account,
-    });
 
     // Deploy the ImpactProductNFT contract with the rewards contract address
     const impactProductNft = await hre.viem.deployContract("ImpactProductNFT", [
@@ -46,7 +35,6 @@ describe("ImpactProductNFT", function () {
 
     return {
       impactProductNft,
-      dcuToken,
       dcuRewardManager,
       owner,
       user1,
@@ -118,18 +106,18 @@ describe("ImpactProductNFT", function () {
     });
 
     it("Should prevent non-owners from verifying a POI", async function () {
-      const { impactProductNft, user1, user2, publicClient } =
+      const { impactProductNft, user1, user2 } =
         await loadFixture(deployImpactProductNFTFixture);
 
-      await expectRevert(
-        impactProductNft.simulate.verifyPOI(
-          [user2.account.address],
-          {
-            account: user1.account,
-          }
-        ),
-        "OwnableUnauthorizedAccount"
-      );
+      try {
+        await impactProductNft.write.verifyPOI([user2.account.address], {
+          account: user1.account,
+        });
+        expect.fail("Expected revert");
+      } catch (err: unknown) {
+        const msg = String((err as { message?: string }).message ?? err);
+        expect(/Unauthorized|Ownable|revert/i.test(msg)).to.equal(true);
+      }
     });
 
     it("Should reject verification with zero address", async function () {

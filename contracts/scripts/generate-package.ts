@@ -64,14 +64,11 @@ async function main() {
   const networkClassName = toPascalCase(networkName) + "Contracts";
 
   const contracts: ContractInfo[] = [
-    { name: "DCUToken", path: "tokens/DCUToken.sol" },
-    { name: "RewardLogic", path: "RewardLogic.sol" },
-    { name: "DCUAccounting", path: "DCUAccounting.sol" },
-    { name: "DCUStorage", path: "DCUStorage.sol" },
     { name: "DCURewardManager", path: "DCURewardManager.sol" },
     { name: "ImpactProductNFT", path: "tokens/ImpactProductNFT.sol" },
-    { name: "NFTCollection", path: "tokens/NFTCollection.sol" },
     { name: "Submission", path: "Submission.sol" },
+    { name: "ClaimVault", path: "ClaimVault.sol" },
+    { name: "CDCUToken", path: "tokens/CDCUToken.sol" },
   ];
 
   // Read deployment addresses

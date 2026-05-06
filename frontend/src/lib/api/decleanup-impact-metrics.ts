@@ -175,7 +175,7 @@ export async function fetchChainMetrics(
       tokenStatus = { ok: false, error: msg }
     }
   } else {
-    tokenStatus = { ok: false, error: 'Token contract address not configured' }
+    tokenStatus = { ok: true }
   }
 
   return {
@@ -224,11 +224,6 @@ export function getImpactApiConfig() {
     process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT
   ) as Address | undefined
 
-  const baseBdcu = envOr(
-    process.env.IMPACT_STATS_BASE_BDCU_CONTRACT,
-    process.env.NEXT_PUBLIC_BASE_BDCU_TOKEN_CONTRACT
-  ) as Address | undefined
-
   const celoFromBlock = parseBlockEnv(process.env.IMPACT_STATS_CELO_FROM_BLOCK, 0n)
   const baseFromBlock = parseBlockEnv(process.env.IMPACT_STATS_BASE_FROM_BLOCK, 0n)
 
@@ -238,7 +233,6 @@ export function getImpactApiConfig() {
     celoSubmission,
     baseSubmission,
     celoCdcu,
-    baseBdcu,
     celoFromBlock,
     baseFromBlock,
   }

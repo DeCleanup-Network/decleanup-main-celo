@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./interfaces/IDCUToken.sol";
 import "./DCURewardManager.sol";
 
 interface RecyclablesReward {
@@ -28,7 +27,7 @@ interface IImpactProductNFT {
  * - Introduced VERIFIER_ROLE and locked approve/reject to VERIFIER_ROLE (separate from ADMIN_ROLE).
  * - Fee transfer behavior is disabled by default (feeEnabled = false). Fee storage fields kept for ABI/compatibility.
  * - Hypercert eligibility now uses NFT level from ImpactProductNFT.getUserNFTData(...) as source of truth.
- * - Reward flow delegates to DCURewardManager (distributeRewards, rewardVerifier, rewardImpactReports).
+ * - Reward flow delegates to DCURewardManager (rewardVerifier, rewardImpactReports, rewardRecyclables). Participation accrues in RewardManager only; fungible $cDCU is ClaimVault.
  * - Minimal behavioral changes to storage layout to preserve compatibility with existing deployments/tests.
  */
 contract Submission is Ownable, ReentrancyGuard, AccessControl {
@@ -39,6 +38,9 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
     error SUBMISSION__Unauthorized(address user);
     error SUBMISSION__AlreadyApproved(uint256 submissionId);
     error SUBMISSION__AlreadyRejected(uint256 submissionId);
+    error SUBMISSION__SubmissionNotApproved(uint256 submissionId);
+    error SUBMISSION__BonusRewardsAlreadyClaimed(uint256 submissionId);
+    error SUBMISSION__BonusRewardsRequireMintedImpactProduct();
     error SUBMISSION__NoRewardsAvailable();
     error SUBMISSION__InsufficientSubmissionFee(uint256 sent, uint256 required);
     error SUBMISSION__RefundFailed();
@@ -75,7 +77,6 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
     }
 
     // Contract references
-    IDCUToken public dcuToken;
     DCURewardManager public rewardManager;
     IImpactProductNFT public impactProductNFT;
     address public recyclablesRewardContract;
@@ -83,6 +84,10 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
     // Storage
     mapping(uint256 => CleanupSubmission) public submissions;
     mapping(address => uint256[]) public userSubmissions;
+    mapping(uint256 => bool) public bonusRewardsClaimed;
+
+    // ML Verification hash storage (off-chain verification, on-chain hash only)
+    mapping(uint256 => bytes32) public verificationHash;
 
     uint256 public submissionCount;
     uint256 public defaultRewardAmount;
@@ -139,18 +144,23 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
     event ImpactFormSubmitted(address indexed user, uint256 submissionId, uint256 totalForms);
     event RecyclablesSubmitted(address indexed user, uint256 indexed submissionId, string recyclablesPhotoHash, string recyclablesReceiptHash);
     event RecyclablesRewardContractUpdated(address indexed oldContract, address indexed newContract);
+    event VerificationHashStored(uint256 indexed submissionId, bytes32 indexed verificationHash);
+    event SubmissionBonusRewardsClaimed(
+        address indexed user,
+        uint256 indexed submissionId,
+        bool impactReportRewarded,
+        bool recyclablesRewarded
+    );
 
     /**
-     * @dev Constructor sets up the contract with DCU token, DCURewardManager, and roles
-     * @param _dcuToken Address of the DCU token contract
+     * @dev Constructor sets up DCURewardManager reference and roles.
+     *      Participation rewards accrue in DCURewardManager; fungible $cDCU is ClaimVault-only.
      * @param _rewardManager Address of the DCURewardManager contract
-     * @param _defaultRewardAmount Default reward amount for approved submissions
+     * @param _defaultRewardAmount Default reward amount for approved submissions (events / legacy field)
      */
-    constructor(address _dcuToken, address _rewardManager, uint256 _defaultRewardAmount) Ownable(msg.sender) {
-        if (_dcuToken == address(0)) revert SUBMISSION__InvalidAddress();
+    constructor(address _rewardManager, uint256 _defaultRewardAmount) Ownable(msg.sender) {
         if (_rewardManager == address(0)) revert SUBMISSION__InvalidAddress();
 
-        dcuToken = IDCUToken(_dcuToken);
         rewardManager = DCURewardManager(_rewardManager);
         defaultRewardAmount = _defaultRewardAmount;
 
@@ -311,29 +321,9 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
             // swallow - no revert on external reward failure
         }
 
-        // Reward impact report (best-effort)
-        // If submission has impact form, reward the user (userImpactFormCount is already incremented during submission)
-        if (s.hasImpactForm) {
-            try rewardManager.rewardImpactReports(s.submitter, 1) {
-            } catch {
-                // Log error but don't revert - impact report reward is best-effort
-            }
-        }
-
-        // Reward recyclables with same DCU points as impact form (5 DCU per report)
-        if (s.hasRecyclables) {
-            try rewardManager.rewardImpactReports(s.submitter, 1) {
-            } catch {
-                // Best-effort; don't revert
-            }
-        }
-
-        // Optional external recyclables token reward (disabled by default; set recyclablesRewardContract to 0 to use DCU-only)
-        if (s.hasRecyclables && recyclablesRewardContract != address(0)) {
-            try RecyclablesReward(recyclablesRewardContract).rewardRecyclables(s.submitter, submissionId) {
-            } catch {
-            }
-        }
+        // Impact report and recyclables bonus rewards are NOT distributed at verifier approval.
+        // They are claim-gated and distributed by claimSubmissionBonusRewards(...)
+        // only after the user mints/upgrades Impact Product NFT.
 
         // Automatically verify POI when cleanup is approved (allows users to mint NFTs)
         // This makes the system work for new users without manual intervention
@@ -427,6 +417,45 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
     }
 
     /**
+     * @dev Claim-gated bonus rewards for impact report and recyclables.
+     * Callable only by the submission owner, after verifier approval and after NFT mint/upgrade.
+     */
+    function claimSubmissionBonusRewards(uint256 submissionId) external nonReentrant {
+        if (submissionId >= submissionCount) revert SUBMISSION__SubmissionNotFound(submissionId);
+
+        CleanupSubmission storage s = submissions[submissionId];
+        if (s.submitter != msg.sender) revert SUBMISSION__Unauthorized(msg.sender);
+        if (s.status != SubmissionStatus.Approved) revert SUBMISSION__SubmissionNotApproved(submissionId);
+        if (bonusRewardsClaimed[submissionId]) revert SUBMISSION__BonusRewardsAlreadyClaimed(submissionId);
+        if (address(impactProductNFT) == address(0) || !impactProductNFT._userHasMinted(msg.sender)) {
+            revert SUBMISSION__BonusRewardsRequireMintedImpactProduct();
+        }
+
+        bool impactRewarded = false;
+        bool recyclablesRewarded = false;
+
+        if (s.hasImpactForm) {
+            rewardManager.rewardImpactReports(s.submitter, 1);
+            impactRewarded = true;
+        }
+
+        if (s.hasRecyclables) {
+            rewardManager.rewardRecyclables(s.submitter, 1);
+            recyclablesRewarded = true;
+
+            // Optional external recyclables token reward (disabled by default; set address(0) to skip).
+            if (recyclablesRewardContract != address(0)) {
+                try RecyclablesReward(recyclablesRewardContract).rewardRecyclables(s.submitter, submissionId) {
+                } catch {
+                }
+            }
+        }
+
+        bonusRewardsClaimed[submissionId] = true;
+        emit SubmissionBonusRewardsClaimed(msg.sender, submissionId, impactRewarded, recyclablesRewarded);
+    }
+
+    /**
      * @dev Get all submissions for a user
      */
     function getSubmissionsByUser(address user) external view returns (uint256[] memory) {
@@ -474,5 +503,28 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
             result[i] = submissions[startIndex + i];
         }
         return result;
+    }
+
+    /**
+     * @dev Store ML verification hash for a submission (only for admins or verifiers)
+     * This stores only the hash of the verification result, not the ML output itself
+     * @param submissionId The submission ID
+     * @param hash The SHA256 hash of the verification result JSON
+     */
+    function storeVerificationHash(uint256 submissionId, bytes32 hash) external onlyRole(VERIFIER_ROLE) {
+        if (submissionId >= submissionCount) revert SUBMISSION__SubmissionNotFound(submissionId);
+        
+        verificationHash[submissionId] = hash;
+        emit VerificationHashStored(submissionId, hash);
+    }
+
+    /**
+     * @dev Get verification hash for a submission
+     * @param submissionId The submission ID
+     * @return The verification hash (bytes32(0) if not set)
+     */
+    function getVerificationHash(uint256 submissionId) external view returns (bytes32) {
+        if (submissionId >= submissionCount) revert SUBMISSION__SubmissionNotFound(submissionId);
+        return verificationHash[submissionId];
     }
 }

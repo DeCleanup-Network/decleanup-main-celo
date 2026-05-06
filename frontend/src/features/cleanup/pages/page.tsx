@@ -29,6 +29,7 @@ import {
   REQUIRED_BLOCK_EXPLORER_URL,
   REQUIRED_CHAIN_IS_TESTNET,
 } from '@/lib/blockchain/wagmi'
+import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 
 type Step = 'photos' | 'enhanced' | 'recyclables' | 'review'
 
@@ -44,14 +45,90 @@ const describeChain = (id?: number) => {
       return 'Ethereum Sepolia'
     case 42220:
       return 'Celo Mainnet'
-    case 44787:
-      return 'Celo Alfajores'
     case 11142220:
       return 'Celo Sepolia'
-      return 'VeChain (Carbon)'
     default:
       return 'Unknown Network'
   }
+}
+
+type MlScorePayload = {
+  score?: { verdict?: string; score?: number; delta?: number }
+  mlVerificationDisabled?: boolean
+}
+
+function parseMlScore(payload: MlScorePayload | null): {
+  verdict: string
+  score: number
+  delta: number
+} | null {
+  const s = payload?.score
+  if (s == null || typeof s.score !== 'number' || typeof s.delta !== 'number') return null
+  const verdict = typeof s.verdict === 'string' && s.verdict ? s.verdict : 'pending'
+  return { verdict, score: s.score, delta: s.delta }
+}
+
+/** Whether a comma-separated textarea already contains this label (trimmed, case-insensitive). */
+function commaSeparatedHasItem(current: string, item: string): boolean {
+  const normalizedItem = item.trim()
+  if (!normalizedItem) return false
+  const lower = normalizedItem.toLowerCase()
+  return current
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .some((p) => p.toLowerCase() === lower)
+}
+
+/** Append a preset to a comma-separated value; no-op if that label is already listed. */
+function appendCommaSeparatedUnique(current: string, item: string): string {
+  const normalizedItem = item.trim()
+  if (!normalizedItem) return current
+  if (commaSeparatedHasItem(current, normalizedItem)) return current
+  const parts = current
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return parts.length > 0 ? `${parts.join(', ')}, ${normalizedItem}` : normalizedItem
+}
+
+function userFacingMlSummary(
+  payload: MlScorePayload | null,
+  mode: 'ok' | 'http_error' | 'exception'
+): string {
+  if (mode === 'http_error' || mode === 'exception') {
+    return 'We could not finish the automatic photo check right now. Your submission is still on-chain and human verifiers will review it.'
+  }
+  const s = payload?.score
+  if (s == null || typeof s.score !== 'number' || typeof s.delta !== 'number') {
+    return 'AI screening completed. Human verifiers still make the final decision on your cleanup.'
+  }
+  const verdictLine =
+    s.verdict === 'approved'
+      ? 'Your before/after photos look consistent with a real cleanup in our automated check.'
+      : s.verdict === 'rejected'
+        ? 'Our automated check flagged this pair for extra human review. This does not cancel your submission.'
+        : 'Automated screening will be combined with human review for a final decision.'
+  const deltaLabel = s.delta > 0 ? `+${s.delta}` : String(s.delta)
+  return `${verdictLine} Model score: ${s.score} (change in detected items: ${deltaLabel}). Queued for human verifiers with this AI note attached.`
+}
+
+/** Keep only numeric input with optional single decimal separator. */
+function sanitizeDecimalInput(value: string): string {
+  const normalized = value.replace(',', '.')
+  let out = ''
+  let hasDot = false
+  for (const ch of normalized) {
+    if (ch >= '0' && ch <= '9') {
+      out += ch
+      continue
+    }
+    if (ch === '.' && !hasDot) {
+      out += ch
+      hasDot = true
+    }
+  }
+  return out
 }
 
 function CleanupContent() {
@@ -63,6 +140,7 @@ function CleanupContent() {
     submissionOwnerAddress,
     error: gaslessError,
     isLoading: isGaslessLoading,
+    expectsSponsoredGas,
   } = useSmartAccountClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -85,6 +163,8 @@ function CleanupContent() {
   const [hasImpactForm, setHasImpactForm] = useState(false)
   const [recyclablesPhoto, setRecyclablesPhoto] = useState<File | null>(null)
   const [recyclablesReceipt, setRecyclablesReceipt] = useState<File | null>(null)
+  const [recyclablesAmount, setRecyclablesAmount] = useState('')
+  const [recyclablesUnit, setRecyclablesUnit] = useState<'kg' | 'g' | 'lb' | 'bag'>('kg')
   const [pendingCleanup, setPendingCleanup] = useState<{
     id: bigint
     verified: boolean
@@ -94,7 +174,19 @@ function CleanupContent() {
   const [clearingPending, setClearingPending] = useState(false)
   const [feeInfo, setFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
   const [resolvingContributorIndex, setResolvingContributorIndex] = useState<number | null>(null)
-  const [alertModal, setAlertModal] = useState<{ title?: string; message: string; variant?: AlertModalVariant } | null>(null)
+  const [alertModal, setAlertModal] = useState<{
+    title?: string
+    message: string
+    variant?: AlertModalVariant
+    closeOnBackdropClick?: boolean
+  } | null>(null)
+  const [mlVerificationLoading, setMlVerificationLoading] = useState(false)
+  const [mlVerificationSummary, setMlVerificationSummary] = useState<string | null>(null)
+  const [mlVerificationStats, setMlVerificationStats] = useState<{
+    verdict: string
+    score: number
+    delta: number
+  } | null>(null)
   const [confirmModal, setConfirmModal] = useState<{ title?: string; message: string; onConfirm: () => void; confirmLabel?: string } | null>(null)
   const [impactProductLevel, setImpactProductLevel] = useState<number | null>(null)
   const [checkingImpactLevel, setCheckingImpactLevel] = useState(false)
@@ -112,8 +204,11 @@ function CleanupContent() {
       setImpactProductLevel(null)
       return
     }
+    if (!submissionOwnerAddress) {
+      return
+    }
     let cancelled = false
-    const owner = submissionOwnerAddress ?? address
+    const owner = submissionOwnerAddress
     setCheckingImpactLevel(true)
     void getUserLevel(owner as Address)
       .then((lvl) => {
@@ -136,12 +231,13 @@ function CleanupContent() {
 
   useEffect(() => {
     if (!mounted || !address) return
+    if (!submissionOwnerAddress) return
 
     const loadReferrer = async () => {
       try {
         // First, check if user has already submitted - if yes, they can't be referred again
         const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
-        const owner = submissionOwnerAddress ?? address
+        const owner = submissionOwnerAddress
         const submissions = await getUserSubmissions(owner)
         const hasSubmitted = submissions.length > 0
 
@@ -313,6 +409,11 @@ function CleanupContent() {
       setCheckingPending(false)
       return
     }
+    if (!submissionOwnerAddress) {
+      return
+    }
+
+    const submissionOwner = submissionOwnerAddress
 
     async function checkPendingCleanup() {
       try {
@@ -322,7 +423,7 @@ function CleanupContent() {
           return
         }
 
-        const ownerOnChain = (submissionOwnerAddress ?? address).toLowerCase()
+        const ownerOnChain = submissionOwner.toLowerCase()
         const identityVariants = [...new Set([ownerOnChain, address.toLowerCase()])]
 
         const clearAllPendingKeys = () => {
@@ -460,30 +561,55 @@ function CleanupContent() {
     input.accept = 'image/*'
 
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        // Validate file size (10 MB max)
+      void (async () => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
         if (file.size > 10 * 1024 * 1024) {
           setAlertModal({ message: 'Image size must be less than 10 MB', variant: 'warning' })
           return
         }
-        if (type === 'before') {
-          setBeforePhoto(file)
-        } else if (type === 'after') {
-          setAfterPhoto(file)
-        } else if (type === 'recyclables') {
-          setRecyclablesPhoto(file)
-        } else if (type === 'recyclablesReceipt') {
-          setRecyclablesReceipt(file)
+        let ready = file
+        try {
+          ready = await normalizeImageFileForUpload(file)
+        } catch (err) {
+          console.warn('Browser HEIC conversion failed, passing raw file to server:', err)
+          ready = file
         }
-      }
+        if (ready.size > 10 * 1024 * 1024) {
+          setAlertModal({ message: 'Image size must be less than 10 MB after conversion', variant: 'warning' })
+          return
+        }
+        if (type === 'before') {
+          setBeforePhoto(ready)
+        } else if (type === 'after') {
+          setAfterPhoto(ready)
+        } else if (type === 'recyclables') {
+          setRecyclablesPhoto(ready)
+        } else if (type === 'recyclablesReceipt') {
+          setRecyclablesReceipt(ready)
+        }
+      })()
     }
     input.click()
   }
 
   const getLocation = () => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      const message = 'Geolocation is not supported or allowed in this browser. Please enter coordinates manually below.'
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    // Browsers only expose geolocation on HTTPS or localhost (secure context).
+    if (!window.isSecureContext) {
+      setLocationError(
+        'Location is blocked on plain HTTP (browser security). Use manual coordinates below, or serve the site over HTTPS.'
+      )
+      setManualLocationMode(true)
+      return
+    }
+
+    if (!navigator.geolocation) {
+      const message =
+        'Geolocation is not supported in this browser. Please enter coordinates manually below.'
       setLocationError(message)
       setManualLocationMode(true)
       console.warn(message)
@@ -774,16 +900,22 @@ function CleanupContent() {
   }
 
   const handleSkipRecyclables = async () => {
-    // hasForm could be true or false depending on whether user filled the impact form
-    await submitCleanupFlow(hasImpactForm, false)
+    await submitCleanupFlow(false)
   }
 
   const handleSubmitRecyclables = async () => {
-    // hasForm could be true or false depending on whether user filled the impact form
-    await submitCleanupFlow(hasImpactForm, true)
+    const amount = Number(recyclablesAmount)
+    if (!recyclablesAmount || Number.isNaN(amount) || amount <= 0) {
+      setAlertModal({
+        message: 'Please enter recyclables amount using numbers only (for example: 2.5).',
+        variant: 'warning',
+      })
+      return
+    }
+    await submitCleanupFlow(true)
   }
 
-  const submitCleanupFlow = async (hasForm: boolean, hasRecyclables: boolean = false) => {
+  const submitCleanupFlow = async (hasRecyclables: boolean = false) => {
     if (!isConnected || !address) {
       setAlertModal({ message: 'Please connect your wallet first', variant: 'warning' })
       return
@@ -807,6 +939,11 @@ function CleanupContent() {
     }
 
     setIsSubmitting(true)
+    setMlVerificationLoading(false)
+    setMlVerificationSummary(null)
+    setMlVerificationStats(null)
+    /** Use live validation at submit time — avoids stale `hasImpactForm` state skipping the IPFS hash. */
+    const impactFormEligible = validation.hasStartedFilling && validation.isValid
     try {
       // Upload photos to IPFS
       console.log('Uploading photos to IPFS...')
@@ -846,9 +983,9 @@ function CleanupContent() {
         }
       }
 
-      // Upload enhanced impact report data to IPFS if form was submitted
+      // Upload enhanced impact report data to IPFS when the impact step was completed (not skipped)
       let impactFormDataHash: string | null = null
-      if (hasForm && enhancedData.locationType) {
+      if (impactFormEligible) {
         try {
           console.log('Uploading enhanced impact report data to IPFS...')
           const impactData = {
@@ -881,8 +1018,16 @@ function CleanupContent() {
           // We'll associate this hash with the cleanup onchain below
         } catch (error) {
           console.error('Error uploading impact report data to IPFS:', error)
-          // Don't fail the submission if IPFS upload fails, just log it
+          throw new Error(
+            `Impact report upload failed: ${error instanceof Error ? error.message : String(error)}. Fix your connection or try again — without this hash on-chain you will not earn impact report DCU.`
+          )
         }
+      }
+
+      if (impactFormEligible && !impactFormDataHash) {
+        throw new Error(
+          'Impact report data did not produce an IPFS hash. Cannot submit without it — you would lose impact report DCU on claim.'
+        )
       }
 
       // Check if submission fee is required
@@ -902,6 +1047,7 @@ function CleanupContent() {
       console.log('Current chain ID:', chainId)
       console.log('Gasless status:', {
         paymasterConfigured: isPaymasterConfigured(),
+        expectsSponsoredGas,
         hasGaslessClient: !!gaslessClient,
         isGaslessLoading,
         gaslessError: gaslessError?.message || null,
@@ -911,20 +1057,19 @@ function CleanupContent() {
         afterHash: afterHash.hash,
         lat: location.lat,
         lng: location.lng,
-        hasForm,
-        feeValue: feeValue?.toString() || '0'
+        impactFormEligible,
+        feeValue: feeValue?.toString() || '0',
       })
 
       try {
-        // If paymaster is configured but smart account init failed, stop here and show the actual cause
-        // instead of falling back to EOA (which causes "insufficient funds" for zero-balance embedded wallets).
-        if (isPaymasterConfigured() && !gaslessClient) {
+        // Embedded (social/email) path needs SC + paymaster; MetaMask / WalletConnect in the modal pay their own gas (EOA).
+        if (expectsSponsoredGas && !gaslessClient) {
           const detail =
             gaslessError?.message ||
             (isGaslessLoading
               ? 'Smart account is still initializing. Please wait a few seconds and retry.'
               : 'Smart account client is unavailable.')
-          throw new Error(`Gasless submit unavailable: ${detail}`)
+          throw new Error(`Sponsored submit unavailable: ${detail}`)
         }
 
         // Pass chainId from hook to avoid false chain detection issues
@@ -934,7 +1079,7 @@ function CleanupContent() {
           location.lat,
           location.lng,
           referrerAddress,
-          hasForm,
+          impactFormEligible,
           impactFormDataHash || '',
           feeValue,
           gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
@@ -977,7 +1122,7 @@ function CleanupContent() {
               setAlertModal({
                 title: 'Recyclables attachment failed',
                 message:
-                  `Cleanup submitted successfully, but failed to attach recyclables.\n\nSubmission ID: ${cleanupId.toString()}\n\nYou can try attaching recyclables later, or contact support if needed.\n\nError: ${errorMsg}`,
+                  `Your cleanup was submitted, but recyclables couldn't be attached.\n\nSubmission ID: ${cleanupId.toString()}\n\nYou can try again later or contact support.\n\nError: ${errorMsg}`,
                 variant: 'warning',
               })
             }
@@ -986,36 +1131,11 @@ function CleanupContent() {
           console.warn('⚠️ Recyclables were selected but IPFS upload failed - recyclables not attached to submission')
         }
 
-        // ML / AI verification (server downloads from IPFS, runs scoring pipeline; non-blocking for UX)
-        try {
-          console.log('[ML Verification] Triggering AI verification for cleanup:', cleanupId.toString())
-          const mlVerificationResponse = await fetch('/api/ml-verification/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              submissionId: cleanupId.toString(),
-              beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
-              afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
-              gps: { latitude: location.lat, longitude: location.lng },
-              timestamp: Date.now(),
-            }),
-          })
-          if (mlVerificationResponse.ok) {
-            const mlData = await mlVerificationResponse.json()
-            console.log('[ML Verification] Result:', mlData)
-          } else {
-            const errText = await mlVerificationResponse.text()
-            console.warn('[ML Verification] API returned:', mlVerificationResponse.status, errText)
-          }
-        } catch (mlError) {
-          console.warn('[ML Verification] AI verification error (non-critical):', mlError)
-        }
-
         setCleanupId(cleanupId)
         
         // Store cleanup ID in localStorage for verification checking (scoped to onchain submitter: Safe or EOA)
-        if (typeof window !== 'undefined' && address) {
-          const storageOwner = (submissionOwnerAddress ?? address).toLowerCase()
+        if (typeof window !== 'undefined' && address && submissionOwnerAddress) {
+          const storageOwner = submissionOwnerAddress.toLowerCase()
           const pendingKey = `pending_cleanup_id_${storageOwner}`
           const locationKey = `pending_cleanup_location_${storageOwner}`
           localStorage.setItem(pendingKey, cleanupId.toString())
@@ -1048,21 +1168,66 @@ function CleanupContent() {
           console.log('[Cleanup] Pending cleanup state should now lock submit button')
         }
 
-        // Show success message and redirect to review step
         setIsSubmitting(false)
         setStep('review')
-        
-        // Show success modal (styled)
-        setAlertModal({
-          title: 'Success',
-          message: `Cleanup submitted successfully!\n\nSubmission ID: ${cleanupId.toString()}\n\nYour cleanup is now pending verification. You'll be redirected to the home page.`,
-          variant: 'success',
-        })
-        
-        // Redirect to home after 3 seconds
-        setTimeout(() => {
-          router.push('/')
-        }, 3000)
+
+        const mlPublicOff = process.env.NEXT_PUBLIC_ML_VERIFICATION_ENABLED === 'false'
+
+        if (!mlPublicOff) {
+          setMlVerificationLoading(true)
+          setMlVerificationSummary(null)
+        }
+
+        if (mlPublicOff) {
+          setMlVerificationSummary(
+            'Automated photo checks are off for now. Human verifiers will still review your submission.',
+          )
+          setMlVerificationStats(null)
+          setMlVerificationLoading(false)
+        } else {
+          void (async () => {
+            try {
+              console.log('[ML Verification] Triggering AI verification for cleanup:', cleanupId.toString())
+              const mlVerificationResponse = await fetch('/api/ml-verification/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  submissionId: cleanupId.toString(),
+                  beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
+                  afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
+                  gps: { latitude: location.lat, longitude: location.lng },
+                  timestamp: Date.now(),
+                }),
+              })
+              if (mlVerificationResponse.ok) {
+                const mlData = (await mlVerificationResponse.json()) as MlScorePayload & {
+                  mlVerificationDisabled?: boolean
+                }
+                console.log('[ML Verification] Result:', mlData)
+                if (mlData.mlVerificationDisabled) {
+                  setMlVerificationSummary(
+                    'Automated photo checks are off. Human verifiers will still review your submission.',
+                  )
+                  setMlVerificationStats(null)
+                } else {
+                  setMlVerificationSummary(userFacingMlSummary(mlData, 'ok'))
+                  setMlVerificationStats(parseMlScore(mlData))
+                }
+              } else {
+                const errText = await mlVerificationResponse.text()
+                console.warn('[ML Verification] API returned:', mlVerificationResponse.status, errText)
+                setMlVerificationSummary(userFacingMlSummary(null, 'http_error'))
+                setMlVerificationStats(null)
+              }
+            } catch (mlError) {
+              console.warn('[ML Verification] AI verification error (non-critical):', mlError)
+              setMlVerificationSummary(userFacingMlSummary(null, 'exception'))
+              setMlVerificationStats(null)
+            } finally {
+              setMlVerificationLoading(false)
+            }
+          })()
+        }
       } catch (submitError: any) {
         console.error('Error submitting cleanup:', submitError)
         const errorMessage = submitError?.message || submitError?.shortMessage || String(submitError) || 'Unknown error'
@@ -1073,9 +1238,8 @@ function CleanupContent() {
         const isCeloError =
           errorMessage.includes('CELO') ||
           errorMessage.includes('Celo') ||
-          errorMessage.includes('44787') ||
           errorMessage.includes('Celo Sepolia') ||
-          chainId === 44787
+          chainId === 11142220
 
         // Check if it's truly a "chain not configured" error (not just a switch error)
         const isChainNotConfigured =
@@ -1276,13 +1440,9 @@ function CleanupContent() {
             <Users className="h-5 w-5 text-brand-green" />
           </div>
           <div className="flex-1">
-            <h3 className="mb-1 text-sm font-bold uppercase text-brand-green">
-              🎉 You Were Invited!
-            </h3>
-            <p className="text-sm text-gray-300">
-              You've been referred to DeCleanup Rewards! When you submit your first cleanup, get it verified, and claim your first Impact Product level, both you and your referrer will earn <strong className="text-white">3 DCU</strong> each as referral rewards. Additionally, you'll receive <strong className="text-white">10 DCU</strong> for claiming your first level (separate from referral rewards).
-            </p>
-            <p className="mt-2 text-xs text-gray-400">
+            <h3 className="mb-1 text-sm font-bold uppercase text-brand-green">You were invited!</h3>
+            <p className="text-sm text-gray-300">You&apos;ve been referred to DeCleanup Rewards!</p>
+            <p className="mt-2 text-sm text-gray-300">
               Submit a cleanup below to get started and claim your referral reward!
             </p>
           </div>
@@ -1376,7 +1536,7 @@ function CleanupContent() {
     // Show wrong network warning first (higher priority)
     if (isWrongNetwork) {
       const isVeChain = chainId === 11142220
-      const isCelo = chainId === 44787
+      const isCelo = chainId === 11142220
       return (
         <div className="mb-6 rounded-lg border border-red-500/50 bg-red-500/10 p-4">
           <div className="flex items-start gap-3">
@@ -1579,6 +1739,7 @@ function CleanupContent() {
           title={alertModal.title}
           message={alertModal.message}
           variant={alertModal.variant}
+          closeOnBackdropClick={alertModal.closeOnBackdropClick ?? true}
         />
       )}
       {confirmModal && (
@@ -1834,7 +1995,6 @@ function CleanupContent() {
             <BackButton />
           </div>
 
-          <ReferralNotification />
           <CooldownBanner />
 
           <div className="mb-6 text-center">
@@ -2192,20 +2352,34 @@ function CleanupContent() {
                 Environmental Challenges
               </label>
               <div className="mb-2 flex flex-wrap gap-2">
-                {environmentalChallengePresets.map((preset) => (
+                {environmentalChallengePresets.map((preset) => {
+                  const already = commaSeparatedHasItem(enhancedData.environmentalChallenges, preset)
+                  return (
                   <button
                     key={preset}
                     type="button"
+                    disabled={already}
+                    aria-pressed={already}
+                    title={already ? 'Already added' : `Add: ${preset}`}
                     onClick={() => {
-                      const current = enhancedData.environmentalChallenges
-                      const newValue = current ? `${current}, ${preset}` : preset
-                      setEnhancedData({ ...enhancedData, environmentalChallenges: newValue })
+                      setEnhancedData({
+                        ...enhancedData,
+                        environmentalChallenges: appendCommaSeparatedUnique(
+                          enhancedData.environmentalChallenges,
+                          preset
+                        ),
+                      })
                     }}
-                    className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 hover:bg-gray-700"
+                    className={`rounded-lg border px-2 py-1 text-xs ${
+                      already
+                        ? 'cursor-not-allowed border-gray-600 bg-gray-800/60 text-gray-500'
+                        : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
                   >
-                    + {preset}
+                    {already ? '✓' : '+'} {preset}
                   </button>
-                ))}
+                  )
+                })}
               </div>
               <textarea
                 value={enhancedData.environmentalChallenges}
@@ -2222,20 +2396,31 @@ function CleanupContent() {
                 Prevention Suggestions
               </label>
               <div className="mb-2 flex flex-wrap gap-2">
-                {preventionPresets.map((preset) => (
+                {preventionPresets.map((preset) => {
+                  const already = commaSeparatedHasItem(enhancedData.preventionIdeas, preset)
+                  return (
                   <button
                     key={preset}
                     type="button"
+                    disabled={already}
+                    aria-pressed={already}
+                    title={already ? 'Already added' : `Add: ${preset}`}
                     onClick={() => {
-                      const current = enhancedData.preventionIdeas
-                      const newValue = current ? `${current}, ${preset}` : preset
-                      setEnhancedData({ ...enhancedData, preventionIdeas: newValue })
+                      setEnhancedData({
+                        ...enhancedData,
+                        preventionIdeas: appendCommaSeparatedUnique(enhancedData.preventionIdeas, preset),
+                      })
                     }}
-                    className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 hover:bg-gray-700"
+                    className={`rounded-lg border px-2 py-1 text-xs ${
+                      already
+                        ? 'cursor-not-allowed border-gray-600 bg-gray-800/60 text-gray-500'
+                        : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
                   >
-                    + {preset}
+                    {already ? '✓' : '+'} {preset}
                   </button>
-                ))}
+                  )
+                })}
               </div>
               <textarea
                 value={enhancedData.preventionIdeas}
@@ -2341,7 +2526,6 @@ function CleanupContent() {
             </Button>
           </div>
 
-          <ReferralNotification />
           <CooldownBanner />
 
           <div className="mb-6 text-center">
@@ -2357,6 +2541,44 @@ function CleanupContent() {
           </div>
 
           <div className="mb-6 space-y-4">
+            {/* Recyclables Amount */}
+            <div className="rounded-lg border border-border bg-card/40 p-4">
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Recyclables Amount
+              </label>
+              <p className="mb-3 text-xs text-gray-500">
+                Enter how much material was recycled.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  inputMode="decimal"
+                  value={recyclablesAmount}
+                  onChange={(e) => setRecyclablesAmount(sanitizeDecimalInput(e.target.value))}
+                  placeholder="e.g. 2.5"
+                  disabled={isSubmitting || isSubmissionDisabled}
+                  className="h-10 flex-1 rounded-md border border-gray-700 bg-black px-3 text-sm text-white placeholder:text-gray-500 focus:border-brand-green focus:outline-none disabled:opacity-50"
+                  aria-label="Recyclables amount"
+                />
+                <select
+                  value={recyclablesUnit}
+                  onChange={(e) => setRecyclablesUnit(e.target.value as 'kg' | 'g' | 'lb' | 'bag')}
+                  disabled={isSubmitting || isSubmissionDisabled}
+                  className="h-10 rounded-md border border-gray-700 bg-black px-3 text-sm text-white focus:border-brand-green focus:outline-none disabled:opacity-50"
+                  aria-label="Recyclables unit"
+                >
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
+                  <option value="lb">lb</option>
+                  <option value="bag">bag(s)</option>
+                </select>
+              </div>
+              {recyclablesAmount && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Recorded amount: <span className="text-foreground">{recyclablesAmount} {recyclablesUnit}</span>
+                </p>
+              )}
+            </div>
+
             {/* Recyclables Photo */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-300">
@@ -2463,7 +2685,13 @@ function CleanupContent() {
               </Button>
               <Button
                 onClick={handleSubmitRecyclables}
-                disabled={isSubmitting || !recyclablesPhoto}
+                disabled={
+                  isSubmitting ||
+                  !recyclablesPhoto ||
+                  !recyclablesAmount ||
+                  Number.isNaN(Number(recyclablesAmount)) ||
+                  Number(recyclablesAmount) <= 0
+                }
                 className="flex-1 gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
               >
                 {isSubmitting ? (
@@ -2487,75 +2715,138 @@ function CleanupContent() {
     )
   }
 
-  // Step 6: Success/Review
+  // Step 6: Success/Review (single inline screen — no success AlertModal)
   if (step === 'review') {
+    const mlStatsCompact =
+      mlVerificationStats &&
+      (() => {
+        const confidence = Math.max(0, Math.min(100, Math.round(mlVerificationStats.score * 100)))
+        const delta = mlVerificationStats.delta
+        const wastePillClass =
+          delta > 0
+            ? 'bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-500/30'
+            : delta === 0
+              ? 'bg-gray-500/20 text-gray-200 ring-1 ring-gray-400/30'
+              : 'bg-red-500/20 text-red-200 ring-1 ring-red-500/30'
+        const wastePillText =
+          delta > 0 ? `+${delta} items` : delta === 0 ? 'No Δ items' : `${delta} items`
+        return (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                mlVerificationStats.verdict === 'approved'
+                  ? 'bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-500/40'
+                  : mlVerificationStats.verdict === 'rejected'
+                    ? 'bg-amber-500/25 text-amber-200 ring-1 ring-amber-500/40'
+                    : 'bg-yellow-500/20 text-yellow-200 ring-1 ring-yellow-500/35'
+              }`}
+            >
+              {mlVerificationStats.verdict}
+            </span>
+            <span className="text-[10px] text-gray-400">AI confidence {confidence}%</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${wastePillClass}`}>{wastePillText}</span>
+          </div>
+        )
+      })()
+
     return (
-      <>
-        <div className="min-h-screen bg-background px-4 py-6 sm:py-8">
-        <div className="mx-auto max-w-md text-center">
-          <div className="mb-6">
-            <CheckCircle className="mx-auto mb-4 h-16 w-16 text-brand-green" />
-            <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
-              Submission Successful!
-            </h1>
-            {cleanupId && (
-              <p className="mb-2 text-sm font-mono text-brand-green">
-                Submission ID: {cleanupId.toString()}
+      <div className="min-h-screen bg-background px-4 py-6 pb-16">
+        <div className="mx-auto max-w-sm text-center">
+          <CheckCircle className="mx-auto mb-2 h-10 w-10 text-brand-green" aria-hidden />
+          <h1 className="mb-1 font-bebas text-2xl uppercase tracking-wide text-white sm:text-3xl">
+            Submission successful!
+          </h1>
+          {cleanupId && (
+            <p className="mb-2 text-xs font-mono text-brand-green">Submission ID: {cleanupId.toString()}</p>
+          )}
+          <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+            Pending verification (often 2–12 hours). Claim rewards from your Impact Product level after approval.
+          </p>
+
+          <div className="mb-4 rounded-lg border border-cyan-500/40 bg-cyan-950/30 p-3 text-left">
+            <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-cyan-200/90">
+              AI pre-screening
+            </p>
+            {mlVerificationLoading ? (
+              <div className="mt-2 flex items-center justify-center gap-2 py-1">
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-cyan-400" aria-hidden />
+                <p className="text-center text-[11px] text-gray-400">Checking photos…</p>
+              </div>
+            ) : mlVerificationStats ? (
+              <>
+                {mlStatsCompact}
+                <p className="mt-2 text-center text-[10px] text-cyan-100/55">
+                  Human verifiers decide on-chain; AI is guidance only.
+                </p>
+              </>
+            ) : mlVerificationSummary ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-gray-400">{mlVerificationSummary}</p>
+            ) : (
+              <p className="mt-2 text-center text-[11px] text-gray-500">
+                Waiting for automated check… Verifiers still review manually if this stays blank.
               </p>
             )}
-            <p className="text-sm text-gray-400">
-              Your cleanup has been submitted successfully and is now pending verification. 
-              Usually the process takes from 2 to 12 hours. 
-              You'll be able to claim your rewards when you claim your Impact Product level after verification.
-            </p>
           </div>
 
           {beforePhoto && afterPhoto && (
-            <div className="mb-6 grid grid-cols-2 gap-4">
-              <div>
-                <p className="mb-2 text-xs font-medium text-gray-400">BEFORE</p>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <div className="text-left">
+                <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Before</p>
                 <img
                   src={URL.createObjectURL(beforePhoto)}
                   alt="Before"
-                  className="h-32 w-full rounded-lg object-cover"
+                  className="h-24 w-full rounded-md object-cover"
                 />
               </div>
-              <div>
-                <p className="mb-2 text-xs font-medium text-gray-400">AFTER</p>
+              <div className="text-left">
+                <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">After</p>
                 <img
                   src={URL.createObjectURL(afterPhoto)}
                   alt="After"
-                  className="h-32 w-full rounded-lg object-cover"
+                  className="h-24 w-full rounded-md object-cover"
                 />
               </div>
             </div>
           )}
 
-          <div className="mb-6 rounded-lg border border-brand-green/50 bg-brand-green/10 p-4 text-left">
-            <p className="mb-2 text-sm font-semibold text-brand-green">What's Next?</p>
-            <ul className="space-y-1 text-xs text-gray-300 list-disc list-inside">
-              <li>Your submission is being reviewed by our verifiers</li>
-              <li>After verification, claim your Impact Product level to receive rewards (usually 2-12 hours)</li>
-              <li>Check your profile to see submission status</li>
-              <li>Contact us in Telegram if you have questions</li>
+          <div className="mb-4 rounded-lg border border-brand-green/40 bg-brand-green/10 p-3 text-left">
+            <p className="mb-1.5 text-[11px] font-semibold text-brand-green">What&apos;s next?</p>
+            <ul className="space-y-0.5 text-[10px] leading-snug text-muted-foreground">
+              <li className="flex gap-1.5">
+                <span className="text-brand-green">•</span>
+                <span>Verifiers review your submission (photos and any AI note) on-chain.</span>
+              </li>
+              <li className="flex gap-1.5">
+                <span className="text-brand-green">•</span>
+                <span>Check your profile for status.</span>
+              </li>
+              <li className="flex gap-1.5">
+                <span className="text-brand-green">•</span>
+                <span>
+                  Questions?{' '}
+                  <a
+                    href="https://t.me/decentralizedcleanup"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+                  >
+                    Telegram
+                  </a>
+                </span>
+              </li>
             </ul>
           </div>
 
           <Button
             onClick={() => router.push('/')}
-            className="w-full gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
+            size="sm"
+            className="w-full gap-1.5 bg-brand-green text-black hover:bg-[#4a9a26]"
           >
             Go to Home
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </Button>
-
-          <p className="mt-4 text-xs text-gray-500">
-            Redirecting automatically in a few seconds...
-          </p>
         </div>
       </div>
-        {modalLayer}
-      </>
     )
   }
 
@@ -2569,6 +2860,7 @@ function CleanupContent() {
           title={alertModal.title}
           message={alertModal.message}
           variant={alertModal.variant}
+          closeOnBackdropClick={alertModal.closeOnBackdropClick ?? true}
         />
       )}
       {confirmModal && (

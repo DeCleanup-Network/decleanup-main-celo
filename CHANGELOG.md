@@ -6,13 +6,13 @@ This project adheres to Semantic Versioning.
 
 ---
 
-## [$cDCU Claim UX, Unlock & Governance 250] – 2026-03
+## [$cDCU Claim UX, Unlock & Governance 250] - 2026-03
 
 Claim flow fixes, simpler copy, unlock endpoint, and governance threshold set to 250 $cDCU.
 
-### Deployed contracts (reference)
+### Deployed contracts (historical snapshot)
 
-No contract redeploys in this release. Addresses below are from existing deployment artifacts (Celo Sepolia unless noted).
+**Current addresses:** always use **`contracts/scripts/deployed_addresses.json`**. The table below is what this entry referred to at write time and may be outdated.
 
 | Contract | Address | Source |
 |----------|---------|--------|
@@ -23,68 +23,68 @@ No contract redeploys in this release. Addresses below are from existing deploym
 | CDCUToken | `0x98bcb22234527bbcb11b6f1987b5202719302621` | cdcu-deployed.json |
 | ClaimVault | `0x0c970ede1641a4c75458f8b1496b83f1ae33d879` | cdcu-deployed.json |
 
-**Submission.sol and its mentions were not changed.** Same as dev: on approval, Submission already calls `rewardManager.rewardImpactReports(submitter, 1)` for both impact form and recyclables (separate blocks), so recyclables get +5 DCU on-chain without any contract change. DCU points are calculated and stored on-chain (DCURewardManager / DCUToken balance); the claim backend only **reads** that balance for eligibility and claimable amount. No redeploy of Submission required.
+**Submission.sol and its mentions were not changed.** Same as dev: on approval, Submission already calls `rewardManager.rewardImpactReports(submitter, 1)` for both impact form and recyclables (separate blocks), so recyclables get +5 DCU onchain without any contract change. DCU points are calculated and stored onchain (DCURewardManager / DCUToken balance); the claim backend only **reads** that balance for eligibility and claimable amount. No redeploy of Submission required.
 
 ### Claim flow: record only on success
 
 - **Problem:** Backend was marking the full claim amount as “issued” when returning the signed claim. If the user cancelled the wallet popup, the next request saw “No claimable $cDCU left.”
 - **Fix:** Issued is recorded only after the user’s tx confirms. When we sign, we set a **pending** amount per recipient; claimable = cap − issued − pending.
-- **frontend/src/lib/cdcu/claim-signing.ts** – Added `pendingKey`, `getPendingAmount`, `setPendingAmount`, `recordIssued`, `clearPending`, `resetIssuedAndPending`. Store holds both issued (on-chain confirmed) and pending (signed, not yet submitted) per address.
-- **POST /api/cdcu/claim-request** – Sets pending when returning the signature; no longer adds to issued. Claimable computed as `claimableCapWei - totalIssued - pending`.
-- **GET /api/cdcu/eligibility** – `claimableNow` subtracts pending so the UI shows correct remaining amount.
-- **POST /api/cdcu/record-issued** – Body: `{ recipient, amount }`. Called by the frontend **after** `claimCdcu()` succeeds; moves pending → issued.
-- **POST /api/cdcu/clear-pending** – Body: `{ recipient }`. Clears pending so the user can request a new signature (e.g. after cancelling the tx).
-- **DashboardClaimCdcu** – After tx success, calls `record-issued`; on wallet cancel, calls `clear-pending` and shows “You cancelled the request.”
+- **frontend/src/lib/cdcu/claim-signing.ts** - Added `pendingKey`, `getPendingAmount`, `setPendingAmount`, `recordIssued`, `clearPending`, `resetIssuedAndPending`. Store holds both issued (onchain confirmed) and pending (signed, not yet submitted) per address.
+- **POST /api/cdcu/claim-request** - Sets pending when returning the signature; no longer adds to issued. Claimable computed as `claimableCapWei - totalIssued - pending`.
+- **GET /api/cdcu/eligibility** - `claimableNow` subtracts pending so the UI shows correct remaining amount.
+- **POST /api/cdcu/record-issued** - Body: `{ recipient, amount }`. Called by the frontend **after** `claimCdcu()` succeeds; moves pending → issued.
+- **POST /api/cdcu/clear-pending** - Body: `{ recipient }`. Clears pending so the user can request a new signature (e.g. after cancelling the tx).
+- **DashboardClaimCdcu** - After tx success, calls `record-issued`; on wallet cancel, calls `clear-pending` and shows “You cancelled the request.”
 
 ### Unlock (reset issued/pending)
 
-- **POST /api/cdcu/unlock** – Body: `{ recipient, secret }`. Resets issued and pending for an address so they can claim again. Use when the claim tx failed or tokens never arrived but the backend had already recorded it. Requires `CLAIM_VAULT_UNLOCK_SECRET` in env; document in ENV_TEMPLATE.md.
+- **POST /api/cdcu/unlock** - Body: `{ recipient, secret }`. Resets issued and pending for an address so they can claim again. Use when the claim tx failed or tokens never arrived but the backend had already recorded it. Requires `CLAIM_VAULT_UNLOCK_SECRET` in env; document in ENV_TEMPLATE.md.
 
 ### Claim card copy
 
-- **DashboardClaimCdcu** – Replaced long line (“At X points you can claim up to Y $cDCU total — you already claimed… remaining”) with: **“Based on your DCU score you will receive X $cDCU.”** Button and disabled state unchanged.
+- **DashboardClaimCdcu** - Replaced long line (“At X points you can claim up to Y $cDCU total - you already claimed… remaining”) with: **“Based on your DCU score you will receive X $cDCU.”** Button and disabled state unchanged.
 
 ### Governance threshold: 500 → 250 $cDCU
 
-- **docs/TOKEN_SPEC.md** – Governance section and all references updated: minimum balance for voting and creating proposals is **250 $cDCU** (was 500). Table “1 to 499” → “1 to 249”, “500+” → “250+”; eligibility and Decisions table updated; changelog entry 1.4 added.
-- **frontend/src/config/cdcu.ts** – New file with `GOVERNANCE_MIN_CDCU = 250` for UI and future governance checks.
+- **docs/TOKEN_SPEC.md** - Governance section and all references updated: minimum balance for voting and creating proposals is **250 $cDCU** (was 500). Table “1 to 499” → “1 to 249”, “500+” → “250+”; eligibility and Decisions table updated; changelog entry 1.4 added.
+- **frontend/src/config/cdcu.ts** - New file with `GOVERNANCE_MIN_CDCU = 250` for UI and future governance checks.
 
 ---
 
-## [$cDCU Claim Flow, Eligibility & Deployment] – 2026-03
+## [$cDCU Claim Flow, Eligibility & Deployment] - 2026-03
 
-This release adds the full **$cDCU mint-on-claim** flow: eligibility at 50 DCU points, a multiplier formula for claimable amount, backend signing API, frontend eligibility UI, and deployment script for CDCUToken + ClaimVault. **No contract logic changes** were required for eligibility or the formula—those live in the backend; contracts only verify EIP-712 and mint.
+This release adds the full **$cDCU mint-on-claim** flow: eligibility at 50 DCU points, a multiplier formula for claimable amount, backend signing API, frontend eligibility UI, and deployment script for CDCUToken + ClaimVault. **No contract logic changes** were required for eligibility or the formula - those live in the backend; contracts only verify EIP-712 and mint.
 
 ### Contracts (no logic changes)
 
-- **CDCUToken.sol** – Unchanged. ERC-20, 10M cap, only ClaimVault can mint.
-- **ClaimVault.sol** – Unchanged for eligibility. Already has: EIP-712 claim verification, category caps, 30-day max expiry (`MAX_CLAIM_EXPIRY_WINDOW`), one-time liquidity mint, signer rotation. Eligibility (50 points) and claimable amount formula are **off-chain** (backend).
+- **CDCUToken.sol** - Unchanged. ERC-20, 10M cap, only ClaimVault can mint.
+- **ClaimVault.sol** - Unchanged for eligibility. Already has: EIP-712 claim verification, category caps, 30-day max expiry (`MAX_CLAIM_EXPIRY_WINDOW`), one-time liquidity mint, signer rotation. Eligibility (50 points) and claimable amount formula are **offchain** (backend).
 
 ### Deployment
 
-- **contracts/scripts/deploy-cdcu.ts** – Deploys CDCUToken → ClaimVault(token, authorizedSigner) → setClaimVault(ClaimVault); optional transfer of ClaimVault ownership to multisig. Output: `contracts/scripts/cdcu-deployed.json`. Next-steps log updated (frontend env, backend env, eligibility doc ref).
-- **Deployer vs signer:** The **deployer** wallet (e.g. `0x520e40e346ea85d72661fce3ba3f81cb2c560d84` from setup-roles) is used only to deploy and optionally transfer ownership. The **authorized signer** is a **separate** wallet (backend); its **private key** is only needed in backend env (`CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`). **The dev does not need the project owner’s deployer private key**—either the owner deploys and shares contract addresses + authorized signer address, or the dev deploys with a team/dev wallet and the owner provides only `AUTHORIZED_SIGNER_ADDRESS` (and keeps the signer key on their backend). See “For the dev” below.
+- **contracts/scripts/deploy-cdcu.ts** - Deploys CDCUToken → ClaimVault(token, authorizedSigner) → setClaimVault(ClaimVault); optional transfer of ClaimVault ownership to multisig. Output: `contracts/scripts/cdcu-deployed.json`. Next-steps log updated (frontend env, backend env, eligibility doc ref).
+- **Deployer vs signer:** The **deployer** wallet (e.g. `0x520e40e346ea85d72661fce3ba3f81cb2c560d84` from setup-roles) is used only to deploy and optionally transfer ownership. The **authorized signer** is a **separate** wallet (backend); its **private key** is only needed in backend env (`CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`). **The dev does not need the project owner’s deployer private key** - either the owner deploys and shares contract addresses + authorized signer address, or the dev deploys with a team/dev wallet and the owner provides only `AUTHORIZED_SIGNER_ADDRESS` (and keeps the signer key on their backend). See “For the dev” below.
 
 ### Backend (eligibility + signing)
 
-- **frontend/src/lib/cdcu/claim-signing.ts** – Server-only:
+- **frontend/src/lib/cdcu/claim-signing.ts** - Server-only:
   - `ELIGIBILITY_THRESHOLD_WEI = 50` DCU points; `claimableCapFromPoints(totalPointsWei)` = (points - 50) × 0.1 (wei).
-  - `getClaimableAmountFromChain(recipient)` – Reads DCURewardManager `getUserRewardStats`, returns total points (cleanups + impact + referral + streak).
-  - `getEligibilityAndClaimable(recipient)` – Returns `{ totalPointsWei, eligible, claimableCapWei }`.
+  - `getClaimableAmountFromChain(recipient)` - Reads DCURewardManager `getUserRewardStats`, returns total points (cleanups + impact + referral + streak).
+  - `getEligibilityAndClaimable(recipient)` - Returns `{ totalPointsWei, eligible, claimableCapWei }`.
   - EIP-712 signing for ClaimVault (domain + Claim type), file store for “already issued” per recipient.
-- **POST /api/cdcu/claim-request** – Requires 50+ DCU points; claimable = cap minus already issued; signs and returns claim params for ClaimVault.claim().
-- **GET /api/cdcu/eligibility?recipient=0x...** – Returns `eligible`, `totalPoints`, `claimableCap`, `alreadyClaimed`, `claimableNow` for the dashboard.
+- **POST /api/cdcu/claim-request** - Requires 50+ DCU points; claimable = cap minus already issued; signs and returns claim params for ClaimVault.claim().
+- **GET /api/cdcu/eligibility?recipient=0x...** - Returns `eligible`, `totalPoints`, `claimableCap`, `alreadyClaimed`, `claimableNow` for the dashboard.
 
 ### Frontend
 
-- **DashboardClaimCdcu** – Card on dashboard (when `NEXT_PUBLIC_CLAIMVAULT_ADDRESS` is set): progress bar to 50 DCU points, “Claim $cDCU” when eligible and claimable > 0, disabled state when below 50 or nothing left to claim. Calls GET eligibility then POST claim-request then ClaimVault.claim().
-- **frontend/src/lib/blockchain/claim-vault.ts** – `claimCdcu(signed)` calls ClaimVault.claim(recipient, amount, category, nonce, expiry, v, r, s).
-- **CONTRACT_ADDRESSES.CLAIMVAULT** – From `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`.
-- **ENV_TEMPLATE.md** – `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`, `CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`, `CLAIM_VAULT_ISSUED_STORE_PATH`.
+- **DashboardClaimCdcu** - Card on dashboard (when `NEXT_PUBLIC_CLAIMVAULT_ADDRESS` is set): progress bar to 50 DCU points, “Claim $cDCU” when eligible and claimable > 0, disabled state when below 50 or nothing left to claim. Calls GET eligibility then POST claim-request then ClaimVault.claim().
+- **frontend/src/lib/blockchain/claim-vault.ts** - `claimCdcu(signed)` calls ClaimVault.claim(recipient, amount, category, nonce, expiry, v, r, s).
+- **CONTRACT_ADDRESSES.CLAIMVAULT** - From `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`.
+- **ENV_TEMPLATE.md** - `NEXT_PUBLIC_CLAIMVAULT_ADDRESS`, `CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY`, `CLAIM_VAULT_ISSUED_STORE_PATH`.
 
 ### Docs
 
-- **docs/TOKEN_SPEC.md** – Eligibility at 50 DCU points and multiplier “(total − 50) × 0.1” documented; already-claimed tracked server-side.
+- **docs/TOKEN_SPEC.md** - Eligibility at 50 DCU points and multiplier “(total − 50) × 0.1” documented; already-claimed tracked server-side.
 
 ### For the dev (handoff)
 
@@ -97,7 +97,7 @@ This release adds the full **$cDCU mint-on-claim** flow: eligibility at 50 DCU p
 
 ---
 
-## [Celo Sepolia Deployment & Integration] – 2025-12-16
+## [Celo Sepolia Deployment & Integration] - 2025-12-16
 
 This release focuses on deploying the RecyclablesReward contract to Celo Sepolia, implementing the full submission flow with contract integration, and enhancing the verifier dashboard with proper access control and data display.
 
@@ -237,7 +237,7 @@ This release focuses on deploying the RecyclablesReward contract to Celo Sepolia
 
 ---
 
-## [0.2.0] – 2025-12-02  
+## [0.2.0] - 2025-12-02  
 🚀 Major Refactor: Unified Reward System
 
 This release removes the legacy reward engine, consolidates all reward logic under DCURewardManager, and updates the entire test suite to reflect the new architecture.
@@ -267,7 +267,7 @@ This release removes the legacy reward engine, consolidates all reward logic und
 - Constructor-based role setup for DCUToken (MINTER_ROLE)  
 - Test utilities supporting the new unified reward flow
 
-### Changed — Contracts
+### Changed - Contracts
 
 **Submission.sol**
 - Fully migrated to use DCURewardManager
@@ -308,7 +308,7 @@ This release removes the legacy reward engine, consolidates all reward logic und
 
 ---
 
-## [Unreleased] – Sprint 1 Progress
+## [Unreleased] - Sprint 1 Progress
 
 ### 🔧 Core Contract Fixes & Improvements
 - Correct reward distribution for approved submissions
@@ -343,7 +343,7 @@ This release removes the legacy reward engine, consolidates all reward logic und
 
 ---
 
-## [Sprint 1 – Backend Stabilization] – 2025-12-10
+## [Sprint 1 - Backend Stabilization] - 2025-12-10
 
 ### Added
 - Referral reward variable fully implemented
@@ -374,7 +374,7 @@ This release removes the legacy reward engine, consolidates all reward logic und
 
 ---
 
-## Frontend – MVP Stabilization & Build Fixes (2025-12-13)
+## Frontend - MVP Stabilization & Build Fixes (2025-12-13)
 
 This phase focused on stabilizing the frontend, unblocking the build, and aligning UI behavior with the current contract surface and MVP scope.
 

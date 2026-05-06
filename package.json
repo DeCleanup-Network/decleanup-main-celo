@@ -4,11 +4,14 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "enable-impact-claim-rewards": "hardhat run contracts/scripts/enable-impact-claim-rewards.ts --network celoSepolia",
+    "check:claimvault-signer": "npm run check:claimvault-signer --prefix frontend"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
     "ethers": "^6.12.0",
+    "next": "^14.2.15",
     "viem": "^2.27.3"
   },
   "devDependencies": {

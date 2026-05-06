@@ -2,32 +2,15 @@
 // Hypercerts minting: real minting via Hypercerts SDK
 // ---------------------------------------------------------------------------
 
-import { HypercertClient, TransferRestrictions } from '@hypercerts-org/sdk'
-import { getAccount, getWalletClient } from 'wagmi/actions'
-import { getConfig } from './get-wagmi-config'
+import { TransferRestrictions } from '@hypercerts-org/sdk'
+import { getAccount, waitForTransactionReceipt, writeContract } from '@wagmi/core'
 import { getUserSubmissions, getCleanupDetails } from './contracts'
 import { aggregateUserCleanups } from './hypercerts/aggregation'
 import { buildHypercertMetadata } from './hypercerts/metadata'
 import { uploadHypercertMetadataToIPFS } from './ipfs'
+import { getConfig } from './get-wagmi-config'
 import { HYPERCERTS_CONFIG } from './hypercerts/config'
-
-/**
- * Initialize Hypercerts SDK client
- */
-async function getHypercertClient() {
-  const walletClient = await getWalletClient(getConfig())
-  
-  if (!walletClient) {
-    throw new Error('No wallet client available')
-  }
-
-  // Initialize Hypercerts SDK
-  const client = new HypercertClient({
-    walletClient: walletClient as any,
-  })
-
-  return client
-}
+import { HypercertMinterAbi } from '@hypercerts-org/contracts'
 
 /**
  * Mint Hypercert onchain via Hypercerts SDK
@@ -44,38 +27,43 @@ export async function mintHypercertOnChain(
     console.log('  User:', userAddress)
     console.log('  Metadata URI:', metadataUri)
 
-    const client = await getHypercertClient()
+    const config = getConfig()
+    const account = getAccount(config)
+    const signer = account.address ?? (userAddress as `0x${string}`)
+    if (!signer) {
+      throw new Error('Wallet not connected. Please connect your wallet first.')
+    }
 
-    // Ensure metadataUri is in ipfs:// format
-    let ipfsUri = metadataUri
+    // Hypercert minter expects a CID-ish metadata ref (SDK passes CID, not full gateway URL).
+    let metadataRef = metadataUri
     if (metadataUri.includes('/ipfs/')) {
       const cid = metadataUri.split('/ipfs/')[1].split('?')[0]
-      ipfsUri = `ipfs://${cid}`
+      metadataRef = cid
+    } else if (metadataUri.startsWith('ipfs://')) {
+      metadataRef = metadataUri.replace('ipfs://', '')
     }
 
-    console.log('  IPFS URI:', ipfsUri)
+    console.log('  Metadata ref:', metadataRef)
 
-    // Create metadata object as expected by SDK
-    const metadata = {
-      name: 'DeCleanup Environmental Impact Certificate',
-      description: 'Aggregated environmental cleanup impact',
-      image: '', // Optional: could add generated image
-      uri: ipfsUri, // Reference to full metadata
-    }
+    const txHash = await writeContract(config, {
+      address: HYPERCERTS_CONFIG.contract.address,
+      abi: HypercertMinterAbi as any,
+      functionName: 'mintClaim',
+      args: [signer, BigInt(10000), metadataRef, TransferRestrictions.AllowAll],
+      account: signer,
+      chainId: HYPERCERTS_CONFIG.contract.chainId,
+    })
 
-    // Mint the Hypercert
-    // SDK mintClaim signature: (metaData object, totalUnits, transferRestriction)
-    const result = await client.mintClaim(
-      metadata,                           // metaData object
-      BigInt(10000),                      // totalUnits
-      TransferRestrictions.AllowAll       // transferRestriction (enum)
-    )
+    await waitForTransactionReceipt(config, {
+      hash: txHash,
+      chainId: HYPERCERTS_CONFIG.contract.chainId,
+      confirmations: 1,
+      pollingInterval: 2000,
+      timeout: 120000,
+    })
 
     console.log('✅ Hypercert minted successfully!')
-    console.log('  Transaction hash:', result)
-
-    // The result is the transaction hash
-    const txHash = result as string
+    console.log('  Transaction hash:', txHash)
 
     // For now, we'll use the txHash as the hypercertId
     // The actual claim ID can be retrieved from contract events if needed

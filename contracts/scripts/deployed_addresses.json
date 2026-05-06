@@ -1,13 +1,16 @@
 {
-  "DCUToken": "0xa282c26245d116aB5600fBF7901f2E4827c16B7A",
-  "DCURewardManager": "0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a",
-  "Submission": "0x1e355123f9dec3939552d80ad1a24175fd10688f",
-  "ImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959",
-  "network": "celo-sepolia",
+  "DCURewardManager": "0xbb2eb0f58f8435e44b167e88fb5bd5b2937a6555",
+  "Submission": "0x69ef8e25c5db30c0b231d3e476f80bf06de056b2",
+  "ImpactProductNFT": "0x60d389864c6d23b38d8302106d6db3654fc5646e",
+  "network": "celoSepolia",
   "chainId": 11142220,
-  "deployedAt": "2025-12-17T00:00:00.000Z",
-  "note": "DCURewardManager and Submission redeployed with latest updates (individual reward update functions, simplified impact report logic)",
-  "updatedAt": "2025-12-19T19:23:33.790Z",
-  "oldDCURewardManager": "0x247b6a26f3705b9400001e2bc609ecc3217ebb57",
-  "oldSubmission": "0x4e72b742e72189e1cc519da02c7a9247ea107109"
+  "deployedAt": "2026-05-01T14:18:23.676Z",
+  "note": "Greenfield core stack (DCURewardManager + ImpactProductNFT + Submission); $cDCU via deploy-cdcu.ts",
+  "updatedAt": "2026-05-01T14:18:23.676Z",
+  "oldDCURewardManager": "0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a",
+  "oldSubmission": "0x1e355123f9dec3939552d80ad1a24175fd10688f",
+  "oldImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959",
+  "CDCUToken": "0x915b58aa293aa5a8ca6bc6df4adc26f96f2a992f",
+  "ClaimVault": "0x7056d9e9b124bddda2f7f2398d50e1db388901b2",
+  "cdcuDeployedAt": "2026-05-01T14:18:42.810Z"
 }

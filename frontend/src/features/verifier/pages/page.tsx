@@ -22,7 +22,11 @@ import { config, REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_NAME, REQUIRED_CHAI
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
 import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
-import { getHypercertRequestsByStatus, approveHypercertRequest, rejectHypercertRequest } from '@/lib/blockchain/hypercerts/requests'
+import {
+  fetchHypercertRequestsByStatus,
+  approveHypercertRequest,
+  rejectHypercertRequest,
+} from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
@@ -458,7 +462,7 @@ export default function VerifierPage() {
   }
   async function loadHypercertRequests() {
     try {
-      const pending = getHypercertRequestsByStatus('PENDING')
+      const pending = await fetchHypercertRequestsByStatus('PENDING')
       console.log('📋 Pending Hypercert requests:', pending.length)
       setHypercertRequests(pending)
       setVerifierContext(buildVerifierContext(pending))
@@ -711,32 +715,37 @@ export default function VerifierPage() {
 
   async function handleApproveHypercert(requestId: string) {
     if (!address) return
-    
+    if (!signMessageAsync) {
+      setActionModal({
+        variant: 'error',
+        title: 'Wallet not ready',
+        message: 'Message signing is required to approve Hypercert requests.',
+      })
+      return
+    }
+
     setProcessingRequestId(requestId)
     try {
       console.log('Approving Hypercert request:', requestId)
-      
-      // Approve the request
-      const approvedRequest = approveHypercertRequest({
+
+      const approvedRequest = await approveHypercertRequest({
         requestId,
         verifierAddress: address,
+        signMessageAsync,
       })
-      
+
       if (!approvedRequest) {
         throw new Error('Failed to approve request')
       }
-      
-      // TODO: In Phase 6, this will call the actual onchain mint function
-      // For now, just update the UI
+
       console.log('✅ Hypercert request approved:', approvedRequest.id)
-      
+
       setActionModal({
         variant: 'success',
         title: 'Hypercert approved',
-        message: `Hypercert request approved!\n\nRequest ID: ${requestId}\n\nNote: Onchain minting will be implemented in Phase 6.`,
+        message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can mint from the Hypercerts page when ready.`,
       })
-      
-      // Refresh the requests list
+
       loadHypercertRequests()
     } catch (error) {
       console.error('Error approving Hypercert request:', error)
@@ -749,18 +758,26 @@ export default function VerifierPage() {
 
   async function handleRejectHypercert(requestId: string) {
     if (!address) return
-    
+    if (!signMessageAsync) {
+      setActionModal({
+        variant: 'error',
+        title: 'Wallet not ready',
+        message: 'Message signing is required to reject Hypercert requests.',
+      })
+      return
+    }
+
     const reason = prompt('Enter rejection reason (optional):')
-    
+
     setProcessingRequestId(requestId)
     try {
       console.log('Rejecting Hypercert request:', requestId)
-      
-      // Reject the request
-      const rejectedRequest = rejectHypercertRequest({
+
+      const rejectedRequest = await rejectHypercertRequest({
         requestId,
         verifierAddress: address,
         reason: reason || undefined,
+        signMessageAsync,
       })
       
       if (!rejectedRequest) {
@@ -1019,7 +1036,9 @@ export default function VerifierPage() {
           {/* Hypercert Impact Context */}
           {verifierContext && (
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
-              <h3 className="mb-4 font-bold text-green-400">📊 HYPERCERT IMPACT CONTEXT</h3>
+              <h3 className="mb-4 font-bebas text-xl uppercase tracking-wide text-foreground">
+                Hypercert Impact Context
+              </h3>
               <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
                 <div>
                   <p className="text-gray-400">Total Requests</p>

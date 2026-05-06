@@ -15,6 +15,8 @@ interface AlertModalProps {
   variant?: AlertModalVariant
   /** When set, calls `onClose` after this many ms (e.g. match submission success redirect at 3s). */
   autoCloseMs?: number
+  /** If false, only OK / X close the modal (backdrop clicks ignored). */
+  closeOnBackdropClick?: boolean
 }
 
 const variantStyles: Record<AlertModalVariant, { icon: typeof CheckCircle; borderClass: string; iconBgClass: string; iconColorClass: string }> = {
@@ -51,6 +53,7 @@ export function AlertModal({
   message,
   variant = 'info',
   autoCloseMs,
+  closeOnBackdropClick = true,
 }: AlertModalProps) {
   const style = variantStyles[variant]
   const Icon = style.icon
@@ -77,7 +80,9 @@ export function AlertModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) =>
+        closeOnBackdropClick && e.target === e.currentTarget && onClose()
+      }
     >
       <div className={`relative mx-4 w-full max-w-md rounded-lg border-2 ${style.borderClass} bg-gray-900 p-6 shadow-2xl`}>
         <button

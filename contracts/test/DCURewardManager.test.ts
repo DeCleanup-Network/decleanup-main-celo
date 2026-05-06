@@ -6,36 +6,24 @@ describe("DCURewardManager", function () {
   async function deployContractsFixture() {
     const [owner, user1, user2, user3] = await hre.viem.getWalletClients();
 
-    const dcuToken = await hre.viem.deployContract("DCUToken");
-
-    const dcuRewardManager = await hre.viem.deployContract(
-      "DCURewardManager",
-      [dcuToken.address, "0x0000000000000000000000000000000000000001"]
-    );
+    const dcuRewardManager = await hre.viem.deployContract("DCURewardManager", [
+      "0x0000000000000000000000000000000000000000",
+    ]);
 
     const impactProductNft = await hre.viem.deployContract(
       "ImpactProductNFT",
       [dcuRewardManager.address]
     );
 
-    await dcuRewardManager.write.updateNftCollection(
-      [impactProductNft.address],
-      { account: owner.account }
-    );
+    await dcuRewardManager.write.updateNftCollection([impactProductNft.address], {
+      account: owner.account,
+    });
 
-    const MINTER_ROLE = await dcuToken.read.MINTER_ROLE();
-    await dcuToken.write.grantRole(
-      [MINTER_ROLE, dcuRewardManager.address],
-      { account: owner.account }
-    );
-
-    await impactProductNft.write.setRewardsContract(
-      [dcuRewardManager.address],
-      { account: owner.account }
-    );
+    await impactProductNft.write.setRewardsContract([dcuRewardManager.address], {
+      account: owner.account,
+    });
 
     return {
-      dcuToken,
       dcuRewardManager,
       impactProductNft,
       owner,
@@ -74,11 +62,6 @@ describe("DCURewardManager", function () {
         { account: owner.account }
       );
 
-      await dcuRewardManager.write.setPoiVerificationStatus(
-        [user1.account.address, true],
-        { account: owner.account }
-      );
-
       await impactProductNft.write.mint(
         [user1.account.address],
         { account: owner.account }
@@ -102,11 +85,6 @@ describe("DCURewardManager", function () {
 
       await impactProductNft.write.verifyPOI(
         [user1.account.address],
-        { account: owner.account }
-      );
-
-      await dcuRewardManager.write.setPoiVerificationStatus(
-        [user1.account.address, true],
         { account: owner.account }
       );
 
@@ -230,11 +208,6 @@ describe("DCURewardManager", function () {
         { account: owner.account }
       );
 
-      await dcuRewardManager.write.setPoiVerificationStatus(
-        [user2.account.address, true],
-        { account: owner.account }
-      );
-
       await impactProductNft.write.mint(
         [user2.account.address],
         { account: owner.account }
@@ -257,40 +230,56 @@ describe("DCURewardManager", function () {
   //
   // Claiming
   //
-  describe("Reward Claiming", function () {
-    it("Should allow claim and mint DCU to user", async function () {
-      const { dcuRewardManager, impactProductNft, user1, owner } =
+  describe("Impact report vs recyclables buckets", function () {
+    it("Should accrue separate balances for rewardImpactReports and rewardRecyclables", async function () {
+      const { dcuRewardManager, user1, owner } =
         await loadFixture(deployContractsFixture);
 
-      await impactProductNft.write.verifyPOI(
-        [user1.account.address],
+      await dcuRewardManager.write.rewardImpactReports(
+        [user1.account.address, 1n],
         { account: owner.account }
       );
-
-      await dcuRewardManager.write.setPoiVerificationStatus(
-        [user1.account.address, true],
-        { account: owner.account }
-      );
-
-      await impactProductNft.write.mint(
-        [user1.account.address],
-        { account: owner.account }
-      );
-
-      await dcuRewardManager.write.rewardImpactProductClaim(
+      await dcuRewardManager.write.rewardRecyclables(
         [user1.account.address, 1n],
         { account: owner.account }
       );
 
-      await dcuRewardManager.write.claimRewards(
-        [10n * 10n ** 18n],
-        { account: user1.account }
-      );
+      const stats = (await dcuRewardManager.read.getUserRewardStats([
+        user1.account.address,
+      ])) as {
+        impactReportRewardsAmount: bigint;
+        recyclablesRewardsAmount: bigint;
+      };
+
+      expect(stats.impactReportRewardsAmount).to.equal(5n * 10n ** 18n);
+      expect(stats.recyclablesRewardsAmount).to.equal(5n * 10n ** 18n);
 
       const bal = await dcuRewardManager.read.getBalance([
-        user1.account.address
+        user1.account.address,
       ]);
-      expect(bal).to.equal(0n);
+      expect(bal).to.equal(10n * 10n ** 18n);
+    });
+  });
+
+  describe("Ledger (no ERC-20 mint from reward manager)", function () {
+    it("Should keep accrued balance on-chain until $cDCU is claimed via ClaimVault off-chain flow", async function () {
+      const { dcuRewardManager, impactProductNft, user1, owner } =
+        await loadFixture(deployContractsFixture);
+
+      await impactProductNft.write.verifyPOI([user1.account.address], {
+        account: owner.account,
+      });
+
+      await impactProductNft.write.mint([user1.account.address], {
+        account: owner.account,
+      });
+
+      await dcuRewardManager.write.rewardImpactProductClaim([user1.account.address, 1n], {
+        account: owner.account,
+      });
+
+      const bal = await dcuRewardManager.read.getBalance([user1.account.address]);
+      expect(bal).to.equal(10n * 10n ** 18n);
     });
   });
 });

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useSignMessage } from 'wagmi'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
@@ -15,22 +15,27 @@ import { mintHypercert } from '@/lib/blockchain/hypercerts-minting'
 import { uploadToIPFS } from '@/lib/blockchain/ipfs'
 import {
   submitHypercertRequest,
-  getHypercertRequestsByUser,
+  fetchHypercertRequestsByUser,
   updateRequestWithHypercertId,
   hasOpenHypercertWorkflow,
 } from '@/lib/blockchain/hypercerts/requests'
 
-export default function HypercertsTestPage() {
+export default function HypercertsCertificationPage() {
   const { address, isConnected } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const chainId = useResolvedChainId()
   const { submissionOwnerAddress } = useSmartAccountClient()
+  // Signature verification on /api/hypercerts/requests currently uses EOA message recovery.
+  // Use connected signer address for request auth; still read impact data from submission owner when present.
+  const signerAddress = address as `0x${string}` | undefined
+  const submissionDataAddress = submissionOwnerAddress as `0x${string}` | undefined
 
   useEffect(() => {
     console.log('🔍 [ChainId Raw]', {
       chainId,
       type: typeof chainId,
-      expected: 'Should be 44787 (Sepolia) or 42220 (Mainnet)',
-      willFix: chainId !== 44787 && chainId !== 42220
+      expected: 'Should be 11142220 (Sepolia) or 42220 (Mainnet)',
+      willFix: chainId !== 11142220 && chainId !== 42220
     })
   }, [chainId])
 
@@ -52,7 +57,8 @@ export default function HypercertsTestPage() {
     async function loadData() {
       setLoading(true)
       try {
-        const owner = (submissionOwnerAddress ?? address) as `0x${string}`
+        const owner = submissionDataAddress
+        if (!owner) return
         const submissions = await getUserSubmissions(owner)
         const verifiedCleanups = []
         let impactReportsCount = 0
@@ -72,7 +78,7 @@ export default function HypercertsTestPage() {
           }
         }
 
-        const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787
+        const validChainId = chainId === 11142220 || chainId === 42220 ? chainId : 11142220
         console.log('🔍 [Using ChainId]', validChainId)
 
         const eligibilityResult = checkHypercertEligibility({
@@ -91,7 +97,7 @@ export default function HypercertsTestPage() {
           })
 
           const metadataInput = {
-            userAddress: address as `0x${string}`,
+            userAddress: owner,
             cleanups: verifiedCleanups,
             summary: {
               totalCleanups: aggregated.totalCleanups,
@@ -130,10 +136,13 @@ export default function HypercertsTestPage() {
 
   useEffect(() => {
     if (!address) return
-    const requests = getHypercertRequestsByUser(address)
-    setUserRequests(requests)
-    console.log('📋 User Hypercert requests:', requests)
-  }, [address, submitResult])
+    void (async () => {
+      if (!signerAddress) return
+      const requests = await fetchHypercertRequestsByUser(signerAddress)
+      setUserRequests(requests)
+      console.log('📋 User Hypercert requests:', requests)
+    })()
+  }, [address, signerAddress, submitResult])
 
   const handleBrandingUpload = async (type: 'logo' | 'banner') => {
     try {
@@ -159,13 +168,18 @@ export default function HypercertsTestPage() {
   }
 
   const handleSubmitRequest = async () => {
-    if (!address || !metadata) return
+    if (!address || !metadata || !signerAddress) return
+    if (!signMessageAsync) {
+      setSubmitResult('Wallet signing is required to submit a Hypercert request.')
+      return
+    }
 
     setSubmitResult('Submitting request...')
     try {
-      const request = submitHypercertRequest({
-        requester: address,
-        metadata: metadata,
+      const request = await submitHypercertRequest({
+        requester: signerAddress,
+        metadata,
+        signMessageAsync: async ({ message }) => signMessageAsync({ message }),
       })
 
       console.log('✅ Hypercert request submitted:', request)
@@ -184,7 +198,11 @@ export default function HypercertsTestPage() {
   }
 
   const handleMintApprovedRequest = async (requestId: string) => {
-    if (!address) return
+    if (!address || !signerAddress) return
+    if (!signMessageAsync) {
+      setSubmitResult('Wallet signing is required to record the mint on the server.')
+      return
+    }
 
     const request = userRequests.find(r => r.id === requestId)
     if (!request || request.status !== 'APPROVED') {
@@ -196,13 +214,16 @@ export default function HypercertsTestPage() {
     try {
       console.log('🪙 Minting approved request:', requestId)
 
-      const result = await mintHypercert(address, request.metadata)
+      const result = await mintHypercert(signerAddress, request.metadata)
 
       console.log('✅ Hypercert minted:', result)
 
-      updateRequestWithHypercertId(requestId, result.hypercertId, result.txHash, result.metadataCid)
+      await updateRequestWithHypercertId(requestId, result.hypercertId, result.txHash, result.metadataCid, {
+        requester: signerAddress,
+        signMessageAsync: async ({ message }) => signMessageAsync({ message }),
+      })
 
-      const updatedRequests = getHypercertRequestsByUser(address)
+      const updatedRequests = await fetchHypercertRequestsByUser(signerAddress)
       setUserRequests(updatedRequests)
 
       setSubmitResult(
@@ -210,7 +231,7 @@ export default function HypercertsTestPage() {
         `Transaction: ${result.txHash}\n` +
         `Hypercert ID: ${result.hypercertId}\n` +
         `Metadata CID: ${result.metadataCid}\n\n` +
-        `Your Hypercert is now onchain!`
+        `Your Hypercert is ready!`
       )
     } catch (error) {
       console.error('Error minting Hypercert:', error)
@@ -219,8 +240,8 @@ export default function HypercertsTestPage() {
   }
 
   const getNetworkName = () => {
-    const validChainId = chainId === 44787 || chainId === 42220 ? chainId : 44787
-    if (validChainId === 44787) return 'Celo Sepolia (Testnet)'
+    const validChainId = chainId === 11142220 || chainId === 42220 ? chainId : 11142220
+    if (validChainId === 11142220) return 'Celo Sepolia (Testnet)'
     if (validChainId === 42220) return 'Celo Mainnet'
     return `Chain ID: ${validChainId} (corrected from ${chainId})`
   }
@@ -232,10 +253,10 @@ export default function HypercertsTestPage() {
           <div className="max-w-3xl w-full text-center space-y-8 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-mono uppercase tracking-widest text-brand-green">
               <span className="h-2 w-2 rounded-full bg-brand-green animate-pulse" />
-              Onchain Certification
+              Impact certification
             </div>
             <h1 className="font-bebas text-6xl md:text-8xl tracking-tight leading-none uppercase">
-              Hypercert <span className="text-brand-yellow italic">Minting</span>
+              Hypercerts <span className="text-brand-yellow italic">Certification</span>
             </h1>
             <p className="text-white/60 text-lg md:text-xl max-w-xl mx-auto font-sans leading-relaxed">
               Aggregate your verified environmental cleanups into premium impact certificates. Prove your contribution to the network.
@@ -275,6 +296,9 @@ export default function HypercertsTestPage() {
   }
 
   const workflowBlocked = address ? hasOpenHypercertWorkflow(userRequests) : false
+  const pendingCount = userRequests.filter((r) => r.status === 'PENDING').length
+  const approvedToMintCount = userRequests.filter((r) => r.status === 'APPROVED' && !r.hypercertId).length
+  const mintedCount = userRequests.filter((r) => r.status === 'MINTED' || !!r.hypercertId).length
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-brand-yellow selection:text-black pb-20">
@@ -284,10 +308,10 @@ export default function HypercertsTestPage() {
         <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-white/10 pb-10">
           <div className="space-y-4 max-w-2xl animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-mono uppercase tracking-widest text-brand-green">
-              Dashboard / Hypercerts
+              Dashboard / Hypercerts Certification
             </div>
             <h1 className="font-bebas text-5xl md:text-7xl tracking-tight leading-none uppercase">
-              Creator <span className="text-brand-yellow">Dashboard</span>
+              Hypercerts <span className="text-brand-yellow">Certification</span>
             </h1>
             <p className="text-white/60 text-base md:text-lg font-sans">
               Welcome back, {address?.slice(0, 6)}...{address?.slice(-4)}. Your impact on <span className="text-white font-medium">{getNetworkName()}</span> is being recorded.
@@ -302,13 +326,37 @@ export default function HypercertsTestPage() {
           </div>
         </header>
 
+        {/* Workflow status banner */}
+        <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-0.5 text-[11px] text-yellow-300">
+              Pending review: {pendingCount}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-0.5 text-[11px] text-brand-green">
+              Approved: {approvedToMintCount}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[11px] text-cyan-300">
+              Minted: {mintedCount}
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {approvedToMintCount > 0
+              ? 'You have approved request(s) ready to mint below.'
+              : pendingCount > 0
+                ? 'Your request is pending verifier review. Mint unlocks after approval.'
+                : mintedCount > 0
+                  ? 'Your latest approved request has been minted.'
+                  : 'Submit a Hypercert request to start the certification workflow.'}
+          </p>
+        </section>
+
         {/* Impact Progress / How it works */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in">
           {[
             { step: '01', title: 'Aggregate', desc: 'Verified data collected', color: 'text-brand-green', active: true },
             { step: '02', title: 'Configure', desc: 'Add optional branding', color: 'text-brand-green', active: true },
             { step: '03', title: 'Request', desc: 'Submit for review', color: 'text-brand-yellow', active: true },
-            { step: '04', title: 'Mint', desc: 'Onchain certificate', color: 'text-white/40', active: false },
+            { step: '04', title: 'Mint', desc: 'Impact certificate', color: 'text-white/40', active: false },
           ].map((s, i) => (
             <div key={i} className={`p-6 rounded-2xl border border-white/5 bg-white/[0.02] flex flex-col gap-2 relative overflow-hidden group hover:bg-white/[0.04] transition-all ${s.active ? 'border-l-2 border-l-brand-green' : ''}`}>
               <div className={`${s.color} font-mono text-[10px] tracking-widest`}>-- {s.step} --</div>
@@ -434,7 +482,7 @@ export default function HypercertsTestPage() {
                           ✅ Minted: {request.hypercertId}
                         </div>
                       )}
-                      {request.status === 'APPROVED' && !request.hypercertId && (
+                      {request.status === 'APPROVED' && !request.hypercertId && request.status !== 'MINTED' && (
                         <button
                           onClick={() => handleMintApprovedRequest(request.id)}
                           className="mt-2 w-full gap-2 bg-brand-green py-2 font-bebas text-sm tracking-wider text-black hover:bg-brand-green/80 rounded-md transition-all flex items-center justify-center"

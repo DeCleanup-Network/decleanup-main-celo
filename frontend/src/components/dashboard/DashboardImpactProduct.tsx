@@ -1,367 +1,469 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Award, ExternalLink, ChevronDown, Copy, Info } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Award, ExternalLink, Wallet, Info, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES } from '@/lib/blockchain/chain-constants'
-import { useAccount } from 'wagmi'
-import { getHypercertEligibility } from '@/lib/blockchain/contracts'
-import { getLevelName, getImpactProductImagePath, getImpactProductAnimationPath, getImpactProductIPFSImageUrl, getImpactProductIPFSAnimationUrl, CONSTANT_TRAITS, LEVEL_PROGRESSION } from '@/lib/utils/impact-product'
+import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_IS_TESTNET } from '@/lib/blockchain/chain-constants'
+import { getImpactProductImagePath, getImpactProductAnimationPath } from '@/lib/utils/impact-product'
 import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
+import { cn } from '@/lib/utils'
+
+/** Replace typographic dashes in user-facing copy (metadata can contain U+2014). */
+function stripLongDashes(s: string): string {
+  return s.replace(/\u2014/g, '-').replace(/\u2013/g, '-')
+}
+
+function isDcuArtworkTrait(traitType: string): boolean {
+  const t = traitType.trim().toLowerCase()
+  if (!t) return false
+  if (t === 'dcu' || t === '$dcu') return true
+  if (t.includes('dcu') && (t.includes('artwork') || t.includes('token') || t.includes('display'))) return true
+  return false
+}
 
 interface ImpactProductProps {
-    level: number
-    imageUrl: string
-    animationUrl: string
-    dcuAttached: number
-    impactValue: string | null
-    tokenId: bigint | null
-    contractAddress: string
-    onNotify?: (params: { variant: 'info'; title: string; message: string }) => void
+  level: number
+  imageUrl: string
+  animationUrl: string
+  tokenId: bigint | null
+  contractAddress: string
+  metadataName: string | null
+  metadataDescription: string | null
+  metadataExternalUrl: string | null
+  metadataAttributes: { trait_type: string; value: string }[]
+  verifiedCleanupsCount?: number | null
+  className?: string
 }
 
 export function DashboardImpactProduct({
-    level,
-    imageUrl,
-    animationUrl,
-    dcuAttached,
-    impactValue,
-    tokenId,
-    contractAddress,
-    onNotify,
+  level,
+  imageUrl,
+  animationUrl,
+  tokenId,
+  contractAddress,
+  metadataName,
+  metadataDescription,
+  metadataExternalUrl,
+  metadataAttributes,
+  verifiedCleanupsCount,
+  className,
 }: ImpactProductProps) {
-    const { address } = useAccount()
-    const [showManualImport, setShowManualImport] = useState(false)
-    const [showMetadata, setShowMetadata] = useState(false)
-    const [copying, setCopying] = useState<string | null>(null)
-    const [hypercertsEarned, setHypercertsEarned] = useState<number>(0)
-    const [loadingStats, setLoadingStats] = useState(false)
-    const [imageLoading, setImageLoading] = useState(true)
+  const [imageLoading, setImageLoading] = useState(true)
+  const [addWalletMessage, setAddWalletMessage] = useState<string | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [copiedField, setCopiedField] = useState<'contract' | 'token' | null>(null)
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    // Level = number of cleanups completed (each level represents one verified cleanup)
-    const cleanupsCompleted = level
+  const openDetails = useCallback(() => setDetailsOpen(true), [])
+  const closeDetails = useCallback(() => setDetailsOpen(false), [])
 
-    const levelName = getLevelName(level)
-    // Use specific level number for Impact Value, not a range
-    const impactValueToDisplay = impactValue || String(level)
-    
-    // Prefer IPFS URLs from metadata, then try IPFS with CID, fallback to local paths only if no CID
-    const imagesCID = process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-    const gateway = 'https://ipfs.io/ipfs/'
-    
-    // Always use IPFS if we have a CID, even if imageUrl prop is empty
-    const rawImage =
-      imageUrl ||
-      (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) ||
-      getImpactProductImagePath(level)
-    const rawAnimation =
-      animationUrl || (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) || (level === 10 ? getImpactProductAnimationPath() : null)
-    // Same-origin proxy avoids Pinata CORS / 429 in Safari and dev (localhost)
-    const imageUrlToUse = proxyIpfsHttpUrl(rawImage)
-    const animationUrlToUse = rawAnimation ? proxyIpfsHttpUrl(rawAnimation) : null
-
-    useEffect(() => {
-        if (address && level > 0) {
-            loadHypercertStats()
-        }
-    }, [address, level])
-
-    // Reset image loading when imageUrl changes
-    useEffect(() => {
-        if (imageUrlToUse) {
-            setImageLoading(true)
-        }
-    }, [imageUrlToUse])
-
-    const loadHypercertStats = async () => {
-        if (!address) return
-        setLoadingStats(true)
-        try {
-            const eligibility = await getHypercertEligibility(address)
-            setHypercertsEarned(Number(eligibility.hypercertCount))
-        } catch (error) {
-            console.error('Error loading hypercert stats:', error)
-        } finally {
-            setLoadingStats(false)
-        }
+  useEffect(() => {
+    if (!detailsOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeDetails()
     }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [detailsOpen, closeDetails])
 
-    const handleCopy = async (value: string, label: string) => {
-        try {
-            setCopying(label)
-            await navigator.clipboard.writeText(value)
-            setTimeout(() => setCopying(null), 2000)
-        } catch (error) {
-            console.error('Failed to copy:', error)
-            if (onNotify) onNotify({ variant: 'info', title: label, message: value })
-            else alert(`${label}: ${value}`)
-        }
+  useEffect(() => {
+    if (!detailsOpen) {
+      setCopiedField(null)
+      if (copyResetTimerRef.current) {
+        window.clearTimeout(copyResetTimerRef.current)
+        copyResetTimerRef.current = null
+      }
     }
+  }, [detailsOpen])
 
-    const explorerUrl = tokenId && contractAddress
-        ? `${REQUIRED_BLOCK_EXPLORER_URL}/token/${contractAddress}?a=${tokenId.toString()}`
-        : null
+  const imagesCID = process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
+  const gateway = 'https://ipfs.io/ipfs/'
 
-    return (
-        <div className="flex flex-col rounded-2xl border border-border bg-card p-4 sm:p-6">
-            <SectionHeading icon={Award}>IMPACT PRODUCT</SectionHeading>
+  const rawImage =
+    imageUrl ||
+    (level > 0 ? `${gateway}${imagesCID}/IP${level === 10 ? '10Placeholder' : level}.png` : null) ||
+    getImpactProductImagePath(level)
+  const rawAnimation =
+    animationUrl ||
+    (level === 10 ? `${gateway}${imagesCID}/IP10VIdeo.mp4` : null) ||
+    (level === 10 ? getImpactProductAnimationPath() : null)
+  const imageUrlToUse = proxyIpfsHttpUrl(rawImage)
+  const animationUrlToUse = rawAnimation ? proxyIpfsHttpUrl(rawAnimation) : null
 
-            {level > 0 ? (
-                <div className="space-y-4 flex flex-col">
-                    {/* NFT Display — absolute inner frame avoids flex min-size so object-contain isn’t clipped */}
-                    <div className="relative mx-auto w-full max-h-[min(500px,72vh)] aspect-[3/4] overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black">
-                        {imageLoading && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
-                                <div className="relative">
-                                    <div className="h-16 w-16 border-4 border-brand-green/30 border-t-brand-green rounded-full animate-spin"></div>
-                                </div>
-                            </div>
-                        )}
-                        <div className="absolute inset-0 p-3 sm:p-5">
-                            {level === 10 && animationUrlToUse ? (
-                                <video
-                                    src={animationUrlToUse}
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    className="h-full w-full object-contain object-center"
-                                    onLoadedData={() => setImageLoading(false)}
-                                    onError={(e) => {
-                                        setImageLoading(false)
-                                        const target = e.target as HTMLVideoElement
-                                        if (imageUrlToUse && target.parentElement) {
-                                            const img = document.createElement('img')
-                                            img.src = imageUrlToUse
-                                            img.className = 'h-full w-full object-contain object-center'
-                                            img.alt = `Level ${level} Impact Product`
-                                            target.parentElement.replaceChild(img, target)
-                                        }
-                                    }}
-                                />
-                            ) : imageUrlToUse ? (
-                                <img
-                                    src={imageUrlToUse}
-                                    alt={`Level ${level} Impact Product`}
-                                    className="h-full w-full object-contain object-center"
-                                    loading="lazy"
-                                    onLoad={() => setImageLoading(false)}
-                                    onError={() => setImageLoading(false)}
-                                />
-                            ) : (
-                                <div className="flex h-full items-center justify-center">
-                                    <Award className="h-24 w-24 text-gray-700" />
-                                </div>
-                            )}
-                        </div>
-                    </div>
+  useEffect(() => {
+    if (imageUrlToUse) {
+      setImageLoading(true)
+    }
+  }, [imageUrlToUse])
 
-                    {/* Stats Grid - Compact - All Same Design */}
-                    <div className="grid grid-cols-4 gap-2">
-                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground uppercase mb-1">Level</p>
-                            <p className="font-bebas text-lg text-brand-green leading-none">{level}</p>
-                        </div>
-                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground uppercase mb-1">DCU</p>
-                            <p className="font-bebas text-lg text-brand-green leading-none">{dcuAttached}</p>
-                        </div>
-                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground uppercase mb-1">Cleanups</p>
-                            <p className="font-bebas text-lg text-brand-green leading-none">{cleanupsCompleted}</p>
-                        </div>
-                        <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground uppercase mb-1">Hypercerts</p>
-                            <p className="font-bebas text-lg text-brand-green leading-none">{loadingStats ? '...' : hypercertsEarned}</p>
-                        </div>
-                    </div>
+  const contractExplorerUrl =
+    contractAddress && /^0x[a-fA-F0-9]{40}$/.test(contractAddress)
+      ? `${REQUIRED_BLOCK_EXPLORER_URL}/address/${contractAddress}`
+      : null
 
-                    {/* Metadata & Actions - Compact */}
-                    <div className="flex gap-2">
-                    <button
-                        onClick={() => setShowMetadata(!showMetadata)}
-                            className="flex-1 flex items-center justify-between rounded-lg border border-border bg-background/50 p-2.5 text-left transition-colors hover:bg-brand-green/10 hover:border-brand-green/50"
-                    >
-                            <span className="font-bebas text-xs tracking-wide text-muted-foreground">
-                                METADATA
-                        </span>
-                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showMetadata ? 'rotate-180' : ''}`} />
-                    </button>
-                        {explorerUrl && (
-                            <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full border-brand-green/30 font-bebas text-xs tracking-wider text-brand-green hover:bg-brand-green/10 hover:border-brand-green/50 h-auto py-2.5"
-                                >
-                                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                                    EXPLORER
-                                </Button>
-                            </a>
-                        )}
-                    </div>
+  const traitsForDisplay = metadataAttributes.filter((row) => !isDcuArtworkTrait(row.trait_type))
 
-                    {/* Metadata Panel */}
-                    {showMetadata && (
-                        <div className="space-y-3 border-t border-brand-green/20 pt-3 flex-shrink-0">
-                            {/* Constant Traits */}
-                            <div className="space-y-2">
-                                <h4 className="font-bebas text-sm tracking-wide text-brand-green">CONSTANT TRAITS</h4>
-                                <div className="space-y-1.5 text-xs">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Type:</span>
-                                        <span className="text-white">{CONSTANT_TRAITS.type}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Impact:</span>
-                                        <span className="text-white">{CONSTANT_TRAITS.impact}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Category:</span>
-                                        <span className="text-white">{CONSTANT_TRAITS.category}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Rarity:</span>
-                                        <span className="text-white">{CONSTANT_TRAITS.rarity}</span>
-                                    </div>
-                                </div>
-                            </div>
+  const cleanupMilestone =
+    typeof verifiedCleanupsCount === 'number' && Number.isFinite(verifiedCleanupsCount)
+      ? verifiedCleanupsCount
+      : null
 
-                            {/* Dynamic Traits */}
-                            <div className="space-y-2">
-                                <h4 className="font-bebas text-sm tracking-wide text-brand-green">DYNAMIC TRAITS</h4>
-                                <div className="space-y-1.5 text-xs">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Impact Value:</span>
-                                        <span className="text-white">{impactValueToDisplay}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Level:</span>
-                                        <span className="text-white">{levelName}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Cleanups Completed:</span>
-                                        <span className="text-white">{cleanupsCompleted}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Hypercerts Earned:</span>
-                                        <span className="text-white">{loadingStats ? '...' : hypercertsEarned}</span>
-                                    </div>
-                                </div>
-                            </div>
+  const safeDescription = metadataDescription ? stripLongDashes(metadataDescription) : null
 
-                            {/* Level Progression Table */}
-                            <div className="space-y-2">
-                                <h4 className="font-bebas text-sm tracking-wide text-brand-green">LEVEL PROGRESSION</h4>
-                                <div className="rounded-lg border border-brand-green/20 bg-black/30 overflow-hidden">
-                                    <table className="w-full text-xs">
-                                        <thead>
-                                            <tr className="border-b border-brand-green/20 bg-black/50">
-                                                <th className="p-2 text-left text-gray-400 font-bebas">Cleanups</th>
-                                                <th className="p-2 text-left text-gray-400 font-bebas">Impact Value</th>
-                                                <th className="p-2 text-left text-gray-400 font-bebas">Level</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {LEVEL_PROGRESSION.map((row, idx) => (
-                                                <tr key={idx} className="border-b border-brand-green/10 last:border-0">
-                                                    <td className="p-2 text-white">{row.cleanups}</td>
-                                                    <td className="p-2 text-white">{row.impactValue}</td>
-                                                    <td className="p-2 text-brand-yellow">{row.level}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+  async function copyToClipboard(text: string, field: 'contract' | 'token') {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      if (copyResetTimerRef.current) window.clearTimeout(copyResetTimerRef.current)
+      copyResetTimerRef.current = window.setTimeout(() => {
+        setCopiedField(null)
+        copyResetTimerRef.current = null
+      }, 2000)
+    } catch {
+      setAddWalletMessage('Could not copy. Select the text below and copy manually.')
+    }
+  }
 
-                    {/* Manual Wallet Import */}
-                    <div className="rounded-lg border border-border bg-background/50">
-                        <button
-                            onClick={() => setShowManualImport(!showManualImport)}
-                            className="flex w-full items-center justify-between p-2.5 text-left transition-colors hover:bg-brand-green/10 hover:border-brand-green/50 rounded-lg"
-                        >
-                            <span className="font-bebas text-xs tracking-wide text-muted-foreground">
-                                WALLET IMPORT
-                            </span>
-                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showManualImport ? 'rotate-180' : ''}`} />
-                        </button>
+  async function handleAddNftToWallet() {
+    setAddWalletMessage(null)
+    if (!contractAddress || tokenId == null) {
+      setAddWalletMessage('Mint your Impact Product first to get a token ID, then add it here.')
+      return
+    }
+    const eth = typeof window !== 'undefined' ? (window as unknown as { ethereum?: { request?: (a: unknown) => Promise<unknown> } }).ethereum : undefined
+    if (!eth?.request) {
+      setAddWalletMessage('Open this app in a browser wallet (e.g. MetaMask) to use one-click import.')
+      return
+    }
+    try {
+      await eth.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC721',
+          options: {
+            address: contractAddress,
+            tokenId: tokenId.toString(),
+          },
+        },
+      })
+      setAddWalletMessage('If your wallet supports it, the NFT import prompt should appear.')
+    } catch (e) {
+      setAddWalletMessage(
+        e instanceof Error ? e.message : 'Wallet declined or does not support NFT import. Use the steps below.'
+      )
+    }
+  }
 
-                        {showManualImport && (
-                            <div className="space-y-2.5 border-t border-brand-green/20 p-2.5">
-                                <div>
-                                    <p className="mb-1 text-xs text-gray-500">Contract Address</p>
-                                    <div className="flex items-center gap-2">
-                                        <code className="flex-1 overflow-hidden text-ellipsis rounded bg-gray-900 px-2 py-1 text-xs text-gray-300">
-                                            {contractAddress}
-                                        </code>
-                                        <button
-                                            onClick={() => handleCopy(contractAddress, 'Contract Address')}
-                                            className="rounded p-1 hover:bg-gray-800"
-                                            title="Copy contract address"
-                                        >
-                                            {copying === 'Contract Address' ? (
-                                                <span className="text-xs text-brand-green">✓</span>
-                                            ) : (
-                                                <Copy className="h-4 w-4 text-gray-400" />
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
+  return (
+    <div className={cn('flex min-h-0 flex-col rounded-2xl border border-border bg-card p-4 sm:p-6', className)}>
+      <SectionHeading
+        icon={Award}
+        aside={
+          level > 0 ? (
+            <button
+              type="button"
+              onClick={openDetails}
+              className="inline-flex rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
+              aria-label="Impact Product details, contract, and metadata"
+              aria-expanded={detailsOpen}
+            >
+              <Info className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null
+        }
+      >
+        Your Impact Product level
+      </SectionHeading>
 
-                                {tokenId && (
-                                    <div>
-                                        <p className="mb-1 text-xs text-gray-500">Collectible ID</p>
-                                        <div className="flex items-center gap-2">
-                                            <code className="flex-1 overflow-hidden text-ellipsis rounded bg-gray-900 px-2 py-1 text-xs text-gray-300">
-                                                {tokenId.toString()}
-                                            </code>
-                                            <button
-                                                onClick={() => handleCopy(tokenId.toString(), 'Collectible ID')}
-                                                className="rounded p-1 hover:bg-gray-800"
-                                                title="Copy collectible ID"
-                                            >
-                                                {copying === 'Collectible ID' ? (
-                                                    <span className="text-xs text-brand-green">✓</span>
-                                                ) : (
-                                                    <Copy className="h-4 w-4 text-gray-400" />
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="mt-2 rounded-lg border border-brand-green/10 bg-brand-green/5 p-2">
-                                    <p className="mb-1 text-xs font-semibold text-brand-green">HOW TO IMPORT:</p>
-                                    <ol className="space-y-1 text-[10px] text-gray-400 list-decimal list-inside">
-                                        <li>Open your wallet (MetaMask, Trust Wallet, etc.)</li>
-                                        <li>Go to NFT/Collectibles section</li>
-                                        <li>Click "Import NFT" or "Add Custom Token"</li>
-                                        <li>Paste the Contract Address above</li>
-                                        <li>Enter the Collectible ID above</li>
-                                        <li>Save and your Impact Product will appear!</li>
-                                    </ol>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-1 flex-col items-center justify-center text-center py-8">
-                    <div className="mb-6 rounded-full border-4 border-brand-green/30 bg-brand-green/10 p-8 sm:p-10">
-                        <Award className="h-16 w-16 sm:h-20 sm:w-20 text-brand-green/50" />
-                    </div>
-                    <h3 className="mb-3 font-bebas text-2xl sm:text-3xl tracking-wider text-muted-foreground">
-                        NOT YET MINTED
-                    </h3>
-                    <p className="text-sm sm:text-base text-muted-foreground max-w-xs">
-                        Submit your first cleanup to claim Level 1
-                    </p>
-                </div>
+      {level > 0 ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-1">
+          <div className="relative aspect-[3/4] w-full max-h-[min(560px,100%)] min-h-[200px] max-w-md shrink-0 overflow-hidden rounded-xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-green/5 to-black">
+            {imageLoading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
+                <div className="h-16 w-16 animate-spin rounded-full border-4 border-brand-green/30 border-t-brand-green" />
+              </div>
             )}
+            <div className="absolute inset-0 p-3 sm:p-5">
+              {level === 10 && animationUrlToUse ? (
+                <video
+                  src={animationUrlToUse}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="h-full w-full object-contain object-center"
+                  onLoadedData={() => setImageLoading(false)}
+                  onError={(e) => {
+                    setImageLoading(false)
+                    const target = e.target as HTMLVideoElement
+                    if (imageUrlToUse && target.parentElement) {
+                      const img = document.createElement('img')
+                      img.src = imageUrlToUse
+                      img.className = 'h-full w-full object-contain object-center'
+                      img.alt = `Level ${level} Impact Product`
+                      target.parentElement.replaceChild(img, target)
+                    }
+                  }}
+                />
+              ) : imageUrlToUse ? (
+                <img
+                  src={imageUrlToUse}
+                  alt={`Level ${level} Impact Product`}
+                  className="h-full w-full object-contain object-center"
+                  loading="lazy"
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => setImageLoading(false)}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <Award className="h-24 w-24 text-gray-700" />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-    )
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+          <div className="mb-6 rounded-full border-4 border-brand-green/30 bg-brand-green/10 p-8 sm:p-10">
+            <Award className="h-16 w-16 text-brand-green/50 sm:h-20 sm:w-20" />
+          </div>
+          <h3 className="mb-3 font-bebas text-2xl tracking-wider text-muted-foreground sm:text-3xl">NOT YET MINTED</h3>
+          <p className="max-w-xs text-sm text-muted-foreground sm:text-base">Submit your first cleanup to claim Level 1</p>
+        </div>
+      )}
+
+      {detailsOpen && level > 0 ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="impact-product-details-title"
+        >
+          <button type="button" className="absolute inset-0 bg-black/80" aria-label="Close" onClick={closeDetails} />
+          <div className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+              <h2 id="impact-product-details-title" className="font-bebas text-xl tracking-wider text-foreground">
+                Impact Product details
+              </h2>
+              <button
+                type="button"
+                onClick={closeDetails}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-5 overflow-y-auto px-5 py-4 text-sm" style={{ maxHeight: 'min(70dvh, 560px)' }}>
+              <p className="leading-relaxed text-muted-foreground">
+                Impact Product is an asset tied to your account. It levels up when cleanups are verified and proves your
+                participation in DeCleanup Network. Leveling it up gives you{' '}
+                <span className="font-semibold text-foreground">10 DCU points</span> each time.
+              </p>
+
+              <div className="rounded-lg border border-brand-green/25 bg-brand-green/5 px-3 py-3">
+                <p className="font-bebas text-sm tracking-wide text-brand-green">Your impact at this level</p>
+                <p className="mt-1 text-sm text-foreground">
+                  {cleanupMilestone != null ? (
+                    <>
+                      Level <span className="font-semibold text-brand-yellow">{level}</span> reflects{' '}
+                      <span className="font-semibold text-brand-yellow">{cleanupMilestone}</span> verified{' '}
+                      {cleanupMilestone === 1 ? 'cleanup' : 'cleanups'}. That is proven participation you can show anywhere.
+                    </>
+                  ) : (
+                    <>
+                      Level <span className="font-semibold text-brand-yellow">{level}</span> tracks verified cleanups on your
+                      Impact Product path. Each step is real environmental work on the network.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="mb-2 font-bebas text-sm tracking-wider text-brand-green">Asset Info</h3>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Inspect the collection contract on explorer.
+                </p>
+                {contractExplorerUrl ? (
+                  <a
+                    href={contractExplorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+                    title="Open contract in block explorer"
+                  >
+                    View contract
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Contract address not configured.</p>
+                )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  <span className="font-sans text-muted-foreground">Token ID</span>{' '}
+                  <span className="font-mono text-foreground">{tokenId != null ? tokenId.toString() : 'Not set'}</span>
+                </p>
+              </div>
+
+              <div className="space-y-2 border-t border-border/60 pt-4">
+                <h3 className="font-bebas text-sm tracking-wider text-brand-green">Metadata</h3>
+                {metadataName ? (
+                  <p className="text-sm text-foreground">
+                    <span className="text-muted-foreground">Name:</span> {stripLongDashes(metadataName)}
+                  </p>
+                ) : null}
+                {safeDescription ? (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{safeDescription}</p>
+                ) : (
+                  <p className="text-xs italic text-muted-foreground">No description in token metadata yet.</p>
+                )}
+                {metadataExternalUrl ? (
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">External link:</span>{' '}
+                    <a
+                      href={metadataExternalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all font-medium text-brand-green underline underline-offset-2"
+                    >
+                      {stripLongDashes(metadataExternalUrl)}
+                    </a>
+                  </p>
+                ) : null}
+                {traitsForDisplay.length > 0 ? (
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40">
+                          <th className="px-3 py-2 font-sans font-medium text-muted-foreground">Trait</th>
+                          <th className="px-3 py-2 font-sans font-medium text-muted-foreground">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {traitsForDisplay.map((row, i) => (
+                          <tr key={`${i}-${row.trait_type}`} className="border-b border-border/60 last:border-0">
+                            <td className="px-3 py-2 text-muted-foreground">{stripLongDashes(row.trait_type)}</td>
+                            <td className="px-3 py-2 font-medium text-foreground">{stripLongDashes(row.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-3 border-t border-border/60 pt-4">
+                <h3 className="font-bebas text-sm tracking-wider text-brand-green">Add to your wallet</h3>
+
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Manual import (any wallet)
+                  </p>
+                  <ol className="list-decimal space-y-2 pl-4 text-xs leading-relaxed text-muted-foreground marker:text-brand-green">
+                    <li>
+                      Open your wallet (browser extension or mobile app). Find{' '}
+                      <span className="text-foreground">Import NFT</span>, <span className="text-foreground">Import collectible</span>, or{' '}
+                      <span className="text-foreground">NFTs</span> / <span className="text-foreground">Add NFT</span> (wording depends on the app).
+                    </li>
+                    <li>
+                      When asked for the <span className="text-foreground">contract address</span> (sometimes &quot;collection&quot; or &quot;contract&quot;), paste the
+                      address below.
+                    </li>
+                    <li>
+                      When asked for the <span className="text-foreground">token ID</span> (sometimes &quot;ID&quot; or &quot;identifier&quot;), enter the number below (same as Asset Info).
+                    </li>
+                    <li>
+                      Confirm and save. The NFT should appear under NFTs / collectibles for this network (
+                      {REQUIRED_CHAIN_IS_TESTNET ? 'Celo Sepolia' : 'Celo'}).
+                    </li>
+                  </ol>
+                </div>
+
+                {contractAddress && /^0x[a-fA-F0-9]{40}$/.test(contractAddress) ? (
+                  <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Contract</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 shrink-0 px-2 py-0 text-[10px] font-bebas uppercase text-brand-green hover:bg-brand-green/10"
+                          onClick={() => void copyToClipboard(contractAddress, 'contract')}
+                        >
+                          {copiedField === 'contract' ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+                      <p className="break-all font-mono text-[11px] text-foreground">{contractAddress}</p>
+                    </div>
+                    {tokenId != null ? (
+                      <div>
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Token ID</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 shrink-0 px-2 py-0 text-[10px] font-bebas uppercase text-brand-green hover:bg-brand-green/10"
+                            onClick={() => void copyToClipboard(tokenId.toString(), 'token')}
+                          >
+                            {copiedField === 'token' ? 'Copied' : 'Copy'}
+                          </Button>
+                        </div>
+                        <p className="font-mono text-[11px] text-foreground">{tokenId.toString()}</p>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">Token ID appears after your Impact Product is minted.</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Contract address is not configured in this build.</p>
+                )}
+
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Examples</p>
+                  <ul className="list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground marker:text-brand-green">
+                    <li>
+                      <span className="text-foreground">MetaMask (mobile):</span> NFTs tab, then Import NFTs, then paste contract and ID.
+                    </li>
+                    <li>
+                      <span className="text-foreground">MetaMask (extension):</span> Open the NFT / Portfolio area for this network, then use Import NFT if shown.
+                    </li>
+                    <li>
+                      <span className="text-foreground">Rainbow / Coinbase Wallet:</span> NFTs or Collectibles → Add / Import, then paste the same contract and token ID.
+                    </li>
+                  </ul>
+                </div>
+
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Optional: some browsers can open a one-click import prompt (works only when the site talks to an injected wallet).
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-brand-green/40 font-bebas text-xs tracking-wider text-brand-green hover:bg-brand-green/10"
+                  onClick={() => void handleAddNftToWallet()}
+                  disabled={!contractAddress || tokenId == null}
+                >
+                  <Wallet className="mr-2 h-3.5 w-3.5" aria-hidden />
+                  Try wallet import prompt
+                </Button>
+                {addWalletMessage ? <p className="text-xs text-muted-foreground">{addWalletMessage}</p> : null}
+              </div>
+            </div>
+            <div className="border-t border-border px-5 py-3">
+              <Button
+                type="button"
+                onClick={closeDetails}
+                className="w-full bg-brand-green font-bebas uppercase tracking-wider text-black hover:bg-brand-green/90"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
 }

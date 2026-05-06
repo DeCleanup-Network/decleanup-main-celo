@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    optimizePackageImports: ['viem', 'wagmi', '@rainbow-me/rainbowkit'],
+  },
   // Serve .well-known directory correctly
   async headers() {
     return [
@@ -48,6 +51,10 @@ const nextConfig = {
         poll: 1000,
         aggregateTimeout: 300,
       };
+      // Default webpack devtool wraps each module in eval(). SES lockdown (some wallet/MetaMask-related
+      // extensions) rejects that and the browser reports: Uncaught SyntaxError: Invalid or unexpected token
+      // at layout.js (eval line). Use a non-eval devtool so local dev works with those extensions.
+      config.devtool = "cheap-module-source-map";
     }
     return config;
   },

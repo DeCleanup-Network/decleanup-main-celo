@@ -9,9 +9,10 @@ import {
 /** Verified submissions (approved, not rejected) for this user — drives level claim eligibility vs NFT userLevel. */
 export async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
   const submissionIds = await getUserSubmissions(user)
+  if (submissionIds.length === 0) return 0
+  const detailsList = await Promise.all(submissionIds.map((sid) => getCleanupDetails(sid)))
   let n = 0
-  for (const sid of submissionIds) {
-    const d = await getCleanupDetails(sid)
+  for (const d of detailsList) {
     if (d.verified && !d.rejected) n++
   }
   return n
@@ -418,6 +419,24 @@ export async function getUserCleanupStatus(user: Address): Promise<{
   level?: number
   reason?: string
 }> {
+  // Check user level first - if level 10, cannot submit more cleanups
+  let userLevel = 0
+  try {
+    const { getUserLevel } = await import('./contracts')
+    userLevel = await getUserLevel(user)
+  } catch (error) {
+    console.warn('[verification] Could not fetch user level:', error)
+  }
+
+  if (userLevel >= 10) {
+    return {
+      hasPendingCleanup: false,
+      canSubmit: false,
+      canClaim: false,
+      reason: 'You have reached the maximum level (10). No more cleanups can be submitted at this time.',
+    }
+  }
+
   const latest = await getLatestCleanupStatus(user)
 
   if (!latest) {

@@ -1,9 +1,9 @@
-import { generateReferralLink, formatImpactShareMessage, shareCast } from '@/lib/utils/sharing'
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import type { Address } from 'viem'
+import { formatEther } from 'viem'
 import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { BackButton } from '@/components/layout/BackButton'
@@ -17,8 +17,6 @@ import {
   CheckCircle,
   RefreshCw,
   ExternalLink,
-  Share2,
-  Copy,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -26,16 +24,20 @@ import {
   getStakedDCU,
   getUserLevel,
   getUserTokenId,
+  getUserSubmissions,
+  getCleanupDetails,
   getTokenURI,
   getTokenURIForLevel,
   getStreakCount,
   hasActiveStreak,
   claimImpactProductFromVerification,
+  getUserRewardStats,
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
 import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/wagmi'
 import { useChainId } from 'wagmi'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { DashboardReferralLinkCard } from '@/components/dashboard/DashboardReferralLinkCard'
 import { DashboardPersonalStats } from '@/components/dashboard/DashboardPersonalStats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
@@ -98,6 +100,8 @@ export default function ProfilePage() {
     tokenId: null as bigint | null,
     impactValue: null as string | null,
     dcuReward: null as string | null,
+    referralsDCU: 0,
+    verifiedCleanupsCount: 0,
   })
   const [cleanupStatus, setCleanupStatus] = useState<{
     cleanupId: bigint | null
@@ -108,8 +112,6 @@ export default function ProfilePage() {
   } | null>(null)
   const [isClaiming, setIsClaiming] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [sharing, setSharing] = useState(false)
-  const [copyingField, setCopyingField] = useState<string | null>(null)
   const [claimModal, setClaimModal] = useState<{ variant: 'success' | 'error'; message: string } | null>(null)
   const [notifyModal, setNotifyModal] = useState<{ variant: 'success' | 'info'; title: string; message: string } | null>(null)
 
@@ -126,14 +128,28 @@ export default function ProfilePage() {
           setLoading(true)
         }
 
-        const [dcuBalance, stakedDCU, level, streak, activeStreak, tokenId] = await Promise.all([
-          getDCUBalance(userAddress),
-          getStakedDCU(userAddress),
-          getUserLevel(userAddress),
-          getStreakCount(userAddress),
-          hasActiveStreak(userAddress),
-          getUserTokenId(userAddress),
-        ])
+        const [dcuBalance, stakedDCU, level, streak, activeStreak, tokenId, rewardStats, submissions] =
+          await Promise.all([
+            getDCUBalance(userAddress),
+            getStakedDCU(userAddress),
+            getUserLevel(userAddress),
+            getStreakCount(userAddress),
+            hasActiveStreak(userAddress),
+            getUserTokenId(userAddress),
+            getUserRewardStats(userAddress),
+            getUserSubmissions(userAddress),
+          ])
+        const referralsDCU = Number(formatEther(rewardStats.referralRewardsAmount))
+
+        let verifiedCleanupsCount = 0
+        try {
+          const detailsList = await Promise.all(submissions.map((id) => getCleanupDetails(id).catch(() => null)))
+          for (const d of detailsList) {
+            if (d?.verified) verifiedCleanupsCount++
+          }
+        } catch {
+          verifiedCleanupsCount = 0
+        }
 
         let tokenURI = ''
         let imageUrl = ''
@@ -291,6 +307,8 @@ export default function ProfilePage() {
           tokenId, // continua bigint | null (ok)
           impactValue,
           dcuReward,
+          referralsDCU,
+          verifiedCleanupsCount,
         })
         
       } catch (error) {
@@ -308,6 +326,8 @@ export default function ProfilePage() {
           tokenId: null,
           impactValue: null,
           dcuReward: null,
+          referralsDCU: 0,
+          verifiedCleanupsCount: 0,
         })
       } finally {
         if (showSpinner) {
@@ -323,13 +343,16 @@ export default function ProfilePage() {
       setLoading(false)
       return
     }
+    if (!submissionOwnerAddress) {
+      return
+    }
 
-    const owner = (submissionOwnerAddress ?? address) as Address
+    const owner = submissionOwnerAddress
     loadProfileData(owner, { showSpinner: true })
 
     const handleVisibilityChange = () => {
-      if (!document.hidden && isConnected && address) {
-        loadProfileData((submissionOwnerAddress ?? address) as Address, { showSpinner: false })
+      if (!document.hidden && isConnected && address && submissionOwnerAddress) {
+        loadProfileData(submissionOwnerAddress, { showSpinner: false })
       }
     }
 
@@ -345,13 +368,17 @@ useEffect(() => {
     setCleanupStatus(null)
     return
   }
+  if (!submissionOwnerAddress) {
+    return
+  }
+
+  const submissionOwner = submissionOwnerAddress
 
   let cancelled = false
 
   async function refresh() {
     try {
-      const owner = (submissionOwnerAddress ?? address) as Address
-      const status = await getUserCleanupStatus(owner)
+      const status = await getUserCleanupStatus(submissionOwner)
 
       if (cancelled) return
 
@@ -443,20 +470,6 @@ useEffect(() => {
     ? `${REQUIRED_BLOCK_EXPLORER_URL}/address/${CONTRACT_ADDRESSES.IMPACT_PRODUCT}`
     : null
 
-  const handleManualCopy = async (value: string, label: string) => {
-    if (!value) return
-    try {
-      setCopyingField(label)
-      await navigator.clipboard.writeText(value)
-      setNotifyModal({ variant: 'success', title: 'Copied', message: `${label} copied to clipboard.` })
-    } catch (error) {
-      console.error(`Failed to copy ${label}:`, error)
-      setNotifyModal({ variant: 'info', title: label, message: value })
-    } finally {
-      setCopyingField(null)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-black px-4 py-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
@@ -478,10 +491,10 @@ useEffect(() => {
             variant="ghost"
             size="sm"
             onClick={async () => {
-              if (isRefreshing || !address) return
+              if (isRefreshing || !address || !submissionOwnerAddress) return
               setIsRefreshing(true)
               try {
-                await loadProfileData((submissionOwnerAddress ?? address) as Address, { showSpinner: false })
+                await loadProfileData(submissionOwnerAddress, { showSpinner: false })
               } catch (error) {
                 console.error('Error refreshing profile:', error)
               } finally {
@@ -496,6 +509,15 @@ useEffect(() => {
           </Button>
         </div>
 
+        {submissionOwnerAddress && (
+          <DashboardReferralLinkCard
+            className="mb-6"
+            submissionOwnerAddress={submissionOwnerAddress}
+            impactLevel={profileData.level > 0 ? profileData.level : 1}
+            onNotify={(p) => setNotifyModal({ variant: p.variant || 'info', title: p.title, message: p.message })}
+          />
+        )}
+
         {/* Three-Column Dashboard Layout */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column: Personal Stats */}
@@ -503,8 +525,8 @@ useEffect(() => {
             dcuBalance={Number(profileData.dcuBalance)}
             cleanupsDone={profileData.level}
             cleanupsDCU={profileData.level * 10}
-            referrals={0}
-            referralsDCU={0}
+            referrals={Math.floor(profileData.referralsDCU / 3)}
+            referralsDCU={profileData.referralsDCU}
             streakWeeks={profileData.streak}
             streakDCU={profileData.streak * 3}
             enhancedReportsDCU={0}
@@ -516,16 +538,24 @@ useEffect(() => {
             level={profileData.level}
             imageUrl={profileData.imageUrl}
             animationUrl={profileData.animationUrl}
-            dcuAttached={profileData.level * 10}
-            impactValue={profileData.impactValue}
             tokenId={profileData.tokenId}
-            contractAddress={CONTRACT_ADDRESSES.IMPACT_PRODUCT}
-            onNotify={(p) => setNotifyModal({ variant: p.variant || 'info', title: p.title, message: p.message })}
+            contractAddress={CONTRACT_ADDRESSES.IMPACT_PRODUCT || ''}
+            metadataName={profileData.metadata?.name ?? null}
+            metadataDescription={profileData.metadata?.description ?? null}
+            metadataExternalUrl={profileData.metadata?.external_url ?? null}
+            metadataAttributes={(profileData.metadata?.attributes ?? [])
+              .filter((a) => a?.trait_type != null)
+              .map((a) => ({
+                trait_type: String(a.trait_type),
+                value: a.value != null ? String(a.value) : '—',
+              }))}
+            verifiedCleanupsCount={profileData.verifiedCleanupsCount}
           />
 
           {/* Right Column: Actions */}
           <DashboardActions
             address={address || ''}
+            userImpactLevel={profileData.level}
             cleanupStatus={cleanupStatus && cleanupStatus.cleanupId ? {
               hasPendingCleanup: !cleanupStatus.verified && !cleanupStatus.claimed,
               canClaim: cleanupStatus.verified && !cleanupStatus.claimed,
@@ -551,8 +581,8 @@ useEffect(() => {
                 )
 
                 // Mark as claimed in localStorage
-                if (address && cleanupStatus.cleanupId) {
-                  const claimOwner = (submissionOwnerAddress ?? address) as Address
+                if (address && cleanupStatus.cleanupId && submissionOwnerAddress) {
+                  const claimOwner = submissionOwnerAddress
                   markCleanupAsClaimed(claimOwner, cleanupStatus.cleanupId)
                   for (const low of new Set([claimOwner.toLowerCase(), address.toLowerCase()])) {
                     localStorage.removeItem(`pending_cleanup_id_${low}`)
@@ -566,8 +596,8 @@ useEffect(() => {
                 })
             
                 // Refresh local status + profile data + cleanup status
-                if (address) {
-                  const refreshOwner = (submissionOwnerAddress ?? address) as Address
+                if (address && submissionOwnerAddress) {
+                  const refreshOwner = submissionOwnerAddress
                   // Wait longer for state to update after claim (RPC propagation + NFT operations)
                   await new Promise(resolve => setTimeout(resolve, 5000))
                   

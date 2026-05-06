@@ -1,0 +1,161 @@
+import 'server-only'
+import { createClient } from '@supabase/supabase-js'
+import type { HypercertMetadata, HypercertRequest } from '@/lib/blockchain/hypercerts/types'
+import type { Database, Json } from './database.types'
+
+type Row = Database['public']['Tables']['hypercert_requests']['Row']
+
+let supabaseServerClient: ReturnType<typeof createClient<Database>> | null = null
+
+function getSupabase(): ReturnType<typeof createClient<Database>> {
+  if (supabaseServerClient) return supabaseServerClient
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+
+  if (!url || !key) {
+    throw new Error(
+      'Missing Supabase server credentials for hypercert requests. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY) on the server.'
+    )
+  }
+
+  supabaseServerClient = createClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  return supabaseServerClient
+}
+
+function rowToRequest(row: Row): HypercertRequest {
+  return {
+    id: row.id,
+    requester: row.requester,
+    metadata: row.metadata as unknown as HypercertMetadata,
+    metadataCid: row.metadata_cid ?? undefined,
+    hypercertId: row.hypercert_id ?? undefined,
+    txHash: row.tx_hash ?? undefined,
+    status: row.status as HypercertRequest['status'],
+    submittedAt: Number(row.submitted_at),
+    reviewedAt: row.reviewed_at != null ? Number(row.reviewed_at) : undefined,
+    reviewedBy: row.reviewed_by ?? undefined,
+    rejectionReason: row.rejection_reason ?? undefined,
+  }
+}
+
+export async function hasOpenHypercertWorkflowForUser(requester: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('hypercert_requests')
+    .select('id,status,hypercert_id')
+    .eq('requester', requester.toLowerCase())
+
+  if (error) throw new Error(`Failed to check open hypercert workflow: ${error.message}`)
+  const rows = (data ?? []) as Pick<Row, 'id' | 'status' | 'hypercert_id'>[]
+  return rows.some(
+    (r) =>
+      r.status === 'PENDING' ||
+      (r.status === 'APPROVED' && (r.hypercert_id == null || r.hypercert_id === ''))
+  )
+}
+
+export async function insertHypercertRequest(params: {
+  id: string
+  requester: string
+  metadata: HypercertMetadata
+  submittedAt: number
+}): Promise<HypercertRequest> {
+  const insert = {
+    id: params.id,
+    requester: params.requester.toLowerCase(),
+    metadata: params.metadata as unknown as Json,
+    status: 'PENDING',
+    submitted_at: params.submittedAt,
+  }
+
+  const { data, error } = await getSupabase()
+    .from('hypercert_requests')
+    // Manual Database typings occasionally resolve Insert as `never` with @supabase/supabase-js
+    .insert([insert] as never)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to create hypercert request: ${error.message}`)
+  return rowToRequest(data as Row)
+}
+
+export async function getHypercertRequestById(id: string): Promise<HypercertRequest | null> {
+  const { data, error } = await getSupabase()
+    .from('hypercert_requests')
+    .select()
+    .eq('id', id)
+    .single()
+
+  if (error?.code === 'PGRST116') return null
+  if (error) throw new Error(`Failed to load hypercert request: ${error.message}`)
+  return rowToRequest(data as Row)
+}
+
+export async function listHypercertRequests(filters: {
+  requester?: string
+  status?: HypercertRequest['status']
+}): Promise<HypercertRequest[]> {
+  let q = getSupabase().from('hypercert_requests').select().order('submitted_at', { ascending: false })
+
+  if (filters.requester) {
+    q = q.eq('requester', filters.requester.toLowerCase())
+  }
+  if (filters.status) {
+    q = q.eq('status', filters.status)
+  }
+
+  const { data, error } = await q
+  if (error) throw new Error(`Failed to list hypercert requests: ${error.message}`)
+  return (data as Row[]).map(rowToRequest)
+}
+
+export async function updateHypercertRequestStatus(params: {
+  id: string
+  status: HypercertRequest['status']
+  reviewedBy?: string
+  reviewedAt?: number
+  rejectionReason?: string
+}): Promise<HypercertRequest> {
+  const patch: Database['public']['Tables']['hypercert_requests']['Update'] = {
+    status: params.status,
+    reviewed_by: params.reviewedBy ?? null,
+    reviewed_at: params.reviewedAt ?? null,
+    rejection_reason: params.rejectionReason ?? null,
+  }
+
+  const { data, error } = await getSupabase()
+    .from('hypercert_requests')
+    .update(patch as never)
+    .eq('id', params.id)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to update hypercert request: ${error.message}`)
+  return rowToRequest(data as Row)
+}
+
+export async function recordHypercertMint(params: {
+  id: string
+  hypercertId: string
+  txHash: string
+  metadataCid: string
+}): Promise<HypercertRequest> {
+  const patch: Database['public']['Tables']['hypercert_requests']['Update'] = {
+    status: 'MINTED',
+    hypercert_id: params.hypercertId,
+    tx_hash: params.txHash,
+    metadata_cid: params.metadataCid,
+  }
+
+  const { data, error } = await getSupabase()
+    .from('hypercert_requests')
+    .update(patch as never)
+    .eq('id', params.id)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to record hypercert mint: ${error.message}`)
+  return rowToRequest(data as Row)
+}

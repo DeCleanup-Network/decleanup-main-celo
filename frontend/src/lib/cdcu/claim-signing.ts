@@ -7,32 +7,52 @@ import path from 'path'
 import { createPublicClient, createWalletClient, http, type Address, hexToSignature } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-const REWARD_MANAGER_ABI = [
+const REWARD_MANAGER_STATS_ABI_8 = [
   {
     type: 'function',
-    name: 'dcuToken',
+    name: 'getUserRewardStats',
     stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'address' }],
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [
+      { name: 'currentBalance', type: 'uint256' },
+      { name: 'totalEarned', type: 'uint256' },
+      { name: 'totalClaimed', type: 'uint256' },
+      { name: 'claimRewardsAmount', type: 'uint256' },
+      { name: 'streakRewardsAmount', type: 'uint256' },
+      { name: 'referralRewardsAmount', type: 'uint256' },
+      { name: 'impactReportRewardsAmount', type: 'uint256' },
+      { name: 'recyclablesRewardsAmount', type: 'uint256' },
+    ],
   },
 ] as const
 
-const ERC20_BALANCE_ABI = [
+const REWARD_MANAGER_STATS_ABI_7 = [
   {
     type: 'function',
-    name: 'balanceOf',
+    name: 'getUserRewardStats',
     stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [
+      { name: 'currentBalance', type: 'uint256' },
+      { name: 'totalEarned', type: 'uint256' },
+      { name: 'totalClaimed', type: 'uint256' },
+      { name: 'claimRewardsAmount', type: 'uint256' },
+      { name: 'streakRewardsAmount', type: 'uint256' },
+      { name: 'referralRewardsAmount', type: 'uint256' },
+      { name: 'impactReportRewardsAmount', type: 'uint256' },
+    ],
   },
 ] as const
 
 /** Minimum DCU points (onchain reward stats total) required to be eligible to claim $cDCU. */
 export const ELIGIBILITY_THRESHOLD_WEI = 50n * 10n ** 18n
 
-/** 1e18 scale for multiplier (1.1 = 11e17). */
+/** Human-readable DCU points per $cDCU claim step (same as 50e18 wei). */
+export const DCU_POINTS_PER_TRANCHE = 50
+
+/** 1e18 scale for multiplier (e.g. 1.1 = 11e17). */
 const MULTIPLIER_SCALE = 10n ** 18n
-/** Minimum multiplier at 50 points = 1.1. */
+/** Minimum multiplier at 50 points = 1.1 (each 50-DCU step mints the marginal slice under the progressive cap). */
 const MIN_MULTIPLIER_WEI = 11n * 10n ** 17n
 /** Maximum multiplier cap = 2.0. */
 const MAX_MULTIPLIER_WEI = 2n * 10n ** 18n
@@ -43,7 +63,7 @@ const MULTIPLIER_PER_TIER_WEI = 1n * 10n ** 17n
 /**
  * Progressive multiplier: the more DCU points (presence on the app), the higher the multiplier.
  * At 50 points: multiplier = 1.1. Each additional 50 points adds 0.1, capped at 2.0.
- * Examples: 50 → 1.1, 100 → 1.2, 150 → 1.3, 200 → 1.4, … 500+ → 2.0.
+ * Examples: 50 → 1.1, 100 → 1.2, 150 → 1.3, … 500+ → 2.0.
  */
 export function getProgressiveMultiplierWei(totalPointsWei: bigint): bigint {
   if (totalPointsWei < ELIGIBILITY_THRESHOLD_WEI) return MIN_MULTIPLIER_WEI
@@ -63,6 +83,77 @@ export function claimableCapFromPoints(totalPointsWei: bigint): bigint {
   if (totalPointsWei < ELIGIBILITY_THRESHOLD_WEI) return 0n
   const multiplierWei = getProgressiveMultiplierWei(totalPointsWei)
   return (totalPointsWei * multiplierWei) / MULTIPLIER_SCALE
+}
+
+/** Activity multiplier (1.1 … 2.0) for `totalPointsWei`, for UI copy. */
+export function getActivityMultiplierWei(totalPointsWei: bigint): bigint {
+  if (totalPointsWei < ELIGIBILITY_THRESHOLD_WEI) return 0n
+  return getProgressiveMultiplierWei(totalPointsWei)
+}
+
+/** Floor(P / 50 DCU) — how many 50-point milestones the user has reached. */
+export function tiersReachedWei(totalPointsWei: bigint): bigint {
+  return totalPointsWei / ELIGIBILITY_THRESHOLD_WEI
+}
+
+/**
+ * $cDCU for a single 50-DCU tranche: milestone index `milestonesClaimed` (0 = first 0→50, 1 = 50→100, …).
+ * Each claim is only this slice; the next claim requires reaching the next milestone (50 more DCU points).
+ */
+export function incrementalClaimWei(totalPointsWei: bigint, milestonesClaimed: number): bigint {
+  if (milestonesClaimed < 0) return 0n
+  const T = ELIGIBILITY_THRESHOLD_WEI
+  const mc = BigInt(milestonesClaimed)
+  const tiers = tiersReachedWei(totalPointsWei)
+  if (tiers <= mc) return 0n
+
+  const lowBound = mc * T
+  const nextBound = (mc + 1n) * T
+  const highPoints = totalPointsWei < nextBound ? totalPointsWei : nextBound
+  const capHigh = claimableCapFromPoints(highPoints)
+  const capLow = lowBound === 0n ? 0n : claimableCapFromPoints(lowBound)
+  return capHigh > capLow ? capHigh - capLow : 0n
+}
+
+function milestonesStoreKey(recipientLower: string): string {
+  return `${recipientLower}:milestones`
+}
+
+/**
+ * How many 50-point tranches are already fully claimed (persisted).
+ * If legacy data has `issued` but no milestones key, infer from issued vs incremental sums at current P.
+ */
+export function getMilestonesClaimed(
+  store: Record<string, string>,
+  recipient: string,
+  totalPointsWei: bigint
+): number {
+  const key = recipient.toLowerCase()
+  const mk = milestonesStoreKey(key)
+  const raw = store[mk]
+  if (raw !== undefined && raw !== '') {
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  }
+  const issued = BigInt(store[key] ?? '0')
+  if (issued === 0n) {
+    store[mk] = '0'
+    saveIssuedStore(store)
+    return 0
+  }
+  let mc = 0
+  let acc = 0n
+  for (;;) {
+    const inc = incrementalClaimWei(totalPointsWei, mc)
+    if (inc === 0n) break
+    if (acc + inc > issued) break
+    acc += inc
+    mc++
+    if (mc > 100000) break
+  }
+  store[mk] = String(mc)
+  saveIssuedStore(store)
+  return mc
 }
 
 export const CLAIM_CATEGORY = {
@@ -89,18 +180,22 @@ export interface SignedClaim extends ClaimPayload {
   s: `0x${string}`
 }
 
+const CELO_MAINNET_CHAIN_ID = 42220
+
 function getChain() {
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 11142220)
-  const rpc =
-    process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
-    process.env.NEXT_PUBLIC_RPC_URL ||
-    'https://celo-sepolia.drpc.org'
+  const isMainnet = chainId === CELO_MAINNET_CHAIN_ID
+  const rpc = isMainnet
+    ? process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
+    : process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
+      process.env.NEXT_PUBLIC_RPC_URL ||
+      'https://celo-sepolia.drpc.org'
   return { id: chainId, rpc }
 }
 
 /**
- * Read user's DCU token balance (same as "Total DCU" on dashboard).
- * Uses this so claim card and Total DCU show the same number and claimable = balance × multiplier.
+ * Read user's RewardManager totalEarned points (same source as verifier eligibility).
+ * Keeps cDCU claim milestones consistent with verifier requirements.
  */
 export async function getClaimableAmountFromChain(recipient: Address): Promise<bigint> {
   const rewardManagerAddress = process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT as Address | undefined
@@ -112,33 +207,63 @@ export async function getClaimableAmountFromChain(recipient: Address): Promise<b
     transport: http(rpc),
   })
 
-  const dcuTokenAddress = (await client.readContract({
-    address: rewardManagerAddress,
-    abi: REWARD_MANAGER_ABI,
-    functionName: 'dcuToken',
-  })) as Address
-
-  const totalPointsWei = (await client.readContract({
-    address: dcuTokenAddress,
-    abi: ERC20_BALANCE_ABI,
-    functionName: 'balanceOf',
-    args: [recipient],
-  })) as bigint
-
-  return totalPointsWei
+  try {
+    const stats8 = (await client.readContract({
+      address: rewardManagerAddress,
+      abi: REWARD_MANAGER_STATS_ABI_8,
+      functionName: 'getUserRewardStats',
+      args: [recipient],
+    })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+    return stats8[1]
+  } catch {
+    try {
+      const stats7 = (await client.readContract({
+        address: rewardManagerAddress,
+        abi: REWARD_MANAGER_STATS_ABI_7,
+        functionName: 'getUserRewardStats',
+        args: [recipient],
+      })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+      return stats7[1]
+    } catch {
+      return 0n
+    }
+  }
 }
 
 /**
- * Eligibility + claimable cap for $cDCU.
- * Uses DCU token balance (same as "Total DCU" on dashboard). Eligible when >= 50; claimable = balance × multiplier.
+ * Eligibility + caps for $cDCU.
+ * Uses RewardManager totalEarned points. Each claim unlocks one 50-DCU tranche;
+ * the next claim needs 50 more points (next milestone).
  */
-export async function getEligibilityAndClaimable(
-  recipient: Address
-): Promise<{ totalPointsWei: bigint; eligible: boolean; claimableCapWei: bigint }> {
+export async function getEligibilityAndClaimable(recipient: Address): Promise<{
+  totalPointsWei: bigint
+  /** True when user has reached the next 50-point milestone and has a tranche to claim. */
+  eligible: boolean
+  /** Lifetime cap from current points (informational). */
+  claimableCapWei: bigint
+  milestonesClaimed: number
+  /** Minimum total DCU points (wei) required to claim the next tranche: (milestonesClaimed + 1) × 50. */
+  nextMilestonePointsWei: bigint
+  /** $cDCU amount for the next tranche only (one claim). */
+  claimableNextTrancheWei: bigint
+}> {
   const totalPointsWei = await getClaimableAmountFromChain(recipient)
-  const eligible = totalPointsWei >= ELIGIBILITY_THRESHOLD_WEI
+  const store = loadIssuedStore()
+  const milestonesClaimed = getMilestonesClaimed(store, recipient, totalPointsWei)
+  const T = ELIGIBILITY_THRESHOLD_WEI
+  const tiers = tiersReachedWei(totalPointsWei)
+  const claimableNextTrancheWei = incrementalClaimWei(totalPointsWei, milestonesClaimed)
+  const eligible = tiers > BigInt(milestonesClaimed) && claimableNextTrancheWei > 0n
   const claimableCapWei = claimableCapFromPoints(totalPointsWei)
-  return { totalPointsWei, eligible, claimableCapWei }
+  const nextMilestonePointsWei = (BigInt(milestonesClaimed) + 1n) * T
+  return {
+    totalPointsWei,
+    eligible,
+    claimableCapWei,
+    milestonesClaimed,
+    nextMilestonePointsWei,
+    claimableNextTrancheWei,
+  }
 }
 
 /** EIP-712 domain for ClaimVault (must match contract). */
@@ -248,11 +373,15 @@ export function setPendingAmount(store: Record<string, string>, recipient: strin
   else store[key] = amountWei.toString()
 }
 
-/** Record that the user successfully submitted the claim onchain (move pending → issued). */
+/** Record that the user successfully submitted the claim onchain (move pending → issued). Advances one 50-DCU tranche. */
 export function recordIssued(recipient: string, amountWei: bigint): void {
   const store = loadIssuedStore()
-  const issued = BigInt(store[recipient.toLowerCase()] ?? '0')
-  store[recipient.toLowerCase()] = (issued + amountWei).toString()
+  const key = recipient.toLowerCase()
+  const issued = BigInt(store[key] ?? '0')
+  store[key] = (issued + amountWei).toString()
+  const mk = milestonesStoreKey(key)
+  const mc = parseInt(store[mk] ?? '0', 10) || 0
+  store[mk] = String(mc + 1)
   setPendingAmount(store, recipient, 0n)
   saveIssuedStore(store)
 }
@@ -269,6 +398,7 @@ export function resetIssuedAndPending(recipient: string): void {
   const store = loadIssuedStore()
   const key = recipient.toLowerCase()
   delete store[key]
+  delete store[milestonesStoreKey(key)]
   setPendingAmount(store, recipient, 0n)
   saveIssuedStore(store)
 }

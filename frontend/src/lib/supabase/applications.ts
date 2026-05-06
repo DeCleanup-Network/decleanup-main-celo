@@ -1,17 +1,42 @@
-import { getSupabase } from './client'
+import 'server-only'
 /**
  * Verifier Applications Repository (Supabase)
  * Production-grade with full type safety
  */
 
-import { supabase } from './client'
-import { VerifierApplication } from '../verifier/types'
+import { createClient } from '@supabase/supabase-js'
+import type {
+  VerifierApplication,
+  VerifierApplicationAdminStatus,
+} from '../verifier/types'
+
+export type { VerifierApplicationAdminStatus }
 import type { Database } from './database.types'
 
 type Tables = Database['public']['Tables']
 type VerifierAppRow = Tables['verifier_applications']['Row']
 type VerifierAppInsert = Tables['verifier_applications']['Insert']
 type VerifierAppUpdate = Tables['verifier_applications']['Update']
+
+let supabaseServerClient: ReturnType<typeof createClient<Database>> | null = null
+
+function getSupabase(): ReturnType<typeof createClient<Database>> {
+  if (supabaseServerClient) return supabaseServerClient
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+
+  if (!url || !key) {
+    throw new Error(
+      'Missing Supabase server credentials for verifier applications. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY) on the server.'
+    )
+  }
+
+  supabaseServerClient = createClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  return supabaseServerClient
+}
 
 /**
  * Create new application in database
@@ -60,9 +85,9 @@ export async function getLatestApplicationByAddress(address: string): Promise<Ve
     .eq('address', address.toLowerCase())
     .order('applied_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (error && error.code !== 'PGRST116') throw error
+  if (error) throw error
   if (!data) return null
 
   return mapRowToApplication(data as VerifierAppRow)
@@ -86,15 +111,17 @@ export async function getAllApplications(): Promise<VerifierApplication[]> {
  */
 export async function updateApplicationStatus(
   id: string,
-  status: 'APPROVED' | 'REJECTED',
+  status: VerifierApplicationAdminStatus,
   reviewedBy: string,
-  notes?: string
+  notes?: string,
+  txHash?: string
 ): Promise<VerifierApplication | null> {
   const updateData: VerifierAppUpdate = {
     status,
     reviewed_by: reviewedBy.toLowerCase(),
     reviewed_at: Date.now(),
     notes,
+    tx_hash: txHash,
     processing: false,
     updated_at: new Date().toISOString(),
   }
@@ -186,7 +213,10 @@ export async function hasApprovedApplication(address: string): Promise<boolean> 
  */
 export async function getApplicationStats(): Promise<{
   total: number
+  /** Awaiting admin review (queue only). */
   pending: number
+  /** Admin approved init; waiting for grantRole + confirm. */
+  approvalPendingOnchain: number
   approved: number
   rejected: number
 }> {
@@ -196,7 +226,7 @@ export async function getApplicationStats(): Promise<{
 
   if (error) {
     console.error('Error getting stats:', error)
-    return { total: 0, pending: 0, approved: 0, rejected: 0 }
+    return { total: 0, pending: 0, approvalPendingOnchain: 0, approved: 0, rejected: 0 }
   }
 
   const rows = (data as VerifierAppRow[] | null) || []
@@ -204,6 +234,7 @@ export async function getApplicationStats(): Promise<{
   return {
     total: rows.length,
     pending: rows.filter(r => r.status === 'PENDING').length,
+    approvalPendingOnchain: rows.filter(r => r.status === 'PENDING_ONCHAIN').length,
     approved: rows.filter(r => r.status === 'APPROVED').length,
     rejected: rows.filter(r => r.status === 'REJECTED').length,
   }
@@ -236,6 +267,14 @@ export async function logAuditEvent(
   }
 }
 
+/** Legacy status before varchar(20) fix; normalize on read. */
+const LEGACY_STATUS_APPROVAL_PENDING_ONCHAIN = 'APPROVAL_PENDING_ONCHAIN'
+
+function normalizeVerifierStatus(raw: string): VerifierApplication['status'] {
+  if (raw === LEGACY_STATUS_APPROVAL_PENDING_ONCHAIN) return 'PENDING_ONCHAIN'
+  return raw as VerifierApplication['status']
+}
+
 /**
  * Map database row to VerifierApplication type
  */
@@ -244,7 +283,7 @@ function mapRowToApplication(row: VerifierAppRow): VerifierApplication {
     id: row.id,
     address: row.address,
     appliedAt: row.applied_at,
-    status: row.status,
+    status: normalizeVerifierStatus(row.status as string),
     reviewedBy: row.reviewed_by || undefined,
     reviewedAt: row.reviewed_at || undefined,
     notes: row.notes || undefined,

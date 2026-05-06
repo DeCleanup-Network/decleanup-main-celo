@@ -34,7 +34,7 @@ echo ""
 
 # Create directories on VPS if they don't exist
 echo "📂 Creating directories on VPS..."
-ssh root@${SERVER} "mkdir -p ${VPS_FRONTEND_PATH/src/app/api/ml-verification/verify}"
+ssh root@${SERVER} "mkdir -p ${VPS_FRONTEND_PATH}/src/app/api/ml-verification/verify"
 ssh root@${SERVER} "mkdir -p ${VPS_FRONTEND_PATH}/src/lib/dmrv"
 ssh root@${SERVER} "mkdir -p ${VPS_FRONTEND_PATH}/src/features/cleanup/pages"
 ssh root@${SERVER} "mkdir -p ${VPS_FRONTEND_PATH}/src/lib/blockchain"

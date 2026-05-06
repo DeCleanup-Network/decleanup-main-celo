@@ -8,8 +8,8 @@
 export const VERIFIER_CONFIG = {
   // Eligibility requirements
   requirements: {
-    minLevel: 3,
-    minDCUBalance: 30,
+    minLevel: 5,
+    minDCUBalance: 50,
     minApprovedCleanups: 5,
   },
 
@@ -33,9 +33,9 @@ export function getEligibilityMessage(metric: string, value: number, required: n
   const gap = required - value
   
   const messages: Record<string, (gap: number) => string> = {
-    level: (gap) => `Reach level ${required} (currently ${value}, need ${gap} more)`,
-    dcuBalance: (gap) => `Have ${required} cDCU balance (currently ${value}, need ${gap} more)`,
-    approvedCleanups: (gap) => `Complete ${required} approved cleanups (currently ${value}, need ${gap} more)`,
+    level: (gap) => `Reach Impact Product level ${required}; ${gap} more needed`,
+    dcuBalance: (gap) => `Earn at least ${required} DCU points; ${gap} more needed`,
+    approvedCleanups: (gap) => `Complete ${required} approved cleanups; ${gap} more needed`,
   }
   
   return messages[metric]?.(gap) || `${metric}: ${value}/${required}`

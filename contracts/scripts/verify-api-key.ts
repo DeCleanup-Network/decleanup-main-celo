@@ -25,7 +25,8 @@ async function main() {
 
   // Try to verify a known contract address to test the API key
   // We'll use a simple contract or just test the API connection
-  const testAddress = "0xa282c26245d116aB5600fBF7901f2E4827c16B7A" // DCUToken
+  // Known verified contract on Celo Sepolia (Submission — see deployed_addresses.json)
+  const testAddress = "0xa123594ac1d861e10578f0a6a8d709f38ee07e55"
   
   try {
     console.log("Testing API key by attempting to check contract status...")

@@ -23,6 +23,8 @@ contract ImpactProductNFT is ERC721, Ownable {
 
     address public rewardsContract;
     address public submissionContract; // Submission contract can auto-verify POI
+    // Product policy: keep false to avoid automatic on-chain cDCU accrual on NFT mint/upgrade.
+    bool public impactClaimRewardsEnabled = false;
     uint256 private _tokenIdCounter;
 
     // Claim fee state
@@ -46,6 +48,7 @@ contract ImpactProductNFT is ERC721, Ownable {
     event NFTUpgraded(uint256 indexed tokenId, uint256 newLevel);
     event ImpactLevelUpdated(uint256 indexed tokenId, uint256 newImpactLevel);
     event RewardsContractUpdated(address indexed newRewardsContract);
+    event ImpactClaimRewardsEnabledUpdated(bool enabled);
     event TransferAuthorized(uint256 indexed tokenId, address indexed recipient);
     event TransferAuthorizationRevoked(uint256 indexed tokenId);
     event RewardDistributed(address indexed user, uint256 indexed level);
@@ -107,6 +110,11 @@ contract ImpactProductNFT is ERC721, Ownable {
     function setSubmissionContract(address newSubmissionContract) external onlyOwner {
         require(newSubmissionContract != address(0), "Invalid submission contract address");
         submissionContract = newSubmissionContract;
+    }
+
+    function setImpactClaimRewardsEnabled(bool enabled) external onlyOwner {
+        impactClaimRewardsEnabled = enabled;
+        emit ImpactClaimRewardsEnabledUpdated(enabled);
     }
 
     function setClaimFee(uint256 newFee) external onlyOwner {
@@ -171,8 +179,8 @@ contract ImpactProductNFT is ERC721, Ownable {
         _setUserTokenPointer(user, tokenId);
         _notifyRewardsContract(user, true);
 
-        // Distribute level reward (10 $cDCU) and referral reward (3 $cDCU) if applicable
-        if (rewardsContract != address(0)) {
+        // Optional legacy reward hook (disabled by default by policy).
+        if (impactClaimRewardsEnabled && rewardsContract != address(0)) {
             try IDCUNftRewardManager(rewardsContract).rewardImpactProductClaim(user, 1) {} catch {}
         }
 
@@ -203,8 +211,8 @@ contract ImpactProductNFT is ERC721, Ownable {
         nftLevel[tokenId] = newLevel;
         userLevel[msg.sender] = newLevel;
 
-        // Distribute level reward (10 $cDCU) for the new level
-        if (rewardsContract != address(0)) {
+        // Optional legacy reward hook (disabled by default by policy).
+        if (impactClaimRewardsEnabled && rewardsContract != address(0)) {
             try IDCUNftRewardManager(rewardsContract).rewardImpactProductClaim(msg.sender, newLevel) {} catch {}
         }
 

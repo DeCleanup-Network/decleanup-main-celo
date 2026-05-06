@@ -3,11 +3,13 @@
  * Auto-generated from schema (or manually defined)
  */
 
+import type { VerifierApplicationStatus } from '../verifier/types'
+
 export type VerifierApplication = {
   id: string
   address: string
   applied_at: number
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  status: VerifierApplicationStatus
   reviewed_by?: string
   reviewed_at?: number
   notes?: string

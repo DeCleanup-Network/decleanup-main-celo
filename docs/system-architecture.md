@@ -1,66 +1,67 @@
-# System Architecture (decleanup-main-celo)
+# System architecture (DeCleanup Celo MVP)
 
 ## High-level flow
 
 ```
-[User Wallet] ──wagmi/walletconnect──▶ [Next.js Frontend] ──RPC (viem)──▶ [Celo Contracts]
+[User wallet] ──wagmi / WalletConnect──▶ [Next.js frontend] ──viem RPC──▶ [Celo contracts]
        │                                        │
-       │                                        ├─ IPFS uploads (Pinata REST proxy)
-       │                                        ├─ Hypercerts SDK (mintClaim)
-       │                                        ├─ Geocoding API (leaderboard country resolution)
-       │                                        └─ Local image generation (canvas → IPFS)
+       │                                        ├─ IPFS uploads (Pinata via `app/api/ipfs/upload`)
+       │                                        ├─ Hypercerts minter + SDK (`lib/blockchain/hypercerts*`)
+       │                                        ├─ Optional ML verify / GPU service (see `docs/ML_VERIFICATION_ARCHITECTURE.md`)
+       │                                        └─ Supabase (verifier applications, Hypercert requests, impact portfolios)
        │
-       └── receives signatures, tx prompts, and minted rewards back
+       └── signatures, tx prompts, DCU ledger updates, $cDCU mints (via ClaimVault)
 ```
 
-### Frontend layers
-- **Next.js 16 App Router** with shadcn components and Tailwind for the dashboard/profile/cleanup flows.
-- **State + data hooks** (`useIsVerifier`, `useHypercerts`, wagmi `useAccount`) feed stats cards, actions, and modals.
-- **Libs**:
-  - `lib/blockchain/contracts.ts` wraps viem contract reads/writes (cleanups, rewards, eligibility, recyclables).
-  - `lib/blockchain/hypercerts-*.ts` handles aggregation, metadata generation, IPFS uploads, Hypercert mint, and reward claim.
-  - `lib/utils/hypercert-image-generator.ts` builds collage/logo/banner images in-browser before uploading to IPFS.
-  - `app/api/ipfs/upload` proxies Pinata uploads server-side so API keys stay private.
+### Frontend
 
-### Smart contracts (Deployed on Celo Sepolia)
+- **Next.js** (App Router) + Tailwind + shadcn-style components.
+- **Wagmi / viem** for reads and writes; Web3Auth configuration in `frontend/src/lib/web3auth/config.ts`.
+- **Key libraries**
+  - `frontend/src/lib/blockchain/contracts.ts` - Submission, rewards, Impact Product, ClaimVault reads.
+  - `frontend/src/lib/blockchain/claim-vault.ts` - signed `$cDCU` claims.
+  - `frontend/src/lib/blockchain/hypercerts-*` - eligibility, aggregation, minting, IPFS.
+  - `frontend/src/lib/server/*` - API guards, rate limits, verifier checks where applicable.
 
-- `DCUToken.sol` (ERC20) – `0xa282c26245d116aB5600fBF7901f2E4827c16B7A` – Main reward token with minter role for DCURewardManager
-- `ImpactProductNFT.sol` (ERC721) – `0x97448790fd64dd36504d7f5ce7c2d27794b01959` – Dynamic Impact Product NFTs that level up based on verified cleanups
-- `DCURewardManager.sol` – `0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a` – Accrues DCU rewards for impact claims, streaks, referrals, impact reports, verifiers, and recyclables. Users claim aggregated balances when ready.
-- `Submission.sol` – `0x1e355123f9dec3939552d80ad1a24175fd10688f` – Receives cleanup submissions, stores IPFS hashes, approval status, location, impact/recyclables metadata, assigns rewards, and tracks verification workflow
-- `RecyclablesReward.sol` – optional; not used by default. Recyclables are rewarded with DCU points (same as impact form) via `rewardImpactReports`.
+### Smart contracts (source of truth: `contracts/scripts/deployed_addresses.json`)
 
-### Hypercert workflow (Future Implementation)
+Typical **Celo Sepolia** greenfield deploy (see JSON for live hexes):
 
-**Note**: Hypercerts integration has been intentionally postponed for future work. The frontend includes helper code for image generation and metadata, but Hypercert minting is not wired into the live flow.
+| Contract | Role |
+|----------|------|
+| **Submission** | Cleanup lifecycle, IPFS hashes, verifier approve/reject, DCU accrual triggers, Hypercert eligibility signals. |
+| **DCURewardManager** | On-chain **DCU participation ledger** (`totalEarned`, buckets). Does **not** mint ERC-20 reward tokens. |
+| **ImpactProductNFT** | Impact Product levels from verified cleanups. |
+| **CDCUToken (`$cDCU`)** | ERC-20 **minted only by ClaimVault** (governance + claims). |
+| **ClaimVault** | Validates EIP-712 signatures from your backend signer; enforces category caps; calls `CDCUToken.mint`. |
 
-Planned workflow (when implemented):
-1. User reaches 10 verified cleanups (Submission increments `userHypercertCount`).
-2. Frontend fetches the last 10 cleanups, pulls impact reports from IPFS, and aggregates stats (weight, area, hours, waste types, contributors).
-3. Canvas utility builds collage/banner/logo → uploads to IPFS.
-4. Metadata JSON (with aggregated stats + IPFS media) uploads to IPFS.
-5. Hypercert SDK `mintClaim` on Celo (FromCreatorOnly restriction).
-6. On success we call `claimHypercertReward(hypercertNumber)` to grant the 10 $DCU bonus.
+Legacy **`DCUToken`** flows were removed; participation points accrue in **DCURewardManager** and convert to **`$cDCU`** through **ClaimVault** claims. See **`docs/B_CDCU_ONLY_ARCHITECTURE.md`**.
 
-### Recyclables + Impact Reports
-- **Impact form**: optional after photos. Stored as JSON on IPFS (`impactFormDataHash`). Submission rewards extra DCU via `rewardImpactReports(submitter, 1)` (5 DCU per report).
-- **Recyclables**: optional step with photo + receipt hash. Submission stores `hasRecyclables`, and on approval calls `rewardImpactReports(submitter, 1)` so recyclables are rewarded with the same DCU points as impact form. DCU points count toward the multiplier; $cDCU is claimed later. No external token or partnership; optional legacy RecyclablesReward contract is not used by default.
+### Hypercerts
+
+Implemented end-to-end for eligible users (metadata → IPFS → minter contract). Overview: **`docs/HYPERCERTS.md`**. Product pipeline: **`docs/hypercerts-and-impact.md`**.
+
+### Recyclables + impact reports
+
+- Optional **impact form** and **recyclables** (photo / receipt) on cleanup; data on IPFS.
+- On approval, **Submission** awards the shared impact bucket via **`rewardImpactReports`** (same 5 DCU path for report and/or recyclables - no separate recyclables ERC-20 in this stack).
 
 ### Data sources
-| Source            | Role |
-| ----------------- | ---- |
-| Pinata IPFS       | Photos, impact forms, hypercert-generated assets + metadata |
-| Hypercerts SDK    | Claim minting on Celo (ERC-1155) |
-| Celo RPC          | Contract reads/writes (Submission, RewardManager, ImpactProductNFT, RecyclablesReward) |
-| BigDataCloud API  | Reverse geocode lat/lng to country for leaderboard |
 
-## Dev/test paths
-- `frontend`: `npm run dev` (Next.js), `npm run build`, `npm run test`.
-- `contracts`: `npx hardhat test`, `npx hardhat run scripts/setup-roles.ts --network celoSepolia`.
-- `contracts/ignition/modules/DCUContracts.ts` defines the deployment graph (DCUToken → DCURewardManager → ImpactProductNFT → Submission).
+| Source | Role |
+|--------|------|
+| Pinata (via API route) | Photos, forms, Hypercert assets + metadata |
+| Celo RPC | Contract reads/writes |
+| Supabase | Verifier applications, Hypercert request workflow, impact portfolio storage (see `frontend/supabase/migrations/`) |
+| Optional geocoding | Leaderboard country resolution |
 
-## Pending improvements
-- Fine-tune dashboard spacing once real data is live.
-- Add cached leaderboard endpoint (optional) if geocoding API quotas become tight.
-- Automate Hypercert reward claim in backend listener (optional; currently user-triggered after mint).
+## Dev commands
 
+- Frontend: `cd frontend && npm run dev` / `npm run build`
+- Contracts: `cd contracts && npx hardhat test`
+- Deploy / roles: `docs/B_CDCU_ONLY_ARCHITECTURE.md`, `contracts/scripts/README-FEE-SCHEDULING.md` as needed
+
+## Maintenance notes
+
+- Prefer **`contracts/scripts/deployed_addresses.json`** over hardcoding addresses in docs.
+- **`docs/deployment-plan.md`** - operational checklist for releases.

@@ -9,7 +9,7 @@
  * Value: VerifierApplication[]
  */
 
-import { VerifierApplication } from './types'
+import type { VerifierApplication, VerifierApplicationAdminStatus } from './types'
 
 // In-memory storage (resets on server restart)
 let applicationsStore: VerifierApplication[] = []
@@ -65,9 +65,10 @@ export function createApplication(address: string): VerifierApplication {
  */
 export function updateApplicationStatus(
   id: string,
-  status: 'APPROVED' | 'REJECTED',
+  status: VerifierApplicationAdminStatus,
   reviewedBy: string,
-  notes?: string
+  notes?: string,
+  _txHash?: string
 ): VerifierApplication | null {
   const app = getApplicationById(id)
   
@@ -110,6 +111,8 @@ export function getApplicationStats() {
   return {
     total: applicationsStore.length,
     pending: applicationsStore.filter(app => app.status === 'PENDING').length,
+    approvalPendingOnchain: applicationsStore.filter(app => app.status === 'PENDING_ONCHAIN')
+      .length,
     approved: applicationsStore.filter(app => app.status === 'APPROVED').length,
     rejected: applicationsStore.filter(app => app.status === 'REJECTED').length,
   }

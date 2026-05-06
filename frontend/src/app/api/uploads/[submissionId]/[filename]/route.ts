@@ -9,8 +9,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { resolveUploadDir } from '@/lib/server/resolve-upload-dir'
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+const UPLOAD_DIR = resolveUploadDir()
 
 export async function GET(
   request: NextRequest,
