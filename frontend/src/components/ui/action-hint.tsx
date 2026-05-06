@@ -30,7 +30,7 @@ type ActionHintProps = {
 export function ActionHint({ hint, children }: ActionHintProps) {
   const touchUi = useTouchUi()
   const [open, setOpen] = useState(false)
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hoverTimer = useRef<number | null>(null)
 
   const clearHoverTimer = useCallback(() => {
     if (hoverTimer.current) {
