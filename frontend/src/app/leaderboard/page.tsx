@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Trophy, ArrowLeft, MapPin, Loader2, Award } from 'lucide-react'
+import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { getLeaderboardData, type LeaderboardUser } from '@/lib/utils/leaderboard'
 import { formatEther } from 'viem'
 
@@ -59,33 +60,20 @@ export default function LeaderboardPage() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="font-bebas text-sm tracking-wider">BACK</span>
-            </Button>
-          </Link>
-        </div>
-
-        {/* Title */}
-        <div className="text-center">
-          <div className="mb-2 flex items-center justify-center gap-3">
-            <Trophy className="h-8 w-8 text-brand-yellow" />
-            <h1 className="font-bebas text-4xl tracking-wider text-foreground sm:text-5xl">
-              LEADERBOARD
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Top contributors by total DCU earned
-          </p>
-        </div>
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
+        <DeCleanupPageHero
+          programWord="LEADERBOARD"
+          pageTagline="Community standings"
+          description="Top contributors by total DCU earned on the network."
+          trailing={
+            <Link href="/">
+              <Button variant="outline" size="sm" className="gap-2 border-border bg-card font-bebas tracking-wider">
+                <ArrowLeft className="h-4 w-4" />
+                Home
+              </Button>
+            </Link>
+          }
+        />
 
         {/* User Rank Banner */}
         {isConnected && address && userRank !== null && (

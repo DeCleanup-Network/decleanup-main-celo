@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMessage, type Address } from 'viem'
+import { createPublicClient, defineChain, getAddress, http, verifyMessage, type Address } from 'viem'
 import {
   buildProfileSignMessage,
   isValidPortfolioAddress,
   sanitizeProfileFromUserInput,
   type EditableProfile,
 } from '@/lib/impact/portfolio-profile'
+import { assertSignerMayEditPortfolioProfile } from '@/lib/impact/portfolio-profile-auth'
+import {
+  REQUIRED_CHAIN_ID,
+  REQUIRED_CHAIN_NAME,
+  REQUIRED_RPC_URL,
+} from '@/lib/blockchain/chain-constants'
 import { getImpactPortfolioProfile, upsertImpactPortfolioProfile } from '@/lib/supabase/impact-portfolios'
+
+const requiredChain = defineChain({
+  id: REQUIRED_CHAIN_ID,
+  name: REQUIRED_CHAIN_NAME,
+  nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
+  rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
+})
+
+function getPortfolioPublicClient() {
+  return createPublicClient({
+    chain: requiredChain,
+    transport: http(REQUIRED_RPC_URL),
+  })
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,6 +53,8 @@ export async function GET(request: NextRequest) {
 
 type SaveBody = {
   address: string
+  /** When the connected wallet differs from `address` (e.g. Safe signs for an EOA portfolio row). */
+  signerAddress?: string
   profile: EditableProfile
   timestamp: number
   signature: `0x${string}`
@@ -60,13 +82,39 @@ export async function POST(request: NextRequest) {
       profile,
       timestamp: body.timestamp,
     })
+
+    let signer: Address
+    try {
+      const rawSigner = (body.signerAddress?.trim() || address).trim()
+      signer = getAddress(rawSigner) as Address
+    } catch {
+      return NextResponse.json({ error: 'Invalid signer address' }, { status: 400 })
+    }
+
     const valid = await verifyMessage({
-      address: address as Address,
+      address: signer,
       message,
       signature: body.signature,
     })
     if (!valid) {
       return NextResponse.json({ error: 'Signature verification failed' }, { status: 403 })
+    }
+
+    try {
+      const publicClient = getPortfolioPublicClient()
+      await assertSignerMayEditPortfolioProfile(publicClient, address as Address, signer)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg === 'SIGNER_NOT_AUTHORIZED_FOR_PORTFOLIO') {
+        return NextResponse.json(
+          {
+            error:
+              'This wallet is not authorized to update this portfolio address. Connect the portfolio address, its linked smart account, or an owner of that smart account.',
+          },
+          { status: 403 }
+        )
+      }
+      throw e
     }
 
     await upsertImpactPortfolioProfile(address, profile)

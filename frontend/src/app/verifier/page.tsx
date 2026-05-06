@@ -27,6 +27,7 @@ import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { AlertModal } from '@/components/ui/alert-modal'
+import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 
@@ -860,29 +861,32 @@ export default function VerifierPage() {
 
     return (
         <div className="min-h-screen bg-background px-4 py-6 sm:py-8">
-            <div className="container mx-auto max-w-6xl">
-                <Link href="/">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mb-6 gap-2 text-gray-400 hover:text-white"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="font-bebas text-sm tracking-wider">BACK</span>
-                    </Button>
-                </Link>
-
-                <div className="mb-8">
-                    <h1 className="mb-2 font-bebas text-4xl uppercase tracking-wide text-foreground sm:text-5xl">
-                        Verifier Dashboard
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Review and verify cleanup submissions. Flow:{' '}
-                        <span className="text-gray-400">
-                            user submits on-chain → server runs AI (YOLO) on photos → you confirm with Verify / Reject on-chain.
-                        </span>
-                    </p>
-                </div>
+            <div className="mx-auto max-w-[1200px]">
+                <DeCleanupPageHero
+                    programWord="VERIFIER"
+                    pageTagline="Dashboard"
+                    description={
+                        <>
+                            Review and verify cleanup submissions. Flow:{' '}
+                            <span className="text-muted-foreground/90">
+                                user submits on-chain → server runs AI (YOLO) on photos → you confirm with Verify / Reject
+                                on-chain.
+                            </span>
+                        </>
+                    }
+                    trailing={
+                        <Link href="/">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                Home
+                            </Button>
+                        </Link>
+                    }
+                />
 
                 {/* Stats */}
                 <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">

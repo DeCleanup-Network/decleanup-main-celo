@@ -1434,12 +1434,29 @@ function HomeContent() {
                   />
                 </div>
               </div>
+              {hasLoadedDashboardOnce &&
+                rewardStats.verifiedCleanupsCount > 0 &&
+                rewardStats.cleanupsDCU === 0 && (
+                  <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
+                    You have {rewardStats.verifiedCleanupsCount} verified cleanup
+                    {rewardStats.verifiedCleanupsCount === 1 ? '' : 's'} on-chain, but &quot;Impact level DCU&quot; is still
+                    0. That bucket fills when you claim Impact Product levels after verification (and only if the
+                    deployed NFT has impact rewards enabled). Other rows (reports, recyclables, etc.) can still show
+                    DCU from their own contracts.
+                  </p>
+                )}
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {[
                   {
-                    label: 'Level rewards',
+                    label: 'Impact level DCU (NFT)',
                     value: rewardStats.cleanupsDCU.toFixed(0),
                     showToken: true,
+                  },
+                  {
+                    label: 'Verified cleanups',
+                    value: String(rewardStats.verifiedCleanupsCount),
+                    showToken: false,
+                    suffix: ' on-chain',
                   },
                   { label: 'Referrals', value: rewardStats.referralsDCU.toFixed(0), showToken: true },
                   { label: 'Streak', value: rewardStats.streakDCU.toFixed(0), showToken: true },

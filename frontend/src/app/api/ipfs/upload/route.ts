@@ -219,11 +219,31 @@ export async function POST(request: NextRequest) {
     } as UndiciRequestInit)
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>
       console.error('Pinata upload error:', errorData)
+      const errObj = errorData.error
+      const rawReason =
+        (typeof errObj === 'object' &&
+          errObj !== null &&
+          'reason' in errObj &&
+          typeof (errObj as { reason?: unknown }).reason === 'string' &&
+          (errObj as { reason: string }).reason) ||
+        (typeof errObj === 'string' ? errObj : null) ||
+        (typeof errorData.message === 'string' ? errorData.message : null) ||
+        response.statusText ||
+        'Failed to upload to IPFS'
+      const upper = String(rawReason).toUpperCase()
+      const credentialRejected =
+        upper.includes('INVALID_CREDENTIALS') ||
+        upper.includes('INVALID API KEY') ||
+        response.status === 401 ||
+        response.status === 403
+      const userMsg = credentialRejected
+        ? 'Pinata rejected this request (invalid API credentials). Regenerate PINATA_JWT in the Pinata dashboard and set it on the server that runs this API (Vercel env or VPS .env.local), then restart the app process.'
+        : String(rawReason)
       return NextResponse.json(
-        { error: errorData.error?.reason || response.statusText || 'Failed to upload to IPFS' },
-        { status: response.status || 500 }
+        { error: userMsg, pinataStatus: response.status },
+        { status: credentialRejected ? 502 : response.status || 500 }
       )
     }
 

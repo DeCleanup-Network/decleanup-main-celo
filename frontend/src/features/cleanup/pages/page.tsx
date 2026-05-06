@@ -52,6 +52,32 @@ const describeChain = (id?: number) => {
   }
 }
 
+function cleanupFailureHints(errorMessage: string): string {
+  const lower = errorMessage.toLowerCase()
+  const isIpfs =
+    lower.includes('ipfs') ||
+    lower.includes('pinata') ||
+    lower.includes('invalid_credentials') ||
+    lower.includes('invalid credentials')
+
+  if (isIpfs) {
+    return (
+      `Please check:\n` +
+      `- Pinata credentials on the server (PINATA_JWT) — open GET /api/ipfs/upload for a diagnostic\n` +
+      `- Your connection, then try again\n` +
+      `- Photo size and format (JPEG / PNG / HEIC)`
+    )
+  }
+
+  return (
+    `Please check:\n` +
+    `- Your wallet is connected\n` +
+    `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
+    `- You have enough CELO for gas when not using sponsored submit\n` +
+    `- The contract address is correct`
+  )
+}
+
 type MlScorePayload = {
   score?: { verdict?: string; score?: number; delta?: number }
   mlVerificationDisabled?: boolean
@@ -1318,12 +1344,7 @@ function CleanupContent() {
         } else {
           setAlertModal({
             title: 'Submission failed',
-            message:
-              `${errorMessage}\n\nPlease check:\n` +
-              `- Your wallet is connected\n` +
-              `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
-              `- You have enough CELO for gas\n` +
-              `- The contract address is correct`,
+            message: `${errorMessage}\n\n${cleanupFailureHints(errorMessage)}`,
             variant: 'error',
           })
         }
@@ -1386,12 +1407,7 @@ function CleanupContent() {
       } else {
         setAlertModal({
           title: 'Submission failed',
-          message:
-            `${errorMessage}\n\nPlease check:\n` +
-            `- Your wallet is connected\n` +
-            `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
-            `- You have enough CELO for gas\n` +
-            `- The contract address is correct`,
+          message: `${errorMessage}\n\n${cleanupFailureHints(errorMessage)}`,
           variant: 'error',
         })
       }
@@ -1730,6 +1746,39 @@ function CleanupContent() {
     return null
   }
 
+  const GaslessStatusBanner = () => {
+    if (!expectsSponsoredGas) return null
+    if (gaslessClient) return null
+    if (isGaslessLoading) {
+      return (
+        <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
+          <p className="font-medium text-amber-200">Preparing gasless submit…</p>
+          <p className="mt-1 text-amber-100/90">
+            Connecting the sponsored smart account (Pimlico). Wait a few seconds after login, then try again if submit
+            stays disabled.
+          </p>
+        </div>
+      )
+    }
+    if (gaslessError) {
+      return (
+        <div className="mb-4 rounded-lg border border-orange-500/40 bg-orange-500/10 p-3 text-xs text-orange-100">
+          <p className="font-semibold text-orange-200">Gasless wallet unavailable</p>
+          <p className="mt-1 whitespace-pre-wrap text-orange-100/95">{gaslessError.message}</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Sponsored submissions stay disabled until this succeeds. Confirm Pimlico API key and Celo RPC, then
+            refresh. External wallets (MetaMask, etc.) use their own CELO gas and skip this path.
+          </p>
+        </div>
+      )
+    }
+    return (
+      <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+        Gasless submit will activate when the smart account finishes loading.
+      </div>
+    )
+  }
+
   const modalLayer = (
     <>
       {alertModal && (
@@ -1767,6 +1816,7 @@ function CleanupContent() {
 
           <ReferralNotification />
           <CooldownBanner />
+          <GaslessStatusBanner />
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
@@ -1996,6 +2046,7 @@ function CleanupContent() {
           </div>
 
           <CooldownBanner />
+          <GaslessStatusBanner />
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
@@ -2527,6 +2578,7 @@ function CleanupContent() {
           </div>
 
           <CooldownBanner />
+          <GaslessStatusBanner />
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">

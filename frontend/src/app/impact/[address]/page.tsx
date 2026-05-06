@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Globe,
   MapPin,
-  Leaf,
   Trash2,
   Scale,
   Ruler,
@@ -53,6 +52,7 @@ import {
   type PublicPortfolioPayload,
 } from '@/lib/impact/public-portfolio-data'
 import { Button } from '@/components/ui/button'
+import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import {
   CONTRACT_ADDRESSES,
@@ -457,7 +457,18 @@ function PublicPortfolioContent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <main className="container mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:py-10">
+      <main className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:space-y-8 sm:py-10">
+        <DeCleanupPageHero
+          programWord="IMPACT PORTFOLIO"
+          pageTagline="Verified disclosure"
+          description="Public environmental and rewards record for this on-chain identity on Celo. Profile fields below are saved with a wallet signature when you use Edit profile."
+          trailing={
+            <Button asChild variant="outline" size="sm" className="border-border bg-card">
+              <Link href="/">Home</Link>
+            </Button>
+          }
+        />
+
         {/* 1) Header */}
         <section className="rounded-2xl border border-border bg-card p-5 sm:p-8">
           <div className="flex flex-col justify-between gap-5 lg:flex-row">
@@ -466,7 +477,7 @@ function PublicPortfolioContent() {
                 <Stamp className="h-3.5 w-3.5" />
                 Verified Impact · ESG Disclosure
               </div>
-              <h1 className="font-bebas text-4xl leading-none tracking-wider sm:text-6xl">{displayTitle}</h1>
+              <h2 className="font-bebas text-4xl leading-none tracking-wider sm:text-6xl">{displayTitle}</h2>
               {(isPortfolioVerifier || hasMaxImpactLevel) && (
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {isPortfolioVerifier && (
@@ -506,9 +517,6 @@ function PublicPortfolioContent() {
               </div>
             </div>
             <div className="flex flex-wrap items-start gap-2">
-              <Button asChild variant="outline" size="sm" className="border-border bg-card">
-                <Link href="/">Home</Link>
-              </Button>
               {shareUrl && (
                 <>
                   <Button
@@ -655,6 +663,7 @@ function PublicPortfolioContent() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         address: resolved,
+                        signerAddress: connectedAddress,
                         profile: sanitized,
                         timestamp,
                         signature,
