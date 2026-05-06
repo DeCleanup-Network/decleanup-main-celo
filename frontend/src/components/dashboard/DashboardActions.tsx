@@ -75,7 +75,9 @@ export function DashboardActions({
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
     const submitAvailable = canSubmit && !submitLockedMaxLevel
     const canClaimLevel = cleanupStatus?.canClaim && !isClaiming
-    const isUnderVerification = cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
+    const isUnderVerification = Boolean(
+        cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
+    )
 
     const hypercertHighlighted = userImpactLevel > 0 && userImpactLevel % 10 === 0
     const verifierHighlighted = !isVerifier && !!eligibility?.eligible
