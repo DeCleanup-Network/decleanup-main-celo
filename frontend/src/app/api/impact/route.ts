@@ -3,10 +3,26 @@ import type { Address } from 'viem'
 import { isAddress } from 'viem'
 import { base, celo } from 'viem/chains'
 import {
+  type ChainFetchStatus,
+  type ChainMetrics,
   fetchChainMetrics,
   getImpactApiConfig,
   tokenWeiToNumber,
 } from '@/lib/api/decleanup-impact-metrics'
+
+const BASE_METRICS_DISABLED: {
+  metrics: ChainMetrics
+  submission: ChainFetchStatus
+  token: ChainFetchStatus
+} = {
+  metrics: {
+    cleanupsVerified: 0,
+    participantAddresses: new Set<string>(),
+    tokenMintedWei: 0n,
+  },
+  submission: { ok: true },
+  token: { ok: true },
+}
 
 /**
  * Public SDG / impact metrics for third parties (e.g. Carbon Copy).
@@ -61,15 +77,7 @@ export async function GET() {
     fetchChainMetrics(cfg.celoRpc, celo, celoSubmission, celoCdcu, cfg.celoFromBlock),
     baseEnabled
       ? fetchChainMetrics(cfg.baseRpc, base, baseSubmission, undefined, cfg.baseFromBlock)
-      : Promise.resolve({
-          metrics: {
-            cleanupsVerified: 0,
-            participantAddresses: new Set<string>(),
-            tokenMintedWei: 0n,
-          },
-          submission: { ok: true },
-          token: { ok: true },
-        }),
+      : Promise.resolve(BASE_METRICS_DISABLED),
   ])
 
   const participants = new Set<string>()
