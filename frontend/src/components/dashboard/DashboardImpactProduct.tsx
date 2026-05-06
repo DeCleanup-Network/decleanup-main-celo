@@ -53,7 +53,8 @@ export function DashboardImpactProduct({
   const [addWalletMessage, setAddWalletMessage] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [copiedField, setCopiedField] = useState<'contract' | 'token' | null>(null)
-  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** DOM `setTimeout` / `clearTimeout` use numeric handles (not Node `Timeout`). */
+  const copyResetTimerRef = useRef<number | null>(null)
 
   const openDetails = useCallback(() => setDetailsOpen(true), [])
   const closeDetails = useCallback(() => setDetailsOpen(false), [])
