@@ -1105,6 +1105,9 @@ function HomeContent() {
                 </a>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground sm:text-sm">
+                <Link href="/guide" className="font-medium hover:text-brand-green transition-colors">
+                  User Guide
+                </Link>
                 <Link href="/terms" className="font-medium hover:text-brand-green transition-colors">
                   Terms of Service
                 </Link>
@@ -1803,6 +1806,9 @@ function HomeContent() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground sm:text-sm">
+              <Link href="/guide" className="font-normal hover:text-brand-green transition-colors">
+                User Guide
+              </Link>
               <Link href="/terms" className="font-normal hover:text-brand-green transition-colors">
                 Terms of Service
               </Link>

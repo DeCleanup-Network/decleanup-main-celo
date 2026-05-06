@@ -54,7 +54,11 @@ import {
 } from '@/lib/impact/public-portfolio-data'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
-import { CONTRACT_ADDRESSES, MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import {
+  CONTRACT_ADDRESSES,
+  MAX_IMPACT_PRODUCT_LEVEL,
+  REQUIRED_BLOCK_EXPLORER_URL,
+} from '@/lib/blockchain/chain-constants'
 import { isVerifier } from '@/lib/blockchain/contracts'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import {
@@ -125,6 +129,16 @@ function extractAdditionalReportLinks(impact: ImpactReportJson | null): Array<{ 
     add(m, 'Reference')
   }
   return out
+}
+
+function pickReportDownloadUrl(
+  links: Array<{ title: string; url: string }>,
+  cid: string
+): string | null {
+  const pdf = links.find((l) => /\.pdf(?:$|[?#])/i.test(l.url))
+  if (pdf) return pdf.url
+  if (cid) return hashToGatewayUrl(cid)
+  return null
 }
 
 function PublicPortfolioContent() {
@@ -935,7 +949,14 @@ function PublicPortfolioContent() {
               <p className="mt-3 text-xs text-muted-foreground">
                 Weight and area are self-reported by the cleanup leader and cross-referenced against photo evidence by AI screening.
                 {' '}
-                <a href="#" className="text-brand-green underline">Methodology doc</a>
+                <a
+                  href="https://decleanup.net/litepaper/#methodologypipeline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-green underline"
+                >
+                  Methodology doc
+                </a>
               </p>
             </section>
 
@@ -977,6 +998,7 @@ function PublicPortfolioContent() {
                     const badgeLabel = d.hasImpactForm ? 'Verified · Report' : 'Verified'
                     const cid = d.impactFormDataHash || ''
                     const additionalLinks = extractAdditionalReportLinks(e.impact)
+                    const reportDownloadUrl = pickReportDownloadUrl(additionalLinks, cid)
                     return (
                       <article key={e.submissionId} className="overflow-hidden rounded-xl border border-border bg-card">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -1045,9 +1067,21 @@ function PublicPortfolioContent() {
                           </div>
                         )}
                         <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
-                          <Button disabled size="sm" variant="outline" className="text-xs">
-                            Download report PDF
-                          </Button>
+                          {reportDownloadUrl ? (
+                            <a
+                              href={reportDownloadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs text-foreground hover:bg-accent hover:text-accent-foreground"
+                            >
+                              Download report PDF
+                            </a>
+                          ) : (
+                            <Button disabled size="sm" variant="outline" className="text-xs">
+                              Download report PDF
+                            </Button>
+                          )}
                           {cid && (
                             <button
                               type="button"
@@ -1094,9 +1128,9 @@ function PublicPortfolioContent() {
               </div>
             </section>
 
-            {/* 9) Impact Product NFT */}
+            {/* 9) Impact Product */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <h2 className="font-bebas text-xl tracking-wider">Impact Product NFT Credential</h2>
+              <h2 className="font-bebas text-xl tracking-wider">Impact Product Level</h2>
               <p className="text-xs text-muted-foreground">Cleanup Progression Credential · ERC-1155</p>
               <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
                 <div className="overflow-hidden rounded-lg border border-border bg-black/40">
@@ -1113,14 +1147,19 @@ function PublicPortfolioContent() {
                   <p className="font-bebas text-3xl leading-none">Level {data.level || 0}</p>
                   <div className="rounded-md border border-border/60 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Contract</p>
-                    <button
-                      type="button"
-                      onClick={() => void copyAny('impact-contract', CONTRACT_ADDRESSES.IMPACT_PRODUCT || '')}
-                      className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-foreground"
-                    >
-                      {truncateMiddle(CONTRACT_ADDRESSES.IMPACT_PRODUCT || 'not-configured', 10, 8)}
-                      {copiedKey === 'impact-contract' ? <Check className="h-3.5 w-3.5 text-brand-green" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
+                    {CONTRACT_ADDRESSES.IMPACT_PRODUCT ? (
+                      <a
+                        href={`${REQUIRED_BLOCK_EXPLORER_URL}/address/${CONTRACT_ADDRESSES.IMPACT_PRODUCT}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-foreground underline"
+                      >
+                        {truncateMiddle(CONTRACT_ADDRESSES.IMPACT_PRODUCT, 10, 8)}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : (
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">not-configured</p>
+                    )}
                   </div>
                   <a href={hashToGatewayUrl(data.impactProductImageUrl || '') || '#'} className="inline-flex items-center gap-1 text-xs text-brand-green underline">
                     Field verified metadata

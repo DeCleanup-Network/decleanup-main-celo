@@ -160,6 +160,7 @@ export function DashboardImpactProduct({
     <div className={cn('flex min-h-0 flex-col rounded-2xl border border-border bg-card p-4 sm:p-6', className)}>
       <SectionHeading
         icon={Award}
+        className="!flex-row items-center justify-between gap-2"
         aside={
           level > 0 ? (
             <button
