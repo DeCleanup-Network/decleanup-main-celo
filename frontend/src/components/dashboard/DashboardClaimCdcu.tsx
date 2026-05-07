@@ -214,18 +214,6 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
 
           {eligibility.eligible ? (
             <>
-              <p className="text-xs text-muted-foreground mb-2 leading-snug">
-                Each <strong className="text-foreground">{dcuStep} DCU</strong> → one $cDCU mint, scaled by multiplier
-                {multDisplay != null ? (
-                  <strong className="text-foreground"> ×{multDisplay}</strong>
-                ) : (
-                  <span> (×1.1–×2)</span>
-                )}
-                . Now: <strong className="text-brand-green tabular-nums">{fmtCdcuAmount(claimableNum)} $cDCU</strong>
-                {claimableCapNum > 0 ? (
-                  <span className="text-muted-foreground"> · max {claimableCapNum.toFixed(0)} at your DCU</span>
-                ) : null}
-              </p>
               <Button
                 size="sm"
                 variant="outline"

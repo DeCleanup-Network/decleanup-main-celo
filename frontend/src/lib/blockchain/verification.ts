@@ -186,6 +186,29 @@ export async function getLatestCleanupStatus(
       return null
     }
   }
+
+  // Strict submit -> verify -> claim loop:
+  // only the latest submission can be considered claimable.
+  // If localStorage still points to an older submission, clear it and block claim UI.
+  if (cleanupId !== null && cleanupId !== undefined) {
+    try {
+      const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
+      const submissions = await getUserSubmissions(user)
+      if (submissions.length > 0) {
+        const latestSubmissionId = [...submissions].sort((a, b) => (a > b ? -1 : a < b ? 1 : 0))[0]
+        if (cleanupId !== latestSubmissionId) {
+          console.log('[verification] Pending cleanup is not latest submission; clearing stale pending ID', {
+            pendingCleanupId: cleanupId.toString(),
+            latestSubmissionId: latestSubmissionId.toString(),
+          })
+          clearPendingCleanup(user)
+          return null
+        }
+      }
+    } catch (err) {
+      console.warn('[verification] Failed latest-submission check for pending cleanup:', err)
+    }
+  }
   
   // IMPORTANT: Check for null/undefined explicitly, not truthiness, because cleanup ID 0 is valid!
   if (cleanupId === null || cleanupId === undefined) {

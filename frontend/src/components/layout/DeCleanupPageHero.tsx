@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Leaf } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const bebasHeadingStyle = {
@@ -41,13 +40,6 @@ export function DeCleanupPageHero({
         )}
       >
         <div className={cn('max-w-3xl space-y-3', textBlock)}>
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand-green/40 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-green">
-            <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            DeCleanup Network
-          </div>
-          {pageTagline ? (
-            <p className="font-bebas text-xs uppercase tracking-[0.2em] text-muted-foreground sm:text-sm">{pageTagline}</p>
-          ) : null}
           <h1
             className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
             style={bebasHeadingStyle}

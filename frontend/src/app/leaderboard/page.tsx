@@ -63,7 +63,6 @@ export default function LeaderboardPage() {
       <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
         <DeCleanupPageHero
           programWord="LEADERBOARD"
-          pageTagline="Community standings"
           description="Top contributors by total DCU earned on the network."
           trailing={
             <Link href="/">

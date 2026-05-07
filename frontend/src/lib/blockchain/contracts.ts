@@ -725,6 +725,28 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
       return 0
     })
 
+    // Strict submit -> verify -> claim loop:
+    // if the latest submission is already claimed locally, do not surface any older
+    // verified cleanups as claimable. User must submit a newer cleanup first.
+    if (typeof window !== 'undefined' && sortedIds.length > 0) {
+      try {
+        const latestSubmissionId = sortedIds[0]
+        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+        const claimedIdsRaw = localStorage.getItem(claimedKey)
+        if (claimedIdsRaw) {
+          const claimedIds = JSON.parse(claimedIdsRaw) as string[]
+          if (claimedIds.includes(latestSubmissionId.toString())) {
+            console.log(
+              `[findLatestClaimableCleanup] Latest submission ${latestSubmissionId.toString()} already claimed — waiting for a new submission before next claim`
+            )
+            return null
+          }
+        }
+      } catch {
+        /* ignore malformed local storage */
+      }
+    }
+
     for (const submissionId of sortedIds) {
       try {
         const details = await getCleanupDetails(submissionId)

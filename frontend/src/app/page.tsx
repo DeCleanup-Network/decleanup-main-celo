@@ -1448,17 +1448,15 @@ function HomeContent() {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {[
                   {
-                    label: 'Impact level DCU (NFT)',
+                    label: 'Cleanups',
                     value: rewardStats.cleanupsDCU.toFixed(0),
                     showToken: true,
                   },
                   {
-                    label: 'Verified cleanups',
-                    value: String(rewardStats.verifiedCleanupsCount),
-                    showToken: false,
-                    suffix: ' on-chain',
+                    label: 'Referrals',
+                    value: rewardStats.referralsDCU.toFixed(0),
+                    showToken: true,
                   },
-                  { label: 'Referrals', value: rewardStats.referralsDCU.toFixed(0), showToken: true },
                   { label: 'Streak', value: rewardStats.streakDCU.toFixed(0), showToken: true },
                   {
                     label: 'Impact reports',

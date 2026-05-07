@@ -255,7 +255,6 @@ export default function HypercertsCertificationPage() {
           <DeCleanupPageHero
             align="center"
             programWord="HYPERCERTS"
-            pageTagline="Impact certification"
             description="Aggregate verified environmental cleanups into impact certificates. Prove your contribution to the network."
             trailing={
               <div className="flex w-full max-w-md flex-col items-stretch gap-3 sm:max-w-none sm:flex-row sm:justify-center">
@@ -301,7 +300,6 @@ export default function HypercertsCertificationPage() {
       <main className="mx-auto max-w-[1200px] space-y-10 px-4 py-8 sm:px-6 lg:space-y-12 lg:py-12">
         <DeCleanupPageHero
           programWord="HYPERCERTS"
-          pageTagline="Certification"
           description={
             <>
               Signed in as{' '}
