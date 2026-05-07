@@ -47,8 +47,14 @@ const celoSepoliaChainConfig = {
 
 /** Popup works reliably for desktop OAuth; full-page redirect can strand the modal if the return URL isn’t completed. */
 function authUxMode(): 'popup' | 'redirect' {
+  const forcedUxMode = process.env.NEXT_PUBLIC_WEB3AUTH_UX_MODE?.trim().toLowerCase()
+  if (forcedUxMode === 'popup' || forcedUxMode === 'redirect') {
+    return forcedUxMode
+  }
   if (typeof navigator === 'undefined') return 'popup'
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'redirect' : 'popup'
+  // Prefer popup by default; mobile redirect can stall on email verification return
+  // in some in-app browsers and strict mobile privacy settings.
+  return 'popup'
 }
 
 const web3AuthOptions: Web3AuthOptions = {

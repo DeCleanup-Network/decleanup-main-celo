@@ -3,7 +3,7 @@
  * Get the signed claim from POST /api/cdcu/claim-request first.
  */
 
-import { writeContract, waitForTransactionReceipt } from '@wagmi/core'
+import { getPublicClient, writeContract, waitForTransactionReceipt } from '@wagmi/core'
 import { getConfig } from './get-wagmi-config'
 import { CONTRACT_ADDRESSES } from './chain-constants'
 import type { Address } from 'viem'
@@ -48,10 +48,26 @@ export async function claimCdcu(signed: SignedClaimParams): Promise<{ hash: `0x$
     throw new Error('ClaimVault address not configured. Set NEXT_PUBLIC_CLAIMVAULT_ADDRESS.')
   }
 
-  const hash = await writeContract(getConfig(), {
+  const config = getConfig()
+
+  // Celo rejects txs with tip cap 0. Some embedded wallets may submit with zero tip unless
+  // gas fields are provided explicitly, so fetch network gas price and enforce a non-zero floor.
+  let gasPrice: bigint = 1n
+  try {
+    const publicClient = getPublicClient(config)
+    if (publicClient) {
+      const networkGasPrice = await publicClient.getGasPrice()
+      gasPrice = networkGasPrice > 0n ? networkGasPrice : 1n
+    }
+  } catch (error) {
+    console.warn('[claimCdcu] Failed to fetch gas price, using floor:', error)
+  }
+
+  const hash = await writeContract(config, {
     address: claimVaultAddress,
     abi: CLAIMVAULT_ABI,
     functionName: 'claim',
+    gasPrice,
     args: [
       signed.recipient,
       BigInt(signed.amount),
@@ -64,6 +80,6 @@ export async function claimCdcu(signed: SignedClaimParams): Promise<{ hash: `0x$
     ],
   })
 
-  const receipt = await waitForTransactionReceipt(getConfig(), { hash })
+  const receipt = await waitForTransactionReceipt(config, { hash })
   return { hash, receipt }
 }
