@@ -1115,9 +1115,13 @@ function HomeContent() {
                   Privacy Policy
                 </Link>
               </div>
-              <div className="font-sans flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest opacity-50">
-                <span>Built on</span>
-                <span className="font-bold">CELO</span>
+              <div className="font-sans flex items-center justify-center gap-2 text-xs uppercase tracking-widest opacity-40 sm:text-sm">
+                <span className="font-medium">Built on</span>
+                <img
+                  src="/celo-celo-logo.svg"
+                  alt="Celo"
+                  className="h-5 w-auto rounded-sm sm:h-6"
+                />
               </div>
             </div>
           </div>
@@ -1832,9 +1836,13 @@ function HomeContent() {
               </Link>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest opacity-30 select-none">
-              <span className="font-sans">Built on</span>
-              <span className="font-bold">CELO</span>
+            <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-widest opacity-40 select-none sm:text-sm">
+              <span className="font-sans font-medium">Built on</span>
+              <img
+                src="/celo-celo-logo.svg"
+                alt="Celo"
+                className="h-5 w-auto rounded-sm sm:h-6"
+              />
             </div>
           </div>
         </div>
