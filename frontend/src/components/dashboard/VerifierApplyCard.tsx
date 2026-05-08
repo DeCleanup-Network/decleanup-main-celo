@@ -112,7 +112,7 @@ export function VerifierApplyCard() {
 
       if (!response.ok) {
         const errorMessage =
-          [data?.error, data?.hint, data?.detail].filter(Boolean).join(' — ') ||
+          [data?.error, data?.hint, data?.detail].filter(Boolean).join(' | ') ||
           'Failed to submit application'
         if (response.status === 409 && /pending application/i.test(errorMessage)) {
           if (typeof window !== 'undefined') {
@@ -130,7 +130,7 @@ export function VerifierApplyCard() {
           setApplyError(null)
           return
         }
-        throw new Error(data.error || 'Failed to submit application')
+        throw new Error(errorMessage)
       }
       if (typeof window !== 'undefined') {
         localStorage.setItem('decleanup_last_verifier_applicant', applicantAddress.toLowerCase())

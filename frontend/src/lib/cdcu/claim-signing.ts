@@ -52,26 +52,41 @@ export const DCU_POINTS_PER_TRANCHE = 50
 
 /** 1e18 scale for multiplier (e.g. 1.1 = 11e17). */
 const MULTIPLIER_SCALE = 10n ** 18n
-/** Minimum multiplier at 50 points = 1.1 (each 50-DCU step mints the marginal slice under the progressive cap). */
-const MIN_MULTIPLIER_WEI = 11n * 10n ** 17n
-/** Maximum multiplier cap = 2.0. */
-const MAX_MULTIPLIER_WEI = 2n * 10n ** 18n
-/** One tier = +0.1 multiplier per 50 points above 50. */
-const POINTS_PER_TIER_WEI = 50n * 10n ** 18n
-const MULTIPLIER_PER_TIER_WEI = 1n * 10n ** 17n
+/** Campaign multiplier starts at 5x and halves every 3 months, floored to 1x. */
+const CAMPAIGN_START_MULTIPLIER_WEI = 5n * 10n ** 18n
+const CAMPAIGN_MIN_MULTIPLIER_WEI = 1n * 10n ** 18n
+const SECONDS_PER_3_MONTH_PERIOD = 90 * 24 * 60 * 60
+
+function getCampaignStartUnixSeconds(): number {
+  const raw = process.env.CDCU_MULTIPLIER_START_DATE?.trim()
+  if (!raw) return Date.parse('2026-05-01T00:00:00Z') / 1000
+  const parsed = Date.parse(raw)
+  if (Number.isNaN(parsed)) return Date.parse('2026-05-01T00:00:00Z') / 1000
+  return Math.floor(parsed / 1000)
+}
 
 /**
- * Progressive multiplier: the more DCU points (presence on the app), the higher the multiplier.
- * At 50 points: multiplier = 1.1. Each additional 50 points adds 0.1, capped at 2.0.
- * Examples: 50 → 1.1, 100 → 1.2, 150 → 1.3, … 500+ → 2.0.
+ * Time-based campaign multiplier.
+ * - First 3 months: 5x
+ * - Next 3 months: 2.5x
+ * - Then keeps reducing by half each 3-month period, with a floor at 1x.
  */
 export function getProgressiveMultiplierWei(totalPointsWei: bigint): bigint {
-  if (totalPointsWei < ELIGIBILITY_THRESHOLD_WEI) return MIN_MULTIPLIER_WEI
-  const aboveThreshold = totalPointsWei - ELIGIBILITY_THRESHOLD_WEI
-  const tiers = aboveThreshold / POINTS_PER_TIER_WEI
-  const bonusWei = tiers * MULTIPLIER_PER_TIER_WEI
-  const multiplierWei = MIN_MULTIPLIER_WEI + (bonusWei > MAX_MULTIPLIER_WEI - MIN_MULTIPLIER_WEI ? MAX_MULTIPLIER_WEI - MIN_MULTIPLIER_WEI : bonusWei)
-  return multiplierWei
+  if (totalPointsWei < ELIGIBILITY_THRESHOLD_WEI) return CAMPAIGN_START_MULTIPLIER_WEI
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const startSeconds = getCampaignStartUnixSeconds()
+  const elapsed = Math.max(0, nowSeconds - startSeconds)
+  const periods = Math.floor(elapsed / SECONDS_PER_3_MONTH_PERIOD)
+
+  let multiplier = CAMPAIGN_START_MULTIPLIER_WEI
+  for (let i = 0; i < periods; i++) {
+    multiplier = multiplier / 2n
+    if (multiplier <= CAMPAIGN_MIN_MULTIPLIER_WEI) {
+      multiplier = CAMPAIGN_MIN_MULTIPLIER_WEI
+      break
+    }
+  }
+  return multiplier < CAMPAIGN_MIN_MULTIPLIER_WEI ? CAMPAIGN_MIN_MULTIPLIER_WEI : multiplier
 }
 
 /**

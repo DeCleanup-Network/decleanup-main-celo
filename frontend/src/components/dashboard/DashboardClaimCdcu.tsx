@@ -50,6 +50,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null)
   const [eligibility, setEligibility] = useState<EligibilityData | null>(null)
   const [eligibilityLoading, setEligibilityLoading] = useState(true)
   const [showCdcuInfoModal, setShowCdcuInfoModal] = useState(false)
@@ -106,6 +107,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
     setLoading(true)
     setError(null)
     setSuccess(null)
+    setLastTxHash(null)
     try {
       const res = await fetch('/api/cdcu/claim-request', {
         method: 'POST',
@@ -139,7 +141,8 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
       const amountNum = Number(data.amount) / 1e18
       const amountFormatted =
         amountNum >= 100 || Number.isInteger(amountNum) ? amountNum.toFixed(0) : amountNum.toFixed(1)
-      setSuccess(`Claimed ${amountFormatted} $cDCU · Tx ${hash.slice(0, 10)}…`)
+      setSuccess(`Claimed ${amountFormatted} $cDCU`)
+      setLastTxHash(hash)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       const isUserCancel =
@@ -219,6 +222,11 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
 
           {eligibility.eligible ? (
             <>
+              {multDisplay != null ? (
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Multiplier of <span className="font-medium text-brand-green">{multDisplay}x</span> will be applied
+                </p>
+              ) : null}
               <Button
                 size="sm"
                 variant="outline"
@@ -270,6 +278,18 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
 
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       {success && <p className="mt-2 text-xs text-brand-green">{success}</p>}
+      {success && lastTxHash ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          <a
+            href={`${REQUIRED_BLOCK_EXPLORER_URL}/tx/${lastTxHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+          >
+            View transaction →
+          </a>
+        </p>
+      ) : null}
     </div>
 
     {showCdcuInfoModal ? (

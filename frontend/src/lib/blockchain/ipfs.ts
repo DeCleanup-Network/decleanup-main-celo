@@ -8,6 +8,33 @@ export interface IPFSUploadResult {
   url: string
 }
 
+type IpfsDiagnostic = {
+  pinataEnv?: string
+  pinataReachable?: 'unknown' | 'ok' | 'failed'
+  pinataTestStatus?: number | null
+  pinataTestError?: string | null
+}
+
+async function getIpfsDiagnosticHint(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/ipfs/upload', { method: 'GET' })
+    if (!res.ok) return null
+    const data = (await res.json().catch(() => ({}))) as IpfsDiagnostic
+    if (data.pinataEnv === 'missing') {
+      return 'Server is missing PINATA_JWT. Set it in server environment and restart the app process.'
+    }
+    if (data.pinataReachable === 'failed') {
+      return `Server cannot reach Pinata (${data.pinataTestError || 'network error'}). Check VPS outbound HTTPS and DNS.`
+    }
+    if (typeof data.pinataTestStatus === 'number' && data.pinataTestStatus !== 200) {
+      return `Pinata rejected credentials (status ${data.pinataTestStatus}). Regenerate PINATA_JWT and update server env.`
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Upload file to IPFS using Pinata
  * @param file File to upload
@@ -47,7 +74,21 @@ export async function uploadToIPFS(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error('IPFS upload error:', errorData)
-      throw new Error(`Failed to upload to IPFS: ${errorData.error || response.statusText || 'Network error'}`)
+      const baseMessage = errorData.error || response.statusText || 'Network error'
+      const baseString = String(baseMessage)
+      const looksLikePinataAuthIssue =
+        response.status === 502 ||
+        /pinata rejected|invalid api credentials|pinata|credentials/i.test(baseString)
+
+      if (looksLikePinataAuthIssue) {
+        const diagnostic = await getIpfsDiagnosticHint()
+        throw new Error(
+          `Failed to upload to IPFS: ${baseString}` +
+            (diagnostic ? ` ${diagnostic}` : ' Open GET /api/ipfs/upload for diagnostic.')
+        )
+      }
+
+      throw new Error(`Failed to upload to IPFS: ${baseString}`)
     }
 
     const data = await response.json()

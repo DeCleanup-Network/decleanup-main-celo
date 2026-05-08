@@ -63,7 +63,7 @@ function cleanupFailureHints(errorMessage: string): string {
   if (isIpfs) {
     return (
       `Please check:\n` +
-      `- Pinata credentials on the server (PINATA_JWT) — open GET /api/ipfs/upload for a diagnostic\n` +
+      `- Pinata credentials on the server (PINATA_JWT) - open GET /api/ipfs/upload for a diagnostic\n` +
       `- Your connection, then try again\n` +
       `- Photo size and format (JPEG / PNG / HEIC)`
     )
