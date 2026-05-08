@@ -7,6 +7,7 @@ import { CONTRACT_ADDRESSES, REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchai
 import { GOVERNANCE_MIN_CDCU } from '@/config/cdcu'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { formatEther } from 'viem'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 
 const ELIGIBILITY_THRESHOLD = 50
 
@@ -45,6 +46,7 @@ interface DashboardClaimCdcuProps {
 const TOKENOMICS_URL = 'https://decleanup.net/tokenomics'
 
 export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
+  const { client: gaslessClient } = useSmartAccountClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -125,7 +127,10 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
         r: data.r as `0x${string}`,
         s: data.s as `0x${string}`,
       }
-      const { hash } = await claimCdcu(signed)
+      const { hash } = await claimCdcu(signed, {
+        gaslessClient: gaslessClient as { sendTransaction: (params: { to: `0x${string}`; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> } | undefined,
+        claimerAddress: address as `0x${string}`,
+      })
       await fetch('/api/cdcu/record-issued', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

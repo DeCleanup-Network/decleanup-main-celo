@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { BackButton } from '@/components/layout/BackButton'
+import { WEB3AUTH_ACCOUNT_DASHBOARD_URL, WEB3AUTH_DEVELOPER_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
 export default function UserGuidePage() {
   return (
@@ -47,10 +48,33 @@ export default function UserGuidePage() {
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">3) Import embedded wallet later (if needed)</h2>
             <ul className="list-disc space-y-1 pl-5">
               <li>Log in with the same social account used in DeCleanup.</li>
-              <li>Open wallet/account settings and export/recovery options only from trusted official flows.</li>
+              <li>
+                Open{' '}
+                <a
+                  href={WEB3AUTH_ACCOUNT_DASHBOARD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-green underline"
+                >
+                  Manage Wallet (Web3Auth account dashboard)
+                </a>{' '}
+                to access wallet/account settings and official export/recovery flows.
+              </li>
               <li>Import into external wallet app only if you understand key custody risks.</li>
               <li>After import, keep small CELO balance for gas if paymaster sponsorship is unavailable.</li>
             </ul>
+            <p className="mt-2">
+              If login services are unavailable, check your project/operator status in{' '}
+              <a
+                href={WEB3AUTH_DEVELOPER_DASHBOARD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-green underline"
+              >
+                Web3Auth dashboard
+              </a>
+              .
+            </p>
           </section>
 
           <section className="mb-5">

@@ -7,6 +7,7 @@ import { useAccount } from 'wagmi'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 
 const WalletConnect = dynamic(
   () =>
@@ -30,6 +31,7 @@ type CheckResponse = {
 
 export default function AirdropPage() {
   const { address, isConnected } = useAccount()
+  const { client: gaslessClient } = useSmartAccountClient()
   const [inputAddress, setInputAddress] = useState('')
   const [checkedAddress, setCheckedAddress] = useState('')
   const [checkLoading, setCheckLoading] = useState(false)
@@ -94,16 +96,22 @@ export default function AirdropPage() {
         return
       }
 
-      await claimCdcu({
-        recipient: signed.recipient,
-        amount: signed.amount,
-        category: signed.category,
-        nonce: signed.nonce,
-        expiry: signed.expiry,
-        v: signed.v,
-        r: signed.r,
-        s: signed.s,
-      })
+      await claimCdcu(
+        {
+          recipient: signed.recipient,
+          amount: signed.amount,
+          category: signed.category,
+          nonce: signed.nonce,
+          expiry: signed.expiry,
+          v: signed.v,
+          r: signed.r,
+          s: signed.s,
+        },
+        {
+          gaslessClient: gaslessClient as { sendTransaction: (params: { to: `0x${string}`; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> } | undefined,
+          claimerAddress: address as `0x${string}` | undefined,
+        }
+      )
 
       await fetch('/api/airdrop/record-issued', {
         method: 'POST',
