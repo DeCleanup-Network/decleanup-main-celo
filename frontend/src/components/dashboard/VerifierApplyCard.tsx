@@ -21,6 +21,24 @@ const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.require
 
 const TELEGRAM_APPEAL_URL = 'https://t.me/decentralizedcleanup'
 
+/** Merge applications loaded for EOA + smart account (+ last applicant hint). */
+function pickApplicationForDisplay(apps: VerifierApplication[]): VerifierApplication | null {
+  if (!apps.length) return null
+  const sorted = [...apps].sort((a, b) => b.appliedAt - a.appliedAt)
+  const newest = sorted[0]
+
+  const rejects = sorted.filter((a) => a.status === 'REJECTED')
+  if (!rejects.length) return newest
+
+  const newestRejected = rejects.reduce((a, b) => (a.appliedAt >= b.appliedAt ? a : b))
+  const hasNewerQueue = sorted.some(
+    (a) =>
+      (a.status === 'PENDING' || a.status === 'PENDING_ONCHAIN') && a.appliedAt > newestRejected.appliedAt
+  )
+  if (hasNewerQueue) return newest
+  return newestRejected.appliedAt > newest.appliedAt ? newestRejected : newest
+}
+
 export function VerifierApplyCard() {
   const { address } = useAccount()
   const { submissionOwnerAddress } = useSmartAccountClient()
@@ -47,38 +65,41 @@ export function VerifierApplyCard() {
       }
       const targets = Array.from(wallets)
 
+      type FetchOutcome = { app: VerifierApplication | null; inconclusive: boolean }
       const settled = await Promise.allSettled(
-        targets.map(async (candidate) => {
-          const res = await fetch(`/api/verifier/applications?address=${encodeURIComponent(candidate)}`, {
-            cache: 'no-store',
-          })
-          const data = await res.json().catch(() => ({}))
-          if (!res.ok || !data?.success) return null
-          if (data.verifierApplicationsUnavailable) return null
-          return (data.application || null) as VerifierApplication | null
+        targets.map(async (candidate): Promise<FetchOutcome> => {
+          try {
+            const res = await fetch(`/api/verifier/applications?address=${encodeURIComponent(candidate)}`, {
+              cache: 'no-store',
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok || !data?.success) return { app: null, inconclusive: true }
+            if (data.verifierApplicationsUnavailable) return { app: null, inconclusive: true }
+            return { app: (data.application || null) as VerifierApplication | null, inconclusive: false }
+          } catch {
+            return { app: null, inconclusive: true }
+          }
         })
       )
 
-      const rows: VerifierApplication[] = []
+      const outcomes: FetchOutcome[] = []
       for (const s of settled) {
-        if (s.status === 'fulfilled' && s.value) rows.push(s.value)
+        if (s.status === 'fulfilled') outcomes.push(s.value)
+        else outcomes.push({ app: null, inconclusive: true })
       }
 
-      const pickLatest = (apps: VerifierApplication[]): VerifierApplication | null => {
-        if (!apps.length) return null
-        const terminal = (st: string) => st === 'REJECTED' || st === 'APPROVED'
-        return apps.reduce((best, cur) => {
-          if (cur.appliedAt > best.appliedAt) return cur
-          if (cur.appliedAt < best.appliedAt) return best
-          if (terminal(cur.status) && !terminal(best.status)) return cur
-          if (terminal(best.status) && !terminal(cur.status)) return best
-          return best
-        })
+      const rows: VerifierApplication[] = []
+      for (const o of outcomes) {
+        if (o.app) rows.push(o.app)
       }
 
-      const next = pickLatest(rows)
+      const next = pickApplicationForDisplay(rows)
+      const allTargetsConclusiveEmpty =
+        outcomes.length > 0 && outcomes.every((o) => !o.inconclusive && o.app === null)
+
       setLatestApp((prev) => {
         if (next) return next
+        if (allTargetsConclusiveEmpty) return null
         if (prev?.id === 'pending-local') return prev
         return null
       })
@@ -88,6 +109,18 @@ export function VerifierApplyCard() {
       setLoadingApplication(false)
     }
   }, [address, applicantAddress])
+
+  const resetVerifierApplicationClientCache = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('decleanup_last_verifier_applicant')
+      }
+    } catch {
+      /* ignore */
+    }
+    setLatestApp(null)
+    void loadLatestApplication()
+  }, [loadLatestApplication])
 
   useEffect(() => {
     void loadLatestApplication()
@@ -405,14 +438,64 @@ export function VerifierApplyCard() {
             <p className="text-sm text-red-400">Reason: {latestApp.notes}</p>
           )}
           {effectiveStatus === 'PENDING' && (
-            <p className="text-sm text-muted-foreground">
-              Your application was received. An admin will review it; this page updates automatically.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Your application was received. An admin will review it; this page updates automatically.
+              </p>
+              <button
+                type="button"
+                onClick={resetVerifierApplicationClientCache}
+                className="text-xs text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+              >
+                Sync status from server (clears local applicant hint if stuck)
+              </button>
+            </div>
           )}
           {effectiveStatus === 'PENDING_ONCHAIN' && (
-            <p className="text-sm text-muted-foreground">
-              Waiting for the admin approval transaction to confirm on-chain…
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Waiting for the admin approval transaction to confirm on-chain…
+              </p>
+              <button
+                type="button"
+                onClick={resetVerifierApplicationClientCache}
+                className="text-xs text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+              >
+                Sync status from server
+              </button>
+            </div>
+          )}
+          {effectiveStatus === 'REJECTED' && (
+            <div className="space-y-3 border-t border-border pt-3">
+              <p className="text-xs text-muted-foreground">
+                You can submit a new application if you still meet the requirements. If this card still shows the wrong
+                state after a decision, sync below (your last rejection is stored on the server by wallet address).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
+                  disabled={isApplying || !eligibility?.eligible}
+                  onClick={() => void handleApply()}
+                >
+                  {isApplying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                      Submitting…
+                    </>
+                  ) : (
+                    'Apply again'
+                  )}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={resetVerifierApplicationClientCache}>
+                  Sync status
+                </Button>
+              </div>
+              {!eligibility?.eligible && (
+                <p className="text-xs text-muted-foreground">Apply again unlocks when eligibility requirements are met.</p>
+              )}
+            </div>
           )}
         </div>
       </div>
