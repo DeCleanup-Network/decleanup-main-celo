@@ -9,7 +9,7 @@ import Link from 'next/link'
 import {
     isVerifier,
     getCleanupCounter,
-    getCleanupDetails,
+    getCleanupDetailsFresh,
     verifyCleanup,
     rejectCleanup,
     grantVerifierRole
@@ -268,7 +268,7 @@ export default function VerifierPage() {
             for (let i = countNum - 1; i >= 0; i--) {
                 const id = BigInt(i)
                 try {
-                    const details = await getCleanupDetails(id)
+                    const details = await getCleanupDetailsFresh(id)
                     // Only add if submission exists (has non-zero user address)
                     if (details.user && details.user !== '0x0000000000000000000000000000000000000000') {
                         submissions.push({
@@ -529,6 +529,21 @@ export default function VerifierPage() {
             console.log('Starting verification for submission:', id.toString())
             const txHash = await verifyCleanup(id, 1)
             console.log('Verification successful, transaction hash:', txHash)
+            if (address) {
+                setCleanups((prev) =>
+                    prev.map((c) =>
+                        c.id === id
+                            ? {
+                                  ...c,
+                                  verified: true,
+                                  rejected: false,
+                                  level: 1,
+                                  approver: address,
+                              }
+                            : c
+                    )
+                )
+            }
             void fetchCleanups()
             
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
@@ -578,6 +593,11 @@ export default function VerifierPage() {
             console.log('Starting rejection for submission:', id.toString())
             const txHash = await rejectCleanup(id)
             console.log('Rejection successful, transaction hash:', txHash)
+            setCleanups((prev) =>
+                prev.map((c) =>
+                    c.id === id ? { ...c, verified: false, rejected: true } : c
+                )
+            )
             void fetchCleanups()
 
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`

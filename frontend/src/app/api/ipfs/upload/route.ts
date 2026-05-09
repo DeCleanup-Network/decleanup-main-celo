@@ -73,9 +73,10 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-wallet-address') ||
       request.headers.get('x-address') ||
       null
+    // Two parallel photo POSTs per submission + retries burn budget fast at 10/min.
     const rateLimit = checkInMemoryRateLimit({
       key: getRateLimitKey(request, walletAddress),
-      maxRequests: 10,
+      maxRequests: 30,
       windowMs: 60_000,
     })
     if (!rateLimit.ok) {

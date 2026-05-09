@@ -48,19 +48,37 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fetch applications and stats
-    const [applications, stats] = await Promise.all([
-      getAllApplications(),
-      getApplicationStats(),
-    ])
-
-    console.log(`📊 Fetched ${applications.length} verifier applications`)
+    // Fetch applications and stats (degrade gracefully — same as ?address= branch)
+    let applications: Awaited<ReturnType<typeof getAllApplications>> = []
+    let stats: Awaited<ReturnType<typeof getApplicationStats>> = {
+      total: 0,
+      pending: 0,
+      approvalPendingOnchain: 0,
+      approved: 0,
+      rejected: 0,
+    }
+    let verifierApplicationsUnavailable = false
+    try {
+      const [apps, st] = await Promise.all([getAllApplications(), getApplicationStats()])
+      applications = apps
+      stats = st
+      console.log(`📊 Fetched ${applications.length} verifier applications`)
+    } catch (err) {
+      console.error('GET /api/verifier/applications (list):', err)
+      verifierApplicationsUnavailable = true
+      try {
+        stats = await getApplicationStats()
+      } catch {
+        /* keep zeros */
+      }
+    }
 
     return NextResponse.json(
       {
         success: true,
         applications,
         stats,
+        ...(verifierApplicationsUnavailable ? { verifierApplicationsUnavailable: true } : {}),
       },
       {
         headers: {

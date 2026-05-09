@@ -24,6 +24,14 @@ function isRlsError(e: unknown): boolean {
   return msg.toLowerCase().includes('row-level security')
 }
 
+function isMissingSupabaseServerCreds(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e)
+  return (
+    msg.includes('Missing Supabase server credentials') ||
+    msg.includes('SUPABASE_SERVICE_ROLE_KEY')
+  )
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -51,6 +59,14 @@ export async function GET(request: NextRequest) {
         success: true,
         requests: [],
         warning: 'hypercert_requests table not migrated yet',
+      })
+    }
+    if (isRlsError(e) || isMissingSupabaseServerCreds(e)) {
+      return NextResponse.json({
+        success: true,
+        requests: [],
+        warning:
+          'Hypercert requests DB unavailable (missing SUPABASE_SERVICE_ROLE_KEY or RLS). List is empty until server env is fixed.',
       })
     }
     return NextResponse.json(
