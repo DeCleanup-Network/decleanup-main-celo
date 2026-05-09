@@ -354,24 +354,18 @@ export default function VerifierPage() {
       console.log('Cleanup counter:', counter.toString())
       const cleanupList: CleanupItem[] = []
 
-      // Load all cleanups (from 1 to counter-1, since counter is the next ID to use)
-      // If counter is 0, no cleanups exist yet
-      // If counter is 1, no cleanups exist (counter points to next ID: 1)
-      // If counter is 2, cleanup ID 1 exists (counter points to next ID: 2)
+      // submissionCount is the next id; valid submission ids are 0 .. submissionCount - 1
       const totalCleanups = Number(counter)
-      const maxCleanupId = totalCleanups > 0 ? totalCleanups - 1 : 0
-      console.log(`Counter: ${totalCleanups}, Loading cleanups 1 to ${maxCleanupId}...`)
-      
-      // Always try to load a wider range to catch any cleanups that might exist
-      // Start from 1, go up to counter-1, but also try a few more in case counter is off
-      const startId = 1
-      // Load up to counter-1, but also try a few more IDs in case counter is slightly off
-      // Use counter-1 as primary, but extend to at least 20 to catch any missed cleanups
-      const endId = Math.max(maxCleanupId, 20) // Try at least up to ID 20, or counter-1 if higher
-      
-      console.log(`Attempting to load cleanups from ${startId} to ${endId}...`)
-      
-      for (let i = startId; i <= endId; i++) {
+      console.log(`Counter: ${totalCleanups}`)
+
+      if (totalCleanups > 0) {
+        const maxCleanupId = totalCleanups - 1
+        const startId = 0
+        const endId = Math.max(maxCleanupId, 20)
+
+        console.log(`Loading cleanups from id ${startId} to ${endId} (on-chain max id ${maxCleanupId})`)
+
+        for (let i = startId; i <= endId; i++) {
         try {
           const details = await getCleanupDetails(BigInt(i))
           
@@ -442,6 +436,7 @@ export default function VerifierPage() {
           // For other errors (RPC issues), log but continue
           console.warn(`Unexpected error loading cleanup ${i}:`, errorMessage)
           // Don't break on RPC errors, continue trying
+        }
         }
       }
 

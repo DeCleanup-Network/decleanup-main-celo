@@ -5,24 +5,45 @@
 
 import { Address } from 'viem'
 
+function uniqueCleanupIdentityKeys(...userAddresses: (Address | undefined | null)[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const a of userAddresses) {
+    if (!a) continue
+    const low = String(a).toLowerCase()
+    if (seen.has(low)) continue
+    seen.add(low)
+    out.push(low)
+  }
+  return out
+}
+
+/**
+ * Clear pending cleanup keys for one or more wallet identities (EOA + smart account, etc.).
+ * Also removes legacy global keys once.
+ */
+export function clearPendingCleanupDataForIdentities(
+  ...userAddresses: (Address | undefined | null)[]
+): void {
+  if (typeof window === 'undefined') return
+
+  const unique = uniqueCleanupIdentityKeys(...userAddresses)
+  for (const addressLower of unique) {
+    localStorage.removeItem(`pending_cleanup_id_${addressLower}`)
+    localStorage.removeItem(`pending_cleanup_location_${addressLower}`)
+  }
+
+  localStorage.removeItem('pending_cleanup_id')
+  localStorage.removeItem('pending_cleanup_location')
+
+  console.log('Cleared pending cleanup data for:', unique.length ? unique.join(', ') : '(none)')
+}
+
 /**
  * Clear all pending cleanup data for a specific wallet address
  */
 export function clearPendingCleanupData(userAddress: Address): void {
-  if (typeof window === 'undefined') return
-
-  const addressLower = userAddress.toLowerCase()
-  const pendingKey = `pending_cleanup_id_${addressLower}`
-  const locationKey = `pending_cleanup_location_${addressLower}`
-
-  localStorage.removeItem(pendingKey)
-  localStorage.removeItem(locationKey)
-
-  // Also clear old global keys for backward compatibility
-  localStorage.removeItem('pending_cleanup_id')
-  localStorage.removeItem('pending_cleanup_location')
-
-  console.log('Cleared pending cleanup data for:', userAddress)
+  clearPendingCleanupDataForIdentities(userAddress)
 }
 
 /**
@@ -67,23 +88,16 @@ export function getPendingCleanupId(userAddress: Address): string | null {
 }
 
 /**
- * Reset submission counting for a wallet - clears all pending cleanup data
- * This allows the wallet to submit again even if there's a pending cleanup
- * Use with caution - only if you're sure the cleanup is glitched or doesn't exist
+ * Reset submission counting for one or more identities — clears all pending cleanup data.
+ * Use with caution - only if you're sure the cleanup is glitched or doesn't exist.
  */
-export function resetSubmissionCounting(userAddress: Address): void {
+export function resetSubmissionCounting(...userAddresses: (Address | undefined | null)[]): void {
   if (typeof window === 'undefined') return
 
-  const addressLower = userAddress.toLowerCase()
-  
-  // Clear all pending cleanup data
-  clearPendingCleanupData(userAddress)
-  
-  // Also clear any last location data
+  clearPendingCleanupDataForIdentities(...userAddresses)
   localStorage.removeItem(`last_cleanup_location`)
-  localStorage.removeItem(`pending_cleanup_location_${addressLower}`)
-  
-  console.log('Submission counting reset for:', userAddress)
+
+  const unique = uniqueCleanupIdentityKeys(...userAddresses)
+  console.log('Submission counting reset for:', unique.length ? unique.join(', ') : '(none)')
   console.log('User can now submit a new cleanup')
 }
-

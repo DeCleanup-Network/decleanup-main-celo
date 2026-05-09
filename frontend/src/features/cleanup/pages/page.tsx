@@ -14,7 +14,7 @@ import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
 import { isImpactClaimOutstanding, markCleanupAsClaimed } from '@/lib/blockchain/verification'
-import { clearPendingCleanupData, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
+import { clearPendingCleanupDataForIdentities, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
 import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
@@ -1621,6 +1621,9 @@ function CleanupContent() {
       const handleClearAndResubmit = async () => {
         if (!address) return
 
+        const clearPendingKeys = () =>
+          clearPendingCleanupDataForIdentities(address, submissionOwnerAddress ?? undefined)
+
         setClearingPending(true)
         try {
           // First, check if cleanup actually exists onchain
@@ -1630,7 +1633,7 @@ function CleanupContent() {
 
             // If cleanup exists and is verified, just clear localStorage
             if (status.verified) {
-              clearPendingCleanupData(address)
+              clearPendingKeys()
               setPendingCleanup(null)
               setClearingPending(false)
               setAlertModal({
@@ -1649,7 +1652,7 @@ function CleanupContent() {
                 `Note: The old cleanup will still be in the verifier dashboard.`,
               onConfirm: () => {
                 setConfirmModal(null)
-                clearPendingCleanupData(address)
+                clearPendingKeys()
                 setPendingCleanup(null)
                 setClearingPending(false)
                 setAlertModal({
@@ -1666,7 +1669,7 @@ function CleanupContent() {
           }
 
           // Clear localStorage
-          clearPendingCleanupData(address)
+          clearPendingKeys()
           setPendingCleanup(null)
           setAlertModal({
             message: 'Pending cleanup data cleared! You can now submit a new cleanup.',
@@ -1721,7 +1724,7 @@ function CleanupContent() {
                         confirmLabel: 'Reset',
                         onConfirm: () => {
                           setConfirmModal(null)
-                          resetSubmissionCounting(address)
+                          resetSubmissionCounting(address, submissionOwnerAddress ?? undefined)
                           setPendingCleanup(null)
                           setAlertModal({
                             message: 'Submission counting reset! You can now submit a new cleanup.',
