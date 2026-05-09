@@ -38,8 +38,16 @@ export function VerifierApplyCard() {
     if (!address && !applicantAddress) return
     setLoadingApplication(true)
     try {
-      const targets = [address, applicantAddress].filter(Boolean) as string[]
-      const rows = await Promise.all(
+      const wallets = new Set<string>()
+      if (address) wallets.add(address.toLowerCase())
+      if (applicantAddress) wallets.add(applicantAddress.toLowerCase())
+      if (typeof window !== 'undefined') {
+        const last = localStorage.getItem('decleanup_last_verifier_applicant')?.trim().toLowerCase()
+        if (last && /^0x[a-f0-9]{40}$/i.test(last)) wallets.add(last)
+      }
+      const targets = Array.from(wallets)
+
+      const settled = await Promise.allSettled(
         targets.map(async (candidate) => {
           const res = await fetch(`/api/verifier/applications?address=${encodeURIComponent(candidate)}`, {
             cache: 'no-store',
@@ -50,10 +58,25 @@ export function VerifierApplyCard() {
           return (data.application || null) as VerifierApplication | null
         })
       )
-      const mine = rows
-        .filter((row): row is VerifierApplication => !!row)
-        .sort((a, b) => b.appliedAt - a.appliedAt)
-      const next = mine[0] || null
+
+      const rows: VerifierApplication[] = []
+      for (const s of settled) {
+        if (s.status === 'fulfilled' && s.value) rows.push(s.value)
+      }
+
+      const pickLatest = (apps: VerifierApplication[]): VerifierApplication | null => {
+        if (!apps.length) return null
+        const terminal = (st: string) => st === 'REJECTED' || st === 'APPROVED'
+        return apps.reduce((best, cur) => {
+          if (cur.appliedAt > best.appliedAt) return cur
+          if (cur.appliedAt < best.appliedAt) return best
+          if (terminal(cur.status) && !terminal(best.status)) return cur
+          if (terminal(best.status) && !terminal(cur.status)) return best
+          return best
+        })
+      }
+
+      const next = pickLatest(rows)
       setLatestApp((prev) => {
         if (next) return next
         if (prev?.id === 'pending-local') return prev
@@ -73,14 +96,22 @@ export function VerifierApplyCard() {
   useEffect(() => {
     let cancelled = false
     async function checkVerifierRole() {
-      if (!applicantAddress) {
+      const candidates = [applicantAddress, address].filter(Boolean) as Address[]
+      const unique = Array.from(new Set(candidates.map((a) => a.toLowerCase()))) as Address[]
+      if (!unique.length) {
         setIsVerifierNow(false)
         setCheckingVerifierRole(false)
         return
       }
       try {
-        const status = await isVerifierOnChain(applicantAddress)
-        if (!cancelled) setIsVerifierNow(status)
+        let any = false
+        for (const w of unique) {
+          if (await isVerifierOnChain(w)) {
+            any = true
+            break
+          }
+        }
+        if (!cancelled) setIsVerifierNow(any)
       } catch {
         if (!cancelled) setIsVerifierNow(false)
       } finally {
@@ -91,15 +122,23 @@ export function VerifierApplyCard() {
     return () => {
       cancelled = true
     }
-  }, [applicantAddress, latestApp?.status])
+  }, [applicantAddress, address, latestApp?.status])
 
   useEffect(() => {
     if (!latestApp?.status) return
     if (latestApp.status !== 'PENDING' && latestApp.status !== 'PENDING_ONCHAIN') return
-    const id = window.setInterval(() => {
+    const tick = () => {
       void loadLatestApplication()
-    }, 10_000)
-    return () => window.clearInterval(id)
+    }
+    const id = window.setInterval(tick, 5_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [latestApp?.id, latestApp?.status, loadLatestApplication])
 
   useEffect(() => {
