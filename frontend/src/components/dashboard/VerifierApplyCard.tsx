@@ -12,11 +12,14 @@ import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { Shield, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
+import { AlertModal } from '@/components/ui/alert-modal'
 import type { VerifierApplication } from '@/lib/verifier/types'
 import type { Address } from 'viem'
 import { isVerifier as isVerifierOnChain } from '@/lib/blockchain/contracts'
 
 const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
+
+const TELEGRAM_APPEAL_URL = 'https://t.me/decentralizedcleanup'
 
 export function VerifierApplyCard() {
   const { address } = useAccount()
@@ -29,6 +32,7 @@ export function VerifierApplyCard() {
   const [loadingApplication, setLoadingApplication] = useState(false)
   const [isVerifierNow, setIsVerifierNow] = useState(false)
   const [checkingVerifierRole, setCheckingVerifierRole] = useState(true)
+  const [verifierOutcomeModal, setVerifierOutcomeModal] = useState<'promoted' | 'rejected' | null>(null)
 
   const loadLatestApplication = useCallback(async () => {
     if (!address && !applicantAddress) return
@@ -52,7 +56,8 @@ export function VerifierApplyCard() {
       const next = mine[0] || null
       setLatestApp((prev) => {
         if (next) return next
-        return prev
+        if (prev?.id === 'pending-local') return prev
+        return null
       })
     } catch {
       // Keep UI functional even if status fetch fails.
@@ -96,6 +101,59 @@ export function VerifierApplyCard() {
     }, 10_000)
     return () => window.clearInterval(id)
   }, [latestApp?.id, latestApp?.status, loadLatestApplication])
+
+  useEffect(() => {
+    if (!applicantAddress || checkingVerifierRole) return
+    if (latestApp?.status !== 'REJECTED') return
+    const addr = applicantAddress.toLowerCase()
+    const key = `decleanup_verifier_rejected_dismissed_v1_${addr}_${latestApp.id}`
+    try {
+      if (localStorage.getItem(key) === '1') return
+    } catch {
+      return
+    }
+    setVerifierOutcomeModal((m) => (m ? m : 'rejected'))
+  }, [applicantAddress, checkingVerifierRole, latestApp?.id, latestApp?.status])
+
+  useEffect(() => {
+    if (!applicantAddress || checkingVerifierRole) return
+    if (latestApp?.status === 'REJECTED') return
+    if ((latestApp?.status === 'PENDING' || latestApp?.status === 'PENDING_ONCHAIN') && !isVerifierNow) return
+
+    const addr = applicantAddress.toLowerCase()
+    const id = latestApp?.status === 'APPROVED' && latestApp?.id ? latestApp.id : 'role'
+    const key = `decleanup_verifier_promoted_dismissed_v1_${addr}_${id}`
+    try {
+      if (localStorage.getItem(key) === '1') return
+    } catch {
+      return
+    }
+
+    if (latestApp?.status === 'APPROVED' || isVerifierNow) {
+      setVerifierOutcomeModal((m) => (m ? m : 'promoted'))
+    }
+  }, [applicantAddress, checkingVerifierRole, isVerifierNow, latestApp?.id, latestApp?.status])
+
+  const dismissVerifierOutcomeModal = () => {
+    if (!applicantAddress) {
+      setVerifierOutcomeModal(null)
+      return
+    }
+    const addr = applicantAddress.toLowerCase()
+    try {
+      if (verifierOutcomeModal === 'rejected' && latestApp?.id) {
+        localStorage.setItem(`decleanup_verifier_rejected_dismissed_v1_${addr}_${latestApp.id}`, '1')
+      }
+      if (verifierOutcomeModal === 'promoted') {
+        const id = latestApp?.status === 'APPROVED' && latestApp?.id ? latestApp.id : 'role'
+        localStorage.setItem(`decleanup_verifier_promoted_dismissed_v1_${addr}_${id}`, '1')
+      }
+    } catch {
+      /* ignore */
+    }
+    setVerifierOutcomeModal(null)
+    void loadLatestApplication()
+  }
 
   const handleApply = async () => {
     if (!eligibility?.eligible || !applicantAddress) return
@@ -149,8 +207,50 @@ export function VerifierApplyCard() {
 
   if (!address) return null
 
+  const outcomeModal = verifierOutcomeModal ? (
+    <AlertModal
+      isOpen
+      onClose={dismissVerifierOutcomeModal}
+      closeOnBackdropClick={false}
+      variant={verifierOutcomeModal === 'promoted' ? 'success' : 'info'}
+      title={
+        verifierOutcomeModal === 'promoted'
+          ? 'Congratulations'
+          : 'Verifier application update'
+      }
+      message={
+        verifierOutcomeModal === 'promoted' ? (
+          <p className="text-sm text-muted-foreground">
+            You have been promoted to verifier. Open the Verifier cabinet from the home page when you are ready to review
+            submissions.
+          </p>
+        ) : (
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Sorry, your verifier application was rejected as we found your statistics don&apos;t make you eligible quite
+              yet.
+            </p>
+            <p>
+              If you would like to appeal, send your request on Telegram:{' '}
+              <a
+                href={TELEGRAM_APPEAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-brand-green underline underline-offset-2"
+              >
+                {TELEGRAM_APPEAL_URL}
+              </a>
+            </p>
+          </div>
+        )
+      }
+    />
+  ) : null
+
   if (isLoading) {
     return (
+      <>
+        {outcomeModal}
       <div className="rounded-2xl border border-border bg-card p-6">
         <SectionHeading
           icon={Shield}
@@ -160,29 +260,38 @@ export function VerifierApplyCard() {
         </SectionHeading>
         <p className="text-sm text-muted-foreground">Loading eligibility...</p>
       </div>
+      </>
     )
   }
 
   if (error) {
     return (
+      <>
+        {outcomeModal}
       <div className="rounded-2xl border border-border bg-card p-6">
         <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
         <p className="text-sm text-red-400">{error}</p>
       </div>
+      </>
     )
   }
 
   if (loadingApplication && !latestApp) {
     return (
+      <>
+        {outcomeModal}
       <div className="rounded-2xl border border-border bg-card p-6">
         <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
         <p className="text-sm text-muted-foreground">Loading application status...</p>
       </div>
+      </>
     )
   }
 
   if (!checkingVerifierRole && isVerifierNow && !latestApp) {
     return (
+      <>
+        {outcomeModal}
       <div className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-6">
         <SectionHeading icon={Shield}>VERIFIER STATUS</SectionHeading>
         <p className="text-sm text-green-400">You are now a verifier.</p>
@@ -194,6 +303,7 @@ export function VerifierApplyCard() {
           <li>• The team may audit decisions and penalize misuse.</li>
         </ul>
       </div>
+      </>
     )
   }
 
@@ -201,6 +311,8 @@ export function VerifierApplyCard() {
     const showApprovedState = latestApp.status === 'APPROVED' || isVerifierNow
     const effectiveStatus = showApprovedState ? 'APPROVED' : latestApp.status
     return (
+      <>
+        {outcomeModal}
       <div className="rounded-2xl border border-border bg-card p-6">
         <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
 
@@ -265,6 +377,7 @@ export function VerifierApplyCard() {
           )}
         </div>
       </div>
+      </>
     )
   }
 
@@ -276,6 +389,8 @@ export function VerifierApplyCard() {
     : 0
   if (!eligibility?.eligible) {
     return (
+      <>
+        {outcomeModal}
       <div className="rounded-2xl border border-border bg-card p-6">
         <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
 
@@ -319,10 +434,13 @@ export function VerifierApplyCard() {
         <p className="mt-2 text-xs text-muted-foreground">Complete the above to unlock.</p>
         {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
       </div>
+      </>
     )
   }
 
   return (
+    <>
+      {outcomeModal}
     <div className="min-w-0 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6">
       <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
 
@@ -362,5 +480,6 @@ export function VerifierApplyCard() {
         Application will be reviewed by admins
       </p>
     </div>
+    </>
   )
 }

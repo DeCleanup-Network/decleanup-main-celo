@@ -1323,21 +1323,6 @@ function HomeContent() {
                   Complete cleanups, build your rank and reputation, create impact profile
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  {cleanupStatus?.canClaim ? (
-                    <Button
-                      type="button"
-                      onClick={() => void handleClaimImpactLevel()}
-                      disabled={isClaiming}
-                      className="w-full gap-2 bg-brand-yellow font-bebas text-black hover:bg-brand-yellow/90 sm:w-auto sm:min-w-[200px]"
-                    >
-                      {isClaiming ? (
-                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-                      ) : (
-                        <Award className="h-4 w-4 shrink-0" aria-hidden />
-                      )}
-                      Claim Impact Product level
-                    </Button>
-                  ) : null}
                   {address ? (
                     <Button variant="outline" asChild className="w-full border-border font-bebas tracking-wide sm:w-auto">
                       <Link
@@ -1399,7 +1384,7 @@ function HomeContent() {
                   </div>
                   {address && submissionOwnerAddress ? (
                     <div className="min-w-0 w-full">
-                      <DashboardClaimCdcu address={submissionOwnerAddress} />
+                      <DashboardClaimCdcu rewardAddress={submissionOwnerAddress} payoutAddress={address} />
                     </div>
                   ) : null}
                 </div>

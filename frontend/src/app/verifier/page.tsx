@@ -89,6 +89,8 @@ export default function VerifierPage() {
     addressRef.current = address
     const isAdminUserRef = useRef(false)
     isAdminUserRef.current = isAdminUser
+    /** Stale list reads after reject/approve: keep terminal status until the next fetch matches the server. */
+    const verifierTerminalPatchRef = useRef<Map<string, VerifierApplicationRow>>(new Map())
 
     useEffect(() => {
         setMounted(true)
@@ -320,7 +322,13 @@ export default function VerifierPage() {
                     )
                     const byAddressPayload = await byAddressRes.json().catch(() => ({}))
                     const app = byAddressPayload?.application as VerifierApplicationRow | null
-                    if (byAddressRes.ok && app && (app.status === 'PENDING' || app.status === 'PENDING_ONCHAIN')) {
+                    const patch = app ? verifierTerminalPatchRef.current.get(app.id) : undefined
+                    if (
+                        byAddressRes.ok &&
+                        app &&
+                        (app.status === 'PENDING' || app.status === 'PENDING_ONCHAIN') &&
+                        patch?.status !== 'REJECTED'
+                    ) {
                         const exists = baseApps.some((a) => a.id === app.id)
                         if (!exists) {
                             mergedApps = [app, ...baseApps]
@@ -329,7 +337,29 @@ export default function VerifierPage() {
                 }
             }
 
-            setVerifierApplications(mergedApps)
+            const patched: VerifierApplicationRow[] = mergedApps.map((a) => {
+                const patch = verifierTerminalPatchRef.current.get(a.id)
+                if (!patch) return a
+                if (
+                    patch.status === 'REJECTED' &&
+                    (a.status === 'PENDING' || a.status === 'PENDING_ONCHAIN')
+                ) {
+                    return {
+                        ...a,
+                        status: 'REJECTED' as const,
+                        notes: patch.notes ?? a.notes,
+                    }
+                }
+                if (patch.status === 'APPROVED' && a.status === 'PENDING_ONCHAIN') {
+                    return { ...a, ...patch, status: 'APPROVED' as const }
+                }
+                if (a.status === patch.status) {
+                    verifierTerminalPatchRef.current.delete(a.id)
+                }
+                return a
+            })
+
+            setVerifierApplications(patched)
         } catch (e) {
             console.error('Error loading verifier applications:', e)
         } finally {
@@ -384,6 +414,13 @@ export default function VerifierPage() {
                 throw new Error(confirmPayload?.error || 'Failed to confirm approval')
             }
             const confirmed = confirmPayload?.application as VerifierApplicationRow | undefined
+            if (confirmed?.id) {
+                verifierTerminalPatchRef.current.set(confirmed.id, {
+                    ...application,
+                    ...confirmed,
+                    status: 'APPROVED',
+                })
+            }
             setVerifierApplications((prev) =>
                 prev.map((item) =>
                     item.id === application.id
@@ -443,9 +480,23 @@ export default function VerifierPage() {
             if (!response.ok || !payload?.success) {
                 throw new Error(payload?.error || 'Failed to reject verifier application')
             }
+            const updated = payload.application as VerifierApplicationRow | undefined
+            if (updated?.id) {
+                verifierTerminalPatchRef.current.set(updated.id, {
+                    ...application,
+                    ...updated,
+                    status: 'REJECTED',
+                })
+            }
             setVerifierApplications((prev) =>
                 prev.map((item) =>
-                    item.id === application.id ? { ...item, status: 'REJECTED' } : item
+                    item.id === application.id
+                        ? {
+                              ...item,
+                              status: 'REJECTED',
+                              notes: updated?.notes ?? item.notes,
+                          }
+                        : item
                 )
             )
 
@@ -490,6 +541,13 @@ export default function VerifierPage() {
                 throw new Error(confirmPayload?.error || 'Failed to confirm approval')
             }
             const confirmed = confirmPayload?.application as VerifierApplicationRow | undefined
+            if (confirmed?.id) {
+                verifierTerminalPatchRef.current.set(confirmed.id, {
+                    ...application,
+                    ...confirmed,
+                    status: 'APPROVED',
+                })
+            }
             setVerifierApplications((prev) =>
                 prev.map((item) =>
                     item.id === application.id

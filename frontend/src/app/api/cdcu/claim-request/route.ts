@@ -5,7 +5,9 @@
  * Backend reads onchain eligibility (DCURewardManager reward stats), computes claimable amount,
  * signs EIP-712 Claim, and returns signature + params for the user to submit via ClaimVault.claim().
  *
- * Body: { recipient: string } (wallet address)
+ * Body: { recipient: string, source?: string }.
+ * - recipient: wallet that receives minted cDCU (e.g. social EOA)
+ * - source: optional reward identity used for eligibility + tranche accounting
  * Returns: { recipient, amount, category, nonce, expiry, v, r, s } or 400/500.
  */
 
@@ -48,14 +50,23 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}))
     const recipient = (body?.recipient ?? '').trim()
+    const source = (body?.source ?? recipient).trim()
     if (!recipient || !isAddress(recipient)) {
       return NextResponse.json(
         { error: 'Invalid or missing recipient address' },
         { status: 400 }
       )
     }
+    if (!source || !isAddress(source)) {
+      return NextResponse.json(
+        { error: 'Invalid source address' },
+        { status: 400 }
+      )
+    }
 
-    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(recipient as Address)
+    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(source as Address, {
+      mintRecipient: recipient as Address,
+    })
     if (!eligible) {
       return NextResponse.json(
         {
@@ -67,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     const store = loadIssuedStore()
-    const pending = getPendingAmount(store, recipient)
+    const pending = getPendingAmount(store, source)
     const claimable = claimableNextTrancheWei > pending ? claimableNextTrancheWei - pending : 0n
 
     if (claimable === 0n) {
@@ -95,7 +106,7 @@ export async function POST(request: Request) {
       privateKey
     )
 
-    setPendingAmount(store, recipient, claimable)
+    setPendingAmount(store, source, claimable)
     saveIssuedStore(store)
 
     return NextResponse.json({

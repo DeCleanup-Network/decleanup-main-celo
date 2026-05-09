@@ -19,11 +19,15 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const recipient = searchParams.get('recipient')?.trim()
+    const mintRecipient = searchParams.get('mintRecipient')?.trim()
     if (!recipient || !isAddress(recipient)) {
       return NextResponse.json(
         { error: 'Invalid or missing recipient' },
         { status: 400 }
       )
+    }
+    if (mintRecipient && !isAddress(mintRecipient)) {
+      return NextResponse.json({ error: 'Invalid mintRecipient' }, { status: 400 })
     }
 
     const {
@@ -33,7 +37,9 @@ export async function GET(request: Request) {
       milestonesClaimed,
       nextMilestonePointsWei,
       claimableNextTrancheWei,
-    } = await getEligibilityAndClaimable(recipient as Address)
+    } = await getEligibilityAndClaimable(recipient as Address, {
+      mintRecipient: mintRecipient && isAddress(mintRecipient) ? (mintRecipient as Address) : undefined,
+    })
     const store = loadIssuedStore()
     const alreadyClaimedWei = BigInt(store[recipient.toLowerCase()] ?? '0')
     const pendingWei = getPendingAmount(store, recipient)

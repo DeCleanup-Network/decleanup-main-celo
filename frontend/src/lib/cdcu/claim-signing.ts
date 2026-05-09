@@ -4,8 +4,22 @@
  */
 
 import path from 'path'
-import { createPublicClient, createWalletClient, http, type Address, hexToSignature } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Address,
+  hexToSignature,
+  parseAbiItem,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+
+/** ClaimVault `ClaimCategory.CleanupCampaign` (same as server `CLAIM_CATEGORY.CleanupCampaign`). */
+const CLEANUP_CAMPAIGN_CATEGORY = 1
+
+const CLAIMED_EVENT = parseAbiItem(
+  'event Claimed(address indexed recipient, uint256 amount, uint8 category, uint256 nonce)'
+)
 
 const REWARD_MANAGER_STATS_ABI_8 = [
   {
@@ -246,11 +260,54 @@ export async function getClaimableAmountFromChain(recipient: Address): Promise<b
 }
 
 /**
+ * Count successful ClaimVault mints to `mintRecipient` for CleanupCampaign category.
+ * Used on serverless hosts where the local JSON issued store is not durable across invocations.
+ */
+export async function getCleanupCampaignClaimCountForRecipient(mintRecipient: Address): Promise<number> {
+  const claimVaultAddress = process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS as Address | undefined
+  if (!claimVaultAddress) return 0
+
+  const { id: chainId, rpc } = getChain()
+  const client = createPublicClient({
+    chain: {
+      id: chainId,
+      name: 'Celo',
+      nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
+      rpcUrls: { default: { http: [rpc] } },
+    },
+    transport: http(rpc),
+  })
+
+  const fromBlockRaw = process.env.CDCU_CLAIM_LOGS_FROM_BLOCK?.trim()
+  const fromBlock = fromBlockRaw && /^\d+$/.test(fromBlockRaw) ? BigInt(fromBlockRaw) : 0n
+
+  try {
+    const logs = await client.getLogs({
+      address: claimVaultAddress,
+      event: CLAIMED_EVENT,
+      args: { recipient: mintRecipient },
+      fromBlock,
+      toBlock: 'latest',
+    })
+    return logs.filter((l) => Number(l.args.category) === CLEANUP_CAMPAIGN_CATEGORY).length
+  } catch (e) {
+    console.warn('[getCleanupCampaignClaimCountForRecipient] getLogs failed:', e)
+    return 0
+  }
+}
+
+/**
  * Eligibility + caps for $cDCU.
  * Uses RewardManager totalEarned points. Each claim unlocks one 50-DCU tranche;
  * the next claim needs 50 more points (next milestone).
+ *
+ * @param opts.mintRecipient — optional payout address; when set, milestones are at least the
+ *   on-chain CleanupCampaign claim count (fixes Vercel ephemeral file store).
  */
-export async function getEligibilityAndClaimable(recipient: Address): Promise<{
+export async function getEligibilityAndClaimable(
+  recipient: Address,
+  opts?: { mintRecipient?: Address }
+): Promise<{
   totalPointsWei: bigint
   /** True when user has reached the next 50-point milestone and has a tranche to claim. */
   eligible: boolean
@@ -264,9 +321,21 @@ export async function getEligibilityAndClaimable(recipient: Address): Promise<{
 }> {
   const totalPointsWei = await getClaimableAmountFromChain(recipient)
   const store = loadIssuedStore()
-  const milestonesClaimed = getMilestonesClaimed(store, recipient, totalPointsWei)
-  const T = ELIGIBILITY_THRESHOLD_WEI
+  let milestonesClaimed = getMilestonesClaimed(store, recipient, totalPointsWei)
   const tiers = tiersReachedWei(totalPointsWei)
+  const tierSafe = tiers > 1_000_000n ? 1_000_000 : Number(tiers)
+
+  if (opts?.mintRecipient) {
+    try {
+      const onChainClaims = await getCleanupCampaignClaimCountForRecipient(opts.mintRecipient)
+      const cappedByTiers = Math.min(tierSafe, onChainClaims)
+      milestonesClaimed = Math.max(milestonesClaimed, cappedByTiers)
+    } catch (e) {
+      console.warn('[getEligibilityAndClaimable] On-chain claim count failed:', e)
+    }
+  }
+
+  const T = ELIGIBILITY_THRESHOLD_WEI
   const claimableNextTrancheWei = incrementalClaimWei(totalPointsWei, milestonesClaimed)
   const eligible = tiers > BigInt(milestonesClaimed) && claimableNextTrancheWei > 0n
   const claimableCapWei = claimableCapFromPoints(totalPointsWei)

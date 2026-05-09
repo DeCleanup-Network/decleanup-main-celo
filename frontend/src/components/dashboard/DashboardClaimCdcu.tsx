@@ -36,8 +36,34 @@ function fmtCdcuAmount(n: number) {
   return Math.abs(n - Math.round(n)) > 1e-4 ? n.toFixed(1) : n.toFixed(0)
 }
 
+function optimisticLockAfterClaim(prev: EligibilityData | null, claimedAmountWei: bigint): EligibilityData | null {
+  if (!prev) return prev
+  const milestoneStepWei = 50n * 10n ** 18n
+  const totalPointsWei = BigInt(prev.totalPoints || '0')
+  const prevMilestones = prev.milestonesClaimed ?? 0
+  const currentNextMilestoneWei = BigInt(prev.nextMilestonePoints || '0')
+  const nextMilestoneWei =
+    currentNextMilestoneWei > 0n
+      ? currentNextMilestoneWei + milestoneStepWei
+      : BigInt(prevMilestones + 2) * milestoneStepWei
+  const claimedNow = BigInt(prev.alreadyClaimed || '0') + claimedAmountWei
+
+  return {
+    ...prev,
+    eligible: totalPointsWei >= nextMilestoneWei,
+    alreadyClaimed: claimedNow.toString(),
+    claimableNow: '0',
+    claimableNextTranche: '0',
+    milestonesClaimed: prevMilestones + 1,
+    nextMilestonePoints: nextMilestoneWei.toString(),
+  }
+}
+
 interface DashboardClaimCdcuProps {
-  address: string
+  /** Address used for eligibility + milestone/pending accounting (current reward identity). */
+  rewardAddress: string
+  /** Address that should receive minted cDCU (social EOA). */
+  payoutAddress: string
 }
 
 /**
@@ -45,7 +71,7 @@ interface DashboardClaimCdcuProps {
  */
 const TOKENOMICS_URL = 'https://decleanup.net/tokenomics'
 
-export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
+export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardClaimCdcuProps) {
   const { client: gaslessClient } = useSmartAccountClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,7 +106,11 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
     let cancelled = false
     async function fetchEligibility() {
       try {
-        const res = await fetch(`/api/cdcu/eligibility?recipient=${encodeURIComponent(address)}`)
+        const q = new URLSearchParams({
+          recipient: rewardAddress,
+          mintRecipient: payoutAddress,
+        })
+        const res = await fetch(`/api/cdcu/eligibility?${q.toString()}`)
         const data = await res.json().catch(() => ({}))
         if (!cancelled && res.ok) setEligibility(data)
       } catch {
@@ -93,7 +123,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
     return () => {
       cancelled = true
     }
-  }, [address, success])
+  }, [rewardAddress, payoutAddress, success])
 
   useEffect(() => {
     if (!lockedClaimHint) return
@@ -112,7 +142,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
       const res = await fetch('/api/cdcu/claim-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: address }),
+        body: JSON.stringify({ recipient: payoutAddress, source: rewardAddress }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -131,18 +161,22 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
       }
       const { hash } = await claimCdcu(signed, {
         gaslessClient: gaslessClient as { sendTransaction: (params: { to: `0x${string}`; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> } | undefined,
-        claimerAddress: address as `0x${string}`,
+        claimerAddress: payoutAddress as `0x${string}`,
       })
-      await fetch('/api/cdcu/record-issued', {
+      const recordIssuedResponse = await fetch('/api/cdcu/record-issued', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: address, amount: data.amount }),
+        body: JSON.stringify({ recipient: rewardAddress, amount: data.amount }),
       })
+      if (!recordIssuedResponse.ok) {
+        console.warn('[DashboardClaimCdcu] Failed to persist issued claim on server.', await recordIssuedResponse.text().catch(() => ''))
+      }
       const amountNum = Number(data.amount) / 1e18
       const amountFormatted =
         amountNum >= 100 || Number.isInteger(amountNum) ? amountNum.toFixed(0) : amountNum.toFixed(1)
       setSuccess(`Claimed ${amountFormatted} $cDCU`)
       setLastTxHash(hash)
+      setEligibility((prev) => optimisticLockAfterClaim(prev, BigInt(data.amount)))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       const isUserCancel =
@@ -152,7 +186,7 @@ export function DashboardClaimCdcu({ address }: DashboardClaimCdcuProps) {
         await fetch('/api/cdcu/clear-pending', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recipient: address }),
+          body: JSON.stringify({ recipient: rewardAddress }),
         }).catch(() => {})
         setError('You cancelled the request.')
       } else {
