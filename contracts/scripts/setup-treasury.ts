@@ -12,7 +12,20 @@ import hre from "hardhat"
 import * as fs from "fs"
 import * as path from "path"
 
-const TREASURY_ADDRESS = "0x173D87dfa68aEB0E821C6021f5652B9C3a7556b4" as const
+/**
+ * Note: For full mainnet handover prefer `setup-roles.ts`, which also transfers
+ * ownership of all Ownable contracts to the Safe and sets treasuries in one pass.
+ *
+ * This standalone script now requires `TREASURY_ADDRESS` to be supplied as env
+ * (no hardcoded fallback) so it cannot accidentally write a stale testnet address
+ * to mainnet.
+ */
+const TREASURY_ENV = process.env.TREASURY_ADDRESS?.trim()
+if (!TREASURY_ENV || !/^0x[a-fA-F0-9]{40}$/.test(TREASURY_ENV)) {
+  console.error("❌ TREASURY_ADDRESS env required (0x-prefixed). Aborting.")
+  process.exit(1)
+}
+const TREASURY_ADDRESS = TREASURY_ENV as `0x${string}`
 
 async function main() {
   console.log("💰 Setting up treasury for fee collection...\n")

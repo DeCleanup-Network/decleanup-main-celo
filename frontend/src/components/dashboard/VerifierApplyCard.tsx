@@ -110,18 +110,6 @@ export function VerifierApplyCard() {
     }
   }, [address, applicantAddress])
 
-  const resetVerifierApplicationClientCache = useCallback(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('decleanup_last_verifier_applicant')
-      }
-    } catch {
-      /* ignore */
-    }
-    setLatestApp(null)
-    void loadLatestApplication()
-  }, [loadLatestApplication])
-
   useEffect(() => {
     void loadLatestApplication()
   }, [loadLatestApplication])
@@ -438,38 +426,19 @@ export function VerifierApplyCard() {
             <p className="text-sm text-red-400">Reason: {latestApp.notes}</p>
           )}
           {effectiveStatus === 'PENDING' && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Your application was received. An admin will review it; this page updates automatically.
-              </p>
-              <button
-                type="button"
-                onClick={resetVerifierApplicationClientCache}
-                className="text-xs text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-              >
-                Sync status from server (clears local applicant hint if stuck)
-              </button>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Your application was received. An admin will review it; this page updates automatically.
+            </p>
           )}
           {effectiveStatus === 'PENDING_ONCHAIN' && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Waiting for the admin approval transaction to confirm on-chain…
-              </p>
-              <button
-                type="button"
-                onClick={resetVerifierApplicationClientCache}
-                className="text-xs text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-              >
-                Sync status from server
-              </button>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Waiting for the admin approval transaction to confirm on-chain…
+            </p>
           )}
           {effectiveStatus === 'REJECTED' && (
             <div className="space-y-3 border-t border-border pt-3">
               <p className="text-xs text-muted-foreground">
-                You can submit a new application if you still meet the requirements. If this card still shows the wrong
-                state after a decision, sync below (your last rejection is stored on the server by wallet address).
+                You can submit a new application if you still meet the requirements.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -487,9 +456,6 @@ export function VerifierApplyCard() {
                   ) : (
                     'Apply again'
                   )}
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={resetVerifierApplicationClientCache}>
-                  Sync status
                 </Button>
               </div>
               {!eligibility?.eligible && (

@@ -13,8 +13,11 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPublicClient, http, isAddress } from 'viem'
-import { celoSepolia } from 'viem/chains'
+import { celo, celoSepolia } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
+
+const CELO_MAINNET_ID = 42220
+const CELO_SEPOLIA_ID = 11142220
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const frontendRoot = resolve(__dirname, '..')
@@ -54,11 +57,17 @@ loadDotLocal()
 
 const pk = normalizePrivateKey(process.env.CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY)
 const claimVault = process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS
-const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || celoSepolia.id)
-const rpcUrl =
-  process.env.CELO_SEPOLIA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
-  celoSepolia.rpcUrls.default.http[0]
+const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || CELO_SEPOLIA_ID)
+const isMainnet = chainId === CELO_MAINNET_ID
+
+const rpcUrl = isMainnet
+  ? process.env.NEXT_PUBLIC_RPC_URL ||
+    process.env.CELO_RPC_URL ||
+    celo.rpcUrls.default.http[0]
+  : process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
+    process.env.CELO_SEPOLIA_RPC_URL ||
+    process.env.NEXT_PUBLIC_RPC_URL ||
+    celoSepolia.rpcUrls.default.http[0]
 
 if (!pk) {
   console.error('Missing or invalid CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY (expect 64 hex chars, optional 0x).')
@@ -70,15 +79,18 @@ if (!claimVault || !isAddress(claimVault)) {
 }
 
 const account = privateKeyToAccount(pk)
+const baseChain = isMainnet ? celo : celoSepolia
 const chain =
-  chainId === celoSepolia.id
-    ? celoSepolia
-    : { ...celoSepolia, id: chainId, rpcUrls: { default: { http: [rpcUrl] } } }
+  chainId === baseChain.id
+    ? baseChain
+    : { ...baseChain, id: chainId, rpcUrls: { default: { http: [rpcUrl] } } }
 
 const client = createPublicClient({
   chain,
   transport: http(rpcUrl),
 })
+
+console.log(`Chain: ${isMainnet ? 'Celo Mainnet' : 'Celo Sepolia'} (id=${chainId})`)
 
 const onchain = await client.readContract({
   address: claimVault,

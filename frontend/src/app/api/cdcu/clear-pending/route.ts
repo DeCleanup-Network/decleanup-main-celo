@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     if (!recipient || !isAddress(recipient)) {
       return NextResponse.json({ error: 'Invalid or missing recipient' }, { status: 400 })
     }
-    clearPending(recipient)
+    await clearPending(recipient)
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error('clear-pending error:', e)

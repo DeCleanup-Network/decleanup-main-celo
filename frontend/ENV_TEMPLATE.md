@@ -122,7 +122,11 @@ NEXT_PUBLIC_IMPACT_METADATA_CID=
 # ============================================
 # Must match ClaimVault.authorizedSigner() on chain  -  verify: `cd frontend && npm run check:claimvault-signer`
 CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
-# File path to track issued amounts per recipient (server filesystem; default ok on Vercel only if writable path configured)
+# Claim accounting (issued amounts, milestones, pending) is stored in Supabase table
+# `cdcu_issued_store` (migration: frontend/supabase/migrations/20260513_create_cdcu_issued_store.sql).
+# Requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (already set for other features).
+# CLAIM_VAULT_ISSUED_STORE_PATH below is the legacy JSON file fallback used only when Supabase
+# is not configured (local dev). Vercel/serverless requires Supabase since /tmp is ephemeral.
 # CLAIM_VAULT_ISSUED_STORE_PATH=./var/app/data/cdcu-issued.json
 # Required for POST /api/cdcu/unlock (reset issued/pending so user can claim again in dev/staging)
 # CLAIM_VAULT_UNLOCK_SECRET=

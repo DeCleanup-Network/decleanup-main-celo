@@ -181,8 +181,7 @@ function CleanupContent() {
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [manualLocationMode, setManualLocationMode] = useState(false)
-  const [manualLatInput, setManualLatInput] = useState('')
-  const [manualLngInput, setManualLngInput] = useState('')
+  const [manualCoordsInput, setManualCoordsInput] = useState('')
   const [hostName, setHostName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [cleanupId, setCleanupId] = useState<bigint | null>(null)
@@ -298,15 +297,17 @@ function CleanupContent() {
           console.log('[Cleanup] Referral link in URL for new user, saving:', referrerAddr)
           setReferrerAddress(referrerAddr)
           setShowReferralNotification(true)
-          
-          // Persist referrer in localStorage so it's available when user submits
+
+          // Persist referrer in localStorage so it's available when user submits.
+          // Scope only to this address; drop the unscoped `referrer_pending` so it can't leak
+          // to a different wallet later in the same browser.
           if (typeof window !== 'undefined') {
             const referrerKey = `referrer_${address.toLowerCase()}`
             localStorage.setItem(referrerKey, referrerAddr)
-            localStorage.setItem('referrer_pending', referrerAddr)
+            localStorage.removeItem('referrer_pending')
           }
         } else if (typeof window !== 'undefined') {
-          // If no ref in URL, check localStorage for saved referrer (from previous visit)
+          // If no ref in URL, check localStorage for saved referrer scoped to THIS wallet only.
           const referrerKey = `referrer_${address.toLowerCase()}`
           const savedReferrer = localStorage.getItem(referrerKey)
           if (savedReferrer && /^0x[a-fA-F0-9]{40}$/.test(savedReferrer)) {
@@ -314,15 +315,11 @@ function CleanupContent() {
             setReferrerAddress(savedReferrer as Address)
             setShowReferralNotification(true)
           } else {
-            // Check pending referrer (for cases where address wasn't available)
-            const referrerPending = localStorage.getItem('referrer_pending')
-            if (referrerPending && /^0x[a-fA-F0-9]{40}$/.test(referrerPending)) {
-              console.log('[Cleanup] Found pending referrer from previous visit:', referrerPending)
-              setReferrerAddress(referrerPending as Address)
-              // Save it scoped to address now that we have it
-              localStorage.setItem(referrerKey, referrerPending)
-              setShowReferralNotification(true)
-            }
+            // This wallet has no scoped referrer. Clear any stale unscoped pending key so it
+            // doesn't follow the user across wallet switches.
+            setReferrerAddress(null)
+            setShowReferralNotification(false)
+            localStorage.removeItem('referrer_pending')
           }
         }
       } catch (error) {
@@ -709,8 +706,22 @@ function CleanupContent() {
   }
 
   const handleManualLocationApply = () => {
-    const lat = parseFloat(manualLatInput)
-    const lng = parseFloat(manualLngInput)
+    // Accepts pasted Google Maps coords in various shapes:
+    //   "37.7749, -122.4194"  •  "37.7749 -122.4194"  •  "37.7749,-122.4194"  •  whitespace/parens noise
+    const cleaned = manualCoordsInput
+      .replace(/[()°]/g, ' ')
+      .replace(/[,;]/g, ' ')
+      .trim()
+    const parts = cleaned.split(/\s+/).filter(Boolean)
+    if (parts.length < 2) {
+      setAlertModal({
+        message: 'Paste both latitude and longitude separated by a comma or space (e.g. 37.7749, -122.4194).',
+        variant: 'warning',
+      })
+      return
+    }
+    const lat = parseFloat(parts[0])
+    const lng = parseFloat(parts[1])
 
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
       setAlertModal({ message: 'Please enter valid latitude and longitude values.', variant: 'warning' })
@@ -1971,26 +1982,16 @@ function CleanupContent() {
               {manualLocationMode && (
                 <div className="mt-3 space-y-3 rounded-lg border border-gray-800 bg-gray-950 p-3">
                   <p className="text-xs text-gray-400">
-                    Paste coordinates (e.g. 37.7749, -122.4194) from Google Maps. We'll store them locally for this session.
+                    Paste coordinates from Google Maps (right-click the spot → click the &ldquo;lat, lng&rdquo; line). Stored locally for this session.
                   </p>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
-                      type="number"
-                      value={manualLatInput}
-                      onChange={(e) => setManualLatInput(e.target.value)}
-                      placeholder="Latitude"
-                      className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
-                      step="0.000001"
-                    />
-                    <input
-                      type="number"
-                      value={manualLngInput}
-                      onChange={(e) => setManualLngInput(e.target.value)}
-                      placeholder="Longitude"
-                      className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
-                      step="0.000001"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={manualCoordsInput}
+                    onChange={(e) => setManualCoordsInput(e.target.value)}
+                    placeholder="37.7749, -122.4194"
+                    className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
+                  />
                   <Button
                     type="button"
                     size="sm"
@@ -2869,7 +2870,7 @@ function CleanupContent() {
             <ul className="space-y-0.5 text-[10px] leading-snug text-muted-foreground">
               <li className="flex gap-1.5">
                 <span className="text-brand-green">•</span>
-                <span>Verifiers review your submission (photos and any AI note) on-chain.</span>
+                <span>Verifiers review your submission (photos and any AI note) onchain.</span>
               </li>
               <li className="flex gap-1.5">
                 <span className="text-brand-green">•</span>

@@ -17,10 +17,8 @@ import { randomBytes } from 'crypto'
 import {
   getEligibilityAndClaimable,
   signClaimVaultClaim,
-  loadIssuedStore,
-  saveIssuedStore,
-  getPendingAmount,
-  setPendingAmount,
+  getPendingWei,
+  setPendingWei,
   CLAIM_CATEGORY,
 } from '@/lib/cdcu/claim-signing'
 
@@ -77,8 +75,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const store = loadIssuedStore()
-    const pending = getPendingAmount(store, source)
+    const pending = await getPendingWei(source)
     const claimable = claimableNextTrancheWei > pending ? claimableNextTrancheWei - pending : 0n
 
     if (claimable === 0n) {
@@ -106,8 +103,7 @@ export async function POST(request: Request) {
       privateKey
     )
 
-    setPendingAmount(store, source, claimable)
-    saveIssuedStore(store)
+    await setPendingWei(source, claimable)
 
     return NextResponse.json({
       recipient: signed.recipient,

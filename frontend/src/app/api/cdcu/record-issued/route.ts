@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     if (amountWei <= 0n) {
       return NextResponse.json({ error: 'Invalid or missing amount' }, { status: 400 })
     }
-    recordIssued(recipient, amountWei)
+    await recordIssued(recipient, amountWei)
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error('record-issued error:', e)

@@ -465,6 +465,11 @@ function HomeContent() {
   useEffect(() => {
     if (!mounted || !address || !isConnected) return
 
+    // Reset banner state on every wallet change so a stale value from the previous wallet
+    // cannot flash before the async check below decides what's right for this wallet.
+    setShowReferralNotification(false)
+    setReferrerAddress(null)
+
     const checkReferral = async () => {
       try {
         if (!submissionOwnerAddress) return
@@ -549,12 +554,14 @@ function HomeContent() {
                 setShowReferralNotification(true)
               }
 
-              // Persist referrer in localStorage for submission (will be used when they submit)
+              // Persist referrer in localStorage for submission (scoped to this address).
+              // Do not write the unscoped `referrer_pending` here — useEffect already gates on `address`,
+              // so the per-address key is the only source of truth and the global key only causes
+              // cross-wallet leakage when users switch accounts in the same browser.
               if (typeof window !== 'undefined') {
                 const referrerKey = `referrer_${address.toLowerCase()}`
                 localStorage.setItem(referrerKey, referrerAddr)
-                // Also save to pending for cases where address isn't available yet
-                localStorage.setItem('referrer_pending', referrerAddr)
+                localStorage.removeItem('referrer_pending')
               }
             } else {
               // Check localStorage for saved referrer (user visited before but didn't submit)
@@ -570,23 +577,12 @@ function HomeContent() {
                     setShowReferralNotification(true)
                   }
                 } else {
-                  // Check pending referrer (for cases where address wasn't available)
-                  const referrerPending = localStorage.getItem('referrer_pending')
-                  if (referrerPending && /^0x[a-fA-F0-9]{40}$/.test(referrerPending)) {
-                    console.log('[Referral] Found pending referrer from previous visit:', referrerPending)
-                    setReferrerAddress(referrerPending as Address)
-                    // Save it scoped to address now that we have it
-                    localStorage.setItem(referrerKey, referrerPending)
-                    const dismissedKey = `referral_notification_dismissed_${referrerPending.toLowerCase()}`
-                    const wasDismissed = localStorage.getItem(dismissedKey)
-                    if (!wasDismissed) {
-                      setShowReferralNotification(true)
-                    }
-                  } else {
-                    console.log('[Referral] User was not referred (no referrer in contract or URL/localStorage)')
-                    setShowReferralNotification(false)
-                    setReferrerAddress(null)
-                  }
+                  // No URL ref and no per-address key → this wallet was not referred.
+                  // Drop any stale unscoped `referrer_pending` so it can't leak to other wallets later.
+                  console.log('[Referral] User was not referred (no referrer in contract or URL/localStorage)')
+                  setShowReferralNotification(false)
+                  setReferrerAddress(null)
+                  localStorage.removeItem('referrer_pending')
                 }
               }
             }

@@ -102,11 +102,37 @@ Use this as a go-live verification list so dashboard settings and envs are align
 
 #### Pimlico (AA gasless path)
 
+The bundler/paymaster URL in `frontend/src/lib/blockchain/smart-account.ts` is now **chain-aware**:
+it routes to `https://api.pimlico.io/v2/celo/rpc` when `NEXT_PUBLIC_CHAIN_ID=42220` and to
+`https://api.pimlico.io/v2/celo-sepolia/rpc` when `NEXT_PUBLIC_CHAIN_ID=11142220`. No code change
+needed to switch chains — only env + dashboard.
+
+**Important:** Pimlico API keys are **not** chain-scoped. The same key works on every chain
+Pimlico supports. What IS chain-scoped is the **sponsorship policy** you create in the dashboard,
+and the **account balance** is global. So "enabling mainnet" really means: have prepaid balance,
+and create a sponsorship policy that selects Celo Mainnet.
+
 - [ ] `NEXT_PUBLIC_PIMLICO_API_KEY` (or server `PIMLICO_API_KEY`) is present for production.
-- [ ] Pimlico project has Celo mainnet enabled and quotas/rate limits are sufficient.
-- [ ] `NEXT_PUBLIC_CHAIN_ID=42220` and RPCs match mainnet so signer, bundler, and paymaster all operate on the same chain.
-- [ ] Validate one end-to-end gasless transaction in prod (submit/claim path) and confirm UserOp inclusion.
-- [ ] Ensure fallback UX works when Pimlico is unavailable (no silent stuck state).
+- [ ] Pimlico account has **prepaid balance** (or card on file) sufficient for expected mainnet
+  volume. Without this, paymaster calls fail with `paymaster_balance_too_low` even though the
+  key itself is valid.
+- [ ] In the **Pimlico dashboard → Sponsorship Policies**, a policy exists with **Celo Mainnet
+  (42220)** selected, status **enabled**, with reasonable per-sender / per-day spending limits.
+- [ ] That policy **allowlists the production contract addresses** the app actually calls:
+  `Submission`, `ImpactProductNFT`, `DCURewardManager`, `ClaimVault`, and (if used) the
+  Hypercerts minter at `0x16bA53B74c234C870c61EFC04cD418B8f2865959`. Without an explicit
+  allowlist, the paymaster will reject UserOps with `AA33 paymaster validation failed`.
+- [ ] `NEXT_PUBLIC_CHAIN_ID=42220` and `NEXT_PUBLIC_RPC_URL` are mainnet so signer, bundler, and
+  paymaster all operate on the same chain.
+- [ ] **Who pays for gas after launch:** Pimlico fronts CELO for sponsored UserOps and debits
+  your prepaid Pimlico balance. Embedded-wallet (Web3Auth) users go through this path; external
+  wallet users (MetaMask, WalletConnect, etc.) pay their own gas in CELO and never touch
+  Pimlico.
+- [ ] Validate one end-to-end gasless transaction in prod (submit/claim path) and confirm UserOp
+  inclusion on a mainnet block explorer.
+- [ ] Ensure fallback UX works when Pimlico is unavailable: external-wallet users keep working on
+  EOA + their own gas; embedded-wallet users see a clear banner (already wired via
+  `GaslessStatusBanner`).
 
 #### YOLO / ML verification service
 
@@ -128,7 +154,9 @@ Use this as a go-live verification list so dashboard settings and envs are align
 
 - [ ] `CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY` is set on server runtime (this exact name; not legacy aliases).
 - [ ] `NEXT_PUBLIC_CLAIMVAULT_ADDRESS` matches deployed mainnet ClaimVault.
-- [ ] Optional ops envs are set if used: `CLAIM_VAULT_ISSUED_STORE_PATH`, `CLAIM_VAULT_UNLOCK_SECRET`.
+- [ ] Apply Supabase migration `frontend/supabase/migrations/20260513_create_cdcu_issued_store.sql` (creates the durable `cdcu_issued_store` key/value table that replaces the local JSON file store).
+- [ ] Seed existing local data into Supabase (one-time): `node frontend/scripts/migrate-cdcu-issued-to-supabase.mjs` (requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `frontend/.env.local`). Pass `DRY_RUN=1` first to preview.
+- [ ] Optional ops envs are set if used: `CLAIM_VAULT_UNLOCK_SECRET`. `CLAIM_VAULT_ISSUED_STORE_PATH` is **no longer required** in production — claim accounting is now in Supabase. It is still honored for local dev when Supabase env is absent.
 - [ ] Confirm `/api/cdcu/claim-request` and `/api/airdrop/claim-request` return 200 in production for an eligible wallet.
 
 ### 3.6 Frontend deploy

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     if (secret !== expected) {
       return NextResponse.json({ error: 'Invalid secret' }, { status: 401 })
     }
-    resetIssuedAndPending(recipient)
+    await resetIssuedAndPending(recipient)
     return NextResponse.json({ ok: true, message: 'Unlocked; you can claim again.' })
   } catch (e) {
     console.error('unlock error:', e)

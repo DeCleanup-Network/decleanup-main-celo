@@ -4,6 +4,13 @@ import type { Web3AuthContextConfig } from '@web3auth/modal/react'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
 import { MFA_LEVELS } from '@web3auth/auth'
 import { getCeloSepoliaRpcTargetForWeb3Auth } from '@/lib/blockchain/celo-sepolia-rpc-url'
+import {
+  REQUIRED_BLOCK_EXPLORER_URL,
+  REQUIRED_CHAIN_ID,
+  REQUIRED_CHAIN_ID_HEX,
+  REQUIRED_CHAIN_NAME,
+  REQUIRED_RPC_URL,
+} from '@/lib/blockchain/chain-constants'
 
 const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID?.trim()
 
@@ -26,19 +33,17 @@ const requestedNetwork =
 
 const web3AuthNetwork = requestedNetwork
 
-// Celo Sepolia: Web3Auth runs RPC from wallet.web3auth.io — must not use localhost /api/rpc (loopback blocked).
-// Parent page wagmi still uses getCeloSepoliaHttpRpcUrl() elsewhere for same-origin proxy when helpful.
+// Web3Auth runs RPC from wallet.web3auth.io — must not use localhost /api/rpc (loopback blocked).
 // SDK requires chainId as hex string, and Web3Auth compares this value literally.
-// Use lowercase because wallet chainChanged events commonly emit lowercase (e.g. 0xaa044c).
-const celoSepoliaRpc = getCeloSepoliaRpcTargetForWeb3Auth()
-const CELO_SEPOLIA_CHAIN_ID_HEX = '0xaa044c' as const // 11142220 in hex
+const activeRpcTarget =
+  REQUIRED_CHAIN_ID === 11142220 ? getCeloSepoliaRpcTargetForWeb3Auth() : REQUIRED_RPC_URL
 
-const celoSepoliaChainConfig = {
+const activeChainConfig = {
   chainNamespace: CHAIN_NAMESPACES.EIP155,
-  chainId: CELO_SEPOLIA_CHAIN_ID_HEX,
-  rpcTarget: celoSepoliaRpc,
-  displayName: 'Celo Sepolia Testnet',
-  blockExplorerUrl: 'https://celo-sepolia.blockscout.com',
+  chainId: REQUIRED_CHAIN_ID_HEX,
+  rpcTarget: activeRpcTarget,
+  displayName: REQUIRED_CHAIN_NAME,
+  blockExplorerUrl: REQUIRED_BLOCK_EXPLORER_URL,
   ticker: 'CELO',
   tickerName: 'CELO',
   decimals: 18,
@@ -60,8 +65,8 @@ function authUxMode(): 'popup' | 'redirect' {
 const web3AuthOptions: Web3AuthOptions = {
   clientId: clientId || '',
   web3AuthNetwork,
-  chains: [celoSepoliaChainConfig],
-  defaultChainId: CELO_SEPOLIA_CHAIN_ID_HEX,
+  chains: [activeChainConfig],
+  defaultChainId: REQUIRED_CHAIN_ID_HEX,
   /** Keep login session in localStorage (default); survives tab switches better than session-only. */
   storageType: 'local',
   /**

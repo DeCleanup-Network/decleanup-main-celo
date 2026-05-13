@@ -1,9 +1,12 @@
 /**
  * Server-only: EIP-712 signing for ClaimVault claims and eligibility from chain.
  * Use only from API routes (never expose private key to client).
+ *
+ * Per-recipient accounting (issued $cDCU, milestones, pending) lives in
+ * `@/lib/cdcu/issued-store` (Supabase-backed, with local file fallback for dev).
  */
 
-import path from 'path'
+import 'server-only'
 import {
   createPublicClient,
   createWalletClient,
@@ -13,6 +16,11 @@ import {
   parseAbiItem,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  getIssuedWei,
+  getStoredMilestones,
+  setMilestones,
+} from '@/lib/cdcu/issued-store'
 
 /** ClaimVault `ClaimCategory.CleanupCampaign` (same as server `CLAIM_CATEGORY.CleanupCampaign`). */
 const CLEANUP_CAMPAIGN_CATEGORY = 1
@@ -144,30 +152,21 @@ export function incrementalClaimWei(totalPointsWei: bigint, milestonesClaimed: n
   return capHigh > capLow ? capHigh - capLow : 0n
 }
 
-function milestonesStoreKey(recipientLower: string): string {
-  return `${recipientLower}:milestones`
-}
-
 /**
  * How many 50-point tranches are already fully claimed (persisted).
- * If legacy data has `issued` but no milestones key, infer from issued vs incremental sums at current P.
+ * If legacy data has `issued` but no milestones key, infer from issued vs incremental
+ * sums at the current points balance, then persist the inferred value.
  */
-export function getMilestonesClaimed(
-  store: Record<string, string>,
+export async function getMilestonesClaimed(
   recipient: string,
   totalPointsWei: bigint
-): number {
-  const key = recipient.toLowerCase()
-  const mk = milestonesStoreKey(key)
-  const raw = store[mk]
-  if (raw !== undefined && raw !== '') {
-    const n = parseInt(raw, 10)
-    return Number.isFinite(n) && n >= 0 ? n : 0
-  }
-  const issued = BigInt(store[key] ?? '0')
+): Promise<number> {
+  const stored = await getStoredMilestones(recipient)
+  if (stored !== null) return stored
+
+  const issued = await getIssuedWei(recipient)
   if (issued === 0n) {
-    store[mk] = '0'
-    saveIssuedStore(store)
+    await setMilestones(recipient, 0)
     return 0
   }
   let mc = 0
@@ -180,8 +179,7 @@ export function getMilestonesClaimed(
     mc++
     if (mc > 100000) break
   }
-  store[mk] = String(mc)
-  saveIssuedStore(store)
+  await setMilestones(recipient, mc)
   return mc
 }
 
@@ -320,8 +318,7 @@ export async function getEligibilityAndClaimable(
   claimableNextTrancheWei: bigint
 }> {
   const totalPointsWei = await getClaimableAmountFromChain(recipient)
-  const store = loadIssuedStore()
-  let milestonesClaimed = getMilestonesClaimed(store, recipient, totalPointsWei)
+  let milestonesClaimed = await getMilestonesClaimed(recipient, totalPointsWei)
   const tiers = tiersReachedWei(totalPointsWei)
   const tierSafe = tiers > 1_000_000n ? 1_000_000 : Number(tiers)
 
@@ -407,82 +404,20 @@ export async function signClaimVaultClaim(
   return { ...payload, v, r, s }
 }
 
-/** Default path for "already issued" store when CLAIM_VAULT_ISSUED_STORE_PATH is not set. */
-export const DEFAULT_ISSUED_STORE_PATH = path.join(process.cwd(), 'data', 'cdcu-issued.json')
+// ---------------------------------------------------------------------------
+// Re-exports of the durable store API.
+// The actual implementation lives in `@/lib/cdcu/issued-store` and is backed
+// by Supabase in production (with a local-file fallback for dev).
+// ---------------------------------------------------------------------------
 
-function getIssuedStorePath(): string {
-  return process.env.CLAIM_VAULT_ISSUED_STORE_PATH || DEFAULT_ISSUED_STORE_PATH
-}
-
-/** Load total $cDCU already issued per recipient (file store). */
-export function loadIssuedStore(): Record<string, string> {
-  const storePath = getIssuedStorePath()
-  try {
-    const fs = require('fs')
-    if (!fs.existsSync(storePath)) return {}
-    const data = fs.readFileSync(storePath, 'utf-8')
-    return JSON.parse(data) as Record<string, string>
-  } catch {
-    return {}
-  }
-}
-
-/** Save total $cDCU already issued per recipient. */
-export function saveIssuedStore(store: Record<string, string>): void {
-  const storePath = getIssuedStorePath()
-  try {
-    const fs = require('fs')
-    const dir = path.dirname(storePath)
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(storePath, JSON.stringify(store, null, 2))
-  } catch (e) {
-    console.error('Failed to save issued store:', e)
-  }
-}
-
-/** Key for pending (signed but not yet submitted onchain) amount per recipient. */
-export function pendingKey(recipient: string): string {
-  return `pending_${recipient.toLowerCase()}`
-}
-
-/** Get pending amount for recipient (signed but not yet confirmed onchain). */
-export function getPendingAmount(store: Record<string, string>, recipient: string): bigint {
-  return BigInt(store[pendingKey(recipient)] ?? '0')
-}
-
-/** Set pending amount when we issue a signature; clear when tx confirms or user cancels. */
-export function setPendingAmount(store: Record<string, string>, recipient: string, amountWei: bigint): void {
-  const key = pendingKey(recipient)
-  if (amountWei === 0n) delete store[key]
-  else store[key] = amountWei.toString()
-}
-
-/** Record that the user successfully submitted the claim onchain (move pending → issued). Advances one 50-DCU tranche. */
-export function recordIssued(recipient: string, amountWei: bigint): void {
-  const store = loadIssuedStore()
-  const key = recipient.toLowerCase()
-  const issued = BigInt(store[key] ?? '0')
-  store[key] = (issued + amountWei).toString()
-  const mk = milestonesStoreKey(key)
-  const mc = parseInt(store[mk] ?? '0', 10) || 0
-  store[mk] = String(mc + 1)
-  setPendingAmount(store, recipient, 0n)
-  saveIssuedStore(store)
-}
-
-/** Clear pending for recipient so they can request a new signature (e.g. after cancelling the tx). */
-export function clearPending(recipient: string): void {
-  const store = loadIssuedStore()
-  setPendingAmount(store, recipient, 0n)
-  saveIssuedStore(store)
-}
-
-/** Reset issued and pending for an address (unlock so they can claim again). Use when tx failed but backend had recorded it. */
-export function resetIssuedAndPending(recipient: string): void {
-  const store = loadIssuedStore()
-  const key = recipient.toLowerCase()
-  delete store[key]
-  delete store[milestonesStoreKey(key)]
-  setPendingAmount(store, recipient, 0n)
-  saveIssuedStore(store)
-}
+export {
+  getIssuedWei,
+  getPendingWei,
+  setPendingWei,
+  getStoredMilestones,
+  setMilestones,
+  recordIssued,
+  clearPending,
+  resetIssuedAndPending,
+  isSupabaseBacked,
+} from '@/lib/cdcu/issued-store'

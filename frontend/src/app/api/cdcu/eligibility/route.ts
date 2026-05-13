@@ -8,8 +8,8 @@ import { NextResponse } from 'next/server'
 import { type Address, formatEther, isAddress } from 'viem'
 import {
   getEligibilityAndClaimable,
-  loadIssuedStore,
-  getPendingAmount,
+  getIssuedWei,
+  getPendingWei,
   getActivityMultiplierWei,
   ELIGIBILITY_THRESHOLD_WEI,
   DCU_POINTS_PER_TRANCHE,
@@ -40,9 +40,10 @@ export async function GET(request: Request) {
     } = await getEligibilityAndClaimable(recipient as Address, {
       mintRecipient: mintRecipient && isAddress(mintRecipient) ? (mintRecipient as Address) : undefined,
     })
-    const store = loadIssuedStore()
-    const alreadyClaimedWei = BigInt(store[recipient.toLowerCase()] ?? '0')
-    const pendingWei = getPendingAmount(store, recipient)
+    const [alreadyClaimedWei, pendingWei] = await Promise.all([
+      getIssuedWei(recipient),
+      getPendingWei(recipient),
+    ])
     const claimableNowWei =
       claimableNextTrancheWei > pendingWei ? claimableNextTrancheWei - pendingWei : 0n
 
