@@ -15,6 +15,7 @@ import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
 import { isImpactClaimOutstanding, markCleanupAsClaimed } from '@/lib/blockchain/verification'
 import { clearPendingCleanupDataForIdentities, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
+import { notifyVerifierTelegramOfSubmission } from '@/lib/client/notify-verifier-telegram'
 import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
@@ -1169,6 +1170,10 @@ function CleanupContent() {
         }
 
         setCleanupId(cleanupId)
+
+        notifyVerifierTelegramOfSubmission({
+          submissionId: cleanupId.toString(),
+        })
         
         // Store cleanup ID in localStorage for verification checking (scoped to onchain submitter: Safe or EOA)
         if (typeof window !== 'undefined' && address && submissionOwnerAddress) {

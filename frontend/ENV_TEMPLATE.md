@@ -132,6 +132,14 @@ CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
 # CLAIM_VAULT_UNLOCK_SECRET=
 
 # ============================================
+# OPTIONAL: Telegram alerts for new cleanup submissions (verifier channel)
+# ============================================
+# Create a bot via @BotFather, add it to a private verifier group, get chat id from getUpdates.
+# Apply migration: frontend/supabase/migrations/20260514_telegram_submission_notifications.sql
+# TELEGRAM_BOT_TOKEN=
+# TELEGRAM_VERIFIER_CHAT_ID=-100xxxxxxxxxx
+
+# ============================================
 # OPTIONAL: GPU / ML verification (VPS or trusted network  -  not localhost in production)
 # ============================================
 # ML_VERIFICATION_ENABLED=true
