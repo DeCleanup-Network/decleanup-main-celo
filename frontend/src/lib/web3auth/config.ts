@@ -71,47 +71,41 @@ function authUxMode(): 'popup' | 'redirect' {
   return 'popup'
 }
 
-const web3AuthOptions: Web3AuthOptions = {
-  clientId: clientId || '',
-  web3AuthNetwork,
-  chains: [activeChainConfig],
-  defaultChainId: REQUIRED_CHAIN_ID_HEX,
-  /** Keep login session in localStorage (default); survives tab switches better than session-only. */
-  storageType: 'local',
-  /**
-   * idToken lifetime (seconds). Web3Auth **Base** plan allows at most **1 day**; longer sessions and
-   * custom branding (see `uiConfig`) require a higher tier — otherwise signer returns 403 / code 1003.
-   */
-  sessionTime: 86400,
-  /**
-   * Skip Web3Auth “set up MFA” flows by default. (Google/Microsoft may still ask for 2FA per *their* policy.)
-   * @see https://web3auth.io/docs/sdk/helper-sdks/authentication
-   */
-  mfaLevel: MFA_LEVELS.NONE,
-  /**
-   * Desktop: popup OAuth (modal completes in-page). Mobile: redirect (Safari popups are flaky).
-   * Forcing redirect everywhere broke “pick Google account → nothing happens” when the SDK didn’t finish the return leg.
-   */
-  // Do not set appName/logo/theme here: those count as **whitelabel** and are not available on the
-  // Base dashboard plan (API: is_whitelabel=true → 403). Only uxMode is safe on Base.
-  uiConfig: {
-    uxMode: authUxMode(),
-  },
-  // Social/email + MetaMask + WalletConnect. Do not add WALLET_CONNECTORS.COINBASE unless you
-  // install the optional peer `@coinbase/wallet-sdk` (otherwise init throws: "Connector coinbase is not configured").
-  // Each connector config must include loginMethods so filterConnectors doesn't read undefined.
-  modalConfig: {
-    connectors: {
-      [WALLET_CONNECTORS.AUTH]: { label: 'Social / Email', loginMethods: {} },
-      [WALLET_CONNECTORS.METAMASK]: { label: 'MetaMask', showOnModal: true, loginMethods: {} },
-      [WALLET_CONNECTORS.WALLET_CONNECT_V2]: { label: 'WalletConnect', showOnModal: true, loginMethods: {} },
+function buildModalConnectors(includeSocialLogin: boolean): Web3AuthOptions['modalConfig'] {
+  const connectors: NonNullable<Web3AuthOptions['modalConfig']>['connectors'] = {
+    [WALLET_CONNECTORS.METAMASK]: { label: 'MetaMask', showOnModal: true, loginMethods: {} },
+    [WALLET_CONNECTORS.WALLET_CONNECT_V2]: {
+      label: 'WalletConnect',
+      showOnModal: true,
+      loginMethods: {},
     },
-  },
+  }
+  if (includeSocialLogin) {
+    connectors[WALLET_CONNECTORS.AUTH] = { label: 'Social / Email', loginMethods: {} }
+  }
+  return { connectors }
 }
 
-
-export const web3AuthContextConfig: Web3AuthContextConfig = {
-  web3AuthOptions,
+function buildWeb3AuthOptions(includeSocialLogin: boolean): Web3AuthOptions {
+  return {
+    clientId: clientId || '',
+    web3AuthNetwork,
+    chains: [activeChainConfig],
+    defaultChainId: REQUIRED_CHAIN_ID_HEX,
+    storageType: 'local',
+    sessionTime: 86400,
+    mfaLevel: MFA_LEVELS.NONE,
+    uiConfig: { uxMode: authUxMode() },
+    modalConfig: buildModalConnectors(includeSocialLogin),
+  }
 }
+
+/** Full config (social + external wallets). Used when Wallet Services feature-access is OK. */
+export function createWeb3AuthContextConfig(includeSocialLogin: boolean): Web3AuthContextConfig {
+  return { web3AuthOptions: buildWeb3AuthOptions(includeSocialLogin) }
+}
+
+/** Default export for tests; production mounts via {@link createWeb3AuthContextConfig} after feature probe. */
+export const web3AuthContextConfig = createWeb3AuthContextConfig(true)
 
 export const isWeb3AuthEnabled = Boolean(clientId)

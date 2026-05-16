@@ -11,7 +11,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_ID_HEX } from '@/lib/blockchain/chain-constants'
-import { useWeb3AuthFeatureAccess } from '@/hooks/useWeb3AuthFeatureAccess'
+import { useWeb3AuthFeature } from '@/lib/web3auth/Web3AuthFeatureContext'
+import { Web3AuthSocialLoginNotice } from '@/features/wallet/components/Web3AuthSocialLoginNotice'
 import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/web3auth/errors'
 import {
   clearWeb3AuthStorage,
@@ -53,7 +54,7 @@ export function EmbeddedWalletConnect() {
   const [mounted, setMounted] = useState(false)
   const [initSlow, setInitSlow] = useState(false)
   const [dismissMessage, setDismissMessage] = useState<string | null>(null)
-  const featureAccess = useWeb3AuthFeatureAccess()
+  const { walletServicesForbidden, probeComplete } = useWeb3AuthFeature()
   const { isInitialized, isInitializing, initError, status } = useWeb3Auth()
   const { connect, loading, isConnected, error } = useWeb3AuthConnect()
   const { address, chainId } = useAccount()
@@ -67,11 +68,11 @@ export function EmbeddedWalletConnect() {
 
   // Stale localStorage + 403 Wallet Services often surfaces as "Invalid public key" during init.
   useEffect(() => {
-    if (featureAccess !== 'forbidden') return
+    if (!walletServicesForbidden) return
     if (sessionStorage.getItem(WEB3AUTH_403_STORAGE_CLEAR_KEY)) return
     sessionStorage.setItem(WEB3AUTH_403_STORAGE_CLEAR_KEY, '1')
     clearWeb3AuthStorage()
-  }, [featureAccess])
+  }, [walletServicesForbidden])
 
   const initErrMsg =
     initError instanceof Error ? initError.message : initError != null ? String(initError) : null
@@ -108,10 +109,6 @@ export function EmbeddedWalletConnect() {
 
   if (!mounted) {
     return <PreparingLoginButton />
-  }
-
-  if (featureAccess === 'forbidden') {
-    return <Web3AuthLoginBlocked />
   }
 
   // Logged-in users: never block on Web3Auth init (avoids hiding address after refresh).
@@ -193,13 +190,14 @@ export function EmbeddedWalletConnect() {
     }
 
     return (
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-2">
+        {probeComplete && walletServicesForbidden && <Web3AuthSocialLoginNotice />}
         <Button
           onClick={handleConnect}
           disabled={loading || !isInitialized || isInitializing}
           className="font-sans !text-black bg-brand-green hover:bg-brand-green/90"
         >
-          {loading ? 'Connecting...' : 'Log In'}
+          {loading ? 'Connecting...' : walletServicesForbidden ? 'Log In (MetaMask / WalletConnect)' : 'Log In'}
         </Button>
         {displayText && (
           <div className="flex max-w-[240px] flex-col items-center gap-1 text-center">

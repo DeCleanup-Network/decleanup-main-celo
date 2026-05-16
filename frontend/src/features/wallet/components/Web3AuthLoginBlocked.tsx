@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button'
 import {
   web3AuthClientId,
   web3AuthSapphireNetworkLabel,
-  WEB3AUTH_NETWORK_ENV_DEVNET,
-  WEB3AUTH_NETWORK_ENV_MAINNET,
 } from '@/lib/web3auth/config'
 import { WEB3AUTH_DEVELOPER_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
@@ -24,25 +22,33 @@ export function Web3AuthLoginBlocked({ onReload }: Props) {
 
   return (
     <div className="flex max-w-[min(100%,min(100vw-2rem,400px))] flex-col items-center gap-3 text-center">
-      <p className="text-xs font-medium text-amber-300/95">Social login is not enabled for this app</p>
+      <p className="text-xs font-medium text-amber-300/95">Wallet login could not start</p>
       <p className="text-[11px] leading-snug text-gray-400">
-        Web3Auth returned <strong className="text-gray-300">403</strong> for Wallet Services on{' '}
+        <strong className="text-gray-300">403</strong> on Wallet Services for{' '}
         <strong className="text-gray-300">{web3AuthSapphireNetworkLabel}</strong> (client{' '}
-        <code className="text-[10px]">{clientHint}</code>). In the{' '}
+        <code className="text-[10px]">{clientHint}</code>). On the free <strong className="text-gray-300">Base</strong>{' '}
+        plan, embedded / social wallets work on Sapphire Devnet only;{' '}
+        <strong className="text-gray-300">Sapphire Mainnet</strong> needs the{' '}
+        <strong className="text-gray-300">Scale</strong> plan or higher. See{' '}
+        <a
+          href="https://web3auth.io/pricing.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+        >
+          pricing
+        </a>{' '}
+        and your{' '}
         <a
           href={WEB3AUTH_DEVELOPER_DASHBOARD_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
         >
-          Web3Auth dashboard
+          developer dashboard
         </a>
-        , open this project and enable <strong className="text-gray-300">Wallet Services</strong> (or upgrade the
-        plan). If the dashboard shows <strong className="text-gray-300">Sapphire Devnet</strong>, set{' '}
-        <code className="rounded bg-white/5 px-1 py-0.5 text-[10px]">
-          NEXT_PUBLIC_WEB3AUTH_NETWORK={WEB3AUTH_NETWORK_ENV_DEVNET}
-        </code>{' '}
-        on Vercel (not {WEB3AUTH_NETWORK_ENV_MAINNET}). MetaMask login may still work after a reload.
+        . Try <strong className="text-gray-300">Reset session</strong> then reload; use MetaMask in the login modal if
+        shown.
       </p>
       <p className="text-[10px] text-gray-500">
         &quot;SES Removing unpermitted intrinsics&quot; in the console is from a browser extension, not this app.

@@ -82,7 +82,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 # Web3Auth *backend* network — use the same name as developer.metamask.io / dashboard.web3auth.io (NOT Celo mainnet):
 # NEXT_PUBLIC_WEB3AUTH_NETWORK=sapphire_mainnet
 # Default / omit = sapphire_devnet (Sapphire Devnet). Legacy aliases: mainnet → sapphire_mainnet, devnet → sapphire_devnet.
-# Social login requires **Wallet Services** on that Client ID. 403 on .../feature-access = enable in dashboard or fix this env.
+# Social login requires **Wallet Services**. Base plan: free on sapphire_devnet only; sapphire_mainnet needs Scale+ (403 on feature-access until upgraded).
 # Your on-chain network is still set by NEXT_PUBLIC_CHAIN_ID (Celo Sepolia vs Celo Mainnet).
 
 # ============================================
