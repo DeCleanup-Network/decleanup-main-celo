@@ -79,11 +79,11 @@ SUPABASE_SERVICE_ROLE_KEY=
 # When set, the app uses "Login with Email or Google" (wallet created in background) instead of RainbowKit.
 # Get your Client ID from https://dashboard.web3auth.io/
 # NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=
-# Optional: ONLY if your Web3Auth Dashboard project uses Sapphire Mainnet (must match  -  else 400 / Network mismatch)
-# Default / omit = Sapphire Devnet (typical for most projects)
-# NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet
-# Social login requires **Wallet Services** on that Client ID (same Sapphire tier). 403 on .../feature-access = enable in dashboard or fix network env.
-# Note: "Sapphire" is Web3Auth's backend network; your app chain is already Celo Sepolia (chains in code).
+# Web3Auth *backend* network — use the same name as developer.metamask.io / dashboard.web3auth.io (NOT Celo mainnet):
+# NEXT_PUBLIC_WEB3AUTH_NETWORK=sapphire_mainnet
+# Default / omit = sapphire_devnet (Sapphire Devnet). Legacy aliases: mainnet → sapphire_mainnet, devnet → sapphire_devnet.
+# Social login requires **Wallet Services** on that Client ID. 403 on .../feature-access = enable in dashboard or fix this env.
+# Your on-chain network is still set by NEXT_PUBLIC_CHAIN_ID (Celo Sepolia vs Celo Mainnet).
 
 # ============================================
 # OPTIONAL: Pimlico (gasless / Account Abstraction on Celo Sepolia)

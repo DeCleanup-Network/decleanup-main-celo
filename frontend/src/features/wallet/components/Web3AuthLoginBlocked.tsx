@@ -1,7 +1,12 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { web3AuthClientId, web3AuthSapphireNetwork } from '@/lib/web3auth/config'
+import {
+  web3AuthClientId,
+  web3AuthSapphireNetworkLabel,
+  WEB3AUTH_NETWORK_ENV_DEVNET,
+  WEB3AUTH_NETWORK_ENV_MAINNET,
+} from '@/lib/web3auth/config'
 import { WEB3AUTH_DEVELOPER_DASHBOARD_URL } from '@/lib/web3auth/urls'
 
 type Props = {
@@ -12,8 +17,6 @@ type Props = {
  * Shown when signer feature-access returns 403 (Wallet Services not enabled for this Client ID).
  */
 export function Web3AuthLoginBlocked({ onReload }: Props) {
-  const networkLabel =
-    web3AuthSapphireNetwork === 'sapphire_mainnet' ? 'Sapphire Mainnet' : 'Sapphire Devnet'
   const clientHint =
     web3AuthClientId.length > 12
       ? `…${web3AuthClientId.slice(-8)}`
@@ -24,7 +27,7 @@ export function Web3AuthLoginBlocked({ onReload }: Props) {
       <p className="text-xs font-medium text-amber-300/95">Social login is not enabled for this app</p>
       <p className="text-[11px] leading-snug text-gray-400">
         Web3Auth returned <strong className="text-gray-300">403</strong> for Wallet Services on{' '}
-        <strong className="text-gray-300">{networkLabel}</strong> (client{' '}
+        <strong className="text-gray-300">{web3AuthSapphireNetworkLabel}</strong> (client{' '}
         <code className="text-[10px]">{clientHint}</code>). In the{' '}
         <a
           href={WEB3AUTH_DEVELOPER_DASHBOARD_URL}
@@ -35,9 +38,11 @@ export function Web3AuthLoginBlocked({ onReload }: Props) {
           Web3Auth dashboard
         </a>
         , open this project and enable <strong className="text-gray-300">Wallet Services</strong> (or upgrade the
-        plan). If the project is still on <strong className="text-gray-300">Sapphire Devnet</strong>, remove{' '}
-        <code className="rounded bg-white/5 px-1 py-0.5 text-[10px]">NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet</code>{' '}
-        from Vercel. MetaMask login may still work after a reload.
+        plan). If the dashboard shows <strong className="text-gray-300">Sapphire Devnet</strong>, set{' '}
+        <code className="rounded bg-white/5 px-1 py-0.5 text-[10px]">
+          NEXT_PUBLIC_WEB3AUTH_NETWORK={WEB3AUTH_NETWORK_ENV_DEVNET}
+        </code>{' '}
+        on Vercel (not {WEB3AUTH_NETWORK_ENV_MAINNET}). MetaMask login may still work after a reload.
       </p>
       <p className="text-[10px] text-gray-500">
         &quot;SES Removing unpermitted intrinsics&quot; in the console is from a browser extension, not this app.

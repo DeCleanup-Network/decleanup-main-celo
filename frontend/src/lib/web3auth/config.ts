@@ -1,9 +1,16 @@
 'use client'
 
 import type { Web3AuthContextConfig } from '@web3auth/modal/react'
-import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
+import { CHAIN_NAMESPACES, WALLET_CONNECTORS, type Web3AuthOptions } from '@web3auth/modal'
 import { MFA_LEVELS } from '@web3auth/auth'
 import { getCeloSepoliaRpcTargetForWeb3Auth } from '@/lib/blockchain/celo-sepolia-rpc-url'
+import {
+  parseWeb3AuthNetworkFromEnv,
+  WEB3AUTH_NETWORK_ENV_DEVNET,
+  WEB3AUTH_NETWORK_ENV_MAINNET,
+  web3AuthNetworkToApiParam,
+  web3AuthNetworkToLabel,
+} from '@/lib/web3auth/network-env'
 import {
   REQUIRED_BLOCK_EXPLORER_URL,
   REQUIRED_CHAIN_ID,
@@ -20,22 +27,18 @@ if (!clientId && typeof window !== 'undefined') {
   )
 }
 
-// Web3Auth "network" = their backend (Sapphire), not the blockchain. Your chain is Celo Sepolia (set below in chains).
-// MUST match dashboard.web3auth.io → Project → network (Sapphire Devnet vs Sapphire Mainnet).
-// If you set NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet but the project is still Devnet, the API returns 400 and
-// "Network mismatch ... sapphire_mainnet ... sapphire_devnet". Fix: remove the env var (use devnet) or move the project to Mainnet in the dashboard.
-// If the console shows 403 on .../signer-service/api/feature-access?...&is_wallet_service=true — the Client ID may lack
-// Wallet Services / embedded-wallet entitlements on that Sapphire tier; check dashboard billing & product flags, or use Devnet until enabled.
-const requestedNetwork =
-  process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === 'mainnet'
-    ? WEB3AUTH_NETWORK.SAPPHIRE_MAINNET
-    : WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
+// Web3Auth "network" = Sapphire backend (dashboard label), NOT Celo/Ethereum mainnet. Set env to match the project row:
+// NEXT_PUBLIC_WEB3AUTH_NETWORK=sapphire_mainnet | sapphire_devnet (legacy: mainnet | devnet).
+// If the console shows 403 on .../feature-access?...&is_wallet_service=true — enable Wallet Services for that Client ID.
+const web3AuthNetwork = parseWeb3AuthNetworkFromEnv(process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK)
 
-const web3AuthNetwork = requestedNetwork
+/** API `network` query param (matches dashboard tag `sapphire_mainnet`). */
+export const web3AuthSapphireNetwork = web3AuthNetworkToApiParam(web3AuthNetwork)
 
-/** API `network` query param for signer feature-access (matches SDK init). */
-export const web3AuthSapphireNetwork: 'sapphire_mainnet' | 'sapphire_devnet' =
-  web3AuthNetwork === WEB3AUTH_NETWORK.SAPPHIRE_MAINNET ? 'sapphire_mainnet' : 'sapphire_devnet'
+/** Human label for errors (matches dashboard: "Sapphire Mainnet"). */
+export const web3AuthSapphireNetworkLabel = web3AuthNetworkToLabel(web3AuthNetwork)
+
+export { WEB3AUTH_NETWORK_ENV_DEVNET, WEB3AUTH_NETWORK_ENV_MAINNET }
 
 export const web3AuthClientId = clientId ?? ''
 
