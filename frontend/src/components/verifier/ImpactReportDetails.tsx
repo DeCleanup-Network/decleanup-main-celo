@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
@@ -15,6 +15,12 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
   const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const expandedPanelRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    if (!expanded) return
+    expandedPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [expanded, loading])
 
   // Use localStorage to persist expanded state
   const expandedKey = cleanupId 
@@ -143,7 +149,10 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
   // Loading state
   if (loading || (!impactData && !error)) {
     return (
-      <div className="mt-3 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm">
+      <div
+        ref={expandedPanelRef}
+        className="mt-3 scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem] rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm"
+      >
         <div className="flex items-center justify-between">
           <p className="font-semibold text-green-300">Impact Report: Submitted</p>
           <Button
@@ -167,7 +176,10 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
   // Error state
   if (error || !impactData) {
     return (
-      <div className="mt-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm">
+      <div
+        ref={expandedPanelRef}
+        className="mt-3 scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem] rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm"
+      >
         <div className="flex items-center justify-between">
           <p className="font-semibold text-yellow-200">Impact Report: Submitted</p>
           <Button
@@ -201,7 +213,10 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
 
   // Expanded state with data
   return (
-    <div className="mt-3 rounded-xl border border-green-500/40 bg-green-500/5 p-4 text-sm text-gray-100">
+    <div
+      ref={expandedPanelRef}
+      className="mt-3 scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem] rounded-xl border border-green-500/40 bg-green-500/5 p-4 text-sm text-gray-100"
+    >
       <div className="mb-3 flex items-center justify-between">
         <p className="font-semibold uppercase tracking-wide text-green-300">
           Impact Report Details

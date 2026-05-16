@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -67,6 +67,25 @@ function cleanupFailureHints(errorMessage: string): string {
       `- Pinata credentials on the server (PINATA_JWT) - open GET /api/ipfs/upload for a diagnostic\n` +
       `- Your connection, then try again\n` +
       `- Photo size and format (JPEG / PNG / HEIC)`
+    )
+  }
+
+  const isUploadOrBrowserNetwork =
+    lower.includes('upload before photo') ||
+    lower.includes('upload after photo') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('load failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('could not reach the upload server') ||
+    lower.includes('network error: please check your internet')
+
+  if (isUploadOrBrowserNetwork) {
+    return (
+      `Photo upload uses this site’s server (not your wallet’s chain). Try:\n` +
+      `- Retry on Wi‑Fi; turn off VPN / iCloud Private Relay / strict content blockers\n` +
+      `- Use a smaller photo (under ~8 MB) or export JPEG instead of HEIC\n` +
+      `- Safari: Settings → Safari → turn off “Prevent Cross-Site Tracking” for a test, or try Chrome\n` +
+      `- For the onchain step you still need ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}) in MetaMask`
     )
   }
 
@@ -224,6 +243,13 @@ function CleanupContent() {
       setHostName(window.location.hostname)
     }
   }, [])
+
+  // Sticky app header (~4.5–5.5rem): scroll each step so the title + intro sit below it, not mid-form.
+  useLayoutEffect(() => {
+    if (step !== 'enhanced' && step !== 'recyclables' && step !== 'review') return
+    const el = document.getElementById(`cleanup-flow-step-${step}`)
+    el?.scrollIntoView({ behavior: 'instant', block: 'start' })
+  }, [step])
 
   useEffect(() => {
     if (!mounted || !address) {
@@ -901,6 +927,16 @@ function CleanupContent() {
   }, [validation, enhancedData])
 
   const handleEnhancedNext = () => {
+    if (chainId !== undefined && chainId !== REQUIRED_CHAIN_ID) {
+      setAlertModal({
+        title: 'Wrong network',
+        message:
+          `Switch to ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}) before continuing.\n\n` +
+          `MetaMask (especially on Safari) may not auto-switch: open the wallet, choose the network menu, pick Celo Mainnet or add it manually (RPC: ${REQUIRED_RPC_URL}).`,
+        variant: 'warning',
+      })
+      return
+    }
     // Auto-fill minutes with "0" if empty (validation already handles this, but ensure state is updated)
     const finalData = {
       ...enhancedData,
@@ -973,6 +1009,18 @@ function CleanupContent() {
     if (!location) {
       setAlertModal({ message: 'Location is required. Please enable location services and try again.', variant: 'warning' })
       getLocation()
+      return
+    }
+
+    if (chainId !== undefined && chainId !== REQUIRED_CHAIN_ID) {
+      setAlertModal({
+        title: 'Wrong network',
+        message:
+          `You’re on Chain ID ${chainId}. Switch to ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}) before submitting.\n\n` +
+          `Photo upload does not require the right chain, but we ask you to switch first so the onchain transaction succeeds right after.\n\n` +
+          `MetaMask on Safari: open MetaMask → network dropdown → Celo Mainnet (add network if needed: RPC ${REQUIRED_RPC_URL}, symbol CELO).`,
+        variant: 'error',
+      })
       return
     }
 
@@ -1276,12 +1324,24 @@ function CleanupContent() {
         const errorName = submitError?.name || ''
         const errorDetails = submitError?.details || ''
 
-        // CRITICAL: Check for Celo Sepolia - this is a common mistake!
+        if (chainId !== undefined && chainId !== REQUIRED_CHAIN_ID) {
+          setAlertModal({
+            title: 'Wrong network',
+            message:
+              `Your wallet is on Chain ID ${chainId} (${describeChain(chainId)}). This app needs ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}).\n\n` +
+              `MetaMask on Safari often won’t switch from the site alone: open MetaMask → network menu → choose or add Celo Mainnet (RPC: ${REQUIRED_RPC_URL}, symbol CELO).\n\n` +
+              `Other error from this attempt: ${errorMessage}`,
+            variant: 'error',
+          })
+          setIsSubmitting(false)
+          return
+        }
+
+        // Wrong chain / Sepolia confusion (narrow — avoid matching every "Celo" substring)
         const isCeloError =
-          errorMessage.includes('CELO') ||
-          errorMessage.includes('Celo') ||
           errorMessage.includes('Celo Sepolia') ||
-          chainId === 11142220
+          (REQUIRED_CHAIN_ID === 42220 &&
+            (errorMessage.includes('11142220') || errorMessage.includes('sepolia')))
 
         // Check if it's truly a "chain not configured" error (not just a switch error)
         const isChainNotConfigured =
@@ -1301,7 +1361,7 @@ function CleanupContent() {
           setAlertModal({
             title: 'Wrong network',
             message:
-              `You are currently on Celo Sepolia Testnet, but this app requires ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}).\n\n` +
+              `This build targets ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}), but the error suggests a testnet or wrong RPC.\n\n` +
               `Please switch to ${REQUIRED_CHAIN_NAME}:\n\n` +
               `1. Open your wallet (MetaMask, Coinbase Wallet, etc.)\n` +
               `2. Click the network dropdown at the top\n` +
@@ -1313,7 +1373,7 @@ function CleanupContent() {
               `   • Currency Symbol: CELO\n` +
               `   • Block Explorer: ${REQUIRED_BLOCK_EXPLORER_URL}\n` +
               `5. Once on ${REQUIRED_CHAIN_NAME}, try submitting again.\n\n` +
-              `Do NOT submit transactions on Celo Sepolia; they will fail.`,
+              `Details: ${errorMessage}`,
             variant: 'error',
           })
           setIsSubmitting(false)
@@ -1448,7 +1508,9 @@ function CleanupContent() {
     'w-full gap-2 bg-brand-yellow py-4 font-bebas text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
   const uploadDisabledHint = canClaimPendingLevel
     ? 'Verified: claim your level below'
-    : 'Submission on cooldown'
+    : isWrongNetwork
+      ? `Switch to ${REQUIRED_CHAIN_NAME} (chain ${REQUIRED_CHAIN_ID})`
+      : 'Submission on cooldown'
 
   // Debug logging
   if (hasPendingCleanup) {
@@ -1567,8 +1629,6 @@ function CleanupContent() {
 
     // Show wrong network warning first (higher priority)
     if (isWrongNetwork) {
-      const isVeChain = chainId === 11142220
-      const isCelo = chainId === 11142220
       return (
         <div className="mb-6 rounded-lg border border-red-500/50 bg-red-500/10 p-4">
           <div className="flex items-start gap-3">
@@ -1576,17 +1636,24 @@ function CleanupContent() {
             <div className="flex-1">
               <h3 className="mb-1 font-semibold text-red-400">Wrong Network</h3>
               <p className="mb-3 text-sm text-gray-300">
-                You're on Chain ID {chainId} ({describeChain(chainId)}).
-                {isVeChain
-                  ? ' VeChain browser extensions hijack window.ethereum and block Celo transactions. Please disable the VeChain extension (or use MetaMask/Coinbase Wallet) and switch to the required network.'
-                  : ' Please switch to the required Celo network before submitting a cleanup.'}
+                You&apos;re on Chain ID {chainId} ({describeChain(chainId)}). This app needs{' '}
+                <strong className="text-white">
+                  {REQUIRED_CHAIN_NAME} ({REQUIRED_CHAIN_ID})
+                </strong>
+                . MetaMask often won&apos;t switch automatically—open the wallet extension or app and pick Celo
+                Mainnet there. If it&apos;s missing, add network: RPC {REQUIRED_RPC_URL}, symbol CELO.
               </p>
               <Button
                 onClick={async () => {
                   try {
                     await switchChain({ chainId: REQUIRED_CHAIN_ID })
                   } catch (error: any) {
-                    setAlertModal({ message: `Please switch to ${REQUIRED_CHAIN_NAME} manually in your wallet.`, variant: 'warning' })
+                    setAlertModal({
+                      title: 'Switch in MetaMask',
+                      message:
+                        `Could not switch from the browser. In MetaMask: Networks → select or add Celo Mainnet (Chain ID ${REQUIRED_CHAIN_ID}). On Safari, use MetaMask&apos;s in-app browser if the button keeps failing.`,
+                      variant: 'warning',
+                    })
                   }
                 }}
                 disabled={isSwitchingChain}
@@ -2049,7 +2116,10 @@ function CleanupContent() {
     return (
       <>
         <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
-        <div className="mx-auto max-w-md">
+        <div
+          id="cleanup-flow-step-enhanced"
+          className="mx-auto max-w-md scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem]"
+        >
           <div className="mb-6">
             <BackButton />
           </div>
@@ -2574,7 +2644,10 @@ function CleanupContent() {
     return (
       <>
         <div className="min-h-screen bg-background px-4 py-6 sm:py-8 pb-20">
-        <div className="mx-auto max-w-md">
+        <div
+          id="cleanup-flow-step-recyclables"
+          className="mx-auto max-w-md scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem]"
+        >
           <div className="mb-6">
             <Button
               variant="outline"
@@ -2739,7 +2812,7 @@ function CleanupContent() {
               <Button
                 variant="outline"
                 onClick={handleSkipRecyclables}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSubmissionDisabled}
                 className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
               >
                 Skip
@@ -2748,6 +2821,7 @@ function CleanupContent() {
                 onClick={handleSubmitRecyclables}
                 disabled={
                   isSubmitting ||
+                  isSubmissionDisabled ||
                   !recyclablesPhoto ||
                   !recyclablesAmount ||
                   Number.isNaN(Number(recyclablesAmount)) ||
@@ -2812,7 +2886,10 @@ function CleanupContent() {
 
     return (
       <div className="min-h-screen bg-background px-4 py-6 pb-16">
-        <div className="mx-auto max-w-sm text-center">
+        <div
+          id="cleanup-flow-step-review"
+          className="mx-auto max-w-sm scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem] text-center"
+        >
           <CheckCircle className="mx-auto mb-2 h-10 w-10 text-brand-green" aria-hidden />
           <h1 className="mb-1 font-bebas text-2xl uppercase tracking-wide text-white sm:text-3xl">
             Submission successful!

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, useCallback, useMemo } from 'react'
+import { Suspense, useEffect, useState, useCallback, useMemo, useLayoutEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAccount, useSignMessage } from 'wagmi'
@@ -168,6 +168,7 @@ function PublicPortfolioContent() {
   const [draftProfile, setDraftProfile] = useState<EditableProfile | null>(null)
   const [showEditor, setShowEditor] = useState(false)
   const [showImpactReports, setShowImpactReports] = useState(false)
+  const impactReportsSectionRef = useRef<HTMLElement | null>(null)
   const [saveProfileError, setSaveProfileError] = useState<string | null>(null)
   const [saveProfileLoading, setSaveProfileLoading] = useState(false)
   const [isPortfolioVerifier, setIsPortfolioVerifier] = useState(false)
@@ -261,6 +262,11 @@ function PublicPortfolioContent() {
       cancelled = true
     }
   }, [resolved, effectiveSubmissionOwner])
+
+  useLayoutEffect(() => {
+    if (!showImpactReports) return
+    impactReportsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showImpactReports])
 
   const shareUrl =
     typeof window !== 'undefined' && resolved
@@ -970,7 +976,10 @@ function PublicPortfolioContent() {
             </section>
 
             {/* 7) Impact reports (collapsed by default) */}
-            <section className="space-y-4">
+            <section
+              ref={impactReportsSectionRef}
+              className="space-y-4 scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem]"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
                 <div>
                   <h2 className="font-bebas text-2xl tracking-wider">Impact Reports</h2>

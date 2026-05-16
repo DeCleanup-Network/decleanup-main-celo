@@ -106,9 +106,31 @@ export async function uploadToIPFS(
   } catch (error) {
     console.error('IPFS upload error:', error)
     if (error instanceof Error) {
-      // Provide more helpful error messages
-      if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
-        throw new Error('Network error: Please check your internet connection and try again.')
+      // Re-throw our own structured errors unchanged
+      if (
+        error.message.startsWith('Failed to upload to IPFS') ||
+        error.message.startsWith('No IPFS hash')
+      ) {
+        throw error
+      }
+      const msg = error.message
+      const isFetchFail =
+        msg.includes('Failed to fetch') ||
+        msg.includes('Load failed') ||
+        error.name === 'TypeError' ||
+        msg.includes('NetworkError') ||
+        msg.includes('Network request failed')
+
+      if (isFetchFail) {
+        throw new Error(
+          'Could not reach this site’s upload service (browser network error). ' +
+            'This is not your wallet’s blockchain network—try Wi‑Fi, disable VPN / iCloud Private Relay / content blockers, use a smaller JPEG, or try Chrome if you’re on Safari.'
+        )
+      }
+      if (msg.includes('Network') || msg.includes('Failed to fetch')) {
+        throw new Error(
+          `${msg} If the problem persists, try another browser or network; wallet chain does not affect this upload step.`
+        )
       }
       throw error
     }
