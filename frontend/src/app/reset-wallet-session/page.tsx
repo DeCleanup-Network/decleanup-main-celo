@@ -16,14 +16,22 @@ function ResetWalletSessionWeb3Auth() {
   useEffect(() => {
     if (done.current) return
     done.current = true
-    ;(async () => {
+
+    const fallback = window.setTimeout(() => {
+      clearWeb3AuthStorageAndRedirect('/')
+    }, 2500)
+
+    void (async () => {
       try {
         await disconnect({ cleanup: true })
       } catch {
-        // ignore
+        // ignore — init may never have completed (403 / stale session)
       }
+      window.clearTimeout(fallback)
       clearWeb3AuthStorageAndRedirect('/')
     })()
+
+    return () => window.clearTimeout(fallback)
   }, [disconnect])
 
   return (

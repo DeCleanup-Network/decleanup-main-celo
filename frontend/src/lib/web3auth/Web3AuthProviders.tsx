@@ -6,7 +6,11 @@ import { Web3AuthProvider } from '@web3auth/modal/react'
 import { WagmiProvider } from '@web3auth/modal/react/wagmi'
 import { web3AuthContextConfig } from './config'
 import { isWeb3AuthPopupClosedError } from './errors'
-import { clearWeb3AuthStorageAndRedirect, isSessionExpiredError } from './storage'
+import {
+  clearWeb3AuthStorageAndRedirect,
+  extractWeb3AuthErrorMessage,
+  isSessionExpiredError,
+} from './storage'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 
 /**
@@ -30,8 +34,7 @@ function Web3AuthGlobalErrorHandlers() {
         swallowPopupClosed(event)
         return
       }
-      const message =
-        event?.reason?.message ?? event?.reason?.error?.message ?? String(event?.reason ?? '')
+      const message = extractWeb3AuthErrorMessage(event.reason)
       if (isSessionExpiredError(message)) {
         event.preventDefault?.()
         clearWeb3AuthStorageAndRedirect('/reset-wallet-session')

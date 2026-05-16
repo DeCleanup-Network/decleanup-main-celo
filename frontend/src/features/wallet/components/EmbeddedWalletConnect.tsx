@@ -11,9 +11,18 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_ID_HEX } from '@/lib/blockchain/chain-constants'
+import { useWeb3AuthFeatureAccess } from '@/hooks/useWeb3AuthFeatureAccess'
 import { isWeb3AuthModalNotReadyError, isWeb3AuthPopupClosedError } from '@/lib/web3auth/errors'
-import { clearWeb3AuthStorageAndReload } from '@/lib/web3auth/storage'
-import { WEB3AUTH_ACCOUNT_DASHBOARD_URL, WEB3AUTH_DEVELOPER_DASHBOARD_URL } from '@/lib/web3auth/urls'
+import {
+  clearWeb3AuthStorage,
+  clearWeb3AuthStorageAndReload,
+  isWeb3AuthStaleSessionError,
+} from '@/lib/web3auth/storage'
+import { WEB3AUTH_ACCOUNT_DASHBOARD_URL } from '@/lib/web3auth/urls'
+import { Web3AuthLoginBlocked } from '@/features/wallet/components/Web3AuthLoginBlocked'
+
+const WEB3AUTH_403_STORAGE_CLEAR_KEY = 'decleanup_w3a_cleared_for_feature_403'
+const WEB3AUTH_SESSION_RESET_KEY = 'decleanup_w3a_session_reset_attempted'
 
 /**
  * If init hangs (common when signer returns 403 for Wallet Services), show help instead of endless spinner.
@@ -44,6 +53,7 @@ export function EmbeddedWalletConnect() {
   const [mounted, setMounted] = useState(false)
   const [initSlow, setInitSlow] = useState(false)
   const [dismissMessage, setDismissMessage] = useState<string | null>(null)
+  const featureAccess = useWeb3AuthFeatureAccess()
   const { isInitialized, isInitializing, initError, status } = useWeb3Auth()
   const { connect, loading, isConnected, error } = useWeb3AuthConnect()
   const { address, chainId } = useAccount()
@@ -54,6 +64,24 @@ export function EmbeddedWalletConnect() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Stale localStorage + 403 Wallet Services often surfaces as "Invalid public key" during init.
+  useEffect(() => {
+    if (featureAccess !== 'forbidden') return
+    if (sessionStorage.getItem(WEB3AUTH_403_STORAGE_CLEAR_KEY)) return
+    sessionStorage.setItem(WEB3AUTH_403_STORAGE_CLEAR_KEY, '1')
+    clearWeb3AuthStorage()
+  }, [featureAccess])
+
+  const initErrMsg =
+    initError instanceof Error ? initError.message : initError != null ? String(initError) : null
+
+  useEffect(() => {
+    if (!initErrMsg || !isWeb3AuthStaleSessionError(initErrMsg)) return
+    if (sessionStorage.getItem(WEB3AUTH_SESSION_RESET_KEY)) return
+    sessionStorage.setItem(WEB3AUTH_SESSION_RESET_KEY, '1')
+    window.location.href = '/reset-wallet-session'
+  }, [initErrMsg])
 
   const authNotReady = !isInitialized || isInitializing
   const waitingForWeb3AuthInit =
@@ -82,9 +110,12 @@ export function EmbeddedWalletConnect() {
     return <PreparingLoginButton />
   }
 
+  if (featureAccess === 'forbidden') {
+    return <Web3AuthLoginBlocked />
+  }
+
   // Logged-in users: never block on Web3Auth init (avoids hiding address after refresh).
   if (authNotReady && (!isConnected || !address)) {
-    const initErrMsg = initError instanceof Error ? initError.message : initError != null ? String(initError) : null
     if (initErrMsg) {
       return (
         <div className="flex max-w-[min(100%,280px)] flex-col items-center gap-2 text-center">
@@ -111,52 +142,12 @@ export function EmbeddedWalletConnect() {
 
     const stalled = initSlow || status === CONNECTOR_STATUS.ERRORED
     if (stalled) {
-      return (
-        <div className="flex max-w-[min(100%,min(100vw-2rem,380px))] flex-col items-center gap-3 text-center">
-          <p className="text-xs font-medium text-amber-300/95">
-            Login can’t finish loading
-          </p>
-          <p className="text-[11px] leading-snug text-gray-400">
-            Social login needs{' '}
-            <strong className="text-gray-300">Web3Auth Wallet Services</strong>. If the console shows{' '}
-            <code className="rounded bg-white/5 px-1 py-0.5 text-[10px] text-amber-200/90">403</code> on{' '}
-            <code className="rounded bg-white/5 px-1 py-0.5 text-[10px]">feature-access</code>, open your
-            project in the{' '}
-            <a
-              href={WEB3AUTH_DEVELOPER_DASHBOARD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-            >
-              Web3Auth dashboard
-            </a>{' '}
-            and enable Wallet Services or upgrade the plan. Ad blockers can also block the signer.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-gray-600 font-sans text-gray-200"
-              onClick={() => window.location.reload()}
-            >
-              Reload page
-            </Button>
-            <a
-              href="/reset-wallet-session"
-              className="text-xs font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-            >
-              Reset session
-            </a>
-          </div>
-        </div>
-      )
+      return <Web3AuthLoginBlocked />
     }
     return <PreparingLoginButton />
   }
 
   if (!isConnected || !address) {
-    const initErrMsg = initError instanceof Error ? initError.message : initError != null ? String(initError) : null
     const errorMessage = error?.message ?? null
     const isModalNotReadyErr =
       (error != null && isWeb3AuthModalNotReadyError(error)) ||

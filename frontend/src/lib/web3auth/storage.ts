@@ -56,3 +56,19 @@ export function isSessionExpiredError(message: string): boolean {
     (p) => lower.includes(p.toLowerCase())
   )
 }
+
+/** Pull a message from Web3Auth / OAuth rejection shapes (minified bundles nest `error`). */
+export function extractWeb3AuthErrorMessage(reason: unknown): string {
+  if (reason instanceof Error) return reason.message
+  if (reason && typeof reason === 'object') {
+    const r = reason as { message?: string; error?: { message?: string } }
+    if (typeof r.message === 'string') return r.message
+    if (r.error && typeof r.error.message === 'string') return r.error.message
+  }
+  return String(reason ?? '')
+}
+
+/** Stale encrypted session in localStorage (often after Client ID / Sapphire network change). */
+export function isWeb3AuthStaleSessionError(message: string): boolean {
+  return isSessionExpiredError(message)
+}

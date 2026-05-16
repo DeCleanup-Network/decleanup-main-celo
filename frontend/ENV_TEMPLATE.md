@@ -82,6 +82,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 # Optional: ONLY if your Web3Auth Dashboard project uses Sapphire Mainnet (must match  -  else 400 / Network mismatch)
 # Default / omit = Sapphire Devnet (typical for most projects)
 # NEXT_PUBLIC_WEB3AUTH_NETWORK=mainnet
+# Social login requires **Wallet Services** on that Client ID (same Sapphire tier). 403 on .../feature-access = enable in dashboard or fix network env.
 # Note: "Sapphire" is Web3Auth's backend network; your app chain is already Celo Sepolia (chains in code).
 
 # ============================================

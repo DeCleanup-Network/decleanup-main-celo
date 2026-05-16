@@ -33,6 +33,12 @@ const requestedNetwork =
 
 const web3AuthNetwork = requestedNetwork
 
+/** API `network` query param for signer feature-access (matches SDK init). */
+export const web3AuthSapphireNetwork: 'sapphire_mainnet' | 'sapphire_devnet' =
+  web3AuthNetwork === WEB3AUTH_NETWORK.SAPPHIRE_MAINNET ? 'sapphire_mainnet' : 'sapphire_devnet'
+
+export const web3AuthClientId = clientId ?? ''
+
 // Web3Auth runs RPC from wallet.web3auth.io — must not use localhost /api/rpc (loopback blocked).
 // SDK requires chainId as hex string, and Web3Auth compares this value literally.
 const activeRpcTarget =
