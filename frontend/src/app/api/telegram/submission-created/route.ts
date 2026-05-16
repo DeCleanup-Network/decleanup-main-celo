@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
   const rateLimit = checkInMemoryRateLimit({
     key: `telegram-submission:${ip}`,
-    limit: 30,
+    maxRequests: 30,
     windowMs: 60_000,
   })
   if (!rateLimit.ok) {

@@ -50,6 +50,29 @@ const SUBMISSION_DETAILS_ABI = [
   },
 ] as const
 
+/** Matches `getSubmissionDetails` tuple output; asserted after `readContract`. */
+type SubmissionDetailsTuple = {
+  id: bigint
+  submitter: Address
+  dataURI: string
+  beforePhotoHash: string
+  afterPhotoHash: string
+  impactFormDataHash: string
+  latitude: bigint
+  longitude: bigint
+  timestamp: bigint
+  status: number | bigint
+  approver: Address
+  processedTimestamp: bigint
+  rewarded: boolean
+  feePaid: bigint
+  feeRefunded: boolean
+  hasImpactForm: boolean
+  hasRecyclables: boolean
+  recyclablesPhotoHash: string
+  recyclablesReceiptHash: string
+}
+
 const chain = defineChain({
   id: REQUIRED_CHAIN_ID,
   name: REQUIRED_CHAIN_NAME,
@@ -127,14 +150,14 @@ export async function notifyVerifiersOfNewSubmission(params: {
     return { sent: false, reason: 'already_notified' }
   }
 
-  let details: Awaited<ReturnType<typeof publicClient.readContract>>
+  let details: SubmissionDetailsTuple
   try {
-    details = await publicClient.readContract({
+    details = (await publicClient.readContract({
       address: submissionAddress,
       abi: SUBMISSION_DETAILS_ABI,
       functionName: 'getSubmissionDetails',
       args: [id],
-    })
+    })) as SubmissionDetailsTuple
   } catch (e) {
     console.warn('[telegram-submission-notify] readContract failed:', e)
     return { sent: false, reason: 'not_found' }
