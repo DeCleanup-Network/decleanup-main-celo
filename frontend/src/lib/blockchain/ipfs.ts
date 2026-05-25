@@ -197,14 +197,15 @@ export function getIPFSFallbackUrls(hash: string): string[] {
 
   const cleanHash = hash.split('?')[0].split('#')[0]
 
-  // List of IPFS gateways that support CORS
+  const custom = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim()
   const gateways = [
+    ...(custom ? [custom.endsWith('/') ? custom : `${custom}/`] : []),
+    'https://gateway.pinata.cloud/ipfs/',
     'https://ipfs.io/ipfs/',
     'https://dweb.link/ipfs/',
-    'https://gateway.ipfs.io/ipfs/',
     'https://cloudflare-ipfs.com/ipfs/',
+    'https://gateway.ipfs.io/ipfs/',
     'https://w3s.link/ipfs/',
-    'https://gateway.pinata.cloud/ipfs/',
   ]
   
   return gateways.map(gateway => `${gateway}${cleanHash}`)

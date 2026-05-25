@@ -2,26 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Camera, User, ShieldCheck } from 'lucide-react'
-import { useAccount } from 'wagmi'
-import { isVerifier } from '@/lib/blockchain/contracts'
-import { useState, useEffect } from 'react'
+import { Home, ShieldCheck } from 'lucide-react'
+import { useVerifierAccess } from '@/hooks/useVerifierAccess'
 
 export function BottomNav() {
   const pathname = usePathname()
-  const { address, isConnected } = useAccount()
-  const [isVerifierWallet, setIsVerifierWallet] = useState(false)
-
-  // Check if wallet is verifier
-  useEffect(() => {
-    if (isConnected && address) {
-      isVerifier(address as `0x${string}`)
-        .then((result) => setIsVerifierWallet(result))
-        .catch(() => setIsVerifierWallet(false))
-    } else {
-      setIsVerifierWallet(false)
-    }
-  }, [isConnected, address])
+  const { showVerifierFeatures } = useVerifierAccess()
 
   const navItems = [
     {
@@ -30,7 +16,7 @@ export function BottomNav() {
       label: 'Home',
       active: pathname === '/',
     },
-    ...(isVerifierWallet
+    ...(showVerifierFeatures
       ? [
           {
             href: '/verifier',
@@ -41,9 +27,8 @@ export function BottomNav() {
         ]
       : []),
   ]
-  
-  // Don't show on verifier page if not a verifier
-  if (pathname === '/verifier' && !isVerifierWallet) {
+
+  if (pathname === '/verifier' && !showVerifierFeatures) {
     return null
   }
 
@@ -75,4 +60,3 @@ export function BottomNav() {
     </nav>
   )
 }
-

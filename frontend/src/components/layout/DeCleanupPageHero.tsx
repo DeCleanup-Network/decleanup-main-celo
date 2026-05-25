@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-const bebasHeadingStyle = {
+export const decleanupRewardsTitleStyle = {
   fontFamily: 'var(--font-bebas-neue), sans-serif',
   letterSpacing: '0.05em',
+  lineHeight: 1.1,
 } as const
 
 export type DeCleanupPageHeroProps = {
@@ -42,7 +43,7 @@ export function DeCleanupPageHero({
         <div className={cn('max-w-3xl space-y-3', textBlock)}>
           <h1
             className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
-            style={bebasHeadingStyle}
+            style={decleanupRewardsTitleStyle}
           >
             <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent">
               DECLEANUP

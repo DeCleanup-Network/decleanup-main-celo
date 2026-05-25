@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isAllowedIpfsFetchHost } from '@/lib/utils/ipfs-fetch-allowed'
+import {
+  fetchFromIpfsGateways,
+  normalizeIpfsCid,
+} from '@/lib/utils/ipfs-fetch-gateways'
 
 export const runtime = 'nodejs'
-
-/** When Pinata or another gateway rate-limits, try public gateways for the same CID. */
-const IPFS_CID_FALLBACK_BASES = [
-  'https://ipfs.io/ipfs/',
-  'https://dweb.link/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'https://gateway.ipfs.io/ipfs/',
-  'https://w3s.link/ipfs/',
-] as const
 
 function extractIpfsCidFromUrl(url: string): string | null {
   const m = url.match(/\/ipfs\/([^?#]+)/)
@@ -18,62 +13,76 @@ function extractIpfsCidFromUrl(url: string): string | null {
 }
 
 /**
- * Server-side fetch of IPFS gateway URLs so browsers (esp. Safari) avoid
- * Pinata CORS + rate limits when loading images/metadata from localhost.
+ * Server-side fetch of IPFS content so browsers avoid gateway CORS / 429.
+ * Use ?cid=bafy... (preferred) or ?url=https://gateway.../ipfs/CID
  */
 export async function GET(req: NextRequest) {
-  const raw = req.nextUrl.searchParams.get('url')
-  if (!raw?.trim()) {
-    return NextResponse.json({ error: 'Missing url' }, { status: 400 })
-  }
+  const cidParam = req.nextUrl.searchParams.get('cid')?.trim()
+  const rawUrl = req.nextUrl.searchParams.get('url')?.trim()
 
-  let parsed: URL
   try {
-    parsed = new URL(raw)
-  } catch {
-    return NextResponse.json({ error: 'Invalid url' }, { status: 400 })
-  }
-
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    return NextResponse.json({ error: 'Invalid protocol' }, { status: 400 })
-  }
-
-  if (!isAllowedIpfsFetchHost(parsed.hostname)) {
-    return NextResponse.json({ error: 'Host not allowed' }, { status: 403 })
-  }
-
-  let upstream = await fetch(raw, {
-    headers: { Accept: '*/*' },
-    next: { revalidate: 3600 },
-  })
-
-  const cid = extractIpfsCidFromUrl(raw)
-  if (!upstream.ok && cid) {
-    for (const base of IPFS_CID_FALLBACK_BASES) {
-      const alt = `${base}${cid}`
-      try {
-        const u = new URL(alt)
-        if (!isAllowedIpfsFetchHost(u.hostname)) continue
-        const retry = await fetch(alt, {
-          headers: { Accept: '*/*' },
-          next: { revalidate: 3600 },
-        })
-        if (retry.ok) {
-          upstream = retry
-          break
-        }
-      } catch {
-        /* try next */
-      }
+    if (cidParam) {
+      const { response } = await fetchFromIpfsGateways(cidParam)
+      const contentType = response.headers.get('content-type') || 'application/json'
+      return new NextResponse(response.body, {
+        status: response.status,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        },
+      })
     }
-  }
 
-  const contentType = upstream.headers.get('content-type') || 'application/octet-stream'
-  return new NextResponse(upstream.body, {
-    status: upstream.status,
-    headers: {
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-    },
-  })
+    if (!rawUrl) {
+      return NextResponse.json({ error: 'Missing cid or url' }, { status: 400 })
+    }
+
+    let parsed: URL
+    try {
+      parsed = new URL(rawUrl)
+    } catch {
+      return NextResponse.json({ error: 'Invalid url' }, { status: 400 })
+    }
+
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return NextResponse.json({ error: 'Invalid protocol' }, { status: 400 })
+    }
+
+    if (!isAllowedIpfsFetchHost(parsed.hostname)) {
+      return NextResponse.json({ error: 'Host not allowed' }, { status: 403 })
+    }
+
+    const embeddedCid = extractIpfsCidFromUrl(rawUrl)
+    if (embeddedCid) {
+      const { response } = await fetchFromIpfsGateways(embeddedCid)
+      const contentType = response.headers.get('content-type') || 'application/octet-stream'
+      return new NextResponse(response.body, {
+        status: response.status,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        },
+      })
+    }
+
+    const upstream = await fetch(rawUrl, {
+      headers: { Accept: '*/*' },
+      cache: 'no-store',
+    })
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream'
+    return new NextResponse(upstream.body, {
+      status: upstream.status,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      },
+    })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'IPFS fetch failed'
+    const cid = cidParam || (rawUrl ? extractIpfsCidFromUrl(rawUrl) : null)
+    return NextResponse.json(
+      { error: message, cid: cid ? normalizeIpfsCid(cid) : undefined },
+      { status: 502 }
+    )
+  }
 }

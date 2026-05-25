@@ -1,6 +1,6 @@
 /**
  * Chain IDs, RPC URLs, and contract addresses only.
- * Import from here in Web3Auth/embedded-wallet code so we don’t pull in wagmi.ts
+ * Import from here in embedded-wallet code so we don’t pull in wagmi.ts
  * (which loads RainbowKit/Lit and triggers "Lit is in dev mode" etc.).
  */
 
@@ -23,7 +23,7 @@ const requiredChainId =
 const isTestnet = requiredChainId !== CELO_MAINNET_CHAIN_ID
 
 export const REQUIRED_CHAIN_ID = requiredChainId
-/** Hex string for wallet_switchEthereumChain / Web3Auth switchChain (lowercase; must match Web3Auth `chains[].chainId`). */
+/** Hex string for wallet_switchEthereumChain (lowercase). */
 export const REQUIRED_CHAIN_ID_HEX = `0x${requiredChainId.toString(16)}` as const
 export const DEFAULT_CHAIN_ID = requiredChainId
 export const REQUIRED_CHAIN_NAME = isTestnet ? 'Celo Sepolia Testnet' : 'Celo Mainnet'

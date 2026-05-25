@@ -125,6 +125,9 @@ NEXT_PUBLIC_IMPACT_METADATA_CID=
 CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
 # Claim accounting (issued amounts, milestones, pending) is stored in Supabase table
 # `cdcu_issued_store` (migration: frontend/supabase/migrations/20260513_create_cdcu_issued_store.sql).
+# Airdrop claim state (`claimed_*`, `pending_*` keys) uses `airdrop_issued_store`
+# (migration: frontend/supabase/migrations/20260519_create_airdrop_issued_store.sql).
+# One-time JSON → Supabase: `node frontend/scripts/migrate-airdrop-issued-to-supabase.mjs` (DRY_RUN=1 first).
 # Requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (already set for other features).
 # CLAIM_VAULT_ISSUED_STORE_PATH below is the legacy JSON file fallback used only when Supabase
 # is not configured (local dev). Vercel/serverless requires Supabase since /tmp is ephemeral.

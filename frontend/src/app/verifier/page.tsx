@@ -857,10 +857,10 @@ export default function VerifierPage() {
                     <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-6 text-center">
                         <Shield className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
                         <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
-                            Verifier Authentication Required
+                            Sign in to verify
                         </h2>
                         <p className="mb-4 text-sm text-muted-foreground">
-                            Please sign a message to verify you control this wallet address. Only whitelisted verifier addresses can access this dashboard.
+                            Sign a message to prove you control this wallet. Only approved verifier addresses can open the cabinet.
                         </p>
                         {error && (
                             <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-400">
@@ -912,10 +912,10 @@ export default function VerifierPage() {
                     <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-6 text-center">
                         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
                         <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
-                            Access Denied
+                            Verifier access only
                         </h2>
                         <p className="mb-4 text-sm text-muted-foreground">
-                            This address is not authorized as a verifier. Only whitelisted verifier addresses can access this dashboard.
+                            This wallet is not on the verifier list. Apply from Home if you want to review cleanups.
                         </p>
                         {error && (
                             <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-400">
@@ -927,6 +927,11 @@ export default function VerifierPage() {
                                 <span className="text-gray-400">Your address:</span> {address}
                             </p>
                         </div>
+                        <Link href="/">
+                            <Button variant="outline" className="border-border">
+                                Back to Home
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             </div>

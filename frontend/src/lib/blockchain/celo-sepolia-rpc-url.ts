@@ -5,25 +5,6 @@ import { resolveCeloSepoliaUpstreamRpc, CELO_SEPOLIA_FORNO_RPC } from './celo-se
  * Prefer same-origin proxy in the browser so public forno endpoints
  * (often no CORS for browser fetch) do not break readContract.
  */
-/**
- * RPC URL for Web3Auth `rpcTarget`. JSON-RPC runs inside https://wallet.web3auth.io, which must not
- * target http://localhost (browsers block cross-origin access to loopback / private network).
- * Use the public upstream URL when the dapp is on localhost; elsewhere match {@link getCeloSepoliaHttpRpcUrl}.
- */
-export function getCeloSepoliaRpcTargetForWeb3Auth(): string {
-  const direct = resolveCeloSepoliaUpstreamRpc(
-    process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || CELO_SEPOLIA_FORNO_RPC
-  )
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const h = window.location.hostname
-    if (h === 'localhost' || h === '127.0.0.1') {
-      return direct
-    }
-  } else if (process.env.NODE_ENV === 'development') {
-    return direct
-  }
-  return getCeloSepoliaHttpRpcUrl()
-}
 
 export function getCeloSepoliaHttpRpcUrl(): string {
   const direct = resolveCeloSepoliaUpstreamRpc(
@@ -31,7 +12,7 @@ export function getCeloSepoliaHttpRpcUrl(): string {
   )
 
   if (typeof window !== 'undefined' && window.location?.origin) {
-    // In Web3Auth / embedded iframes, `origin` is not the dapp — same-origin proxy would point at the wrong host.
+    // In embedded iframes, `origin` is not the dapp — same-origin proxy would point at the wrong host.
     const inIframe =
       typeof window.self !== 'undefined' &&
       typeof window.top !== 'undefined' &&
@@ -44,7 +25,7 @@ export function getCeloSepoliaHttpRpcUrl(): string {
       if (base) {
         try {
           const u = new URL(base)
-          // Web3Auth iframe cannot access localhost loopback from wallet.web3auth.io.
+          // Embedded iframe cannot access localhost loopback from its origin.
           if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
             return direct
           }

@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useChainId, useWalletClient } from 'wagmi'
-import { isWeb3AuthEnabled } from '@/lib/web3auth/config'
+const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
 
 /**
- * For Web3Auth, wagmi `useChainId` can be stale after connect/switch.
- * Read `eth_chainId` from the active wagmi WalletClient (works with Web3Auth + RainbowKit).
- * Do not use `useWeb3Auth()` here — that hook requires Web3AuthProvider; builds without
- * NEXT_PUBLIC_WEB3AUTH_CLIENT_ID use RainbowKit only and would crash during SSG.
+ * Read `eth_chainId` from the active wagmi WalletClient.
+ * Do not use `usePrivy()` here — that hook requires PrivyProvider; builds without
+ * NEXT_PUBLIC_PRIVY_APP_ID use RainbowKit only and would crash during SSG.
  */
 export function useResolvedChainId(): number | undefined {
   const wagmiChainId = useChainId()
@@ -16,7 +15,7 @@ export function useResolvedChainId(): number | undefined {
   const [rpcChainId, setRpcChainId] = useState<number | undefined>(undefined)
 
   useEffect(() => {
-    if (!isWeb3AuthEnabled || !walletClient) {
+    if (!isPrivyEnabled || !walletClient) {
       setRpcChainId(undefined)
       return
     }
@@ -55,6 +54,6 @@ export function useResolvedChainId(): number | undefined {
     }
   }, [walletClient])
 
-  if (!isWeb3AuthEnabled) return wagmiChainId
+  if (!isPrivyEnabled) return wagmiChainId
   return rpcChainId ?? wagmiChainId
 }

@@ -13,7 +13,9 @@ import {
   REQUIRED_BLOCK_EXPLORER_URL,
 } from '@/lib/blockchain/chain-constants'
 import { AlertModal } from '@/components/ui/alert-modal'
-import { isWeb3AuthEnabled } from '@/lib/web3auth/config'
+import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+
+const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
 
 const NATIVE_SYMBOL = 'CELO'
 
@@ -38,8 +40,8 @@ const MANUAL_INSTRUCTIONS = (
       `   - Block Explorer: ${requiredBlockExplorer}\n` +
       `4. Save and switch to this network`
 
-/** Wrong-network banner for Web3Auth: chain from provider (wagmi chain id is stale after login). */
-function NetworkCheckerWeb3Auth() {
+/** Wrong-network banner for embedded wallets: chain from provider (wagmi chain id can be stale after login). */
+function NetworkCheckerEmbedded() {
   const { isConnected } = useAccount()
   const chainId = useResolvedChainId()
   const [showWarning, setShowWarning] = useState(false)
@@ -198,9 +200,6 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
             <div className="flex flex-wrap gap-2">
               {embedWalletMode ? (
                 <>
-                  <Button size="sm" className="bg-brand-green text-black hover:bg-brand-green/90" asChild>
-                    <Link href="/reset-wallet-session">Reset session & reconnect</Link>
-                  </Button>
                   <Button onClick={onDismiss} variant="outline" size="sm" className="border-gray-600 text-gray-300">
                     Dismiss
                   </Button>
@@ -242,7 +241,8 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
 }
 
 export function NetworkChecker() {
-  if (isWeb3AuthEnabled) return <NetworkCheckerWeb3Auth />
+  if (isAaAuthEnabledClient()) return null
+  if (isPrivyEnabled) return <NetworkCheckerEmbedded />
   return <NetworkCheckerWagmi />
 }
 

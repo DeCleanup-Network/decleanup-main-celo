@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 
 /**
  * Loaded via next/dynamic from app/layout so the layout chunk stays small.
- * Wallet/Web3Auth/Torus deps live here, not in app/layout.js — avoids ChunkLoadError timeouts on huge single chunks.
+ * Wallet/Privy deps live here, not in app/layout.js — avoids ChunkLoadError timeouts on huge single chunks.
  */
 export default function RootClientBody({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

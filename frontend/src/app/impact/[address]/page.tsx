@@ -32,16 +32,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'
+import dynamic from 'next/dynamic'
 import { resolveEnsToAddress, resolveAddressToEnsName } from '@/lib/utils/ens'
 import {
   fetchPublicPortfolioData,
@@ -68,6 +59,22 @@ import {
   sanitizeProfileFromUserInput,
   type EditableProfile,
 } from '@/lib/impact/portfolio-profile'
+
+const VERIFICATION_PIPELINE_DOC_URL =
+  'https://github.com/DeCleanup-Network/decleanup-main-celo/blob/main/docs/ML_VERIFICATION_ARCHITECTURE.md'
+const SYSTEM_ARCHITECTURE_DOC_URL =
+  'https://github.com/DeCleanup-Network/decleanup-main-celo/blob/main/docs/system-architecture.md'
+
+const ImpactPortfolioTrendChart = dynamic(
+  () =>
+    import('@/components/impact/ImpactPortfolioTrendChart').then((m) => ({
+      default: m.ImpactPortfolioTrendChart,
+    })),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full animate-pulse rounded-md bg-muted/40" aria-hidden />,
+  }
+)
 
 function formatNum(n: number, d = 0) {
   if (!Number.isFinite(n)) return '0'
@@ -467,7 +474,7 @@ function PublicPortfolioContent() {
         <DeCleanupPageHero
           programWord="IMPACT PORTFOLIO"
           pageTagline="Verified disclosure"
-          description="Public environmental and rewards record for this on-chain identity on Celo. Profile fields below are saved with a wallet signature when you use Edit profile."
+          description="Verified cleanups, rewards, and profile for this wallet on Celo."
           trailing={
             <Button asChild variant="outline" size="sm" className="border-border bg-card">
               <Link href="/">Home</Link>
@@ -901,41 +908,7 @@ function PublicPortfolioContent() {
                 </div>
                 <div className="rounded-md border border-border/60 p-3">
                   <div className="h-56 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,120,120,0.2)" />
-                        <XAxis dataKey="day" stroke="rgba(200,200,200,0.6)" tick={{ fontSize: 11 }} />
-                        <YAxis yAxisId="left" stroke="rgba(88,177,47,0.7)" tick={{ fontSize: 11 }} />
-                        <YAxis yAxisId="right" orientation="right" stroke="rgba(250,255,0,0.7)" tick={{ fontSize: 11 }} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#111315',
-                            border: '1px solid rgba(88,177,47,0.25)',
-                            borderRadius: 8,
-                            fontSize: 12,
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        <Line
-                          yAxisId="left"
-                          type="monotone"
-                          dataKey="weight"
-                          name="Weight (kg)"
-                          stroke="#58B12F"
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="cleanups"
-                          name="Cleanups"
-                          stroke="#FAFF00"
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <ImpactPortfolioTrendChart data={chartData} />
                   </div>
                   {!hasTrend && (
                     <p className="mt-2 text-xs text-muted-foreground">Data populates as cleanups are verified.</p>
@@ -965,12 +938,21 @@ function PublicPortfolioContent() {
                 Weight and area are self-reported by the cleanup leader and cross-referenced against photo evidence by AI screening.
                 {' '}
                 <a
-                  href="https://decleanup.net/litepaper/#methodologypipeline"
+                  href={VERIFICATION_PIPELINE_DOC_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-brand-green underline"
                 >
-                  Methodology doc
+                  Verification pipeline (GitHub)
+                </a>
+                {' · '}
+                <a
+                  href={SYSTEM_ARCHITECTURE_DOC_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-green underline"
+                >
+                  System overview
                 </a>
               </p>
             </section>

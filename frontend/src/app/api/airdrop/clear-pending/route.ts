@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isAddress } from 'viem'
-import { loadAirdropStore, saveAirdropStore, setAirdropPending } from '@/lib/airdrop/store'
+import { clearAirdropPending } from '@/lib/airdrop/store'
 
 export async function POST(request: Request) {
   try {
@@ -10,9 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid or missing recipient' }, { status: 400 })
     }
 
-    const store = loadAirdropStore()
-    setAirdropPending(store, recipient, 0n)
-    saveAirdropStore(store)
+    await clearAirdropPending(recipient)
 
     return NextResponse.json({ ok: true })
   } catch (e) {

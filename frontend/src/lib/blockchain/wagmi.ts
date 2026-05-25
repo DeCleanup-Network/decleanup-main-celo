@@ -105,7 +105,7 @@ export const config = getDefaultConfig({
   appIcon: APP_ICON_URL,
 })
 
-// Re-export chain constants (defined in chain-constants.ts to avoid loading RainbowKit in Web3Auth path)
+// Re-export chain constants (defined in chain-constants.ts to avoid loading RainbowKit in embedded path)
 export {
   DEFAULT_CHAIN_ID,
   REQUIRED_CHAIN_ID,

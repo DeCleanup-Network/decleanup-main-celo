@@ -17,12 +17,17 @@ const UPSTREAM = resolveCeloSepoliaUpstreamRpc(
     CELO_SEPOLIA_FORNO_RPC
 )
 
-/** Web3Auth embedded wallet runs in an iframe on *.web3auth.io and POSTs JSON-RPC to this URL — needs CORS. */
-function isWeb3AuthOrigin(origin: string | null): boolean {
+/** Privy embedded wallet runs in an iframe on *.privy.io — needs CORS. */
+function isEmbeddedWalletOrigin(origin: string | null): boolean {
   if (!origin || !origin.startsWith('https://')) return false
   try {
     const { hostname } = new URL(origin)
-    return hostname === 'web3auth.io' || hostname.endsWith('.web3auth.io')
+    return (
+      hostname === 'privy.io' ||
+      hostname.endsWith('.privy.io') ||
+      hostname === 'web3auth.io' ||
+      hostname.endsWith('.web3auth.io')
+    )
   } catch {
     return false
   }
@@ -51,7 +56,7 @@ function isAllowedAppOrigin(origin: string): boolean {
 function corsHeaders(req: NextRequest): Record<string, string> {
   const origin = req.headers.get('origin')
   if (!origin) return {}
-  if (!isWeb3AuthOrigin(origin) && !isAllowedAppOrigin(origin)) return {}
+  if (!isEmbeddedWalletOrigin(origin) && !isAllowedAppOrigin(origin)) return {}
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',

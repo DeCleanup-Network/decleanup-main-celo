@@ -1,0 +1,16 @@
+'use client'
+
+import Link from 'next/link'
+
+/** Shown after auto wallet creation; points users to Smart account settings before submitting. */
+export function AccountReadyBanner() {
+  return (
+    <div className="rounded-lg border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm text-gray-200">
+      Your account is ready. We recommend exploring{' '}
+      <Link href="/wallet" className="font-medium text-brand-green underline underline-offset-2">
+        Smart account settings
+      </Link>{' '}
+      before you start.
+    </div>
+  )
+}

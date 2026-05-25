@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react'
-import { useAccount, useSwitchChain } from 'wagmi'
+import { useSwitchChain } from 'wagmi'
+import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+import {
+  SignUnlockModal,
+  type SignUnlockModalMode,
+} from '@/components/aa/SignUnlockModal'
+import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
+import { AccountReadyBanner } from '@/components/aa/AccountReadyBanner'
+import { useWallet } from '@/providers/WalletProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -20,19 +28,23 @@ import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import type { Address } from 'viem'
-import { CONTRACT_ADDRESSES } from '@/lib/blockchain/wagmi'
-import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
-import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import {
+  CONTRACT_ADDRESSES,
+  MAX_IMPACT_PRODUCT_LEVEL,
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
   REQUIRED_RPC_URL,
   REQUIRED_BLOCK_EXPLORER_URL,
   REQUIRED_CHAIN_IS_TESTNET,
-} from '@/lib/blockchain/wagmi'
+} from '@/lib/blockchain/chain-constants'
+import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 
 type Step = 'photos' | 'enhanced' | 'recyclables' | 'review'
+
+/** Shown when GPS fails or before first capture — covers phone OS + browser site permissions. */
+const LOCATION_PERMISSION_HINT =
+  'Turn on Location Services in your phone Settings and allow your browser app to use location. In the browser, allow location for this site (lock or site icon → Site settings → Location).'
 
 const NATIVE_SYMBOL = 'ETH'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -178,7 +190,22 @@ function sanitizeDecimalInput(value: string): string {
 }
 
 function CleanupContent() {
-  const { address, isConnected } = useAccount()
+  const {
+    address,
+    isConnected,
+    canTransact,
+    aaEnabled,
+    walletPhase,
+    walletReady,
+    walletBootstrapping,
+    isEmbeddedAccount,
+  } = useAppWalletAddress()
+  const { error: walletSetupError } = useWallet()
+  const [signGate, setSignGate] = useState<{
+    mode: SignUnlockModalMode
+    purpose: string
+  } | null>(null)
+  const pendingRecyclablesRef = useRef(false)
   const chainId = useResolvedChainId()
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
   const {
@@ -689,7 +716,16 @@ function CleanupContent() {
       },
       (error) => {
         setIsGettingLocation(false)
-        console.error('Error getting location:', error)
+        const policyBlocked =
+          error.message?.includes('permissions policy') ||
+          error.message?.includes('Permissions policy')
+        if (policyBlocked) {
+          console.warn(
+            'Geolocation blocked by Permissions-Policy. Use manual coordinates below, or restart the dev server if CSP was recently updated.'
+          )
+        } else {
+          console.error('Error getting location:', error)
+        }
         setManualLocationMode(true)
 
         // Try to use last known location as fallback
@@ -700,7 +736,10 @@ function CleanupContent() {
               const parsed = JSON.parse(lastLocation)
               setLocation(parsed)
               console.log('Using last known location:', parsed)
-              setAlertModal({ message: 'Using last known location. For accurate geotagging, please enable location services.', variant: 'info' })
+              setAlertModal({
+                message: `Using last known location. ${LOCATION_PERMISSION_HINT}`,
+                variant: 'info',
+              })
               return
             } catch (e) {
               console.error('Error parsing last location:', e)
@@ -711,10 +750,10 @@ function CleanupContent() {
         let errorMessage = 'Unable to get location.'
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage += ' Please enable location permissions in your browser settings.'
+            errorMessage += ` ${LOCATION_PERMISSION_HINT}`
             break
           case error.POSITION_UNAVAILABLE:
-            errorMessage += ' Location information is unavailable.'
+            errorMessage += ' Location may be off in phone Settings or unavailable indoors — try again outdoors or enter coordinates manually.'
             break
           case error.TIMEOUT:
             errorMessage += ' Location request timed out. Please try again.'
@@ -778,7 +817,10 @@ function CleanupContent() {
       return
     }
     if (!location) {
-      setAlertModal({ message: 'Please capture or enter your location', variant: 'warning' })
+      setAlertModal({
+        message: `Please capture or enter your location. ${LOCATION_PERMISSION_HINT}`,
+        variant: 'warning',
+      })
       getLocation()
       return
     }
@@ -991,7 +1033,28 @@ function CleanupContent() {
 
   const submitCleanupFlow = async (hasRecyclables: boolean = false) => {
     if (!isConnected || !address) {
-      setAlertModal({ message: 'Please connect your wallet first', variant: 'warning' })
+      setAlertModal({
+        message: aaEnabled
+          ? 'Sign in and set up your wallet in Smart account settings first.'
+          : 'Please connect your wallet first',
+        variant: 'warning',
+      })
+      return
+    }
+    if (!canTransact && aaEnabled) {
+      pendingRecyclablesRef.current = hasRecyclables
+      setSignGate({
+        mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
+        purpose: 'submit this cleanup',
+      })
+      return
+    }
+    if (!canTransact) {
+      setAlertModal({
+        title: 'Connect wallet',
+        message: 'Connect your wallet before submitting a cleanup.',
+        variant: 'warning',
+      })
       return
     }
 
@@ -1007,7 +1070,10 @@ function CleanupContent() {
     }
 
     if (!location) {
-      setAlertModal({ message: 'Location is required. Please enable location services and try again.', variant: 'warning' })
+      setAlertModal({
+        message: `Location is required. ${LOCATION_PERMISSION_HINT}`,
+        variant: 'warning',
+      })
       getLocation()
       return
     }
@@ -1499,6 +1565,7 @@ function CleanupContent() {
   const canClaimPendingLevel =
     hasPendingCleanup && !!pendingCleanup?.verified && !pendingCleanup?.claimed
   const isSubmissionDisabled =
+    !walletReady ||
     (hasPendingCleanup && !pendingCleanup.verified) ||
     canClaimPendingLevel ||
     isWrongNetwork ||
@@ -1506,11 +1573,13 @@ function CleanupContent() {
 
   const claimLevelButtonClasses =
     'w-full gap-2 bg-brand-yellow py-4 font-bebas text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
-  const uploadDisabledHint = canClaimPendingLevel
-    ? 'Verified: claim your level below'
-    : isWrongNetwork
-      ? `Switch to ${REQUIRED_CHAIN_NAME} (chain ${REQUIRED_CHAIN_ID})`
-      : 'Submission on cooldown'
+  const uploadDisabledHint = !walletReady
+    ? 'Your account is still setting up'
+    : canClaimPendingLevel
+      ? 'Verified: claim your level below'
+      : isWrongNetwork
+        ? `Switch to ${REQUIRED_CHAIN_NAME} (chain ${REQUIRED_CHAIN_ID})`
+        : 'Submission on cooldown'
 
   // Debug logging
   if (hasPendingCleanup) {
@@ -1566,16 +1635,42 @@ function CleanupContent() {
     )
   }
 
+  if (aaEnabled && isEmbeddedAccount && walletBootstrapping) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AccountBootstrapPanel stage="wallet" error={walletSetupError} />
+      </div>
+    )
+  }
+
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background px-4 py-8 pb-20">
         <div className="mx-auto max-w-md rounded-lg border border-gray-800 bg-gray-900 p-6 text-center">
           <h2 className="mb-4 text-2xl font-bold uppercase text-white">
-            Connect Your Wallet
+            {aaEnabled ? 'Sign in required' : 'Connect Your Wallet'}
           </h2>
           <p className="mb-6 text-gray-400">
-            Please connect your wallet to submit a cleanup.
+            {aaEnabled
+              ? 'Sign in and set up your wallet in Smart account settings to submit a cleanup.'
+              : 'Please connect your wallet to submit a cleanup.'}
           </p>
+          {aaEnabled ? (
+            <div className="mb-6 flex flex-col gap-3">
+              <Link
+                href="/login"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium !text-black hover:bg-brand-green/90"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/wallet"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
+              >
+                Smart account settings
+              </Link>
+            </div>
+          ) : null}
           <BackButton href="/" label="Go Back" />
         </div>
       </div>
@@ -1867,6 +1962,19 @@ function CleanupContent() {
 
   const modalLayer = (
     <>
+      {signGate && (
+        <SignUnlockModal
+          open
+          mode={signGate.mode}
+          purpose={signGate.purpose}
+          onClose={() => setSignGate(null)}
+          onSuccess={() => {
+            const recyclables = pendingRecyclablesRef.current
+            setSignGate(null)
+            void submitCleanupFlow(recyclables)
+          }}
+        />
+      )}
       {alertModal && (
         <AlertModal
           isOpen
@@ -1903,6 +2011,11 @@ function CleanupContent() {
           <ReferralNotification />
           <CooldownBanner />
           <GaslessStatusBanner />
+          {aaEnabled && walletPhase === 'pending-password' && (
+            <div className="mb-4">
+              <AccountReadyBanner />
+            </div>
+          )}
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
@@ -2017,6 +2130,7 @@ function CleanupContent() {
               <label className="mb-2 block text-sm font-medium text-gray-300">
                 Location *
               </label>
+              <p className="mb-3 text-xs leading-relaxed text-gray-500">{LOCATION_PERMISSION_HINT}</p>
               {isGettingLocation ? (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -2126,6 +2240,11 @@ function CleanupContent() {
 
           <CooldownBanner />
           <GaslessStatusBanner />
+          {aaEnabled && walletPhase === 'pending-password' && (
+            <div className="mb-4">
+              <AccountReadyBanner />
+            </div>
+          )}
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
@@ -2661,6 +2780,11 @@ function CleanupContent() {
 
           <CooldownBanner />
           <GaslessStatusBanner />
+          {aaEnabled && walletPhase === 'pending-password' && (
+            <div className="mb-4">
+              <AccountReadyBanner />
+            </div>
+          )}
 
           <div className="mb-6 text-center">
             <h1 className="mb-2 text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">

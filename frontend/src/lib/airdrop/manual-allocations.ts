@@ -9,14 +9,32 @@ export type AirdropAllocation = {
 
 /**
  * Temporary manual list until CSV import is ready.
- * Keep addresses lowercased for stable matching.
+ * Matching is case-insensitive (lowercase keys in map).
  */
 export const MANUAL_AIRDROP_ALLOCATIONS: readonly AirdropAllocation[] = [
   {
     walletAddress: '0x7D85fCbB505D48E6176483733b62b51704e0bF95',
-    amountCdcu: '200',
+    amountCdcu: '50',
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',
+  },
+  {
+    walletAddress: '0xEf0862aE5175dF25E59Db4E9115Fb6987Cf4B779',
+    amountCdcu: '250',
+    category: 'whitelist',
+    label: '$cDCU whitelist',
+  },
+  {
+    walletAddress: '0xCa0349e71C30C888919F4E6B2e40C9550888e805',
+    amountCdcu: '250',
+    category: 'whitelist',
+    label: '$cDCU whitelist',
+  },
+  {
+    walletAddress: '0x447b7830481763001df8e0e3e2e5714d452a37e7',
+    amountCdcu: '250',
+    category: 'whitelist',
+    label: '$cDCU whitelist',
   },
   {
     walletAddress: '0x50418699cB44BfDa9c9afc9B7a0b0d244d8927D2',

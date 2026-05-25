@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Leaf, Award, Loader2, Clock, Shield, Heart, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,10 +9,8 @@ import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
-import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
-import { isVerifier as isVerifierOnChain } from '@/lib/blockchain/contracts'
-import type { Address } from 'viem'
-
+import { useVerifierAccess } from '@/hooks/useVerifierAccess'
+import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 interface DashboardActionsProps {
     address: string
     /** Current Impact Product level (0-10). At max level, submit cleanup is locked. */
@@ -51,29 +48,13 @@ export function DashboardActions({
     claimFeeInfo,
     onNotify: _onNotify,
 }: DashboardActionsProps) {
-    const { submissionOwnerAddress } = useSmartAccountClient()
     const { eligibility } = useVerifierEligibility()
-    const [isVerifier, setIsVerifier] = useState(false)
-
-    const rewardIdentity = submissionOwnerAddress ?? (address as Address | undefined)
-
-    useEffect(() => {
-        let cancelled = false
-        if (!rewardIdentity) {
-            setIsVerifier(false)
-            return
-        }
-        void isVerifierOnChain(rewardIdentity as Address).then((v) => {
-            if (!cancelled) setIsVerifier(v)
-        })
-        return () => {
-            cancelled = true
-        }
-    }, [rewardIdentity])
+    const { showVerifierFeatures } = useVerifierAccess()
+    const { walletReady } = useAppWalletAddress()
 
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
-    const submitAvailable = canSubmit && !submitLockedMaxLevel
+    const submitAvailable = walletReady && canSubmit && !submitLockedMaxLevel
     const canClaimLevel = cleanupStatus?.canClaim && !isClaiming
     const isUnderVerification =
         cleanupStatus != null &&
@@ -81,7 +62,7 @@ export function DashboardActions({
         cleanupStatus.canClaim !== true
 
     const hypercertHighlighted = userImpactLevel > 0 && userImpactLevel % 10 === 0
-    const verifierHighlighted = !isVerifier && !!eligibility?.eligible
+    const verifierHighlighted = !showVerifierFeatures && !!eligibility?.eligible
 
     const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
     const verifierApplyTitle = `Apply if you meet all requirements: Impact Product level ${minLevel}+, ${minDCUBalance}+ DCU points, and ${minApprovedCleanups}+ verified cleanups. Open to apply or check your status.`
@@ -105,9 +86,11 @@ export function DashboardActions({
                 ) : (
                     <ActionHint
                         hint={
-                            submitLockedMaxLevel
-                                ? 'Maximum Impact Product level reached'
-                                : 'Finish your current cleanup step first'
+                            !walletReady
+                                ? 'Your account is still setting up'
+                                : submitLockedMaxLevel
+                                  ? 'Maximum Impact Product level reached'
+                                  : 'Finish your current cleanup step first'
                         }
                     >
                         <span className={stepClass(false)}>
@@ -161,16 +144,21 @@ export function DashboardActions({
                     </ActionHint>
                 )}
 
-                <ActionHint hint={isVerifier ? 'You are a verifier' : verifierApplyTitle}>
-                    <Link href="/verifier" className={stepClass(verifierHighlighted, isVerifier)}>
-                        {isVerifier ? (
+                {showVerifierFeatures ? (
+                    <ActionHint hint="Review and approve community cleanups">
+                        <Link href="/verifier" className={stepClass(true, true)}>
                             <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        ) : (
+                            Verifier
+                        </Link>
+                    </ActionHint>
+                ) : (
+                    <ActionHint hint={verifierApplyTitle}>
+                        <Link href="/" className={stepClass(verifierHighlighted)}>
                             <Shield className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        )}
-                        {isVerifier ? 'Verifier' : 'Become verifier'}
-                    </Link>
-                </ActionHint>
+                            Become verifier
+                        </Link>
+                    </ActionHint>
+                )}
 
                 <ActionHint hint="Advanced documentation of your action with Hypercert impact certificate">
                     <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>

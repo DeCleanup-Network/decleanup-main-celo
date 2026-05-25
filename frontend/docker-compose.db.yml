@@ -1,0 +1,19 @@
+# Local Postgres for dev when Supabase pooler is unreachable from your Mac (Prisma P1001).
+# Usage:
+#   docker compose -f docker-compose.db.yml up -d
+#   DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5433/decleanup?sslmode=disable" npm run db:push
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: decleanup-dev-postgres
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: decleanup
+    volumes:
+      - decleanup_pg_data:/var/lib/postgresql/data
+
+volumes:
+  decleanup_pg_data:

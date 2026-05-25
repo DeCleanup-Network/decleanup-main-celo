@@ -18,7 +18,7 @@ import type { CleanupDetails } from '@/lib/blockchain/contracts'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
-import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import { fetchViaIpfsGatewayProxy, proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
 
 export function hashToGatewayUrl(hash: string): string {
   if (!hash) return ''
@@ -234,10 +234,8 @@ async function resolveImpactProductPreview(level: number, tokenId: bigint | null
     const tid = setTimeout(() => ac.abort(), 8000)
     let r: Response
     try {
-      r = await fetch(
-        uri.startsWith('ipfs://') ? hashToGatewayUrl(uri.replace('ipfs://', '')) : uri,
-        { signal: ac.signal }
-      )
+      const fetchUrl = uri.startsWith('ipfs://') ? hashToGatewayUrl(uri.replace('ipfs://', '')) : uri
+      r = await fetchViaIpfsGatewayProxy(fetchUrl, { signal: ac.signal })
     } finally {
       clearTimeout(tid)
     }

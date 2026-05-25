@@ -1,6 +1,7 @@
-import { Address, formatEther } from 'viem'
+import { Address, formatEther, createPublicClient, http } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { readContract, writeContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
+import { REQUIRED_RPC_URL } from './chain-constants'
 import {
   withContractCache,
   CONTRACT_READ_TTL_MS,
@@ -14,7 +15,91 @@ import { keccak256, toBytes } from 'viem'
 import { getLogs as viemGetLogs } from 'viem/actions'
 
 /** Smart account client (e.g. from permissionless) for gasless submit. Has sendTransaction({ to, data?, value? }). */
-export type GaslessClient = { sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`> }
+export type GaslessClient = {
+  sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`>
+  /** Present when client wraps a permissionless smart account (AA wallet). */
+  accountAddress?: Address
+}
+
+/** Gasless / AA claim path — pass smart account + EOA when wagmi is not connected. */
+export type GaslessClaimOptions = {
+  gaslessClient?: GaslessClient
+  smartAccountAddress?: Address
+  eoaAddress?: Address
+}
+
+function resolveClaimIdentity(options?: GaslessClaimOptions): {
+  eoaAddress: Address | undefined
+  smartAccountAddress: Address | null
+  gasless: boolean
+} {
+  const gasless = !!options?.gaslessClient
+  if (gasless) {
+    const smart =
+      options?.smartAccountAddress ??
+      options?.gaslessClient?.accountAddress ??
+      getSmartAccountAddressFromClient(options?.gaslessClient) ??
+      null
+    return {
+      eoaAddress: options?.eoaAddress,
+      smartAccountAddress: smart,
+      gasless: true,
+    }
+  }
+  const account = getAccount(getConfig())
+  const eoa = account.address as Address | undefined
+  const smart = options?.gaslessClient
+    ? getSmartAccountAddressFromClient(options.gaslessClient) ?? options.gaslessClient.accountAddress ?? null
+    : null
+  return { eoaAddress: eoa, smartAccountAddress: smart, gasless: false }
+}
+
+const TX_WAIT_OPTS = {
+  confirmations: 1 as const,
+  pollingInterval: 2000,
+  timeout: 120_000,
+}
+
+function getRequiredChainPublicClient() {
+  const isMainnet = REQUIRED_CHAIN_ID === 42220
+  return createPublicClient({
+    chain: {
+      id: REQUIRED_CHAIN_ID,
+      name: isMainnet ? 'Celo' : 'Celo Sepolia',
+      nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
+      rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
+    },
+    transport: http(REQUIRED_RPC_URL),
+  })
+}
+
+async function waitForOnChainConfirmation(
+  hash: `0x${string}`,
+  gasless: boolean,
+  opts?: { gaslessTimeoutMs?: number }
+) {
+  if (gasless) {
+    const { waitForGaslessUserOperationConfirmation } = await import(
+      '@/lib/smart-account/wait-user-op'
+    )
+    const { transactionHash } = await waitForGaslessUserOperationConfirmation(hash, {
+      timeoutMs: opts?.gaslessTimeoutMs ?? 240_000,
+      pollMs: 3000,
+    })
+    const publicClient = getRequiredChainPublicClient()
+    return publicClient.waitForTransactionReceipt({
+      hash: transactionHash,
+      confirmations: 1,
+      pollingInterval: 2000,
+      timeout: 120_000,
+    })
+  }
+  return waitForTransactionReceipt(getConfig(), {
+    chainId: REQUIRED_CHAIN_ID,
+    hash,
+    ...TX_WAIT_OPTS,
+  })
+}
 
 /**
  * Optional on-chain hook: `Submission.claimSubmissionBonusRewards` after Impact Product mint/upgrade.
@@ -280,8 +365,9 @@ export async function submitCleanup(
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
   }
 
-  const account = getAccount(getConfig())
-  if (!account.address) {
+  const gasless = !!options?.gaslessClient
+  const account = gasless ? null : getAccount(getConfig())
+  if (!gasless && !account?.address) {
     throw new Error('Wallet not connected')
   }
 
@@ -351,7 +437,7 @@ export async function submitCleanup(
         abi: SUBMISSION_ABI,
         functionName: 'createSubmission',
         args,
-        account: account.address,
+        account: account!.address,
       }
       if (_fee && _fee > 0n) contractConfig.value = _fee
       hash = await writeContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
@@ -1398,10 +1484,19 @@ export async function getUserLevelFresh(userAddress: Address): Promise<number> {
   return getUserLevelImpl(userAddress)
 }
 
+export type ClaimImpactProductResult = {
+  hash: `0x${string}`
+  nftTxHash: `0x${string}` | null
+  bonusClaimed: boolean
+  bonusError?: string
+  impactReportRewardsWei?: bigint
+  recyclablesRewardsWei?: bigint
+}
+
 export async function claimImpactProductFromVerification(
   cleanupId: bigint,
-  options?: { gaslessClient?: GaslessClient }
-): Promise<`0x${string}`> {
+  options?: GaslessClaimOptions
+): Promise<ClaimImpactProductResult> {
   if (!SUBMISSION_ADDRESS) {
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
   }
@@ -1410,15 +1505,10 @@ export async function claimImpactProductFromVerification(
     throw new Error('Reward Manager contract address not configured. Please set NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT in .env.local')
   }
 
-  const account = getAccount(getConfig())
-  if (!account.address) {
+  const { eoaAddress, smartAccountAddress: smartFromClient, gasless } = resolveClaimIdentity(options)
+  if (!gasless && !eoaAddress) {
     throw new Error('Wallet not connected')
   }
-
-  const eoaAddress = account.address as Address
-  const smartFromClient = options?.gaslessClient
-    ? getSmartAccountAddressFromClient(options.gaslessClient)
-    : null
 
   const cleanupDetails = await getCleanupDetails(cleanupId)
   
@@ -1431,31 +1521,32 @@ export async function claimImpactProductFromVerification(
   }
 
   const ownerLower = cleanupDetails.user.toLowerCase()
-  const matchesEoa = ownerLower === eoaAddress.toLowerCase()
+  const matchesEoa = !!(eoaAddress && ownerLower === eoaAddress.toLowerCase())
   const matchesSmart = !!(smartFromClient && ownerLower === smartFromClient.toLowerCase())
 
   if (!matchesEoa && !matchesSmart) {
     throw new Error('You can only claim rewards for your own cleanups.')
   }
 
-  if (matchesSmart && !options?.gaslessClient) {
+  if (matchesSmart && !gasless) {
     throw new Error(
-      'This cleanup is tied to your smart account. Wait for the gasless wallet to finish loading, then try again.'
+      'This cleanup is tied to your smart account. Unlock your wallet in Smart account settings, then try again.'
     )
   }
 
-  if (options?.gaslessClient && !smartFromClient) {
+  if (gasless && matchesSmart && !smartFromClient) {
     throw new Error(
-      'Gasless claim unavailable: smart account not ready. Wait a few seconds after connecting or refresh the page.'
+      'Gasless claim unavailable: smart account not ready. Unlock your wallet in Smart account settings and wait a few seconds.'
     )
   }
 
   /** Onchain identity that owns this cleanup (= reward/NFT recipient reads). */
   const submissionOwner = cleanupDetails.user
   /** Execute writes as Safe UserOp only when cleanup owner is the smart account. */
-  const useGasless = matchesSmart && !!options?.gaslessClient
+  const useGasless = matchesSmart && gasless
   console.log('Submission owner (claim address):', submissionOwner)
-  console.log('Connected EOA:', eoaAddress)
+  console.log('Connected EOA:', eoaAddress ?? '(gasless — not required)')
+  console.log('Smart account:', smartFromClient ?? '(none)')
   console.log('Cleanup ID:', cleanupId.toString())
   console.log('Cleanup verified:', cleanupDetails.verified)
   console.log('Cleanup rewarded (from contract):', cleanupDetails.rewarded)
@@ -1466,6 +1557,11 @@ export async function claimImpactProductFromVerification(
   // DCU while cleanup DCU (claimRewardsAmount) stays 0 — a failed mint must not be masked by a bonus tx.
 
   let hash: `0x${string}` | null = null
+  let nftTxHash: `0x${string}` | null = null
+  let bonusClaimed = false
+  let bonusError: string | undefined
+  let impactReportRewardsWei: bigint | undefined
+  let recyclablesRewardsWei: bigint | undefined
 
   try {
     let nftStepRequired = false
@@ -1484,15 +1580,13 @@ export async function claimImpactProductFromVerification(
 
       if (needsMint) {
         console.log('Minting Impact Product NFT')
-        hash = await mintImpactProductNFT({
-          gaslessClient: useGasless ? options?.gaslessClient : undefined,
-        })
+        nftTxHash = await mintImpactProductNFT(useGasless ? options : undefined)
+        hash = nftTxHash
         console.log('Impact Product NFT minted:', hash)
       } else if (needsUpgrade) {
         console.log(`Upgrading Impact Product NFT: level ${currentLevel} → ${currentLevel + 1}`)
-        hash = await upgradeImpactProductNFT(currentTokenId, {
-          gaslessClient: useGasless ? options?.gaslessClient : undefined,
-        })
+        nftTxHash = await upgradeImpactProductNFT(currentTokenId, useGasless ? options : undefined)
+        hash = nftTxHash
         console.log('Impact Product NFT upgraded:', hash)
       } else {
         console.log('No Impact Product mint/upgrade needed (max level or already synced)')
@@ -1538,22 +1632,19 @@ export async function claimImpactProductFromVerification(
             abi: SUBMISSION_BONUS_ABI,
             functionName: 'claimSubmissionBonusRewards',
             args: [cleanupId],
-            account: eoaAddress,
+            account: eoaAddress!,
           })
         }
 
-        await waitForTransactionReceipt(getConfig(), {
-          chainId: REQUIRED_CHAIN_ID,
-          hash: bonusHash,
-          confirmations: 1,
-          pollingInterval: 2000,
-          timeout: 120000,
-        })
+        await waitForOnChainConfirmation(bonusHash, useGasless, { gaslessTimeoutMs: 300_000 })
         console.log('✅ Submission bonus rewards claimed:', bonusHash)
+        bonusClaimed = true
         invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
         try {
           const d = await getCleanupDetails(cleanupId)
           const stats = await getUserRewardStats(submissionOwner)
+          impactReportRewardsWei = stats.impactReportRewardsAmount
+          recyclablesRewardsWei = stats.recyclablesRewardsAmount
           console.log('[Claim] Bonus submission snapshot:', {
             submissionId: cleanupId.toString(),
             hasImpactForm: d.hasImpactForm,
@@ -1573,24 +1664,24 @@ export async function claimImpactProductFromVerification(
           console.warn('[Claim] Could not read post-bonus submission / reward stats:', e)
         }
         if (!hash) hash = bonusHash
-      } catch (bonusError: any) {
-        const message = bonusError?.message || String(bonusError)
-        // Keep retries idempotent: if already claimed, continue without failing whole claim flow.
+      } catch (bonusErr: unknown) {
+        const message = bonusErr instanceof Error ? bonusErr.message : String(bonusErr)
         if (message.includes('BonusRewardsAlreadyClaimed')) {
           console.log('Submission bonus rewards were already claimed; continuing')
+          bonusClaimed = true
           if (!hash) {
             throw new Error(
               'Submission bonuses were already claimed. Refresh the page to see updated balances.'
             )
           }
-        } else if (hash) {
-          // NFT mint/upgrade already succeeded; bonus UserOp can still fail (missing fn on Submission, Pimlico, etc.).
+        } else if (hash || nftTxHash) {
+          bonusError = message
           console.warn(
-            'claimSubmissionBonusRewards failed after NFT success. Check Submission/NFT wiring and RewardManager; ensure NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM is intended for this deployment.',
-            bonusError
+            'claimSubmissionBonusRewards failed after NFT success. User can retry claim to run bonus only.',
+            bonusErr
           )
         } else {
-          throw bonusError
+          throw bonusErr
         }
       }
     }
@@ -1612,7 +1703,14 @@ export async function claimImpactProductFromVerification(
       ownerAddress: submissionOwner,
       cleanupId,
     })
-    return hash
+    return {
+      hash,
+      nftTxHash,
+      bonusClaimed,
+      bonusError,
+      impactReportRewardsWei,
+      recyclablesRewardsWei,
+    }
   } catch (error: any) {
     console.error('Error claiming rewards:', error)
     
@@ -1761,15 +1859,14 @@ export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> 
   }
 }
 
-export async function mintImpactProductNFT(options?: {
-  gaslessClient?: GaslessClient
-}): Promise<`0x${string}`> {
+export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
   }
 
-  const account = getAccount(getConfig())
-  if (!account.address) {
+  const gasless = !!options?.gaslessClient
+  const account = gasless ? null : getAccount(getConfig())
+  if (!gasless && !account?.address) {
     throw new Error('Wallet not connected')
   }
 
@@ -1789,13 +1886,13 @@ export async function mintImpactProductNFT(options?: {
 
   try {
     let hash: `0x${string}`
-    if (options?.gaslessClient) {
+    if (gasless) {
       const data = encodeFunctionData({
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'safeMint',
         args: [],
       })
-      hash = await options.gaslessClient.sendTransaction({
+      hash = await options!.gaslessClient!.sendTransaction({
         to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         data,
         value,
@@ -1806,18 +1903,12 @@ export async function mintImpactProductNFT(options?: {
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'safeMint',
-        account: account.address,
+        account: account!.address,
         value: value,
       })
     }
 
-    await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      hash,
-      confirmations: 1,
-      pollingInterval: 2000,
-      timeout: 120000,
-    })
+    await waitForOnChainConfirmation(hash, gasless, { gaslessTimeoutMs: 300_000 })
 
     return hash
   } catch (error: any) {
@@ -1836,14 +1927,15 @@ export async function mintImpactProductNFT(options?: {
 
 export async function upgradeImpactProductNFT(
   tokenId: bigint,
-  options?: { gaslessClient?: GaslessClient }
+  options?: GaslessClaimOptions
 ): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
   }
 
-  const account = getAccount(getConfig())
-  if (!account.address) {
+  const gasless = !!options?.gaslessClient
+  const account = gasless ? null : getAccount(getConfig())
+  if (!gasless && !account?.address) {
     throw new Error('Wallet not connected')
   }
 
@@ -1863,13 +1955,13 @@ export async function upgradeImpactProductNFT(
 
   try {
     let hash: `0x${string}`
-    if (options?.gaslessClient) {
+    if (gasless) {
       const data = encodeFunctionData({
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'upgradeNFT',
         args: [tokenId],
       })
-      hash = await options.gaslessClient.sendTransaction({
+      hash = await options!.gaslessClient!.sendTransaction({
         to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         data,
         value,
@@ -1881,18 +1973,12 @@ export async function upgradeImpactProductNFT(
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'upgradeNFT',
         args: [tokenId],
-        account: account.address,
+        account: account!.address,
         value: value,
       })
     }
 
-    await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      hash,
-      confirmations: 1,
-      pollingInterval: 2000,
-      timeout: 120000,
-    })
+    await waitForOnChainConfirmation(hash, gasless, { gaslessTimeoutMs: 300_000 })
 
     return hash
   } catch (error: any) {
@@ -1929,8 +2015,9 @@ export async function attachRecyclablesToSubmission(
     throw new Error('Submission contract address not configured')
   }
 
-  const account = getAccount(getConfig())
-  if (!account.address) {
+  const gasless = !!options?.gaslessClient
+  const account = gasless ? null : getAccount(getConfig())
+  if (!gasless && !account?.address) {
     throw new Error('Wallet not connected')
   }
 
@@ -1939,13 +2026,13 @@ export async function attachRecyclablesToSubmission(
   try {
     let hash: `0x${string}`
 
-    if (options?.gaslessClient) {
+    if (gasless) {
       const data = encodeFunctionData({
         abi: SUBMISSION_ABI,
         functionName: 'attachRecyclables',
         args,
       })
-      hash = await options.gaslessClient.sendTransaction({
+      hash = await options!.gaslessClient!.sendTransaction({
         to: SUBMISSION_ADDRESS,
         data,
         value: 0n,
@@ -1957,17 +2044,11 @@ export async function attachRecyclablesToSubmission(
         abi: SUBMISSION_ABI,
         functionName: 'attachRecyclables',
         args,
-        account: account.address,
+        account: account!.address,
       })
     }
 
-    await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      hash,
-      confirmations: 1,
-      pollingInterval: 2000,
-      timeout: 120000,
-    })
+    await waitForOnChainConfirmation(hash, gasless)
     return hash
   } catch (error: any) {
     console.error('Error attaching recyclables:', error)

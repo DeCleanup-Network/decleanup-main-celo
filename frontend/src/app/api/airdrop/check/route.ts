@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isAddress, parseEther } from 'viem'
 import { getAirdropAllocation } from '@/lib/airdrop/manual-allocations'
-import { getAirdropPending, hasAirdropClaimed, loadAirdropStore } from '@/lib/airdrop/store'
+import { getAirdropPending, hasAirdropClaimed } from '@/lib/airdrop/store'
 
 export async function GET(request: Request) {
   try {
@@ -16,10 +16,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ eligible: false })
     }
 
-    const store = loadAirdropStore()
-    const claimed = hasAirdropClaimed(store, address)
+    const claimed = await hasAirdropClaimed(address)
     const totalWei = parseEther(allocation.amountCdcu)
-    const pendingWei = getAirdropPending(store, address)
+    const pendingWei = await getAirdropPending(address)
     const claimableWei = claimed ? 0n : totalWei > pendingWei ? totalWei - pendingWei : 0n
 
     return NextResponse.json({

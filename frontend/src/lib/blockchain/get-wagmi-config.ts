@@ -1,7 +1,7 @@
 /**
  * Runtime wagmi config getter so contract code can use the active provider's config
- * without importing wagmi.ts (which would load RainbowKit/Lit on the Web3Auth path).
- * Set by WagmiConfigSync inside whichever provider is mounted (Web3Auth or RainbowKit).
+ * without importing wagmi.ts (which would load RainbowKit/Lit on the embedded path).
+ * Set by WagmiConfigSync inside whichever provider is mounted (Privy or RainbowKit).
  */
 import type { Config } from 'wagmi'
 
@@ -13,7 +13,7 @@ export function setWagmiConfig(config: Config | null): void {
 
 export function getConfig(): Config {
   if (!current) {
-    throw new Error('Wagmi config not set. Ensure you are inside a WagmiProvider (Web3Auth or RainbowKit).')
+    throw new Error('Wagmi config not set. Ensure you are inside a WagmiProvider (Privy or RainbowKit).')
   }
   return current
 }

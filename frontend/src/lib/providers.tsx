@@ -1,11 +1,12 @@
 'use client'
 
 import { lazy, Suspense } from 'react'
-import { isWeb3AuthEnabled } from './web3auth/config'
-import { Web3AuthProviders } from './web3auth/Web3AuthProviders'
+import { AaSessionProvider } from '@/lib/auth/AaSessionProvider'
+import { MinimalWagmiProviders } from '@/lib/MinimalWagmiProviders'
+import { WalletProvider } from '@/providers/WalletProvider'
+import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+import { PrivyProviders } from './privy/PrivyProviders'
 
-// Load RainbowKit + WalletConnect only when Web3Auth is OFF. This avoids
-// "WalletConnect Core is already initialized" and blank popup when using Web3Auth.
 const RainbowKitProviders = lazy(
   () => import('./RainbowKitProviders').then((m) => ({ default: m.RainbowKitProviders }))
 )
@@ -19,8 +20,20 @@ function ProvidersFallback() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  if (isWeb3AuthEnabled) {
-    return <Web3AuthProviders>{children}</Web3AuthProviders>
+  if (isAaAuthEnabledClient()) {
+    return (
+      <MinimalWagmiProviders>
+        <AaSessionProvider>
+          <WalletProvider>{children}</WalletProvider>
+        </AaSessionProvider>
+      </MinimalWagmiProviders>
+    )
+  }
+
+  const isPrivyEnabled = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
+
+  if (isPrivyEnabled) {
+    return <PrivyProviders>{children}</PrivyProviders>
   }
 
   return (

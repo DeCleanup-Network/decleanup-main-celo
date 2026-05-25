@@ -4,8 +4,9 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { useAccount } from 'wagmi'
-import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import {
   Leaf,
   Award,
@@ -18,48 +19,39 @@ import {
   X,
   TrendingUp,
   HelpCircle,
-  ExternalLink,
-  ShieldCheck,
 } from 'lucide-react'
-import { getUserCleanupStatus } from '@/lib/blockchain/verification'
 import {
   claimImpactProductFromVerification,
-  getHypercertEligibility,
-  getDCUBalance,
-  getUserRewardStats,
-  getUserLevel,
-  getUserTokenId,
-  getTokenURI,
-  getTokenURIForLevel,
-  getUserSubmissions,
-  getCleanupDetails,
-  getClaimFee,
-  getVerifierRewardsCount,
-  isVerifier,
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
-import { formatEther } from 'viem'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { CONTRACT_ADDRESSES, MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
-import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
-import { VerifierApplyCard } from '@/components/dashboard/VerifierApplyCard'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { DashboardClaimCdcu } from '@/components/dashboard/DashboardClaimCdcu'
-import { FeeDisplay } from '@/components/ui/fee-display'
+import { DashboardProfileCard } from '@/components/dashboard/DashboardProfileCard'
+import { DashboardVerifierExtras } from '@/components/dashboard/DashboardVerifierExtras'
 import { AlertModal } from '@/components/ui/alert-modal'
 import { markCleanupAsClaimed, clearPendingCleanup } from '@/lib/blockchain/verification'
 import { resetCleanupState, resetAllCleanupState } from '@/lib/utils/reset-cleanup'
 import { DashboardReferralLinkCard } from '@/components/dashboard/DashboardReferralLinkCard'
 import { ReferralInviteMessage } from '@/components/referral/ReferralInviteMessage'
-import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
-import { fetchViaIpfsGatewayProxy } from '@/lib/utils/ipfs-gateway-proxy'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
-import { cn } from '@/lib/utils'
+import { useHomeDashboardOnChain } from '@/hooks/useHomeDashboardOnChain'
+import { useHomeReferralNotification } from '@/hooks/useHomeReferralNotification'
+import {
+  SignUnlockModal,
+  type SignUnlockModalMode,
+} from '@/components/aa/SignUnlockModal'
+import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
+import { WalletReadyCard } from '@/components/aa/WalletReadyCard'
+import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
+import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
+import { formatEther } from 'viem'
 
 const WalletConnect = dynamic(
   () =>
@@ -79,250 +71,44 @@ const WalletConnect = dynamic(
   }
 )
 
-interface ImpactAttribute {
-  trait_type?: string
-  value?: string | number
-}
-
-interface ImpactMetadata {
-  name?: string
-  description?: string
-  external_url?: string
-  image?: string
-  animation_url?: string
-  attributes?: ImpactAttribute[]
-}
-
-function convertIPFSToGateway(ipfsUrl: string): string {
-  if (!ipfsUrl.startsWith('ipfs://')) {
-    return ipfsUrl
-  }
-  let path = ipfsUrl.replace('ipfs://', '').replace(/\/+/g, '/')
-  if (path.startsWith('/')) path = path.substring(1)
-
-  const defaultGateways = [
-    'https://ipfs.io/ipfs/',
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
-    'https://cloudflare-ipfs.com/ipfs/',
-    'https://dweb.link/ipfs/',
-  ]
-  return `${defaultGateways[0]}${path}`
-}
-
-async function fetchWithFallback(ipfsUrl: string): Promise<Response> {
-  const jsonHeaders = { Accept: 'application/json' }
-
-  if (!ipfsUrl.startsWith('ipfs://')) {
-    return fetchViaIpfsGatewayProxy(ipfsUrl, {
-      method: 'GET',
-      headers: jsonHeaders,
-      redirect: 'follow',
-    })
-  }
-
-  const gateways = [
-    'https://ipfs.io/ipfs/',
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/',
-    'https://cloudflare-ipfs.com/ipfs/',
-    'https://dweb.link/ipfs/',
-  ]
-
-  let path = ipfsUrl.replace('ipfs://', '').replace(/\/+/g, '/')
-  if (path.startsWith('/')) path = path.substring(1)
-
-  for (const gateway of gateways) {
-    try {
-      const url = `${gateway}${path}`
-      const response = await fetchViaIpfsGatewayProxy(url, {
-        method: 'GET',
-        headers: jsonHeaders,
-        redirect: 'follow',
-      })
-      if (response.ok) {
-        return response
-      }
-    } catch (error) {
-      console.warn(`Gateway ${gateway} failed:`, error)
-    }
-  }
-
-  throw new Error(`All IPFS gateways failed for: ${ipfsUrl}`)
-}
-
-/** Avoid `response.json()` when the gateway returns an HTML error page (causes Unexpected token '<'). */
-async function parseMetadataJsonFromResponse(res: Response): Promise<ImpactMetadata> {
-  const text = await res.text()
-  const trimmed = text.trim()
-  if (trimmed.startsWith('<')) {
-    throw new Error('Metadata URL returned HTML instead of JSON')
-  }
-  return JSON.parse(text) as ImpactMetadata
-}
-
-type ImpactProductDisplayState = {
-  level: number
-  imageUrl: string
-  animationUrl: string
-  tokenId: bigint | null
-  metadataName: string | null
-  metadataDescription: string | null
-  metadataExternalUrl: string | null
-  metadataAttributes: { trait_type: string; value: string }[]
-}
-
-/** Load Impact Product image/metadata; prefers tokenId-based URI when minted. */
-async function loadImpactProductDisplay(level: number, tokenId: bigint | null): Promise<ImpactProductDisplayState> {
-  const emptyExtras = {
-    metadataName: null as string | null,
-    metadataDescription: null as string | null,
-    metadataExternalUrl: null as string | null,
-    metadataAttributes: [] as { trait_type: string; value: string }[],
-  }
-  if (level <= 0) {
-    return {
-      level: 0,
-      imageUrl: '',
-      animationUrl: '',
-      tokenId: null,
-      ...emptyExtras,
-    }
-  }
-
-  let metadataName: string | null = null
-  let metadataDescription: string | null = null
-  let metadataExternalUrl: string | null = null
-  let metadataAttributes: { trait_type: string; value: string }[] = []
-
-  try {
-    let tokenURI = ''
-    if (tokenId !== null) {
-      tokenURI = await getTokenURI(tokenId)
-    }
-    if (!tokenURI) {
-      tokenURI = await getTokenURIForLevel(level)
-    }
-    let imageUrl = ''
-    let animationUrl = ''
-
-    if (tokenURI) {
-      try {
-        const metadataResponse = await fetchWithFallback(tokenURI)
-        if (metadataResponse.ok) {
-          const metadata = await parseMetadataJsonFromResponse(metadataResponse)
-
-          metadataName = metadata?.name ?? null
-          metadataDescription = metadata?.description ?? null
-          metadataExternalUrl = metadata?.external_url ?? null
-          metadataAttributes = (metadata?.attributes ?? [])
-            .filter((a) => a?.trait_type != null)
-            .map((a) => ({
-              trait_type: String(a.trait_type),
-              value: a.value != null ? String(a.value) : '—',
-            }))
-
-          if (metadata?.image) {
-            let fixedImagePath = metadata.image
-            const imagesCID =
-              process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            if (fixedImagePath.includes('/images/level')) {
-              const levelMatch = fixedImagePath.match(/level(\d+)\.png/)
-              if (levelMatch) {
-                const levelNum = levelMatch[1]
-                fixedImagePath =
-                  levelNum === '10'
-                    ? `ipfs://${imagesCID}/IP10Placeholder.png`
-                    : `ipfs://${imagesCID}/IP${levelNum}.png`
-              }
-            }
-            imageUrl = convertIPFSToGateway(fixedImagePath)
-          }
-
-          if (metadata?.animation_url) {
-            let fixedAnimationPath = metadata.animation_url
-            if (fixedAnimationPath.includes('/video/level10')) {
-              fixedAnimationPath = `ipfs://${process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'}/IP10VIdeo.mp4`
-            }
-            animationUrl = convertIPFSToGateway(fixedAnimationPath)
-          }
-        }
-      } catch (metadataError) {
-        console.error('Error fetching Impact Product metadata:', metadataError)
-      }
-    }
-
-    const finalImageUrl =
-      imageUrl ||
-      (level > 0
-        ? (() => {
-            const imagesCID =
-              process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = 'https://ipfs.io/ipfs/'
-            const imageName = level === 10 ? 'IP10Placeholder.png' : `IP${level}.png`
-            return `${gateway}${imagesCID}/${imageName}`
-          })()
-        : '')
-
-    const finalAnimationUrl =
-      animationUrl ||
-      (level === 10
-        ? (() => {
-            const imagesCID =
-              process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = 'https://ipfs.io/ipfs/'
-            return `${gateway}${imagesCID}/IP10VIdeo.mp4`
-          })()
-        : '')
-
-    return {
-      level,
-      imageUrl: finalImageUrl,
-      animationUrl: finalAnimationUrl,
-      tokenId,
-      metadataName,
-      metadataDescription,
-      metadataExternalUrl,
-      metadataAttributes,
-    }
-  } catch (error) {
-    console.error('Error fetching Impact Product data:', error)
-    const fallbackImageUrl =
-      level > 0
-        ? (() => {
-            const imagesCID =
-              process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = 'https://ipfs.io/ipfs/'
-            const imageName = level === 10 ? 'IP10Placeholder.png' : `IP${level}.png`
-            return `${gateway}${imagesCID}/${imageName}`
-          })()
-        : ''
-    const fallbackAnimationUrl =
-      level === 10
-        ? (() => {
-            const imagesCID =
-              process.env.NEXT_PUBLIC_IMPACT_IMAGES_CID || 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'
-            const gateway = 'https://ipfs.io/ipfs/'
-            return `${gateway}${imagesCID}/IP10VIdeo.mp4`
-          })()
-        : ''
-    return {
-      level,
-      imageUrl: fallbackImageUrl,
-      animationUrl: fallbackAnimationUrl,
-      tokenId,
-      metadataName,
-      metadataDescription,
-      metadataExternalUrl,
-      metadataAttributes,
-    }
-  }
-}
 
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
-  const { address, isConnected } = useAccount()
-  const searchParams = useSearchParams()
-  const [showReferralNotification, setShowReferralNotification] = useState(false)
-  const [referrerAddress, setReferrerAddress] = useState<Address | null>(null)
+  const { status: authStatus } = useSession()
+  const aaAuth = isAaAuthEnabledClient()
+  const {
+    address,
+    isConnected,
+    showMainApp,
+    isAuthenticated,
+    isEmbeddedAccount,
+    walletPhase,
+    aaEnabled,
+    canTransact,
+    walletReady,
+    walletBootstrapping,
+  } = useAppWalletAddress()
+  const { error: walletSetupError, retryWalletBootstrap } = useWallet()
+  const [signGate, setSignGate] = useState<{
+    mode: SignUnlockModalMode
+    purpose: string
+  } | null>(null)
+  const [showBreakdown, setShowBreakdown] = useState(false)
+  const [showVerifierRulesModal, setShowVerifierRulesModal] = useState(false)
+  const [showEarnModal, setShowEarnModal] = useState(false)
+  const [isClaiming, setIsClaiming] = useState(false)
+  const [claimModal, setClaimModal] = useState<{
+    variant: 'success' | 'error' | 'warning'
+    title?: string
+    message: string
+  } | null>(null)
+  const claimSuccessHandledRef = useRef(false)
+  const claimRefreshAfterModalRef = useRef<(() => Promise<void>) | null>(null)
+  const [notifyModal, setNotifyModal] = useState<{ variant: 'success' | 'error' | 'info'; title: string; message: string } | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && address) {
@@ -335,7 +121,6 @@ function HomeContent() {
         console.log('Cleanup state reset. Please refresh the page.')
         window.location.reload()
       }
-      // Helper to clear pre-fix cleanup (cleanup with rewarded=true but balance=0)
       (window as any).clearPreFixCleanup = async (cleanupId?: string | number) => {
         if (!cleanupId) {
           console.error('Please provide cleanup ID: window.clearPreFixCleanup(3)')
@@ -343,515 +128,44 @@ function HomeContent() {
         }
         try {
           const { markCleanupAsClaimed, clearPendingCleanup } = await import('@/lib/blockchain/verification')
-          console.log(`[clearPreFixCleanup] Clearing pre-fix cleanup #${cleanupId} for ${address}`)
-
-          // Mark as claimed to prevent it from showing again
           markCleanupAsClaimed(address as Address, BigInt(cleanupId))
-          console.log(`[clearPreFixCleanup] Marked cleanup #${cleanupId} as claimed`)
-
-          // Clear from pending cleanups
           clearPendingCleanup(address as Address)
-          console.log(`[clearPreFixCleanup] Cleared pending cleanup`)
-
-          // Also use resetCleanupState to ensure all related localStorage is cleared
           resetCleanupState(address as Address, cleanupId.toString())
-          console.log(`[clearPreFixCleanup] Reset cleanup state`)
-
-          console.log(`✅ Pre-fix cleanup #${cleanupId} cleared. Refreshing page...`)
           window.location.reload()
         } catch (error) {
           console.error('[clearPreFixCleanup] Error:', error)
-          console.error('Falling back to manual reset...')
           resetCleanupState(address as Address, cleanupId.toString())
           window.location.reload()
         }
       }
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Reset functions available:')
-        console.log('  window.resetCleanup(cleanupId?) - reset cleanup state')
-        console.log('  window.clearPreFixCleanup(cleanupId) - clear pre-fix cleanup (e.g., cleanup #3)')
-        console.log('  Example: window.resetCleanup(3) - reset cleanup #3')
-        console.log('  Example: window.clearPreFixCleanup(3) - clear pre-fix cleanup #3')
-      }
     }
   }, [address])
+
   const chainId = useResolvedChainId()
   const { submissionOwnerAddress, client: gaslessClient } = useSmartAccountClient()
-  const rewardIdentityAddress = (submissionOwnerAddress ?? address ?? undefined) as Address | undefined
-  const [isRewardIdentityVerifier, setIsRewardIdentityVerifier] = useState(false)
-  const [showVerifierRulesModal, setShowVerifierRulesModal] = useState(false)
-  const [cleanupStatus, setCleanupStatus] = useState<{
-    hasPendingCleanup: boolean
-    canClaim: boolean
-    cleanupId?: bigint
-    level?: number
-  } | null>(null)
-  const [showEarnModal, setShowEarnModal] = useState(false)
-  const [hypercertEligibility, setHypercertEligibility] = useState<{
-    cleanupCount: number
-    hypercertCount: number
-    isEligible: boolean
-    testingOverride?: boolean
-  } | null>(null)
-  const [dcuBalance, setDcuBalance] = useState<bigint>(BigInt(0))
-  const [showBreakdown, setShowBreakdown] = useState(false)
-  const [rewardStats, setRewardStats] = useState({
-    /** RewardManager `totalEarned` (wei → DCU); same basis as $cDCU milestone API. */
-    totalEarnedDCU: 0,
-    /** `claimRewardsAmount`: DCU from `rewardImpactProductClaim` only (requires NFT `impactClaimRewardsEnabled`). */
-    cleanupsDCU: 0,
-    /** Verified cleanups from indexer/contract details (for UX copy; onchain cleanup DCU still comes from claimRewardsAmount). */
-    verifiedCleanupsCount: 0,
-    cleanupsCount: 0,
-    referralsDCU: 0,
-    streakDCU: 0,
-    reportsDCU: 0,
-    recyclablesDCU: 0,
-    impactReportsCount: 0,
-    recyclablesTaggedCount: 0,
-    hypercertsDCU: 0,
-    verifierDCU: 0,
-    userLevel: 0,
-    /** Attribution-only: cleanups where you were listed as contributor on someone else's impact report (no DCU) */
-    contributorCleanupCount: 0,
-    impactReportsAttributed: 0,
+  const {
+    cleanupStatus,
+    hypercertEligibility,
+    rewardStats,
+    impactProduct,
+    claimFeeInfo,
+    hasLoadedDashboardOnce,
+    refreshDashboard,
+  } = useHomeDashboardOnChain({
+    mounted,
+    isConnected,
+    address: address as Address | undefined,
+    submissionOwnerAddress: submissionOwnerAddress as Address | undefined,
+    chainId: chainId ?? undefined,
+    wantSubmissionDetails: showBreakdown,
   })
-  const [impactProduct, setImpactProduct] = useState({
-    level: 0,
-    imageUrl: '',
-    animationUrl: '',
-    tokenId: null as bigint | null,
-    metadataName: null as string | null,
-    metadataDescription: null as string | null,
-    metadataExternalUrl: null as string | null,
-    metadataAttributes: [] as { trait_type: string; value: string }[],
-  })
-  const [isClaiming, setIsClaiming] = useState(false)
-  const [claimFeeInfo, setClaimFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
-  const [claimModal, setClaimModal] = useState<{
-    variant: 'success' | 'error'
-    title?: string
-    message: string
-  } | null>(null)
-  /** Prevents double refresh when OK, Escape, and auto-close all fire. */
-  const claimSuccessHandledRef = useRef(false)
-  const claimRefreshAfterModalRef = useRef<(() => Promise<void>) | null>(null)
-  const [notifyModal, setNotifyModal] = useState<{ variant: 'success' | 'error' | 'info'; title: string; message: string } | null>(null)
-  /** False until first successful dashboard fetch for this session (avoids showing 000 while RPCs run). */
-  const [hasLoadedDashboardOnce, setHasLoadedDashboardOnce] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    if (!rewardIdentityAddress) {
-      setIsRewardIdentityVerifier(false)
-      return
-    }
-    void isVerifier(rewardIdentityAddress)
-      .then((v) => {
-        if (!cancelled) setIsRewardIdentityVerifier(v)
-      })
-      .catch(() => {
-        if (!cancelled) setIsRewardIdentityVerifier(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [rewardIdentityAddress])
-
-  // Handle referral link detection - ONLY show notification if user was actually referred (check contract)
-  useEffect(() => {
-    if (!mounted || !address || !isConnected) return
-
-    // Reset banner state on every wallet change so a stale value from the previous wallet
-    // cannot flash before the async check below decides what's right for this wallet.
-    setShowReferralNotification(false)
-    setReferrerAddress(null)
-
-    const checkReferral = async () => {
-      try {
-        if (!submissionOwnerAddress) return
-        const owner = submissionOwnerAddress
-        // First, check if user was actually referred by checking the contract
-        const { getUserReferrer } = await import('@/lib/blockchain/contracts')
-        const contractReferrer = await getUserReferrer(owner)
-
-        if (contractReferrer) {
-          // User was actually referred - check if they've already submitted
-          const submissions = await getUserSubmissions(owner)
-          const hasSubmitted = submissions.length > 0
-
-          // Also check if they have a pending cleanup (submitted but not yet verified/claimed)
-          const currentStatus = await getUserCleanupStatus(owner)
-          const hasPendingCleanup = currentStatus?.hasPendingCleanup || false
-
-          if (hasSubmitted || hasPendingCleanup) {
-            // User has already submitted or has pending cleanup - hide notification (one-time chance used)
-            console.log('[Referral] User was referred but has already submitted or has pending cleanup - hiding notification')
-            setShowReferralNotification(false)
-            setReferrerAddress(contractReferrer) // Keep referrer address for stats, but don't show notification
-          } else {
-            // User was referred but hasn't submitted yet - show notification
-            console.log('[Referral] ✅ User was referred by:', contractReferrer)
-            setReferrerAddress(contractReferrer)
-
-            // Check if notification was dismissed
-            const dismissedKey = `referral_notification_dismissed_${contractReferrer.toLowerCase()}`
-            const wasDismissed = localStorage.getItem(dismissedKey)
-            if (!wasDismissed) {
-              setShowReferralNotification(true)
-            } else {
-              console.log('[Referral] Notification was previously dismissed')
-            }
-          }
-        } else {
-          // Check if user has already submitted - if yes, they can't be referred again (one-time chance)
-          const submissions = await getUserSubmissions(owner)
-          const hasSubmitted = submissions.length > 0
-
-          if (hasSubmitted) {
-            // User has already submitted - ignore any referral links (one-time chance used)
-            console.log('[Referral] User has already submitted - referral links are ignored (one-time chance)')
-            setShowReferralNotification(false)
-            setReferrerAddress(null)
-
-            // Clear any pending referral from localStorage since it can't be used
-            if (typeof window !== 'undefined') {
-              const referrerKey = `referrer_${address.toLowerCase()}`
-              const referrerPending = localStorage.getItem('referrer_pending')
-              if (referrerPending) {
-                localStorage.removeItem('referrer_pending')
-              }
-              localStorage.removeItem(referrerKey)
-            }
-          } else {
-            // User hasn't submitted yet - check for referral link in URL
-            let ref: string | null = null
-            try {
-              if (searchParams) {
-                ref = searchParams.get('ref')
-              }
-            } catch (e) {
-              // Ignore
-            }
-
-            if (!ref && typeof window !== 'undefined') {
-              const urlParams = new URLSearchParams(window.location.search)
-              ref = urlParams.get('ref')
-            }
-
-            if (ref && /^0x[a-fA-F0-9]{40}$/.test(ref)) {
-              const referrerAddr = ref as Address
-              console.log('[Referral] Referral link in URL for new user, saving for future submission:', referrerAddr)
-
-              // New user with referral link - show notification
-              setReferrerAddress(referrerAddr)
-              const dismissedKey = `referral_notification_dismissed_${referrerAddr.toLowerCase()}`
-              const wasDismissed = localStorage.getItem(dismissedKey)
-              if (!wasDismissed) {
-                setShowReferralNotification(true)
-              }
-
-              // Persist referrer in localStorage for submission (scoped to this address).
-              // Do not write the unscoped `referrer_pending` here — useEffect already gates on `address`,
-              // so the per-address key is the only source of truth and the global key only causes
-              // cross-wallet leakage when users switch accounts in the same browser.
-              if (typeof window !== 'undefined') {
-                const referrerKey = `referrer_${address.toLowerCase()}`
-                localStorage.setItem(referrerKey, referrerAddr)
-                localStorage.removeItem('referrer_pending')
-              }
-            } else {
-              // Check localStorage for saved referrer (user visited before but didn't submit)
-              if (typeof window !== 'undefined') {
-                const referrerKey = `referrer_${address.toLowerCase()}`
-                const savedReferrer = localStorage.getItem(referrerKey)
-                if (savedReferrer && /^0x[a-fA-F0-9]{40}$/.test(savedReferrer)) {
-                  console.log('[Referral] Found saved referrer from previous visit:', savedReferrer)
-                  setReferrerAddress(savedReferrer as Address)
-                  const dismissedKey = `referral_notification_dismissed_${savedReferrer.toLowerCase()}`
-                  const wasDismissed = localStorage.getItem(dismissedKey)
-                  if (!wasDismissed) {
-                    setShowReferralNotification(true)
-                  }
-                } else {
-                  // No URL ref and no per-address key → this wallet was not referred.
-                  // Drop any stale unscoped `referrer_pending` so it can't leak to other wallets later.
-                  console.log('[Referral] User was not referred (no referrer in contract or URL/localStorage)')
-                  setShowReferralNotification(false)
-                  setReferrerAddress(null)
-                  localStorage.removeItem('referrer_pending')
-                }
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[Referral] Error checking referral:', error)
-      }
-    }
-
-    checkReferral()
-  }, [mounted, address, isConnected, searchParams, submissionOwnerAddress])
-
-  useEffect(() => {
-    if (!mounted || !isConnected || !address) {
-      setCleanupStatus(null)
-      setHypercertEligibility(null)
-      setHasLoadedDashboardOnce(false)
-      return
-    }
-
-    setHasLoadedDashboardOnce(false)
-
-    let cancelled = false
-
-    async function checkStatus() {
-      if (!address) return
-      if (!submissionOwnerAddress) return
-      const owner = submissionOwnerAddress
-      try {
-        // Parallelize independent RPCs (was: submissions + sequential getCleanupDetails, then Promise.all; large waterfall).
-        const [
-          submissions,
-          status,
-          balance,
-          rewardStatsData,
-          level,
-          tokenId,
-          feeInfo,
-          verifierCount,
-        ] = await Promise.all([
-          getUserSubmissions(owner),
-          getUserCleanupStatus(owner),
-          getDCUBalance(owner),
-          getUserRewardStats(owner),
-          getUserLevel(owner),
-          getUserTokenId(owner),
-          getClaimFee(),
-          getVerifierRewardsCount(address as Address),
-        ])
-        setClaimFeeInfo(feeInfo)
-
-        const detailsList = await Promise.all(
-          submissions.map((id) => getCleanupDetails(id).catch(() => null))
-        )
-        let verifiedCleanupsCount = 0
-        let impactReportsCount = 0
-        let recyclablesTaggedCount = 0
-        for (const details of detailsList) {
-          if (details?.verified) {
-            verifiedCleanupsCount++
-            if (details.hasImpactForm) impactReportsCount++
-            if (details.hasRecyclables) recyclablesTaggedCount++
-          }
-        }
-        const eligibilityResult = checkHypercertEligibility({
-          cleanupsCount: verifiedCleanupsCount,
-          reportsCount: impactReportsCount,
-          chainId: chainId ?? undefined,
-        })
-        const eligibility = {
-          isEligible: eligibilityResult.eligible,
-          cleanupCount: eligibilityResult.cleanupsCount,
-          hypercertCount: 0, // for now, not using
-          testingOverride: eligibilityResult.testingOverride
-        }
-        // Only update cleanup status if it's different from current state
-        // This prevents re-showing claim button after it's been hidden
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Home] Cleanup status from getUserCleanupStatus:', status)
-        }
-        if (status) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Home] Setting cleanup status:', {
-              hasPendingCleanup: status.hasPendingCleanup,
-              canSubmit: status.canSubmit,
-              canClaim: status.canClaim,
-              cleanupId: status.cleanupId?.toString(),
-              level: status.level,
-              reason: status.reason,
-            })
-          }
-          setCleanupStatus(status)
-        } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Home] No cleanup status - clearing')
-          }
-          setCleanupStatus(null)
-        }
-        setHypercertEligibility(eligibility)
-        setDcuBalance(balance)
-
-        // Calculate breakdown from reward stats
-        // "Impact levels" DCU = claimRewardsAmount (filled by `rewardImpactProductClaim` on the NFT contract).
-        // That hook only runs when the deployed NFT has `impactClaimRewardsEnabled` — mint/upgrade can still succeed with it off.
-        const totalEarnedDCU = Number(formatEther(rewardStatsData.totalEarned))
-        const cleanupsDCU = Number(formatEther(rewardStatsData.claimRewardsAmount))
-        const cleanupsCount = Math.floor(cleanupsDCU / 10)
-        // Referrals DCU
-        const referralsDCU = Number(formatEther(rewardStatsData.referralRewardsAmount))
-        // Streak DCU
-        const streakDCU = Number(formatEther(rewardStatsData.streakRewardsAmount))
-        // Reports DCU (impact reports) and recyclables DCU (separate onchain buckets, 5 each per verified submission)
-        const reportsDCU = Number(formatEther(rewardStatsData.impactReportRewardsAmount))
-        const recyclablesDCU = Number(formatEther(rewardStatsData.recyclablesRewardsAmount))
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Reward Stats] Full breakdown:', {
-            totalEarnedDCU,
-            cleanupsDCU,
-            cleanupsCount,
-            referralsDCU,
-            streakDCU,
-            reportsDCU,
-            recyclablesDCU,
-            recyclablesTaggedCount,
-            totalEarned: Number(formatEther(rewardStatsData.totalEarned)),
-            currentBalance: Number(formatEther(rewardStatsData.currentBalance)),
-            raw: {
-              claimRewardsAmount: rewardStatsData.claimRewardsAmount.toString(),
-              referralRewardsAmount: rewardStatsData.referralRewardsAmount.toString(),
-              impactReportRewardsAmount: rewardStatsData.impactReportRewardsAmount.toString(),
-              recyclablesRewardsAmount: rewardStatsData.recyclablesRewardsAmount.toString(),
-              totalEarned: rewardStatsData.totalEarned.toString(),
-            }
-          })
-        }
-
-        // Dev-only: extra RPC avoided in production (uses data already loaded above)
-        if (process.env.NODE_ENV === 'development' && cleanupsDCU === 0 && address) {
-          const verifiedNotRejected = detailsList.filter(
-            (d) => d && d.verified && !d.rejected
-          ).length
-          if (verifiedNotRejected > 0) {
-            console.log(
-              `[Reward Stats] ${verifiedNotRejected} verified cleanup(s) in history but claimRewardsAmount (impact-level ledger) is 0 — you may also have a newer submission still pending review; counts all verified IDs.`
-            )
-            console.log(
-              '[Reward Stats] Expected if ImpactProductNFT.impactClaimRewardsEnabled is false on-chain, or level rewards reverted; mint/upgrade can still succeed without this bucket.'
-            )
-          }
-        }
-
-        if (process.env.NODE_ENV === 'development' && referralsDCU === 0 && address) {
-          try {
-            const { getUserReferrer } = await import('@/lib/blockchain/contracts')
-            const referrer = await getUserReferrer(owner)
-            if (referrer) {
-              console.log('[Reward Stats] User was referred by:', referrer, 'but referral rewards are 0')
-            }
-          } catch (error) {
-            console.warn('[Reward Stats] Could not check referrer:', error)
-          }
-        }
-
-        if (process.env.NODE_ENV === 'development' && reportsDCU === 0 && address && submissions.length > 0) {
-          const verifiedWithForm = detailsList.filter((d) => d?.verified && !d.rejected && d.hasImpactForm).length
-          const verifiedWithRecyclables = detailsList.filter((d) => d?.verified && !d.rejected && d.hasRecyclables).length
-          if (verifiedWithForm > 0 || verifiedWithRecyclables > 0) {
-            console.log(
-              '[Reward Stats] On-chain RewardManager buckets: impact reports',
-              reportsDCU,
-              'DCU, recyclables',
-              recyclablesDCU,
-              'DCU. Verified cleanups with impact hash:',
-              verifiedWithForm,
-              'with recyclables:',
-              verifiedWithRecyclables,
-              '— if these counts are >0 but buckets stay 0, claim level must run claimSubmissionBonusRewards for each submission (after mint); old submissions may have claimed bonus before flags existed.'
-            )
-          }
-        }
-        // Hypercerts DCU (10 per hypercert, calculate from count)
-        const hypercertsDCU = eligibility ? Number(eligibility.hypercertCount) * 10 : 0
-
-        const verifierDCU = verifierCount
-
-        const contribStats = await getContributorMentionStats(owner as Address)
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Dashboard] Verifier rewards:', {
-            address,
-            verifierCount,
-            verifierDCU
-          })
-        }
-
-        setRewardStats({
-          totalEarnedDCU,
-          cleanupsDCU,
-          verifiedCleanupsCount: verifiedCleanupsCount,
-          cleanupsCount,
-          referralsDCU,
-          streakDCU,
-          reportsDCU,
-          recyclablesDCU,
-          impactReportsCount: Math.floor(reportsDCU / 5),
-          recyclablesTaggedCount: Math.floor(recyclablesDCU / 5),
-          hypercertsDCU,
-          verifierDCU,
-          userLevel: level,
-          contributorCleanupCount: contribStats.contributorCleanupCount,
-          impactReportsAttributed: contribStats.impactReportsAttributed,
-        })
-
-        // IPFS metadata can be slow; don't block DCU / stats from rendering
-        if (level > 0) {
-          void loadImpactProductDisplay(level, tokenId)
-            .then((display) => {
-              if (!cancelled) setImpactProduct(display)
-            })
-            .catch((err) => {
-              console.error('Error loading Impact Product metadata:', err)
-              if (!cancelled) {
-                setImpactProduct({
-                  level,
-                  imageUrl: '',
-                  animationUrl: '',
-                  tokenId,
-                  metadataName: null,
-                  metadataDescription: null,
-                  metadataExternalUrl: null,
-                  metadataAttributes: [],
-                })
-              }
-            })
-        } else {
-          setImpactProduct({
-            level: 0,
-            imageUrl: '',
-            animationUrl: '',
-            tokenId: null,
-            metadataName: null,
-            metadataDescription: null,
-            metadataExternalUrl: null,
-            metadataAttributes: [],
-          })
-        }
-
-      } catch (error) {
-        console.error('Error checking status:', error)
-      } finally {
-        setHasLoadedDashboardOnce(true)
-      }
-    }
-
-    checkStatus()
-
-    // Poll when tab is visible (reduces idle RPC load)
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
-      void checkStatus()
-    }, 15000)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [mounted, isConnected, address, submissionOwnerAddress, chainId])
+  const { showReferralNotification, setShowReferralNotification, referrerAddress } =
+    useHomeReferralNotification({
+      mounted,
+      address: address as Address | undefined,
+      isConnected,
+      submissionOwnerAddress: submissionOwnerAddress as Address | undefined,
+    })
 
   const handleClaimImpactLevel = async () => {
     if (cleanupStatus?.cleanupId === undefined || cleanupStatus?.cleanupId === null || isClaiming) {
@@ -865,14 +179,22 @@ function HomeContent() {
       console.warn('[Home] Claim blocked: submission owner not ready (gasless wallet still loading)')
       return
     }
+    if (!canTransact || !gaslessClient) {
+      setSignGate({
+        mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
+        purpose: 'claim your Impact Product level',
+      })
+      return
+    }
 
     try {
       setIsClaiming(true)
 
-      await claimImpactProductFromVerification(
-        cleanupStatus.cleanupId,
-        gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
-      )
+      const claimResult = await claimImpactProductFromVerification(cleanupStatus.cleanupId, {
+        gaslessClient: gaslessClient ? (gaslessClient as GaslessClient) : undefined,
+        smartAccountAddress: submissionOwnerAddress,
+        eoaAddress: address,
+      })
 
       if (address && cleanupStatus.cleanupId !== undefined && cleanupStatus.cleanupId !== null) {
         const claimOwner = submissionOwnerAddress as Address
@@ -891,120 +213,40 @@ function HomeContent() {
       }
 
       claimSuccessHandledRef.current = false
-      setClaimModal({
-        variant: 'success',
-        title: 'Impact Product claimed',
-        message:
-          'Onchain rewards were processed, your Impact Product was minted or upgraded',
-      })
+      const reportDcu =
+        claimResult.impactReportRewardsWei != null
+          ? Number(formatEther(claimResult.impactReportRewardsWei))
+          : null
+      const recyclablesDcu =
+        claimResult.recyclablesRewardsWei != null
+          ? Number(formatEther(claimResult.recyclablesRewardsWei))
+          : null
 
-      setCleanupStatus(null)
-      setShowReferralNotification(false)
-
-      const runRefreshAfterClaim = async () => {
-        if (!address) return
-        const refreshOwner = submissionOwnerAddress as Address
-        console.log('[Home] Refreshing cleanup status and reward stats after claim...')
-        const status = await getUserCleanupStatus(refreshOwner)
-        console.log('[Home] New cleanup status after claim:', status)
-        setCleanupStatus(status)
-
-        const submissions = await getUserSubmissions(refreshOwner)
-        let verifiedCleanupsCount = 0
-        let impactReportsCount = 0
-        let recyclablesTaggedCount = 0
-        for (const id of submissions) {
-          try {
-            const details = await getCleanupDetails(id)
-            if (details.verified) {
-              verifiedCleanupsCount++
-              if (details.hasImpactForm) impactReportsCount++
-              if (details.hasRecyclables) recyclablesTaggedCount++
-            }
-          } catch (error) {
-            // ignore
-          }
-        }
-        const eligibilityResult = checkHypercertEligibility({
-          cleanupsCount: verifiedCleanupsCount,
-          reportsCount: impactReportsCount,
-          chainId: chainId ?? undefined,
-        })
-        const eligibility = {
-          isEligible: eligibilityResult.eligible,
-          cleanupCount: eligibilityResult.cleanupsCount,
-          hypercertCount: 0,
-          testingOverride: eligibilityResult.testingOverride,
-        }
-        setHypercertEligibility(eligibility)
-
-        console.log('[Home] Refreshing reward stats to see updated breakdown...')
-        try {
-          const [balance, rewardStatsData, level, tokenId] = await Promise.all([
-            getDCUBalance(refreshOwner),
-            getUserRewardStats(refreshOwner),
-            getUserLevel(refreshOwner),
-            getUserTokenId(refreshOwner),
-          ])
-          setDcuBalance(balance)
-
-          const totalEarnedDCU = Number(formatEther(rewardStatsData.totalEarned))
-          const cleanupsDCU = Number(formatEther(rewardStatsData.claimRewardsAmount))
-          const cleanupsCount = Math.floor(cleanupsDCU / 10)
-          const referralsDCU = Number(formatEther(rewardStatsData.referralRewardsAmount))
-          const streakDCU = Number(formatEther(rewardStatsData.streakRewardsAmount))
-          const reportsDCU = Number(formatEther(rewardStatsData.impactReportRewardsAmount))
-          const recyclablesDCU = Number(formatEther(rewardStatsData.recyclablesRewardsAmount))
-
-          const hypercertsDCU = eligibility ? Number(eligibility.hypercertCount) * 10 : 0
-
-          const { getVerifierRewardsCount } = await import('@/lib/blockchain/contracts')
-          const verifierCount = await getVerifierRewardsCount(address as Address)
-          const verifierDCU = verifierCount
-
-          const contribAfter = await getContributorMentionStats(refreshOwner)
-
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Dashboard] Verifier rewards (after claim):', {
-              address,
-              verifierCount,
-              verifierDCU,
-            })
-          }
-
-          setRewardStats({
-            totalEarnedDCU,
-            cleanupsDCU,
-            verifiedCleanupsCount: verifiedCleanupsCount,
-            cleanupsCount,
-            referralsDCU,
-            streakDCU,
-            reportsDCU,
-            recyclablesDCU,
-            impactReportsCount: Math.floor(reportsDCU / 5),
-            recyclablesTaggedCount: Math.floor(recyclablesDCU / 5),
-            hypercertsDCU,
-            verifierDCU,
-            userLevel: level,
-            contributorCleanupCount: contribAfter.contributorCleanupCount,
-            impactReportsAttributed: contribAfter.impactReportsAttributed,
-          })
-
-          if (level > 0) {
-            try {
-              const display = await loadImpactProductDisplay(level, tokenId)
-              setImpactProduct(display)
-            } catch (error) {
-              console.warn('[Home] Could not fetch Impact Product metadata after claim:', error)
-            }
-          }
-        } catch (error) {
-          console.error('[Home] Error refreshing reward stats after claim:', error)
-        }
-        console.log('[Home] Refreshing data to see updated balance and NFT...')
+      let successMessage =
+        'Your Impact Product was minted or upgraded on-chain.'
+      if (claimResult.bonusClaimed) {
+        successMessage +=
+          reportDcu != null || recyclablesDcu != null
+            ? ` Impact report + recyclables buckets updated (${reportDcu ?? 0} + ${recyclablesDcu ?? 0} DCU in RewardManager).`
+            : ' Impact report and recyclables rewards were submitted on-chain.'
+      } else if (claimResult.bonusError) {
+        successMessage +=
+          ' Recyclables / impact-report DCU did not land yet (bonus step failed after NFT). Tap Claim again to retry bonuses only, or refresh in a minute.'
+      } else if (!claimResult.nftTxHash) {
+        successMessage += ' No new NFT step was required; refresh your dashboard balances.'
       }
 
-      claimRefreshAfterModalRef.current = runRefreshAfterClaim
+      setClaimModal({
+        variant: claimResult.bonusError ? 'warning' : 'success',
+        title: claimResult.bonusError ? 'Level claimed — bonuses pending' : 'Impact Product claimed',
+        message: successMessage,
+      })
+
+      setShowReferralNotification(false)
+
+      claimRefreshAfterModalRef.current = async () => {
+        await refreshDashboard()
+      }
     } catch (error: any) {
       console.error('Error claiming:', error)
       const errorMessage = error?.message || String(error)
@@ -1022,19 +264,36 @@ function HomeContent() {
     return <div className="min-h-screen bg-background" />
   }
 
-  // Hero before login: one viewport, no scroll (tight vertical space only)
-  if (!isConnected) {
+  if (aaAuth && authStatus === 'loading') {
+    return <AccountBootstrapPanel stage="auth" />
+  }
+
+  if (aaEnabled && isEmbeddedAccount && walletBootstrapping) {
+    return (
+      <AccountBootstrapPanel
+        stage="wallet"
+        error={walletSetupError}
+        onRetry={retryWalletBootstrap}
+      />
+    )
+  }
+
+  // Hero before login — full DeCleanup app only after /login (Google, email, wallet)
+  if (!showMainApp) {
     return (
       <div className="flex min-h-[calc(100dvh-5rem)] flex-col bg-background">
         <main className="container mx-auto flex flex-1 min-h-0 flex-col items-center justify-center px-4 py-2 sm:py-4">
           <div className="w-full max-w-3xl space-y-4 sm:space-y-5 text-center">
             {/* Hero Heading: less space above/below */}
             <div className="space-y-2 animate-fade-in-up">
-              <h1 className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl lg:text-7xl" style={{ fontFamily: 'var(--font-bebas-neue), sans-serif', letterSpacing: '0.05em', lineHeight: 1.1 }}>
+              <h1
+                className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl lg:text-7xl"
+                style={decleanupRewardsTitleStyle}
+              >
                 <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
-                  DeCleanup
-                </span>{" "}
-                Rewards
+                  DECLEANUP
+                </span>{' '}
+                <span className="text-foreground">REWARDS</span>
               </h1>
               <h2 className="font-sans text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl font-normal mx-auto max-w-2xl normal-case break-words">
                 Log cleanups. Build a verified record. Earn your voice in the network.
@@ -1043,7 +302,17 @@ function HomeContent() {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1 animate-fade-in-up font-sans">
-              <WalletConnect />
+              {aaAuth ? (
+                <Button
+                  asChild
+                  size="default"
+                  className="h-10 px-6 font-sans text-sm !text-black bg-brand-green hover:bg-brand-green/90"
+                >
+                  <Link href="/login?callbackUrl=/">Log in</Link>
+                </Button>
+              ) : (
+                <WalletConnect />
+              )}
               <Link
                 href="https://www.decleanup.net/userguide"
                 target="_blank"
@@ -1054,7 +323,9 @@ function HomeContent() {
               </Link>
             </div>
             <p className="font-sans text-xs text-muted-foreground/80">
-              Connect your wallet to start cleaning
+              {aaAuth
+                ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
+                : 'Connect your wallet to start cleaning'}
             </p>
           </div>
         </main>
@@ -1127,6 +398,11 @@ function HomeContent() {
   }
 
   const canHeroSubmit =
+    walletReady &&
+    !cleanupStatus?.hasPendingCleanup &&
+    !cleanupStatus?.canClaim &&
+    rewardStats.userLevel < MAX_IMPACT_PRODUCT_LEVEL
+  const showHeroSubmitSlot =
     !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim && rewardStats.userLevel < MAX_IMPACT_PRODUCT_LEVEL
   const heroMaxLevelLocked = rewardStats.userLevel >= MAX_IMPACT_PRODUCT_LEVEL
   const showHeroClaimCta = !!cleanupStatus?.canClaim
@@ -1136,16 +412,35 @@ function HomeContent() {
   const heroCtaClass =
     'h-auto min-h-0 w-full gap-2 px-8 py-[14px] font-bebas text-lg tracking-wider sm:mx-auto sm:w-auto sm:min-w-[260px] sm:max-w-[360px] sm:text-xl'
 
-  // Dashboard after login
+  // Main DeCleanup app (submissions, rewards, hypercerts)
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 md:gap-10 px-4 py-4 sm:px-6 sm:py-6">
+        {aaEnabled && isEmbeddedAccount && walletPhase === 'pending-password' && <WalletReadyCard />}
+        {aaEnabled && isEmbeddedAccount && walletPhase === 'locked' && (
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400">
+            Wallet locked. You&apos;ll be asked for your wallet passkey when you submit or claim onchain.{' '}
+            <Link href="/wallet" className="font-medium text-brand-green underline">
+              Go to smart account settings
+            </Link>
+            .
+          </div>
+        )}
+        {aaEnabled && isEmbeddedAccount && walletPhase === 'server-only' && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-200">
+            Restore your wallet in{' '}
+            <Link href="/wallet" className="font-medium text-brand-green underline">
+              Smart account settings
+            </Link>
+            .
+          </div>
+        )}
         {/* HERO — primary CTA first */}
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
             <h1
               className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
-              style={{ fontFamily: 'var(--font-bebas-neue), sans-serif', letterSpacing: '0.05em' }}
+              style={decleanupRewardsTitleStyle}
             >
               <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent">
                 DECLEANUP
@@ -1157,16 +452,27 @@ function HomeContent() {
             </p>
           </div>
           <div className="flex w-full flex-col items-center gap-3">
-            {canHeroSubmit && !heroMaxLevelLocked && (
-              <Button
-                asChild
-                className={`${heroCtaClass} inline-flex bg-brand-green text-black hover:bg-brand-green/90`}
-              >
-                <Link href="/cleanup" className="inline-flex items-center justify-center">
+            {showHeroSubmitSlot && !heroMaxLevelLocked && (
+              canHeroSubmit ? (
+                <Button
+                  asChild
+                  className={`${heroCtaClass} inline-flex bg-brand-green text-black hover:bg-brand-green/90`}
+                >
+                  <Link href="/cleanup" className="inline-flex items-center justify-center">
+                    <Leaf className="h-5 w-5 shrink-0" />
+                    SUBMIT CLEANUP
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled
+                  className={`${heroCtaClass} inline-flex cursor-not-allowed bg-brand-green/40 text-black/70`}
+                >
                   <Leaf className="h-5 w-5 shrink-0" />
                   SUBMIT CLEANUP
-                </Link>
-              </Button>
+                </Button>
+              )
             )}
             {heroMaxLevelLocked && !showHeroClaimCta && !showHeroUnderReview && (
               <p className="max-w-md text-center text-sm text-muted-foreground sm:text-left">
@@ -1296,52 +602,15 @@ function HomeContent() {
           )}
             </div>
             <aside className="flex min-h-0 min-w-0 flex-col gap-4 lg:h-full">
-              <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
-                <SectionHeading icon={TrendingUp}>Profile and Rewards</SectionHeading>
-                {isRewardIdentityVerifier ? (
-                  <div className="mb-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowVerifierRulesModal(true)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-brand-green/45 bg-brand-green/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-green transition-colors hover:bg-brand-green/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      Verifier
-                    </button>
-                  </div>
-                ) : null}
-                <p
-                  className={cn(
-                    'mb-4 text-xs leading-relaxed text-muted-foreground sm:text-sm',
-                    !isRewardIdentityVerifier && '-mt-1'
-                  )}
-                >
-                  Complete cleanups, build your rank and reputation, create impact profile
-                </p>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  {address ? (
-                    <Button variant="outline" asChild className="w-full border-border font-bebas tracking-wide sm:w-auto">
-                      <Link
-                        href={`/impact/${address}${
-                          submissionOwnerAddress &&
-                          submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
-                            ? `?sa=${submissionOwnerAddress}`
-                            : ''
-                        }`}
-                        className="inline-flex items-center justify-center gap-2"
-                      >
-                        <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
-                        Impact portfolio
-                      </Link>
-                    </Button>
-                  ) : null}
-                </div>
-                {cleanupStatus?.canClaim && claimFeeInfo && claimFeeInfo.enabled && claimFeeInfo.fee > 0n ? (
-                  <div className="mt-3">
-                    <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol="CELO" type="claim" className="mt-1" />
-                  </div>
-                ) : null}
-              </div>
+              {address ? (
+                <DashboardProfileCard
+                  address={address}
+                  submissionOwnerAddress={submissionOwnerAddress}
+                  onOpenVerifierRules={() => setShowVerifierRulesModal(true)}
+                  cleanupStatus={cleanupStatus}
+                  claimFeeInfo={claimFeeInfo}
+                />
+              ) : null}
 
               {submissionOwnerAddress ? (
                 <DashboardReferralLinkCard
@@ -1399,6 +668,20 @@ function HomeContent() {
                 </button>
               </div>
             </aside>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            <div className="min-w-0">
+              <DashboardActions
+                address={address || ''}
+                userImpactLevel={rewardStats.userLevel}
+                cleanupStatus={cleanupStatus || null}
+                claimFeeInfo={claimFeeInfo}
+                onClaim={handleClaimImpactLevel}
+                isClaiming={isClaiming}
+                onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
+              />
+            </div>
           </div>
 
           {showBreakdown ? (
@@ -1492,7 +775,7 @@ function HomeContent() {
           ) : null}
         </section>
 
-        {!isRewardIdentityVerifier ? <VerifierApplyCard /> : null}
+        <DashboardVerifierExtras />
 
         {hypercertEligibility?.isEligible && (
           <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
@@ -1515,21 +798,6 @@ function HomeContent() {
             <p className="mt-2 text-[11px] text-muted-foreground">Minting runs from approved requests in the certification panel.</p>
           </div>
         )}
-
-        <div className="grid grid-cols-1 gap-6">
-          <div className="min-w-0">
-            <DashboardActions
-              address={address || ''}
-              userImpactLevel={rewardStats.userLevel}
-              cleanupStatus={cleanupStatus || null}
-              claimFeeInfo={claimFeeInfo}
-              onClaim={handleClaimImpactLevel}
-              isClaiming={isClaiming}
-              onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
-            />
-          </div>
-        </div>
-
         <div className="mt-2 grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 sm:mt-4">
           <Link href="/leaderboard" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
@@ -1578,6 +846,18 @@ function HomeContent() {
           message={claimModal.message}
           variant={claimModal.variant}
           autoCloseMs={claimModal.variant === 'success' ? 3000 : undefined}
+        />
+      )}
+      {signGate && (
+        <SignUnlockModal
+          open
+          mode={signGate.mode}
+          purpose={signGate.purpose}
+          onClose={() => setSignGate(null)}
+          onSuccess={() => {
+            setSignGate(null)
+            void handleClaimImpactLevel()
+          }}
         />
       )}
       {notifyModal && (

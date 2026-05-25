@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { type Address, isAddress, parseEther } from 'viem'
 import { CLAIM_CATEGORY, signClaimVaultClaim } from '@/lib/cdcu/claim-signing'
 import { getAirdropAllocation } from '@/lib/airdrop/manual-allocations'
-import { getAirdropPending, hasAirdropClaimed, loadAirdropStore, saveAirdropStore, setAirdropPending } from '@/lib/airdrop/store'
+import { getAirdropPending, hasAirdropClaimed, setAirdropPending } from '@/lib/airdrop/store'
 
 const MAX_EXPIRY_SECONDS = 7 * 24 * 60 * 60
 
@@ -34,13 +34,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No airdrop allocation for this wallet' }, { status: 404 })
     }
 
-    const store = loadAirdropStore()
-    if (hasAirdropClaimed(store, recipient)) {
+    if (await hasAirdropClaimed(recipient)) {
       return NextResponse.json({ error: 'Airdrop was already claimed for this wallet' }, { status: 400 })
     }
 
     const amountWei = parseEther(allocation.amountCdcu)
-    const pendingWei = getAirdropPending(store, recipient)
+    const pendingWei = await getAirdropPending(recipient)
     const claimableWei = amountWei > pendingWei ? amountWei - pendingWei : 0n
     if (claimableWei <= 0n) {
       return NextResponse.json({ error: 'No claimable amount available right now' }, { status: 400 })
@@ -62,8 +61,7 @@ export async function POST(request: Request) {
       privateKey
     )
 
-    setAirdropPending(store, recipient, claimableWei)
-    saveAirdropStore(store)
+    await setAirdropPending(recipient, claimableWei)
 
     return NextResponse.json({
       recipient: signed.recipient,

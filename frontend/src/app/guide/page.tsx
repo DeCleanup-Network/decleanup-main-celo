@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { BackButton } from '@/components/layout/BackButton'
 import { ChevronDown, Mail, Wallet, MessageCircle } from 'lucide-react'
-import { WEB3AUTH_ACCOUNT_DASHBOARD_URL } from '@/lib/web3auth/urls'
+const EMBEDDED_WALLET_DASHBOARD_PATH = '/wallet'
 
 type StepId = 1 | 2 | 3
 
@@ -156,7 +156,11 @@ export default function UserGuidePage() {
                 <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Do your first cleanup submission</h3>
                 <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
                   <li>Add one before cleanup photo and one after cleanup photo (up to 10 MB each).</li>
-                  <li>Add location (optional).</li>
+                  <li>
+                    Allow location when prompted (required for geotagging). If it fails, turn on Location Services in
+                    phone Settings, allow your browser to use location, and allow this site in browser site settings —
+                    or enter coordinates manually on the submit screen.
+                  </li>
                   <li>Add impact report and recyclables report (optional).</li>
                   <li>Submit the cleanup.</li>
                   <li>Wait for verifier approval.</li>
@@ -254,14 +258,12 @@ export default function UserGuidePage() {
                     </h3>
                     <p className="mt-1">
                       Go to{' '}
-                      <a
-                        href={WEB3AUTH_ACCOUNT_DASHBOARD_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Link
+                        href={EMBEDDED_WALLET_DASHBOARD_PATH}
                         className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
                       >
-                        account.web3auth.io/v11
-                      </a>{' '}
+                        your wallet dashboard
+                      </Link>{' '}
                       and log in with the same Google or email you used in DeCleanup Rewards.
                     </p>
                   </li>

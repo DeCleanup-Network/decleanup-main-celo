@@ -4,152 +4,54 @@
 
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { useVerifierAccess } from '@/hooks/useVerifierAccess'
+import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { Shield, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { AlertModal } from '@/components/ui/alert-modal'
-import type { VerifierApplication } from '@/lib/verifier/types'
-import type { Address } from 'viem'
-import { isVerifier as isVerifierOnChain } from '@/lib/blockchain/contracts'
-
 const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
 
 const TELEGRAM_APPEAL_URL = 'https://t.me/decentralizedcleanup'
 
-/** Merge applications loaded for EOA + smart account (+ last applicant hint). */
-function pickApplicationForDisplay(apps: VerifierApplication[]): VerifierApplication | null {
-  if (!apps.length) return null
-  const sorted = [...apps].sort((a, b) => b.appliedAt - a.appliedAt)
-  const newest = sorted[0]
-
-  const rejects = sorted.filter((a) => a.status === 'REJECTED')
-  if (!rejects.length) return newest
-
-  const newestRejected = rejects.reduce((a, b) => (a.appliedAt >= b.appliedAt ? a : b))
-  const hasNewerQueue = sorted.some(
-    (a) =>
-      (a.status === 'PENDING' || a.status === 'PENDING_ONCHAIN') && a.appliedAt > newestRejected.appliedAt
-  )
-  if (hasNewerQueue) return newest
-  return newestRejected.appliedAt > newest.appliedAt ? newestRejected : newest
-}
-
 export function VerifierApplyCard() {
-  const { address } = useAccount()
+  const { isConnected: hasWallet } = useAppWalletAddress()
   const { submissionOwnerAddress } = useSmartAccountClient()
   const applicantAddress = submissionOwnerAddress
+  const {
+    latestApp,
+    loading: loadingApplication,
+    applicationApproved,
+    onChainRoleWithoutApplication,
+    refreshApplication,
+  } = useVerifierAccess()
   const { eligibility, isLoading, error } = useVerifierEligibility()
   const [isApplying, setIsApplying] = useState(false)
   const [applyError, setApplyError] = useState<string | null>(null)
-  const [latestApp, setLatestApp] = useState<VerifierApplication | null>(null)
-  const [loadingApplication, setLoadingApplication] = useState(false)
-  const [isVerifierNow, setIsVerifierNow] = useState(false)
-  const [checkingVerifierRole, setCheckingVerifierRole] = useState(true)
   const [verifierOutcomeModal, setVerifierOutcomeModal] = useState<'promoted' | 'rejected' | null>(null)
 
-  const loadLatestApplication = useCallback(async () => {
-    if (!address && !applicantAddress) return
-    setLoadingApplication(true)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !applicantAddress) return
+    const current = applicantAddress.toLowerCase()
     try {
-      const wallets = new Set<string>()
-      if (address) wallets.add(address.toLowerCase())
-      if (applicantAddress) wallets.add(applicantAddress.toLowerCase())
-      if (typeof window !== 'undefined') {
-        const last = localStorage.getItem('decleanup_last_verifier_applicant')?.trim().toLowerCase()
-        if (last && /^0x[a-f0-9]{40}$/i.test(last)) wallets.add(last)
+      const last = localStorage.getItem('decleanup_last_verifier_applicant')?.trim().toLowerCase()
+      if (last && last !== current) {
+        localStorage.removeItem('decleanup_last_verifier_applicant')
       }
-      const targets = Array.from(wallets)
-
-      type FetchOutcome = { app: VerifierApplication | null; inconclusive: boolean }
-      const settled = await Promise.allSettled(
-        targets.map(async (candidate): Promise<FetchOutcome> => {
-          try {
-            const res = await fetch(`/api/verifier/applications?address=${encodeURIComponent(candidate)}`, {
-              cache: 'no-store',
-            })
-            const data = await res.json().catch(() => ({}))
-            if (!res.ok || !data?.success) return { app: null, inconclusive: true }
-            if (data.verifierApplicationsUnavailable) return { app: null, inconclusive: true }
-            return { app: (data.application || null) as VerifierApplication | null, inconclusive: false }
-          } catch {
-            return { app: null, inconclusive: true }
-          }
-        })
-      )
-
-      const outcomes: FetchOutcome[] = []
-      for (const s of settled) {
-        if (s.status === 'fulfilled') outcomes.push(s.value)
-        else outcomes.push({ app: null, inconclusive: true })
-      }
-
-      const rows: VerifierApplication[] = []
-      for (const o of outcomes) {
-        if (o.app) rows.push(o.app)
-      }
-
-      const next = pickApplicationForDisplay(rows)
-      const allTargetsConclusiveEmpty =
-        outcomes.length > 0 && outcomes.every((o) => !o.inconclusive && o.app === null)
-
-      setLatestApp((prev) => {
-        if (next) return next
-        if (allTargetsConclusiveEmpty) return null
-        if (prev?.id === 'pending-local') return prev
-        return null
-      })
     } catch {
-      // Keep UI functional even if status fetch fails.
-    } finally {
-      setLoadingApplication(false)
+      /* ignore */
     }
-  }, [address, applicantAddress])
-
-  useEffect(() => {
-    void loadLatestApplication()
-  }, [loadLatestApplication])
-
-  useEffect(() => {
-    let cancelled = false
-    async function checkVerifierRole() {
-      const candidates = [applicantAddress, address].filter(Boolean) as Address[]
-      const unique = Array.from(new Set(candidates.map((a) => a.toLowerCase()))) as Address[]
-      if (!unique.length) {
-        setIsVerifierNow(false)
-        setCheckingVerifierRole(false)
-        return
-      }
-      try {
-        let any = false
-        for (const w of unique) {
-          if (await isVerifierOnChain(w)) {
-            any = true
-            break
-          }
-        }
-        if (!cancelled) setIsVerifierNow(any)
-      } catch {
-        if (!cancelled) setIsVerifierNow(false)
-      } finally {
-        if (!cancelled) setCheckingVerifierRole(false)
-      }
-    }
-    void checkVerifierRole()
-    return () => {
-      cancelled = true
-    }
-  }, [applicantAddress, address, latestApp?.status])
+  }, [applicantAddress])
 
   useEffect(() => {
     if (!latestApp?.status) return
     if (latestApp.status !== 'PENDING' && latestApp.status !== 'PENDING_ONCHAIN') return
     const tick = () => {
-      void loadLatestApplication()
+      void refreshApplication()
     }
     const id = window.setInterval(tick, 5_000)
     const onVis = () => {
@@ -160,11 +62,12 @@ export function VerifierApplyCard() {
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [latestApp?.id, latestApp?.status, loadLatestApplication])
+  }, [latestApp?.id, latestApp?.status, refreshApplication])
 
   useEffect(() => {
-    if (!applicantAddress || checkingVerifierRole) return
-    if (latestApp?.status !== 'REJECTED') return
+    if (!applicantAddress || loadingApplication) return
+    if (!latestApp?.id || latestApp.address.toLowerCase() !== applicantAddress.toLowerCase()) return
+    if (latestApp.status !== 'REJECTED') return
     const addr = applicantAddress.toLowerCase()
     const key = `decleanup_verifier_rejected_dismissed_v1_${addr}_${latestApp.id}`
     try {
@@ -173,26 +76,29 @@ export function VerifierApplyCard() {
       return
     }
     setVerifierOutcomeModal((m) => (m ? m : 'rejected'))
-  }, [applicantAddress, checkingVerifierRole, latestApp?.id, latestApp?.status])
+  }, [applicantAddress, loadingApplication, latestApp?.id, latestApp?.status, latestApp?.address])
 
   useEffect(() => {
-    if (!applicantAddress || checkingVerifierRole) return
-    if (latestApp?.status === 'REJECTED') return
-    if ((latestApp?.status === 'PENDING' || latestApp?.status === 'PENDING_ONCHAIN') && !isVerifierNow) return
+    if (!applicantAddress || loadingApplication) return
+    if (!applicationApproved || !latestApp?.id) return
+    if (latestApp.address.toLowerCase() !== applicantAddress.toLowerCase()) return
 
     const addr = applicantAddress.toLowerCase()
-    const id = latestApp?.status === 'APPROVED' && latestApp?.id ? latestApp.id : 'role'
-    const key = `decleanup_verifier_promoted_dismissed_v1_${addr}_${id}`
+    const key = `decleanup_verifier_promoted_dismissed_v1_${addr}_${latestApp.id}`
     try {
       if (localStorage.getItem(key) === '1') return
     } catch {
       return
     }
 
-    if (latestApp?.status === 'APPROVED' || isVerifierNow) {
-      setVerifierOutcomeModal((m) => (m ? m : 'promoted'))
-    }
-  }, [applicantAddress, checkingVerifierRole, isVerifierNow, latestApp?.id, latestApp?.status])
+    setVerifierOutcomeModal((m) => (m ? m : 'promoted'))
+  }, [
+    applicantAddress,
+    applicationApproved,
+    loadingApplication,
+    latestApp?.id,
+    latestApp?.address,
+  ])
 
   const dismissVerifierOutcomeModal = () => {
     if (!applicantAddress) {
@@ -204,15 +110,14 @@ export function VerifierApplyCard() {
       if (verifierOutcomeModal === 'rejected' && latestApp?.id) {
         localStorage.setItem(`decleanup_verifier_rejected_dismissed_v1_${addr}_${latestApp.id}`, '1')
       }
-      if (verifierOutcomeModal === 'promoted') {
-        const id = latestApp?.status === 'APPROVED' && latestApp?.id ? latestApp.id : 'role'
-        localStorage.setItem(`decleanup_verifier_promoted_dismissed_v1_${addr}_${id}`, '1')
+      if (verifierOutcomeModal === 'promoted' && latestApp?.id) {
+        localStorage.setItem(`decleanup_verifier_promoted_dismissed_v1_${addr}_${latestApp.id}`, '1')
       }
     } catch {
       /* ignore */
     }
     setVerifierOutcomeModal(null)
-    void loadLatestApplication()
+    void refreshApplication()
   }
 
   const handleApply = async () => {
@@ -236,15 +141,7 @@ export function VerifierApplyCard() {
           if (typeof window !== 'undefined') {
             localStorage.setItem('decleanup_last_verifier_applicant', applicantAddress.toLowerCase())
           }
-          setLatestApp((prev) =>
-            prev ?? {
-              id: 'pending-local',
-              address: (applicantAddress as string).toLowerCase(),
-              appliedAt: Date.now(),
-              status: 'PENDING',
-            }
-          )
-          await loadLatestApplication()
+          await refreshApplication()
           setApplyError(null)
           return
         }
@@ -253,11 +150,7 @@ export function VerifierApplyCard() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('decleanup_last_verifier_applicant', applicantAddress.toLowerCase())
       }
-      const created = data?.application as VerifierApplication | undefined
-      if (created?.id) {
-        setLatestApp(created)
-      }
-      await loadLatestApplication()
+      await refreshApplication()
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -265,7 +158,7 @@ export function VerifierApplyCard() {
     }
   }
 
-  if (!address) return null
+  if (!hasWallet || !applicantAddress) return null
 
   const outcomeModal = verifierOutcomeModal ? (
     <AlertModal
@@ -311,15 +204,15 @@ export function VerifierApplyCard() {
     return (
       <>
         {outcomeModal}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading
-          icon={Shield}
-          aside={<Loader2 className="h-5 w-5 shrink-0 animate-spin text-brand-yellow" aria-hidden />}
-        >
-          BECOME A VERIFIER
-        </SectionHeading>
-        <p className="text-sm text-muted-foreground">Loading eligibility...</p>
-      </div>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <SectionHeading
+            icon={Shield}
+            aside={<Loader2 className="h-5 w-5 shrink-0 animate-spin text-brand-yellow" aria-hidden />}
+          >
+            BECOME A VERIFIER
+          </SectionHeading>
+          <p className="text-sm text-muted-foreground">Loading eligibility...</p>
+        </div>
       </>
     )
   }
@@ -328,10 +221,10 @@ export function VerifierApplyCard() {
     return (
       <>
         {outcomeModal}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
-        <p className="text-sm text-red-400">{error}</p>
-      </div>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       </>
     )
   }
@@ -340,131 +233,119 @@ export function VerifierApplyCard() {
     return (
       <>
         {outcomeModal}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
-        <p className="text-sm text-muted-foreground">Loading application status...</p>
-      </div>
-      </>
-    )
-  }
-
-  if (!checkingVerifierRole && isVerifierNow && !latestApp) {
-    return (
-      <>
-        {outcomeModal}
-      <div className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-6">
-        <SectionHeading icon={Shield}>VERIFIER STATUS</SectionHeading>
-        <p className="text-sm text-green-400">You are now a verifier.</p>
-        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-          <li>• Review fairly using photo evidence.</li>
-          <li>• Check that reports match the photos.</li>
-          <li>• Approve only valid cleanups; reject suspicious ones.</li>
-          <li>• Do not review your own submissions.</li>
-          <li>• The team may audit decisions and penalize misuse.</li>
-        </ul>
-      </div>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
+          <p className="text-sm text-muted-foreground">Loading application status...</p>
+        </div>
       </>
     )
   }
 
   if (latestApp) {
-    const showApprovedState = latestApp.status === 'APPROVED' || isVerifierNow
+    const showApprovedState = latestApp.status === 'APPROVED'
     const effectiveStatus = showApprovedState ? 'APPROVED' : latestApp.status
     return (
       <>
         {outcomeModal}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <SectionHeading icon={Shield}>VERIFIER APPLICATION</SectionHeading>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm text-muted-foreground">Status:</span>
-            <div className="flex items-center gap-2">
-              {loadingApplication && (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-              )}
-              {effectiveStatus === 'PENDING' && (
-                <>
-                  <Clock className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm font-medium text-yellow-400">Under review</span>
-                </>
-              )}
-              {showApprovedState && (
-                <>
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-sm font-medium text-green-400">Approved</span>
-                </>
-              )}
-              {effectiveStatus === 'REJECTED' && (
-                <>
-                  <XCircle className="w-4 h-4 text-red-400" />
-                  <span className="text-sm font-medium text-red-400">Rejected</span>
-                </>
-              )}
-              {effectiveStatus === 'PENDING_ONCHAIN' && (
-                <>
-                  <Loader2 className="w-4 h-4 shrink-0 animate-spin text-brand-yellow" aria-hidden />
-                  <span className="text-sm font-medium text-brand-yellow">On-chain approval pending</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {showApprovedState && (
-            <>
-              <p className="text-sm text-green-400">You are now a verifier.</p>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                <li>• Review fairly using photo evidence.</li>
-                <li>• Check that reports match the photos.</li>
-                <li>• Approve only valid cleanups; reject suspicious ones.</li>
-                <li>• Do not review your own submissions.</li>
-                <li>• The team may audit decisions and penalize misuse.</li>
-              </ul>
-            </>
-          )}
-          {effectiveStatus === 'REJECTED' && latestApp.notes && (
-            <p className="text-sm text-red-400">Reason: {latestApp.notes}</p>
-          )}
-          {effectiveStatus === 'PENDING' && (
-            <p className="text-sm text-muted-foreground">
-              Your application was received. An admin will review it; this page updates automatically.
-            </p>
-          )}
-          {effectiveStatus === 'PENDING_ONCHAIN' && (
-            <p className="text-sm text-muted-foreground">
-              Waiting for the admin approval transaction to confirm on-chain…
-            </p>
-          )}
-          {effectiveStatus === 'REJECTED' && (
-            <div className="space-y-3 border-t border-border pt-3">
-              <p className="text-xs text-muted-foreground">
-                You can submit a new application if you still meet the requirements.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
-                  disabled={isApplying || !eligibility?.eligible}
-                  onClick={() => void handleApply()}
-                >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                      Submitting…
-                    </>
-                  ) : (
-                    'Apply again'
-                  )}
-                </Button>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground">Status:</span>
+              <div className="flex items-center gap-2">
+                {loadingApplication && (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+                )}
+                {effectiveStatus === 'PENDING' && (
+                  <>
+                    <Clock className="w-4 h-4 text-yellow-400" />
+                    <span className="text-sm font-medium text-yellow-400">Under review</span>
+                  </>
+                )}
+                {showApprovedState && (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="text-sm font-medium text-green-400">Approved</span>
+                  </>
+                )}
+                {effectiveStatus === 'REJECTED' && (
+                  <>
+                    <XCircle className="w-4 h-4 text-red-400" />
+                    <span className="text-sm font-medium text-red-400">Rejected</span>
+                  </>
+                )}
+                {effectiveStatus === 'PENDING_ONCHAIN' && (
+                  <>
+                    <Loader2 className="w-4 h-4 shrink-0 animate-spin text-brand-yellow" aria-hidden />
+                    <span className="text-sm font-medium text-brand-yellow">On-chain approval pending</span>
+                  </>
+                )}
               </div>
-              {!eligibility?.eligible && (
-                <p className="text-xs text-muted-foreground">Apply again unlocks when eligibility requirements are met.</p>
-              )}
             </div>
-          )}
+
+            {onChainRoleWithoutApplication && (
+              <p className="text-xs text-amber-300/90">
+                This wallet has an on-chain verifier role from testing, but no approved application on file.
+                Verifier tools stay hidden until an application is approved.
+              </p>
+            )}
+
+            {showApprovedState && (
+              <>
+                <p className="text-sm text-green-400">You are now a verifier.</p>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  <li>• Review fairly using photo evidence.</li>
+                  <li>• Check that reports match the photos.</li>
+                  <li>• Approve only valid cleanups; reject suspicious ones.</li>
+                  <li>• Do not review your own submissions.</li>
+                  <li>• The team may audit decisions and penalize misuse.</li>
+                </ul>
+              </>
+            )}
+            {effectiveStatus === 'REJECTED' && latestApp.notes && (
+              <p className="text-sm text-red-400">Reason: {latestApp.notes}</p>
+            )}
+            {effectiveStatus === 'PENDING' && (
+              <p className="text-sm text-muted-foreground">
+                Your application was received. An admin will review it; this page updates automatically.
+              </p>
+            )}
+            {effectiveStatus === 'PENDING_ONCHAIN' && (
+              <p className="text-sm text-muted-foreground">
+                Waiting for the admin approval transaction to confirm on-chain…
+              </p>
+            )}
+            {effectiveStatus === 'REJECTED' && (
+              <div className="space-y-3 border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground">
+                  You can submit a new application if you still meet the requirements.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
+                    disabled={isApplying || !eligibility?.eligible}
+                    onClick={() => void handleApply()}
+                  >
+                    {isApplying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                        Submitting…
+                      </>
+                    ) : (
+                      'Apply again'
+                    )}
+                  </Button>
+                </div>
+                {!eligibility?.eligible && (
+                  <p className="text-xs text-muted-foreground">Apply again unlocks when eligibility requirements are met.</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </>
     )
   }
@@ -479,49 +360,49 @@ export function VerifierApplyCard() {
     return (
       <>
         {outcomeModal}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border/60 bg-background/50 p-3">
-            <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Level</p>
-            <div className="h-2 overflow-hidden rounded bg-muted">
-              <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${levelProgress}%` }} />
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+              <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Level</p>
+              <div className="h-2 overflow-hidden rounded bg-muted">
+                <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${levelProgress}%` }} />
+              </div>
+              <p className="mt-2 font-mono text-xs text-foreground">
+                {metrics?.level ?? 0} / {minLevel}
+              </p>
             </div>
-            <p className="mt-2 font-mono text-xs text-foreground">
-              {metrics?.level ?? 0} / {minLevel}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-background/50 p-3">
-            <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">DCU</p>
-            <div className="h-2 overflow-hidden rounded bg-muted">
-              <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${dcuProgress}%` }} />
+            <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+              <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">DCU</p>
+              <div className="h-2 overflow-hidden rounded bg-muted">
+                <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${dcuProgress}%` }} />
+              </div>
+              <p className="mt-2 font-mono text-xs text-foreground">
+                {(metrics?.dcuBalance ?? 0).toFixed(0)} / {minDCUBalance}
+              </p>
             </div>
-            <p className="mt-2 font-mono text-xs text-foreground">
-              {(metrics?.dcuBalance ?? 0).toFixed(0)} / {minDCUBalance}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-background/50 p-3">
-            <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Cleanups</p>
-            <div className="h-2 overflow-hidden rounded bg-muted">
-              <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${cleanupProgress}%` }} />
+            <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+              <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Cleanups</p>
+              <div className="h-2 overflow-hidden rounded bg-muted">
+                <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${cleanupProgress}%` }} />
+              </div>
+              <p className="mt-2 font-mono text-xs text-foreground">
+                {metrics?.approvedCleanups ?? 0} / {minApprovedCleanups}
+              </p>
             </div>
-            <p className="mt-2 font-mono text-xs text-foreground">
-              {metrics?.approvedCleanups ?? 0} / {minApprovedCleanups}
-            </p>
           </div>
+
+          <Button
+            onClick={handleApply}
+            disabled
+            className="mt-4 w-full bg-brand-green/60 text-black font-semibold disabled:opacity-60"
+          >
+            Apply to Be a Verifier
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">Complete the above to unlock.</p>
+          {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
         </div>
-
-        <Button
-          onClick={handleApply}
-          disabled
-          className="mt-4 w-full bg-brand-green/60 text-black font-semibold disabled:opacity-60"
-        >
-          Apply to Be a Verifier
-        </Button>
-        <p className="mt-2 text-xs text-muted-foreground">Complete the above to unlock.</p>
-        {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
-      </div>
       </>
     )
   }
@@ -529,45 +410,45 @@ export function VerifierApplyCard() {
   return (
     <>
       {outcomeModal}
-    <div className="min-w-0 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6">
-      <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
+      <div className="min-w-0 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 sm:p-6">
+        <SectionHeading icon={Shield}>BECOME A VERIFIER</SectionHeading>
 
-      <div className="mb-4 min-w-0 space-y-3">
-        <div className="break-words text-sm text-foreground">
-          <p className="mb-2 font-medium">You meet all requirements:</p>
-          <ul className="space-y-1 text-xs text-muted-foreground">
-            <li>
-              ✓ Impact Product level: {eligibility?.metrics.level} / {minLevel}
-            </li>
-            <li>✓ DCU: {eligibility?.metrics.dcuBalance.toFixed(2)} / {minDCUBalance}</li>
-            <li>
-              ✓ Approved cleanups: {eligibility?.metrics.approvedCleanups} / {minApprovedCleanups}
-            </li>
-          </ul>
+        <div className="mb-4 min-w-0 space-y-3">
+          <div className="break-words text-sm text-foreground">
+            <p className="mb-2 font-medium">You meet all requirements:</p>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              <li>
+                ✓ Impact Product level: {eligibility?.metrics.level} / {minLevel}
+              </li>
+              <li>✓ DCU: {eligibility?.metrics.dcuBalance.toFixed(2)} / {minDCUBalance}</li>
+              <li>
+                ✓ Approved cleanups: {eligibility?.metrics.approvedCleanups} / {minApprovedCleanups}
+              </li>
+            </ul>
+          </div>
         </div>
+
+        <Button
+          onClick={handleApply}
+          disabled={isApplying || !!latestApp}
+          className="w-full bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
+        >
+          {isApplying ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Submitting…
+            </>
+          ) : (
+            'Apply to Be a Verifier'
+          )}
+        </Button>
+
+        {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
+
+        <p className="text-xs text-muted-foreground mt-3 break-words">
+          Application will be reviewed by admins
+        </p>
       </div>
-
-      <Button
-        onClick={handleApply}
-        disabled={isApplying || !!latestApp}
-        className="w-full bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
-      >
-        {isApplying ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Submitting…
-          </>
-        ) : (
-          'Apply to Be a Verifier'
-        )}
-      </Button>
-
-      {applyError && <p className="text-sm text-red-400 mt-3 break-words">{applyError}</p>}
-
-      <p className="text-xs text-muted-foreground mt-3 break-words">
-        Application will be reviewed by admins
-      </p>
-    </div>
     </>
   )
 }

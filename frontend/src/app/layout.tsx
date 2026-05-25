@@ -112,7 +112,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`dark ${bebasNeue.variable}`}>
       <head>
         {/* Open Graph Meta Tags */}
         <meta property="og:url" content={SITE_URL} />
@@ -137,7 +137,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${GeistSans.variable} ${geistMono.variable} ${bebasNeue.variable} antialiased flex flex-col min-h-screen bg-black`}
+        className={`${GeistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-black`}
       >
         <RootClientBody>{children}</RootClientBody>
       </body>

@@ -1,4 +1,35 @@
 import { isAllowedIpfsFetchHost } from '@/lib/utils/ipfs-fetch-allowed'
+import { fetchFromIpfsGateways } from '@/lib/utils/ipfs-fetch-gateways'
+
+/** On-chain tokenURI may be `data:application/json;base64,...` — decode locally (CSP blocks fetch to data:). */
+function responseFromDataUri(url: string): Response | null {
+  const trimmed = url.trim()
+  if (!trimmed.startsWith('data:')) return null
+  const comma = trimmed.indexOf(',')
+  if (comma < 0) return null
+  const meta = trimmed.slice(5, comma)
+  const payload = trimmed.slice(comma + 1)
+  const segments = meta.split(';').filter(Boolean)
+  const mime = segments[0] || 'text/plain'
+  const isBase64 = segments.includes('base64')
+  let body: string
+  try {
+    if (isBase64) {
+      body =
+        typeof Buffer !== 'undefined'
+          ? Buffer.from(payload, 'base64').toString('utf-8')
+          : atob(payload)
+    } else {
+      body = decodeURIComponent(payload)
+    }
+  } catch {
+    return null
+  }
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': mime },
+  })
+}
 
 /** Prefer ipfs.io for the encoded upstream URL so Pinata is not the first hop (429 / CORP on hotlinking). */
 const DEFAULT_HTTPS_IPFS_PREFIX = 'https://ipfs.io/ipfs/'
@@ -36,8 +67,24 @@ export function proxyIpfsHttpUrl(url: string): string {
   return httpsUrl
 }
 
+/** Fetch by CID via same-origin proxy (tries Pinata + public gateways on the server). */
+export async function fetchIpfsByCid(cid: string, init?: RequestInit): Promise<Response> {
+  const clean = cid.replace(/^ipfs:\/\//i, '').split('?')[0].split('#')[0].trim()
+  if (!clean) {
+    return new Response(null, { status: 400, statusText: 'Missing CID' })
+  }
+  if (typeof window !== 'undefined') {
+    return fetch(`/api/ipfs/fetch?cid=${encodeURIComponent(clean)}`, init)
+  }
+  const { response } = await fetchFromIpfsGateways(clean, { signal: init?.signal ?? undefined })
+  return response
+}
+
 /** Fetch JSON/metadata from a public gateway via same-origin proxy in the browser; server uses direct fetch. */
 export async function fetchViaIpfsGatewayProxy(url: string, init?: RequestInit): Promise<Response> {
+  const dataResponse = responseFromDataUri(url)
+  if (dataResponse) return dataResponse
+
   const httpsUrl = normalizeToHttpsIpfsUrl(url)
   const target = httpsUrl.startsWith('http://') || httpsUrl.startsWith('https://') ? httpsUrl : url
   if (typeof window !== 'undefined') {
