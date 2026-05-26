@@ -12,6 +12,7 @@ import {
 import { walletClientToAccount } from '@/lib/blockchain/wallet-client-to-account'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { useWallet } from '@/providers/WalletProvider'
 const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
@@ -35,6 +36,7 @@ export function useSmartAccountClient(): {
   expectsSponsoredGas: boolean
 } {
   const aa = isAaAuthEnabledClient()
+  const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: appAddress, canTransact } = useAppWalletAddress()
   const { address: wagmiAddress, isConnected: wagmiConnected, connector } = useAccount()
   const { smartAccountAddress: aaSmartAddress, getGaslessClient, hasActiveSigningSession } =
@@ -54,7 +56,7 @@ export function useSmartAccountClient(): {
 
   // AA embedded wallet: build gasless client from unlocked signing session
   useEffect(() => {
-    if (!aa || !isPaymasterConfigured()) return
+    if (!aa || !isEmbeddedAccount || !isPaymasterConfigured()) return
 
     if (!canTransact || !hasActiveSigningSession) {
       setClient(null)
@@ -95,7 +97,7 @@ export function useSmartAccountClient(): {
     return () => {
       cancelled = true
     }
-  }, [aa, canTransact, hasActiveSigningSession, aaSmartAddress, getGaslessClient])
+  }, [aa, isEmbeddedAccount, canTransact, hasActiveSigningSession, aaSmartAddress, getGaslessClient])
 
   // Privy / RainbowKit embedded path (unchanged)
   useEffect(() => {
@@ -173,22 +175,26 @@ export function useSmartAccountClient(): {
   }, [aa, embeddedPath, wagmiConnected, address, chainId, walletClient])
 
   const expectsSponsoredGas = aa
-    ? isPaymasterConfigured() && canTransact
+    ? isPaymasterConfigured() && isEmbeddedAccount && canTransact
     : embeddedPath === 'yes'
 
   const detectingEmbedded =
     !aa && embeddedPath === 'unset' && isPaymasterConfigured() && isPrivyEnabled
 
   const submissionOwnerAddress = useMemo(() => {
-    if (!address) return undefined
-    if (!isConnected || chainId !== REQUIRED_CHAIN_ID) return undefined
+    if (!address || !isConnected) return undefined
 
     if (aa) {
+      if (!isEmbeddedAccount) {
+        if (chainId != null && chainId !== REQUIRED_CHAIN_ID) return undefined
+        return (aaSmartAddress ?? address) as Address
+      }
       // Submissions are owned by the smart account; keep that identity even when the wallet is locked.
       if (aaSmartAddress) return aaSmartAddress
-      if (!client && !error && scLoading) return undefined
       return address as Address
     }
+
+    if (chainId !== REQUIRED_CHAIN_ID) return undefined
 
     if (!walletClient?.account?.address) return undefined
 
@@ -205,6 +211,7 @@ export function useSmartAccountClient(): {
     isConnected,
     chainId,
     aa,
+    isEmbeddedAccount,
     canTransact,
     aaSmartAddress,
     walletClient,

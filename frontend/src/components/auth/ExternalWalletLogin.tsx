@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useAccount, useConnect } from 'wagmi'
@@ -15,8 +15,15 @@ function safeCallbackUrl(url: string): string {
   return url
 }
 
+function hasInjectedProvider(): boolean {
+  if (typeof window === 'undefined') return false
+  return Boolean((window as Window & { ethereum?: unknown }).ethereum)
+}
+
 /**
  * MetaMask / browser wallet — same wagmi tree as the rest of the app (no nested RainbowKit provider).
+ * On mobile Safari without an injected wallet, use WalletConnect instead of injected() (avoids
+ * "Provider not found" from @wagmi/core).
  */
 export function ExternalWalletLogin({ callbackUrl }: Props) {
   const router = useRouter()
@@ -24,6 +31,13 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const { isConnected } = useAccount()
   const { connect, connectors, isPending, error } = useConnect()
   const target = safeCallbackUrl(callbackUrl)
+
+  const { injectedConnector, walletConnectConnector } = useMemo(() => {
+    const injected =
+      connectors.find((c) => c.id === 'injected' || c.type === 'injected') ?? null
+    const walletConnect = connectors.find((c) => c.id === 'walletConnect') ?? null
+    return { injectedConnector: injected, walletConnectConnector: walletConnect }
+  }, [connectors])
 
   useEffect(() => {
     if (!isConnected) return
@@ -39,10 +53,13 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     }
   }, [isConnected, status, router, target])
 
-  const preferred =
-    connectors.find((c) => c.id === 'io.metamask') ??
-    connectors.find((c) => c.id === 'injected') ??
-    connectors[0]
+  const connectWith = (connector: (typeof connectors)[number] | null) => {
+    if (!connector) return
+    connect({ connector })
+  }
+
+  const showInjected = hasInjectedProvider() && injectedConnector
+  const showWalletConnect = walletConnectConnector
 
   return (
     <div className="space-y-2">
@@ -50,19 +67,39 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
         <p className="text-center text-xs text-brand-green">Connected — opening app…</p>
       ) : (
         <>
-          <Button
-            type="button"
-            disabled={!preferred || isPending}
-            className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:opacity-50"
-            onClick={() => preferred && connect({ connector: preferred })}
-          >
-            {isPending ? 'Connecting…' : 'Connect wallet'}
-          </Button>
-          {error && (
+          {showInjected ? (
+            <Button
+              type="button"
+              disabled={isPending}
+              className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:opacity-50"
+              onClick={() => connectWith(injectedConnector)}
+            >
+              {isPending ? 'Connecting…' : 'MetaMask / browser wallet'}
+            </Button>
+          ) : null}
+          {showWalletConnect ? (
+            <Button
+              type="button"
+              variant={showInjected ? 'outline' : 'default'}
+              disabled={isPending}
+              className={
+                showInjected
+                  ? 'w-full border-gray-600 text-gray-200'
+                  : 'w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:opacity-50'
+              }
+              onClick={() => connectWith(walletConnectConnector)}
+            >
+              {isPending ? 'Connecting…' : showInjected ? 'WalletConnect (mobile)' : 'Connect wallet'}
+            </Button>
+          ) : null}
+          {!showInjected && !showWalletConnect ? (
+            <p className="text-center text-xs text-amber-300">No wallet connectors available.</p>
+          ) : null}
+          {error ? (
             <p className="text-center text-xs text-amber-300" role="alert">
               {error.message}
             </p>
-          )}
+          ) : null}
         </>
       )}
     </div>

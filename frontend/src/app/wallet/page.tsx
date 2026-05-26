@@ -23,9 +23,10 @@ const PasskeySettings = dynamic(
   { ssr: false, loading: () => <div className="h-24 animate-pulse rounded-xl bg-gray-900/50" /> }
 )
 
-const ExportWallet = dynamic(
-  () => import('@/components/aa/ExportWallet').then((m) => ({ default: m.ExportWallet })),
-  { ssr: false, loading: () => <div className="h-32 animate-pulse rounded-xl bg-gray-900/50" /> }
+const WalletBackupSection = dynamic(
+  () =>
+    import('@/components/aa/WalletBackupSection').then((m) => ({ default: m.WalletBackupSection })),
+  { ssr: false, loading: () => <div className="h-16 animate-pulse rounded-xl bg-gray-900/50" /> }
 )
 
 export default function SmartAccountSettingsPage() {
@@ -130,7 +131,7 @@ export default function SmartAccountSettingsPage() {
           {phase === 'locked' && <UnlockSigningForm />}
 
           <PasskeySettings />
-          <ExportWallet />
+          <WalletBackupSection />
           <AccountHowItWorks />
         </>
       )}

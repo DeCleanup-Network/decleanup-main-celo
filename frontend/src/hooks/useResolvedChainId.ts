@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useChainId, useWalletClient } from 'wagmi'
+import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
+import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+
 const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
 
 /**
@@ -10,6 +14,8 @@ const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEX
  * NEXT_PUBLIC_PRIVY_APP_ID use RainbowKit only and would crash during SSG.
  */
 export function useResolvedChainId(): number | undefined {
+  const aa = isAaAuthEnabledClient()
+  const { isEmbeddedAccount } = useEmbeddedAuth()
   const wagmiChainId = useChainId()
   const { data: walletClient } = useWalletClient()
   const [rpcChainId, setRpcChainId] = useState<number | undefined>(undefined)
@@ -53,6 +59,9 @@ export function useResolvedChainId(): number | undefined {
       w?.removeListener?.('chainChanged', onChainChanged)
     }
   }, [walletClient])
+
+  // Google/email smart accounts use app RPC — not wagmi's connected chain.
+  if (aa && isEmbeddedAccount) return REQUIRED_CHAIN_ID
 
   if (!isPrivyEnabled) return wagmiChainId
   return rpcChainId ?? wagmiChainId

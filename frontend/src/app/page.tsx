@@ -666,26 +666,9 @@ function HomeContent() {
                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                   )}
                 </button>
-              </div>
-            </aside>
-          </div>
 
-          <div className="grid grid-cols-1 gap-6">
-            <div className="min-w-0">
-              <DashboardActions
-                address={address || ''}
-                userImpactLevel={rewardStats.userLevel}
-                cleanupStatus={cleanupStatus || null}
-                claimFeeInfo={claimFeeInfo}
-                onClaim={handleClaimImpactLevel}
-                isClaiming={isClaiming}
-                onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
-              />
-            </div>
-          </div>
-
-          {showBreakdown ? (
-            <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+                {showBreakdown ? (
+                  <div className="mt-3 space-y-4 border-t border-border/50 pt-3">
               <div className="mb-4 rounded-xl border border-border/80 bg-background/40 p-3 sm:p-4">
                 <h3 className="font-bebas text-lg tracking-wider text-foreground sm:text-xl">Impact Product level</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -771,8 +754,25 @@ function HomeContent() {
                   </div>
                 ))}
               </div>
+                  </div>
+                ) : null}
+              </div>
+            </aside>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            <div className="min-w-0">
+              <DashboardActions
+                address={address || ''}
+                userImpactLevel={rewardStats.userLevel}
+                cleanupStatus={cleanupStatus || null}
+                claimFeeInfo={claimFeeInfo}
+                onClaim={handleClaimImpactLevel}
+                isClaiming={isClaiming}
+                onNotify={(p) => setNotifyModal({ ...p, variant: p.variant || 'info' })}
+              />
             </div>
-          ) : null}
+          </div>
         </section>
 
         <DashboardVerifierExtras />

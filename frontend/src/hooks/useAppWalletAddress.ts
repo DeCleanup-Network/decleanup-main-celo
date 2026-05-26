@@ -12,7 +12,7 @@ import type { WalletPhase } from '@/providers/WalletProvider'
 export function useAppWalletAddress() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
   const { isAuthenticated, isEmbeddedAccount, aaEnabled } = useEmbeddedAuth()
-  const { eoaAddress, phase, needsSigningPassword } = useWallet()
+  const { eoaAddress, phase, needsSigningPassword, smartAccountAddress } = useWallet()
 
   const showMainApp = aaEnabled ? isAuthenticated || wagmiConnected : wagmiConnected
 
@@ -36,7 +36,9 @@ export function useAppWalletAddress() {
       (phase === 'pending-password' || phase === 'locked' || phase === 'unlocked'))
 
   const walletBootstrapping =
-    isEmbeddedAccount && (phase === 'loading' || phase === 'no-wallet')
+    isEmbeddedAccount &&
+    (phase === 'loading' || phase === 'no-wallet') &&
+    !smartAccountAddress
 
   return {
     address,
