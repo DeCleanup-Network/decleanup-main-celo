@@ -96,18 +96,10 @@ export default function LoginPage() {
 
         <LoginDivider label="or" />
 
-        <div>
-          <p className="mb-2 text-center text-xs text-gray-500">Or connect MetaMask</p>
-          <ExternalWalletLogin callbackUrl={callbackUrl} />
-        </div>
+        <ExternalWalletLogin callbackUrl={callbackUrl} />
 
         <LoginRecoverySection callbackUrl={callbackUrl} />
       </div>
-
-      <p className="mt-6 text-center text-[10px] leading-relaxed text-gray-600">
-        Google or email → embedded smart wallet (gasless on Celo Sepolia). MetaMask → your own wallet and
-        gas. Use one sign-in method at a time.
-      </p>
     </div>
   )
 }

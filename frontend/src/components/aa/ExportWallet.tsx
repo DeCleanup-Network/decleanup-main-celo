@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { useWallet } from '@/providers/WalletProvider'
@@ -82,10 +83,14 @@ export function ExportWallet() {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 space-y-4">
       <div>
-        <h2 className="text-base font-semibold text-white">Backup</h2>
+        <h2 className="text-base font-semibold text-white">Backup (optional)</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Optional .json file. Locked with your passkey. Save both somewhere safe.
+          Your wallet already syncs when you sign in with Google or email. Download a backup only if you
+          want an extra copy — locked with your wallet passkey.
         </p>
+        <Link href="/import-wallet" className="mt-2 inline-block text-sm text-brand-green hover:underline">
+          Import backup file on another device →
+        </Link>
       </div>
 
       {smartAccountAddress && (

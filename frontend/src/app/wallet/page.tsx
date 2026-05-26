@@ -106,13 +106,14 @@ export default function SmartAccountSettingsPage() {
       {phase === 'server-only' && (
         <div className="space-y-4">
           <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
-            Wallet missing on this device. Restore with your backup file and passkey.
+            Your wallet is saved to your account but is not unlocked on this device yet. Use your wallet
+            passkey, or import an encrypted backup file if you created one earlier.
           </div>
           <Link
             href="/import-wallet"
             className="inline-flex w-full items-center justify-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium !text-black hover:bg-brand-green/90"
           >
-            Restore from backup
+            Import backup file
           </Link>
         </div>
       )}

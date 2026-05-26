@@ -1,6 +1,7 @@
 import { celo, mainnet } from 'wagmi/chains'
 import { defineChain } from 'viem'
-import { createConfig, http } from 'wagmi'
+import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
+import { injected, walletConnect } from 'wagmi/connectors'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
@@ -28,12 +29,23 @@ const celoSepoliaChain = defineChain({
   testnet: true,
 })
 
+const walletConnectProjectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() || '3a8170812b534d0ff9d794f19a901d64'
+
 /**
- * Lightweight wagmi config for AA auth mode — no RainbowKit / WalletConnect AppKit bundle.
- * Use RainbowKit `config` from wagmi.ts only when RainbowKit connect UI is active.
+ * Wagmi for AA auth mode — connectors for MetaMask / WalletConnect without nesting a second
+ * WagmiProvider on /login (that broke “connected on login, logged out on home”).
  */
 export const minimalWagmiConfig = createConfig({
   chains: [celoSepoliaChain, celoMainnet, mainnet],
+  connectors: [
+    injected(),
+    walletConnect({
+      projectId: walletConnectProjectId,
+      showQrModal: true,
+    }),
+  ],
+  storage: createStorage({ storage: cookieStorage }),
   transports: {
     [celoMainnet.id]: http(celoMainnetRpcUrl),
     [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),

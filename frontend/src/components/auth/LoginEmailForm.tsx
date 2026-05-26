@@ -72,11 +72,6 @@ export function LoginEmailForm({ callbackUrl }: Props) {
       >
         {sent ? 'Check your inbox' : pending ? 'Sending…' : 'Continue with Email'}
       </Button>
-      <p className="text-left text-[10px] text-gray-600">
-        Requires <code className="text-gray-500">EMAIL_SERVER</code> and{' '}
-        <code className="text-gray-500">EMAIL_FROM</code> in .env.local (see .env.aa.example). With{' '}
-        <code className="text-gray-500">onboarding@resend.dev</code>, only your Resend account inbox receives mail.
-      </p>
       {error && (
         <p className="text-xs text-amber-300" role="alert">
           {error}
