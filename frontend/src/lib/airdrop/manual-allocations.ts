@@ -1,4 +1,5 @@
 import type { Address } from 'viem'
+import { GIVETH_DONOR_WALLET_ADDRESSES } from '@/lib/airdrop/giveth-donors'
 
 export type AirdropAllocation = {
   walletAddress: Address
@@ -7,17 +8,17 @@ export type AirdropAllocation = {
   label: string
 }
 
-/**
- * Temporary manual list until CSV import is ready.
- * Matching is case-insensitive (lowercase keys in map).
- */
-export const MANUAL_AIRDROP_ALLOCATIONS: readonly AirdropAllocation[] = [
-  {
-    walletAddress: '0x7D85fCbB505D48E6176483733b62b51704e0bF95',
-    amountCdcu: '50',
-    category: 'past_contributor',
-    label: 'Past contributor, $cDCU airdrop',
-  },
+const GIVETH_DONOR_ALLOCATIONS: readonly AirdropAllocation[] = GIVETH_DONOR_WALLET_ADDRESSES.map(
+  (walletAddress) => ({
+    walletAddress,
+    amountCdcu: '250',
+    category: 'giveth_donors',
+    label: 'Giveth donor, $cDCU airdrop',
+  })
+)
+
+/** Other manual rows (not in Giveth list). Giveth addresses override via map merge order. */
+const OTHER_MANUAL_ALLOCATIONS: readonly AirdropAllocation[] = [
   {
     walletAddress: '0xEf0862aE5175dF25E59Db4E9115Fb6987Cf4B779',
     amountCdcu: '250',
@@ -37,17 +38,21 @@ export const MANUAL_AIRDROP_ALLOCATIONS: readonly AirdropAllocation[] = [
     label: '$cDCU whitelist',
   },
   {
-    walletAddress: '0x50418699cB44BfDa9c9afc9B7a0b0d244d8927D2',
-    amountCdcu: '50',
-    category: 'past_contributor',
-    label: 'Past contributor (paulburg.eth), $cDCU airdrop',
-  },
-  {
     walletAddress: '0x173D87dfa68aEB0E821C6021f5652B9C3a7556b4',
     amountCdcu: '200',
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',
   },
+] as const
+
+/**
+ * Temporary manual list until CSV import is ready.
+ * Matching is case-insensitive (lowercase keys in map).
+ * Later entries win on duplicate addresses (Giveth list applied after OTHER).
+ */
+export const MANUAL_AIRDROP_ALLOCATIONS: readonly AirdropAllocation[] = [
+  ...OTHER_MANUAL_ALLOCATIONS,
+  ...GIVETH_DONOR_ALLOCATIONS,
 ] as const
 
 const allocationMap = new Map<string, AirdropAllocation>(
