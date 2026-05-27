@@ -2,7 +2,7 @@ import 'server-only'
 
 /** Relying party display name shown in biometric prompts. */
 export function getWebAuthnRpName(): string {
-  return process.env.NEXT_PUBLIC_WEBAUTHN_RP_NAME?.trim() || 'DeCleanup'
+  return process.env.NEXT_PUBLIC_WEBAUTHN_RP_NAME?.trim() || 'DeCleanup Rewards'
 }
 
 /** RP ID must match the site hostname (localhost in dev). */

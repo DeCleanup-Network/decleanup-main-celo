@@ -12,10 +12,10 @@ export function ReferralInviteMessage({ afterRewards }: Props) {
   return (
     <>
       <h3 className="mb-1 text-sm font-bold uppercase text-brand-green">You&apos;ve been referred</h3>
-      <p className="text-sm text-gray-300">Someone shared DeCleanup with you. Follow these steps in order:</p>
+      <p className="text-sm text-gray-300">Someone shared DeCleanup Rewards with you. Follow these steps in order:</p>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-300">
         <li>Submit your first cleanup (before and after photos).</li>
-        <li>Wait for verification — a human verifier approves it on-chain.</li>
+        <li>Wait for verification — a human verifier approves it onchain.</li>
         <li>Claim your first Impact Product level in the app.</li>
       </ol>
       <p className="mt-2 text-sm text-gray-300">

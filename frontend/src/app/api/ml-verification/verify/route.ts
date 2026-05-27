@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         mlVerificationDisabled: true,
         submissionId: body.submissionId,
         message:
-          'Automated photo verification is turned off. Your submission is on-chain; human verifiers will still review your photos.',
+          'Automated photo verification is turned off. Your submission is onchain; human verifiers will still review your photos.',
       })
     }
     const walletAddress =

@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Terms of Service | DeCleanup Network',
-  description: 'Terms of Service for the DeCleanup web application.',
+  description: 'Terms of Service for the DeCleanup Rewards web application.',
 }
 
 export default function TermsPage() {
@@ -69,7 +69,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">6. Your content</h2>
             <p>
-              You grant DeCleanup a limited license to host, process, and display your submissions{' '}
+              You grant DeCleanup Network a limited license to host, process, and display your submissions{' '}
               <strong className="text-foreground">to operate the Service</strong>, including storing media or hashes with
               providers such as IPFS as configured for your deployment.
             </p>
@@ -97,7 +97,7 @@ export default function TermsPage() {
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">9. Disclaimers and liability</h2>
             <p>
               The Service is provided <strong className="text-foreground">“as is”</strong> without warranties. To the
-              maximum extent permitted by law, DeCleanup is not liable for indirect or consequential damages arising from
+              maximum extent permitted by law, DeCleanup Network is not liable for indirect or consequential damages arising from
               your use of the Service or onchain networks. Some jurisdictions do not allow certain limitations; those
               apply only to the extent permitted.
             </p>
@@ -106,7 +106,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">10. Indemnity</h2>
             <p>
-              You will defend and indemnify DeCleanup against claims arising from your use of the Service, your content,
+              You will defend and indemnify DeCleanup Network against claims arising from your use of the Service, your content,
               or your violation of these Terms.
             </p>
           </section>
@@ -130,7 +130,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">13. Global users; law and disputes</h2>
             <p>
-              DeCleanup is global. These Terms do not pick one country for everyone. Mandatory rights under{' '}
+              DeCleanup Network is global. These Terms do not pick one country for everyone. Mandatory rights under{' '}
               <strong className="text-foreground">your local laws</strong> still apply. Try to resolve disputes in good
               faith via your published contact first. If that fails, courts or tribunals with{' '}
               <strong className="text-foreground">jurisdiction under applicable law</strong> may hear claims. See{' '}

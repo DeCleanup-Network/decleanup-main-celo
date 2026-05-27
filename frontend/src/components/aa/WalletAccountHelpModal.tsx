@@ -52,7 +52,7 @@ export function WalletAccountHelpModal({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <WalletHelpTopic label="Your wallet address">
-            Your DeCleanup address on the blockchain — like a mailbox for rewards. Gas fees can be covered
+            Your DeCleanup Rewards wallet address on the blockchain — like a mailbox for rewards. Gas fees can be covered
             for you when sponsorship is on.
             <span className="mt-2 block font-mono text-[10px] text-gray-500">
               Smart account (Safe): {smartAccountAddress}
@@ -68,7 +68,7 @@ export function WalletAccountHelpModal({
           </WalletHelpTopic>
 
           <WalletHelpTopic label="Gas sponsorship">
-            Transaction fees on Celo are small. When sponsorship is on, DeCleanup can pay them so you
+            Transaction fees on Celo are small. When sponsorship is on, the DeCleanup Rewards app can pay them so you
             don&apos;t need CELO in your wallet for routine actions.
           </WalletHelpTopic>
 
@@ -78,7 +78,7 @@ export function WalletAccountHelpModal({
           </WalletHelpTopic>
 
           <WalletHelpTopic label={`${chainLabel} / network`}>
-            {chainLabel} is the blockchain DeCleanup uses — fast and low-cost. Chain ID is an internal network
+            {chainLabel} is the blockchain DeCleanup Rewards uses — fast and low-cost. Chain ID is an internal network
             number wallets need when adding the network manually.
             <span className="mt-1 block text-gray-500">Chain ID: {chainId}</span>
           </WalletHelpTopic>

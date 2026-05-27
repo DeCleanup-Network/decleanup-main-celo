@@ -21,13 +21,14 @@ export function AccountBootstrapPanel({ stage = 'wallet', error, onRetry }: Acco
     return () => window.clearTimeout(id)
   }, [error, stage])
 
-  const title = stage === 'auth' ? 'Signing you in' : 'Setting up your account'
+  const title =
+    stage === 'auth' ? 'Signing you in' : 'Connecting your smart account'
   const detail =
     stage === 'auth'
-      ? 'Connecting your Google account to DeCleanup.'
+      ? 'Connecting your Google account to DeCleanup Rewards.'
       : slow && !error
         ? 'This is taking longer than usual (network or RPC). You can wait or try again.'
-        : 'Creating your secure wallet on this device. This usually takes a few seconds.'
+        : 'Setting up your DeCleanup Rewards smart account on this device. This usually takes a few seconds.'
 
   return (
     <div className="flex min-h-[calc(100dvh-5rem)] flex-col items-center justify-center px-4 py-12">

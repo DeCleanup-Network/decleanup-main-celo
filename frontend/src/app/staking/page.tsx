@@ -162,7 +162,7 @@ export default function StakingPage() {
               <ul className="text-xs text-gray-300 space-y-1">
                 <li>• Earn rewards on staked DCU tokens</li>
                 <li>• Participate in community governance</li>
-                <li>• Help secure the DeCleanup ecosystem</li>
+                <li>• Help secure the DeCleanup Network ecosystem</li>
                 <li>• Flexible staking periods and amounts</li>
               </ul>
             </div>

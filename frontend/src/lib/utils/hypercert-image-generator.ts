@@ -242,7 +242,7 @@ export async function generateHypercertLogo(
 
   ctx.fillStyle = '#fff'
   ctx.font = 'bold 28px Arial'
-  ctx.fillText('DeCleanup', 200, 320)
+  ctx.fillText('DeCleanup Network', 200, 320)
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(async (blob) => {

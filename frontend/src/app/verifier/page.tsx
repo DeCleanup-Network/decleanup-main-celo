@@ -440,7 +440,7 @@ export default function VerifierPage() {
                 message: (
                     <>
                         <p className="mb-3 text-gray-300">
-                            Verifier role confirmed on-chain and application marked approved.
+                            Verifier role confirmed onchain and application marked approved.
                         </p>
                         <a
                             href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
@@ -567,7 +567,7 @@ export default function VerifierPage() {
             await fetchVerifierApplications()
             setActionModal({
                 variant: 'success',
-                title: 'On-chain approval recorded',
+                title: 'Onchain approval recorded',
                 message: 'The grant transaction was confirmed and the application is marked approved.',
             })
         } catch (e) {
@@ -952,8 +952,8 @@ export default function VerifierPage() {
                         <>
                             Review and verify cleanup submissions. Flow:{' '}
                             <span className="text-muted-foreground/90">
-                                user submits on-chain → server runs AI (YOLO) on photos → you confirm with Verify / Reject
-                                on-chain.
+                                user submits onchain → server runs AI (YOLO) on photos → you confirm with Verify / Reject
+                                onchain.
                             </span>
                         </>
                     }
@@ -1067,7 +1067,7 @@ export default function VerifierPage() {
                                                   ) : (
                                                       <div className="flex w-full max-w-md flex-col gap-2 sm:items-end">
                                                           <span className="rounded-full bg-yellow-500/20 px-3 py-1 text-xs text-yellow-400 sm:text-right">
-                                                              Waiting for on-chain confirmation
+                                                              Waiting for onchain confirmation
                                                           </span>
                                                           <p className="text-xs text-muted-foreground sm:text-right">
                                                               If grantRole was sent from another wallet or device, paste the

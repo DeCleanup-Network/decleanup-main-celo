@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | DeCleanup Network',
-  description: 'Privacy Policy for the DeCleanup web application.',
+  description: 'Privacy Policy for the DeCleanup Rewards web application.',
 }
 
 export default function PrivacyPage() {

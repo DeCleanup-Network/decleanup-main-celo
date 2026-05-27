@@ -7,7 +7,6 @@ import { isAddress, type Address } from 'viem'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { useWallet } from '@/providers/WalletProvider'
@@ -41,8 +40,11 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   const aaEnabled = isAaAuthEnabledClient()
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: appAddress, showMainApp, wagmiConnected } = useAppWalletAddress()
-  const { smartAccountAddress: embeddedSmartAddress } = useWallet()
-  const { client: gaslessClient, smartAccountAddress: gaslessSmartAddress } = useSmartAccountClient()
+  const {
+    smartAccountAddress: embeddedSmartAddress,
+    getGaslessClient,
+    hasActiveSigningSession,
+  } = useWallet()
 
   const [inputAddress, setInputAddress] = useState('')
   const [checkedAddress, setCheckedAddress] = useState('')
@@ -55,11 +57,11 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
 
   const connectedClaimAddress = useMemo((): Address | undefined => {
     if (isEmbeddedAccount) {
-      return (embeddedSmartAddress ?? gaslessSmartAddress ?? undefined) as Address | undefined
+      return embeddedSmartAddress ?? undefined
     }
     if (wagmiConnected && appAddress) return appAddress
     return undefined
-  }, [isEmbeddedAccount, embeddedSmartAddress, gaslessSmartAddress, wagmiConnected, appAddress])
+  }, [isEmbeddedAccount, embeddedSmartAddress, wagmiConnected, appAddress])
 
   const normalizedChecked = checkedAddress.toLowerCase()
   const normalizedConnected = (connectedClaimAddress ?? '').toLowerCase()
@@ -70,6 +72,8 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     isSignedIn && normalizedChecked !== '' && normalizedChecked === normalizedConnected
   const hasClaimable = (result?.claimableWei ? BigInt(result.claimableWei) : 0n) > 0n
   const canClaim = Boolean(result?.eligible && hasClaimable && walletMatches && !result?.claimed)
+  const needsEmbeddedUnlock =
+    isEmbeddedAccount && !hasActiveSigningSession && !wagmiConnected
 
   const checkDisabled = useMemo(() => !isAddress(inputAddress.trim()) || checkLoading, [inputAddress, checkLoading])
 
@@ -130,6 +134,27 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     setError(null)
     setMessage(null)
     try {
+      let gaslessClient:
+        | { sendTransaction: (params: { to: Address; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> }
+        | undefined
+
+      if (isEmbeddedAccount) {
+        if (!hasActiveSigningSession) {
+          setError(
+            'Unlock your wallet passkey in Smart account settings first, or connect MetaMask with CELO to pay gas for this claim.'
+          )
+          return
+        }
+        const gasless = await getGaslessClient()
+        if (!gasless) {
+          setError(
+            'Could not start sponsored gas. Unlock your wallet again, or connect MetaMask with CELO on the correct network.'
+          )
+          return
+        }
+        gaslessClient = gasless
+      }
+
       const signRes = await fetch('/api/airdrop/claim-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,9 +178,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           s: signed.s,
         },
         {
-          gaslessClient: gaslessClient as
-            | { sendTransaction: (params: { to: `0x${string}`; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> }
-            | undefined,
+          gaslessClient,
           claimerAddress: connectedClaimAddress,
         }
       )
@@ -306,7 +329,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
                 onClick={() => void handleClaim()}
-                disabled={!canClaim || claimLoading}
+                disabled={!canClaim || claimLoading || needsEmbeddedUnlock}
                 className="bg-brand-green text-black hover:bg-brand-green/90"
               >
                 {claimLoading ? (
@@ -322,9 +345,26 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   `Claim ${result.amountCdcu} cDCU`
                 )}
               </Button>
-              {isEmbeddedAccount && (
-                <p className="text-xs text-muted-foreground">
-                  Unlock your wallet passkey if prompted when claiming.
+              <p className="text-xs text-muted-foreground max-w-md">
+                {isEmbeddedAccount ? (
+                  <>
+                    cDCU mints to your smart account address above. Gas is usually sponsored (unlock your
+                    wallet passkey when prompted). If you have CELO in MetaMask on this network, we use that
+                    instead — your MetaMask balance is separate from the smart account.
+                  </>
+                ) : (
+                  <>
+                    This claim uses your connected MetaMask wallet to pay gas. cDCU is minted to the
+                    allocation address above.
+                  </>
+                )}
+              </p>
+              {isEmbeddedAccount && !hasActiveSigningSession && (
+                <p className="text-xs text-amber-300">
+                  <Link href="/wallet" className="underline">
+                    Unlock in Smart account settings
+                  </Link>{' '}
+                  before claiming (or connect MetaMask with CELO).
                 </p>
               )}
             </div>

@@ -155,7 +155,7 @@ function userFacingMlSummary(
   mode: 'ok' | 'http_error' | 'exception'
 ): string {
   if (mode === 'http_error' || mode === 'exception') {
-    return 'We could not finish the automatic photo check right now. Your submission is still on-chain and human verifiers will review it.'
+    return 'We could not finish the automatic photo check right now. Your submission is still onchain and human verifiers will review it.'
   }
   const s = payload?.score
   if (s == null || typeof s.score !== 'number' || typeof s.delta !== 'number') {
@@ -1171,7 +1171,7 @@ function CleanupContent() {
         } catch (error) {
           console.error('Error uploading impact report data to IPFS:', error)
           throw new Error(
-            `Impact report upload failed: ${error instanceof Error ? error.message : String(error)}. Fix your connection or try again — without this hash on-chain you will not earn impact report DCU.`
+            `Impact report upload failed: ${error instanceof Error ? error.message : String(error)}. Fix your connection or try again — without this hash onchain you will not earn impact report DCU.`
           )
         }
       }
@@ -3038,7 +3038,7 @@ function CleanupContent() {
               <>
                 {mlStatsCompact}
                 <p className="mt-2 text-center text-[10px] text-cyan-100/55">
-                  Human verifiers decide on-chain; AI is guidance only.
+                  Human verifiers decide onchain; AI is guidance only.
                 </p>
               </>
             ) : mlVerificationSummary ? (

@@ -15,7 +15,7 @@ export function buildWalletSignMessage(fields: WalletSignFields): string {
     `${fields.domain} wants you to sign in with your Ethereum account:`,
     address,
     '',
-    'Sign in to DeCleanup. This request will not trigger a blockchain transaction or cost gas.',
+    'Sign in to DeCleanup Rewards. This request will not trigger a blockchain transaction or cost gas.',
     '',
     `URI: ${fields.uri}`,
     'Version: 1',

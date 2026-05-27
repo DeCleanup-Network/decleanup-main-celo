@@ -111,7 +111,7 @@ export default function ExternalWalletSettingsPage() {
             </p>
           ) : (
             <p className="text-gray-400">
-              None set for this address. Many wallets have no ENS; you can still use DeCleanup with the
+              None set for this address. Many wallets have no ENS; you can still use DeCleanup Rewards with the
               address shown.
             </p>
           )}
@@ -136,7 +136,7 @@ export default function ExternalWalletSettingsPage() {
           Current: <span className="text-gray-200">{chainLabel(chainId)}</span>
           {wrongNetwork && (
             <span className="block mt-1 text-amber-300">
-              DeCleanup expects {REQUIRED_CHAIN_NAME}. Switch below before submitting onchain.
+              DeCleanup Rewards expects {REQUIRED_CHAIN_NAME}. Switch below before submitting onchain.
             </span>
           )}
         </p>

@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (lockedApp.status !== 'PENDING_ONCHAIN' && lockedApp.status !== 'PENDING') {
       return NextResponse.json(
         {
-          error: `Application is not waiting on on-chain confirmation (${lockedApp.status.toLowerCase()})`,
+          error: `Application is not waiting on onchain confirmation (${lockedApp.status.toLowerCase()})`,
         },
         { status: 409 }
       )
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` })
     if (receipt.status !== 'success') {
       return NextResponse.json(
-        { error: 'On-chain transaction did not succeed. Cannot confirm approval.' },
+        { error: 'Onchain transaction did not succeed. Cannot confirm approval.' },
         { status: 409 }
       )
     }
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'On-chain role check failed. Applicant does not have VERIFIER_ROLE after this transaction.',
+            'Onchain role check failed. Applicant does not have VERIFIER_ROLE after this transaction.',
         },
         { status: 409 }
       )
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       applicationId,
       'APPROVED',
       reviewedBy,
-      'Approval confirmed on-chain',
+      'Approval confirmed onchain',
       txHash
     )
 
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
       success: true,
       application: updated,
       txHash,
-      message: 'Application approved after successful on-chain verifier role confirmation.',
+      message: 'Application approved after successful onchain verifier role confirmation.',
     })
   } catch (error) {
     console.error('Error in POST /api/verifier/review/confirm:', error)

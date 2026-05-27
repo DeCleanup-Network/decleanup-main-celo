@@ -24,7 +24,7 @@ export async function POST() {
       rpName: getWebAuthnRpName(),
       rpID: getWebAuthnRpId(),
       userName: user.email ?? userId,
-      userDisplayName: user.name ?? user.email ?? 'DeCleanup user',
+      userDisplayName: user.name ?? user.email ?? 'DeCleanup Rewards user',
       userID: Buffer.from(userId),
       attestationType: 'none',
       excludeCredentials: existing.map((c) => ({

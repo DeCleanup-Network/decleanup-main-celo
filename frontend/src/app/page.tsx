@@ -224,12 +224,12 @@ function HomeContent() {
           : null
 
       let successMessage =
-        'Your Impact Product was minted or upgraded on-chain.'
+        'Your Impact Product was minted or upgraded onchain.'
       if (claimResult.bonusClaimed) {
         successMessage +=
           reportDcu != null || recyclablesDcu != null
             ? ` Impact report + recyclables buckets updated (${reportDcu ?? 0} + ${recyclablesDcu ?? 0} DCU in RewardManager).`
-            : ' Impact report and recyclables rewards were submitted on-chain.'
+            : ' Impact report and recyclables rewards were submitted onchain.'
       } else if (claimResult.bonusError) {
         successMessage +=
           ' Recyclables / impact-report DCU did not land yet (bonus step failed after NFT). Tap Claim again to retry bonuses only, or refresh in a minute.'
@@ -420,7 +420,7 @@ function HomeContent() {
         {aaEnabled && isEmbeddedAccount && walletPhase === 'pending-password' && <WalletReadyCard />}
         {aaEnabled && isEmbeddedAccount && walletPhase === 'locked' && (
           <div className="rounded-lg border border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400">
-            Wallet locked. You&apos;ll be asked for your wallet passkey when you submit or claim onchain.{' '}
+            Wallet locked. You&apos;ll be asked for your wallet passkey when you submit or claim onchain in DeCleanup Rewards.{' '}
             <Link href="/wallet" className="font-medium text-brand-green underline">
               Go to smart account settings
             </Link>
@@ -692,7 +692,7 @@ function HomeContent() {
                 rewardStats.cleanupsDCU === 0 && (
                   <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
                     You have {rewardStats.verifiedCleanupsCount} verified cleanup
-                    {rewardStats.verifiedCleanupsCount === 1 ? '' : 's'} on-chain, but &quot;Impact level DCU&quot; is still
+                    {rewardStats.verifiedCleanupsCount === 1 ? '' : 's'} onchain, but &quot;Impact level DCU&quot; is still
                     0. That bucket fills when you claim Impact Product levels after verification (and only if the
                     deployed NFT has impact rewards enabled). Other rows (reports, recyclables, etc.) can still show
                     DCU from their own contracts.
@@ -968,7 +968,7 @@ function HomeContent() {
             <div className="mb-6 space-y-3 rounded-lg border border-border bg-background/80 p-4 text-sm text-muted-foreground">
               <p>
                 <strong className="text-foreground">What is DCU?</strong> DCU (DeCleanup Units) are participation points you
-                earn on-chain for cleanups, referrals, streaks, reports, verification work, Hypercerts, and similar activity.
+                earn onchain for cleanups, referrals, streaks, reports, verification work, Hypercerts, and similar activity.
               </p>
               <p>
                 <strong className="text-foreground">Converting to $cDCU.</strong> Every{' '}

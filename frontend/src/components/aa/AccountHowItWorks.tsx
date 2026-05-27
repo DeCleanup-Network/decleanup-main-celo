@@ -17,7 +17,7 @@ export function AccountHowItWorks() {
       </summary>
       <div className="space-y-3 border-t border-gray-800 px-5 pb-5 pt-3 text-sm leading-relaxed text-gray-400">
         <p>
-          <span className="font-medium text-gray-300">Sign-in</span> (Google or email) syncs your wallet. It does
+          <span className="font-medium text-gray-300">Sign-in</span> (Google or email) syncs your DeCleanup Rewards wallet. It does
           not unlock it.
           {email ? (
             <>

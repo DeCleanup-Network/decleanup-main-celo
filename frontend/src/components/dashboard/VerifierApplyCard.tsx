@@ -278,7 +278,7 @@ export function VerifierApplyCard() {
                 {effectiveStatus === 'PENDING_ONCHAIN' && (
                   <>
                     <Loader2 className="w-4 h-4 shrink-0 animate-spin text-brand-yellow" aria-hidden />
-                    <span className="text-sm font-medium text-brand-yellow">On-chain approval pending</span>
+                    <span className="text-sm font-medium text-brand-yellow">Onchain approval pending</span>
                   </>
                 )}
               </div>
@@ -286,7 +286,7 @@ export function VerifierApplyCard() {
 
             {onChainRoleWithoutApplication && (
               <p className="text-xs text-amber-300/90">
-                This wallet has an on-chain verifier role from testing, but no approved application on file.
+                This wallet has an onchain verifier role from testing, but no approved application on file.
                 Verifier tools stay hidden until an application is approved.
               </p>
             )}
@@ -313,7 +313,7 @@ export function VerifierApplyCard() {
             )}
             {effectiveStatus === 'PENDING_ONCHAIN' && (
               <p className="text-sm text-muted-foreground">
-                Waiting for the admin approval transaction to confirm on-chain…
+                Waiting for the admin approval transaction to confirm onchain…
               </p>
             )}
             {effectiveStatus === 'REJECTED' && (

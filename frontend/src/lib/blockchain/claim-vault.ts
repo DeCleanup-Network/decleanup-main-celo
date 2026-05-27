@@ -4,9 +4,11 @@
  */
 
 import { getAccount, getPublicClient, writeContract, waitForTransactionReceipt } from '@wagmi/core'
+import type { Config } from 'wagmi'
 import { getConfig } from './get-wagmi-config'
 import { CONTRACT_ADDRESSES } from './chain-constants'
 import { encodeFunctionData, type Address } from 'viem'
+import { waitForGaslessUserOperationConfirmation } from '@/lib/smart-account/wait-user-op'
 
 const CLAIMVAULT_ABI = [
   {
@@ -42,66 +44,23 @@ type GaslessClient = {
   sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`>
 }
 
-/**
- * Submit a signed $cDCU claim to ClaimVault.claim().
- * Returns transaction hash and receipt.
- */
-export async function claimCdcu(
-  signed: SignedClaimParams,
-  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address }
+async function readNativeBalance(config: Config, address?: Address): Promise<bigint> {
+  if (!address) return 0n
+  try {
+    const publicClient = getPublicClient(config)
+    if (!publicClient) return 0n
+    return await publicClient.getBalance({ address })
+  } catch (error) {
+    console.warn('[claimCdcu] Failed to fetch native balance:', error)
+    return 0n
+  }
+}
+
+async function submitClaimViaWagmi(
+  config: Config,
+  claimVaultAddress: Address,
+  signed: SignedClaimParams
 ): Promise<{ hash: `0x${string}`; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
-  const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT as Address
-  if (!claimVaultAddress) {
-    throw new Error('ClaimVault address not configured. Set NEXT_PUBLIC_CLAIMVAULT_ADDRESS.')
-  }
-
-  const config = getConfig()
-  const account = getAccount(config)
-  const fromAddress = options?.claimerAddress ?? (account.address as Address | undefined)
-
-  let nativeBalance = 0n
-  if (fromAddress) {
-    try {
-      const publicClient = getPublicClient(config)
-      if (publicClient) {
-        nativeBalance = await publicClient.getBalance({ address: fromAddress })
-      }
-    } catch (error) {
-      console.warn('[claimCdcu] Failed to fetch native balance:', error)
-    }
-  }
-
-  if (nativeBalance === 0n) {
-    if (options?.gaslessClient) {
-      const data = encodeFunctionData({
-        abi: CLAIMVAULT_ABI,
-        functionName: 'claim',
-        args: [
-          signed.recipient,
-          BigInt(signed.amount),
-          signed.category,
-          BigInt(signed.nonce),
-          BigInt(signed.expiry),
-          signed.v,
-          signed.r,
-          signed.s,
-        ],
-      })
-
-      const hash = await options.gaslessClient.sendTransaction({
-        to: claimVaultAddress,
-        data,
-        value: 0n,
-      })
-      const receipt = await waitForTransactionReceipt(config, { hash })
-      return { hash, receipt }
-    }
-
-    throw new Error('No CELO balance for gas and sponsored claim is unavailable. Reconnect embedded wallet or fund gas.')
-  }
-
-  // Celo rejects txs with tip cap 0. Some embedded wallets may submit with zero tip unless
-  // gas fields are provided explicitly, so fetch network gas price and enforce a non-zero floor.
   let gasPrice: bigint = 1n
   try {
     const publicClient = getPublicClient(config)
@@ -132,4 +91,84 @@ export async function claimCdcu(
 
   const receipt = await waitForTransactionReceipt(config, { hash })
   return { hash, receipt }
+}
+
+/**
+ * Submit a signed $cDCU claim to ClaimVault.claim().
+ * Mint recipient is `signed.recipient`; gas can be paid by any connected wallet with CELO.
+ */
+export async function claimCdcu(
+  signed: SignedClaimParams,
+  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address }
+): Promise<{ hash: `0x${string}`; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
+  const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT as Address
+  if (!claimVaultAddress) {
+    throw new Error('ClaimVault address not configured. Set NEXT_PUBLIC_CLAIMVAULT_ADDRESS.')
+  }
+
+  const config = getConfig()
+  const account = getAccount(config)
+  const wagmiAddress = account.isConnected ? (account.address as Address | undefined) : undefined
+
+  const claimData = encodeFunctionData({
+    abi: CLAIMVAULT_ABI,
+    functionName: 'claim',
+    args: [
+      signed.recipient,
+      BigInt(signed.amount),
+      signed.category,
+      BigInt(signed.nonce),
+      BigInt(signed.expiry),
+      signed.v,
+      signed.r,
+      signed.s,
+    ],
+  })
+
+  // Prefer MetaMask / browser wallet when it has CELO — even if the airdrop allocation is a smart account.
+  if (wagmiAddress) {
+    const wagmiBalance = await readNativeBalance(config, wagmiAddress)
+    if (wagmiBalance > 0n) {
+      return submitClaimViaWagmi(config, claimVaultAddress, signed)
+    }
+  }
+
+  const claimerAddress = options?.claimerAddress
+  if (
+    claimerAddress &&
+    wagmiAddress &&
+    claimerAddress.toLowerCase() === wagmiAddress.toLowerCase()
+  ) {
+    const claimerBalance = await readNativeBalance(config, claimerAddress)
+    if (claimerBalance > 0n) {
+      return submitClaimViaWagmi(config, claimVaultAddress, signed)
+    }
+  }
+
+  if (options?.gaslessClient) {
+    const userOpHash = await options.gaslessClient.sendTransaction({
+      to: claimVaultAddress,
+      data: claimData,
+      value: 0n,
+    })
+    const { transactionHash } = await waitForGaslessUserOperationConfirmation(userOpHash)
+    const receipt = await waitForTransactionReceipt(config, { hash: transactionHash })
+    return { hash: transactionHash, receipt }
+  }
+
+  if (account.isConnected && wagmiAddress) {
+    throw new Error(
+      'Your connected MetaMask wallet has no CELO for gas on this network. Add CELO on the correct Celo network, or sign in with Google/email, unlock your smart account, and try again for sponsored gas.'
+    )
+  }
+
+  if (claimerAddress) {
+    throw new Error(
+      'Your smart account has no CELO for gas. Connect MetaMask with CELO to submit the claim, unlock your wallet in Smart account settings for sponsored gas, or send a small amount of CELO to your smart account address.'
+    )
+  }
+
+  throw new Error(
+    'No wallet connected with gas. Connect MetaMask with CELO, or sign in and unlock your DeCleanup Rewards smart account.'
+  )
 }

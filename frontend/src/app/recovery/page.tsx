@@ -50,7 +50,7 @@ export default function RecoveryPage() {
         <BackToDeCleanupLink />
         <h1 className="mt-2 font-bebas text-2xl tracking-wider text-white sm:text-3xl">Wallet recovery</h1>
         <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-          DeCleanup never stores your private key. Recovery depends on your{' '}
+          DeCleanup Rewards never stores your private key. Recovery depends on your{' '}
           <strong className="text-gray-300">encrypted backup file</strong> and{' '}
           <strong className="text-gray-300">{WALLET_PASSKEY}</strong>.
         </p>

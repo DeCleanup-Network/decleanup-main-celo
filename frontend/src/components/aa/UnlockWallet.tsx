@@ -55,7 +55,7 @@ export function UnlockWallet() {
       <h2 className="text-sm font-semibold text-white">Unlock wallet</h2>
       <p className="text-[11px] text-gray-500 leading-relaxed">
         Enter <strong className="text-gray-400">{WALLET_PASSKEY_POSSESSIVE}</strong> (not your Google login).
-        After unlock, you can sign DeCleanup submissions for a while without re-typing it.
+        After unlock, you can sign DeCleanup Rewards submissions for a while without re-typing it.
       </p>
 
       <SigningSessionDurationField duration={duration} onDurationChange={setDuration} />

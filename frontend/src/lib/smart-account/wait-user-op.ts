@@ -79,7 +79,7 @@ export async function waitForGaslessUserOperationConfirmation(
     if (userOpReceipt?.receipt?.transactionHash) {
       if (userOpReceipt.success === false) {
         throw new Error(
-          `Gasless transaction failed on-chain (UserOp ${hash}). The bundler or paymaster may have rejected it — check Pimlico dashboard and smart-account CELO balance if the action sends native value.`
+          `Gasless transaction failed onchain (UserOp ${hash}). The bundler or paymaster may have rejected it — check Pimlico dashboard and smart-account CELO balance if the action sends native value.`
         )
       }
       return {

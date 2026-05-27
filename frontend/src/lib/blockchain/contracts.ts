@@ -1655,7 +1655,7 @@ export async function claimImpactProductFromVerification(
           })
           if (!d.hasImpactForm && !d.hasRecyclables) {
             console.warn(
-              '[Claim] This submission has no impact report hash and no recyclables on-chain. ' +
+              '[Claim] This submission has no impact report hash and no recyclables onchain. ' +
                 'claimSubmissionBonusRewards still succeeded but credited +0 to report/recyclables buckets. ' +
                 'For new cleanups: complete the impact step (IPFS hash stored) and attach recyclables before approval, or extend the contract to combine create + recyclables in one tx.'
             )

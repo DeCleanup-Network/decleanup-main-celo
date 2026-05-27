@@ -118,7 +118,7 @@ export function VerifierMlScoreBlock({ cleanupId }: { cleanupId: string }) {
         </p>
       </div>
       <p className="mb-3 text-xs text-cyan-100/85">
-        AI pre-screened this cleanup. Use as a triage guide - your on-chain decision is final.
+        AI pre-screened this cleanup. Use as a triage guide - your onchain decision is final.
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
         <span

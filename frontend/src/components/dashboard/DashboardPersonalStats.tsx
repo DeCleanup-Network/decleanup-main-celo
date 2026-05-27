@@ -110,7 +110,7 @@ export function DashboardPersonalStats({
 
                         <div className="mb-6 space-y-3 rounded-lg border border-brand-green/25 bg-black/40 p-4 text-sm text-gray-300">
                             <p>
-                                <span className="font-semibold text-white">What is DCU?</span> DCU are on-chain participation
+                                <span className="font-semibold text-white">What is DCU?</span> DCU are onchain participation
                                 points for cleanups, referrals, streaks, reports, verifier work, Hypercerts, and related
                                 activity.
                             </p>

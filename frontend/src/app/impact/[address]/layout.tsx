@@ -23,16 +23,16 @@ export async function generateMetadata({
     title,
     description,
     openGraph: {
-      title: 'DeCleanup — Impact Portfolio',
+      title: 'DeCleanup Rewards — Impact Portfolio',
       description,
       url: `/impact/${encodeURIComponent(raw)}`,
-      siteName: 'DeCleanup',
+      siteName: 'DeCleanup Rewards',
       type: 'website',
       locale: 'en_US',
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'DeCleanup — Impact Portfolio',
+      title: 'DeCleanup Rewards — Impact Portfolio',
       description,
     },
   }

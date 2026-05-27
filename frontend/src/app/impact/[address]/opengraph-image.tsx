@@ -72,7 +72,7 @@ export default async function Image({ params }: { params: { address: string } })
                 textTransform: 'uppercase',
               }}
             >
-              DeCleanup
+              DeCleanup Rewards
             </span>
             <span
               style={{

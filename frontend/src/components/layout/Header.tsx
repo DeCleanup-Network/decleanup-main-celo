@@ -12,7 +12,7 @@ export function Header() {
           <Link
             href="/"
             className="group flex min-w-0 flex-shrink-0 items-center transition-transform hover:scale-[1.02]"
-            aria-label="DeCleanup home"
+            aria-label="DeCleanup Rewards home"
           >
             <img
               src="/logo.png"
