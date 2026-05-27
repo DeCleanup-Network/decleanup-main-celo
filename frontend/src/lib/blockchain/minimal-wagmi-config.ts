@@ -4,6 +4,7 @@ import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { getWalletConnectMetadata } from '@/lib/blockchain/wallet-connect-metadata'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
 const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
@@ -49,6 +50,7 @@ export const minimalWagmiConfig = createConfig({
     walletConnect({
       projectId: walletConnectProjectId,
       showQrModal: true,
+      metadata: getWalletConnectMetadata(),
     }),
   ],
   storage: createStorage({ storage: cookieStorage }),
