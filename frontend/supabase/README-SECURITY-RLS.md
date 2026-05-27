@@ -13,7 +13,14 @@
 |---------------|--------|
 | `rls_disabled_in_public` | `"User"`, `"Account"`, `"Session"`, `"VerificationToken"`, `"UserWallet"`, passkey tables |
 | `sensitive_columns_exposed` | Same (tokens, OAuth secrets, passkey unlock material) |
-| `rls_enabled_no_policy` (Info) | Expected for server-only tables — API access denied; **service role** still works |
+| `rls_enabled_no_policy` (Info) | Safe to ignore, or run optional migration below to clear |
+
+## Optional: clear Info (“RLS enabled, no policy”)
+
+1. Run **`20260527_rls_explicit_deny_policies.sql`** in SQL Editor.
+2. **Rerun linter** — should show 0 errors, 0 warnings, 0 info.
+
+Adds explicit `api_access_denied` policies (`USING (false)`). Same security as before; only satisfies the linter.
 
 ## App access (unchanged)
 
