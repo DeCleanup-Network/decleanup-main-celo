@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { isAddress, type Address } from 'viem'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
-import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
+import { mobileWalletNeedsWalletConnectHint } from '@/lib/blockchain/wallet-provider-write'
+import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
@@ -175,14 +176,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       }
 
       if (!isEmbeddedAccount && wagmiConnected) {
-        setClaimPhase('Approve Celo network in MetaMask (first popup)…')
-        try {
-          await ensureRequiredChain()
-        } catch (e) {
-          setError(e instanceof Error ? e.message : 'Please switch MetaMask to Celo Sepolia Testnet.')
-          return
-        }
-        setClaimPhase('Approve the claim transaction in MetaMask (second popup)…')
+        setClaimPhase('Open your wallet — switch network if asked, then confirm the claim.')
       } else if (gaslessClient) {
         setClaimPhase('Submitting sponsored claim…')
       }
@@ -201,7 +195,6 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         {
           gaslessClient,
           claimerAddress: connectedClaimAddress,
-          skipChainSwitch: !isEmbeddedAccount && wagmiConnected,
         }
       )
 
@@ -259,14 +252,18 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           </label>
           <input
             id="airdrop-address"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand-green"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs break-all outline-none focus:border-brand-green sm:text-sm"
             placeholder="Paste 0x…"
             value={inputAddress}
             onChange={(e) => setInputAddress(e.target.value)}
             autoComplete="off"
             spellCheck={false}
           />
-          <Button type="submit" disabled={checkDisabled} className="bg-brand-green text-black hover:bg-brand-green/90">
+          <Button
+            type="submit"
+            disabled={checkDisabled}
+            className="w-full bg-brand-green text-black hover:bg-brand-green/90 sm:w-auto"
+          >
             {checkLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -288,9 +285,15 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
               <PastContributorBadge />
             ) : null}
           </div>
-          <div className="space-y-1 text-sm">
-            <p>
-              <span className="text-muted-foreground">Address:</span> {result.walletAddress}
+          <div className="space-y-2 text-sm">
+            <p className="min-w-0">
+              <span className="text-muted-foreground">Address: </span>
+              <span
+                className="font-mono text-xs break-all text-foreground sm:text-sm"
+                title={result.walletAddress}
+              >
+                {result.walletAddress}
+              </span>
             </p>
             <p>
               <span className="text-muted-foreground">Amount:</span> {result.amountCdcu} cDCU
@@ -309,9 +312,9 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 Sign in with the wallet that owns this address to claim
               </p>
-              <Button asChild className="w-full bg-brand-green text-black hover:bg-brand-green/90 sm:w-auto">
+              <Button asChild className="w-full bg-brand-green text-black hover:bg-brand-green/90">
                 <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`}>
-                  Sign in to claim {result.amountCdcu} cDCU
+                  Sign in to claim
                 </Link>
               </Button>
               <p className="mt-2 text-xs text-yellow-200/90">
@@ -334,9 +337,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 Connected wallet does not match this allocation
               </p>
               {connectedClaimAddress ? (
-                <p className="mt-2 text-xs text-yellow-200">
-                  Signed in as {connectedClaimAddress}. Switch account or sign in with the wallet that
-                  matches {checkedAddress}.
+                <p className="mt-2 text-xs text-yellow-200 break-words">
+                  Signed in as{' '}
+                  <span className="font-mono" title={connectedClaimAddress}>
+                    {formatAddress(connectedClaimAddress)}
+                  </span>
+                  . Use the wallet that matches{' '}
+                  <span className="font-mono" title={checkedAddress}>
+                    {formatAddress(checkedAddress)}
+                  </span>
+                  .
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-yellow-200">Waiting for your wallet to finish loading…</p>
@@ -345,21 +355,31 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           )}
 
           {walletMatches && (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex flex-col gap-3">
+              {mobileWalletNeedsWalletConnectHint() && !isEmbeddedAccount && (
+                <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  On this phone browser, use{' '}
+                  <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`} className="underline">
+                    WalletConnect
+                  </Link>{' '}
+                  or open the site in the MetaMask app — otherwise the claim transaction will not appear.
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={() => void handleClaim()}
                 disabled={!canClaim || claimLoading || needsEmbeddedUnlock}
-                className="bg-brand-green text-black hover:bg-brand-green/90"
+                className="min-h-11 w-full shrink-0 bg-brand-green px-4 text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[10rem]"
               >
                 {claimLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {claimPhase ?? 'Claiming…'}
+                    <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+                    <span className="truncate">Confirm in wallet</span>
                   </>
                 ) : result.claimed ? (
                   'Already claimed'
                 ) : !hasClaimable ? (
-                  'No claimable amount'
+                  'Nothing to claim'
                 ) : (
                   `Claim ${result.amountCdcu} cDCU`
                 )}
@@ -383,16 +403,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   before claiming (or connect MetaMask with CELO).
                 </p>
               )}
-              {!isEmbeddedAccount && wagmiConnected && !claimLoading && hasClaimable && (
-                <p className="w-full text-xs text-muted-foreground">
-                  MetaMask may ask twice: first to switch to Celo Sepolia, then to confirm the claim.
-                </p>
-              )}
               {claimLoading && claimPhase ? (
                 <p className="w-full text-xs text-muted-foreground" role="status">
                   {claimPhase}
                 </p>
+              ) : !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
+                <p className="w-full text-xs text-muted-foreground">
+                  Wallet may ask to switch to Celo Sepolia, then to confirm the claim.
+                </p>
               ) : null}
+              </div>
             </div>
           )}
         </section>

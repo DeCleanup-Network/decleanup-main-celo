@@ -3,13 +3,13 @@
  * Get the signed claim from POST /api/cdcu/claim-request first.
  */
 
-import { getAccount, getPublicClient, writeContract, waitForTransactionReceipt } from '@wagmi/core'
+import { getAccount, getPublicClient, waitForTransactionReceipt } from '@wagmi/core'
 import type { Config } from 'wagmi'
 import { getConfig } from './get-wagmi-config'
 import { CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from './chain-constants'
-import { ensureRequiredChain } from './ensure-required-chain'
-import { encodeFunctionData, type Address } from 'viem'
+import { encodeFunctionData, type Address, type Hex } from 'viem'
 import { waitForGaslessUserOperationConfirmation } from '@/lib/smart-account/wait-user-op'
+import { writeContractViaWalletProvider } from '@/lib/blockchain/wallet-provider-write'
 
 const CLAIMVAULT_ABI = [
   {
@@ -45,10 +45,11 @@ type GaslessClient = {
   sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`>
 }
 
+const TX_WAIT_MS = 60_000
+
 async function readNativeBalance(config: Config, address?: Address): Promise<bigint> {
   if (!address) return 0n
   try {
-    // Always read on the app's target chain — MetaMask may still be on Ethereum mainnet.
     const publicClient = getPublicClient(config, { chainId: REQUIRED_CHAIN_ID })
     if (!publicClient) return 0n
     return await publicClient.getBalance({ address })
@@ -58,40 +59,15 @@ async function readNativeBalance(config: Config, address?: Address): Promise<big
   }
 }
 
-const TX_PROMPT_TIMEOUT_MS = 90_000
-const RECEIPT_TIMEOUT_MS = 120_000
-
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(message)), ms)
-    }),
-  ])
-}
-
-async function submitClaimViaWagmi(
+async function submitClaimViaWallet(
   config: Config,
   claimVaultAddress: Address,
   signed: SignedClaimParams
-): Promise<{ hash: `0x${string}`; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
-  let gasPrice: bigint = 1n
-  try {
-    const publicClient = getPublicClient(config, { chainId: REQUIRED_CHAIN_ID })
-    if (publicClient) {
-      const networkGasPrice = await publicClient.getGasPrice()
-      gasPrice = networkGasPrice > 0n ? networkGasPrice : 1n
-    }
-  } catch (error) {
-    console.warn('[claimCdcu] Failed to fetch gas price, using floor:', error)
-  }
-
-  const writeArgs = {
-    chainId: REQUIRED_CHAIN_ID,
+): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
+  const writePromise = writeContractViaWalletProvider(config, {
     address: claimVaultAddress,
     abi: CLAIMVAULT_ABI,
-    functionName: 'claim' as const,
-    gasPrice,
+    functionName: 'claim',
     args: [
       signed.recipient,
       BigInt(signed.amount),
@@ -101,21 +77,25 @@ async function submitClaimViaWagmi(
       signed.v,
       signed.r,
       signed.s,
-    ] as const,
-  }
+    ],
+  })
 
-  const hash = await withTimeout(
-    writeContract(config, writeArgs),
-    TX_PROMPT_TIMEOUT_MS,
-    `MetaMask did not confirm the claim transaction within ${TX_PROMPT_TIMEOUT_MS / 1000}s. ` +
-      `Confirm you are on ${REQUIRED_CHAIN_NAME} and approve the transaction popup (not only the network switch).`
-  )
+  const hash = await Promise.race([
+    writePromise,
+    new Promise<never>((_, reject) => {
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `No transaction appeared in your wallet. On phone, use WalletConnect or open this site inside the MetaMask app. On desktop, confirm ${REQUIRED_CHAIN_NAME} is selected.`
+            )
+          ),
+        TX_WAIT_MS
+      )
+    }),
+  ])
 
-  const receipt = await withTimeout(
-    waitForTransactionReceipt(config, { hash, chainId: REQUIRED_CHAIN_ID }),
-    RECEIPT_TIMEOUT_MS,
-    'Transaction submitted but confirmation timed out. Check the block explorer for your wallet address.'
-  )
+  const receipt = await waitForTransactionReceipt(config, { hash, chainId: REQUIRED_CHAIN_ID })
   return { hash, receipt }
 }
 
@@ -125,8 +105,8 @@ async function submitClaimViaWagmi(
  */
 export async function claimCdcu(
   signed: SignedClaimParams,
-  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address; skipChainSwitch?: boolean }
-): Promise<{ hash: `0x${string}`; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
+  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address }
+): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
   const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT as Address
   if (!claimVaultAddress) {
     throw new Error('ClaimVault address not configured. Set NEXT_PUBLIC_CLAIMVAULT_ADDRESS.')
@@ -151,16 +131,11 @@ export async function claimCdcu(
     ],
   })
 
-  const maybeSwitch = async () => {
-    if (!options?.skipChainSwitch) await ensureRequiredChain()
-  }
-
   // Prefer MetaMask / browser wallet when it has CELO on the target Celo network.
   if (wagmiAddress) {
     const wagmiBalance = await readNativeBalance(config, wagmiAddress)
     if (wagmiBalance > 0n) {
-      await maybeSwitch()
-      return submitClaimViaWagmi(config, claimVaultAddress, signed)
+      return submitClaimViaWallet(config, claimVaultAddress, signed)
     }
   }
 
@@ -172,8 +147,7 @@ export async function claimCdcu(
   ) {
     const claimerBalance = await readNativeBalance(config, claimerAddress)
     if (claimerBalance > 0n) {
-      await maybeSwitch()
-      return submitClaimViaWagmi(config, claimVaultAddress, signed)
+      return submitClaimViaWallet(config, claimVaultAddress, signed)
     }
   }
 

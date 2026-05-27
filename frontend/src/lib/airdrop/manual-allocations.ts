@@ -38,9 +38,9 @@ export const MANUAL_AIRDROP_ALLOCATIONS: readonly AirdropAllocation[] = [
   },
   {
     walletAddress: '0x50418699cB44BfDa9c9afc9B7a0b0d244d8927D2',
-    amountCdcu: '200',
+    amountCdcu: '50',
     category: 'past_contributor',
-    label: 'Past contributor, $cDCU airdrop',
+    label: 'Past contributor (paulburg.eth), $cDCU airdrop',
   },
   {
     walletAddress: '0x173D87dfa68aEB0E821C6021f5652B9C3a7556b4',
