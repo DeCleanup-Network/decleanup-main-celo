@@ -53,6 +53,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   const [checkedAddress, setCheckedAddress] = useState('')
   const [checkLoading, setCheckLoading] = useState(false)
   const [claimLoading, setClaimLoading] = useState(false)
+  const [claimPhase, setClaimPhase] = useState<string | null>(null)
   const [result, setResult] = useState<CheckResponse | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -134,21 +135,13 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   async function handleClaim() {
     if (!canClaim || !result?.walletAddress) return
     setClaimLoading(true)
+    setClaimPhase(null)
     setError(null)
     setMessage(null)
     try {
       let gaslessClient:
         | { sendTransaction: (params: { to: Address; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> }
         | undefined
-
-      if (!isEmbeddedAccount && wagmiConnected) {
-        try {
-          await ensureRequiredChain()
-        } catch (e) {
-          setError(e instanceof Error ? e.message : 'Please switch MetaMask to Celo Sepolia Testnet.')
-          return
-        }
-      }
 
       if (isEmbeddedAccount) {
         if (!hasActiveSigningSession) {
@@ -157,6 +150,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           )
           return
         }
+        setClaimPhase('Preparing sponsored transaction…')
         const gasless = await getGaslessClient()
         if (!gasless) {
           setError(
@@ -167,15 +161,30 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         gaslessClient = gasless
       }
 
+      setClaimPhase('Preparing claim signature…')
       const signRes = await fetch('/api/airdrop/claim-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipient: result.walletAddress }),
+        signal: AbortSignal.timeout(30_000),
       })
       const signed = await signRes.json().catch(() => ({}))
       if (!signRes.ok) {
         setError(signed?.error || `Claim signing failed (${signRes.status})`)
         return
+      }
+
+      if (!isEmbeddedAccount && wagmiConnected) {
+        setClaimPhase('Approve Celo network in MetaMask (first popup)…')
+        try {
+          await ensureRequiredChain()
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Please switch MetaMask to Celo Sepolia Testnet.')
+          return
+        }
+        setClaimPhase('Approve the claim transaction in MetaMask (second popup)…')
+      } else if (gaslessClient) {
+        setClaimPhase('Submitting sponsored claim…')
       }
 
       await claimCdcu(
@@ -192,6 +201,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         {
           gaslessClient,
           claimerAddress: connectedClaimAddress,
+          skipChainSwitch: !isEmbeddedAccount && wagmiConnected,
         }
       )
 
@@ -225,6 +235,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       setError(msg)
     } finally {
       setClaimLoading(false)
+      setClaimPhase(null)
     }
   }
 
@@ -343,7 +354,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 {claimLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Claiming...
+                    {claimPhase ?? 'Claiming…'}
                   </>
                 ) : result.claimed ? (
                   'Already claimed'
@@ -372,6 +383,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   before claiming (or connect MetaMask with CELO).
                 </p>
               )}
+              {!isEmbeddedAccount && wagmiConnected && !claimLoading && hasClaimable && (
+                <p className="w-full text-xs text-muted-foreground">
+                  MetaMask may ask twice: first to switch to Celo Sepolia, then to confirm the claim.
+                </p>
+              )}
+              {claimLoading && claimPhase ? (
+                <p className="w-full text-xs text-muted-foreground" role="status">
+                  {claimPhase}
+                </p>
+              ) : null}
             </div>
           )}
         </section>

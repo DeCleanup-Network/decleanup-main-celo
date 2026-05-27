@@ -58,6 +58,18 @@ async function readNativeBalance(config: Config, address?: Address): Promise<big
   }
 }
 
+const TX_PROMPT_TIMEOUT_MS = 90_000
+const RECEIPT_TIMEOUT_MS = 120_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms)
+    }),
+  ])
+}
+
 async function submitClaimViaWagmi(
   config: Config,
   claimVaultAddress: Address,
@@ -65,7 +77,7 @@ async function submitClaimViaWagmi(
 ): Promise<{ hash: `0x${string}`; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
   let gasPrice: bigint = 1n
   try {
-    const publicClient = getPublicClient(config)
+    const publicClient = getPublicClient(config, { chainId: REQUIRED_CHAIN_ID })
     if (publicClient) {
       const networkGasPrice = await publicClient.getGasPrice()
       gasPrice = networkGasPrice > 0n ? networkGasPrice : 1n
@@ -74,10 +86,11 @@ async function submitClaimViaWagmi(
     console.warn('[claimCdcu] Failed to fetch gas price, using floor:', error)
   }
 
-  const hash = await writeContract(config, {
+  const writeArgs = {
+    chainId: REQUIRED_CHAIN_ID,
     address: claimVaultAddress,
     abi: CLAIMVAULT_ABI,
-    functionName: 'claim',
+    functionName: 'claim' as const,
     gasPrice,
     args: [
       signed.recipient,
@@ -88,10 +101,21 @@ async function submitClaimViaWagmi(
       signed.v,
       signed.r,
       signed.s,
-    ],
-  })
+    ] as const,
+  }
 
-  const receipt = await waitForTransactionReceipt(config, { hash })
+  const hash = await withTimeout(
+    writeContract(config, writeArgs),
+    TX_PROMPT_TIMEOUT_MS,
+    `MetaMask did not confirm the claim transaction within ${TX_PROMPT_TIMEOUT_MS / 1000}s. ` +
+      `Confirm you are on ${REQUIRED_CHAIN_NAME} and approve the transaction popup (not only the network switch).`
+  )
+
+  const receipt = await withTimeout(
+    waitForTransactionReceipt(config, { hash, chainId: REQUIRED_CHAIN_ID }),
+    RECEIPT_TIMEOUT_MS,
+    'Transaction submitted but confirmation timed out. Check the block explorer for your wallet address.'
+  )
   return { hash, receipt }
 }
 
@@ -101,7 +125,7 @@ async function submitClaimViaWagmi(
  */
 export async function claimCdcu(
   signed: SignedClaimParams,
-  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address }
+  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address; skipChainSwitch?: boolean }
 ): Promise<{ hash: `0x${string}`; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
   const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT as Address
   if (!claimVaultAddress) {
@@ -127,11 +151,15 @@ export async function claimCdcu(
     ],
   })
 
+  const maybeSwitch = async () => {
+    if (!options?.skipChainSwitch) await ensureRequiredChain()
+  }
+
   // Prefer MetaMask / browser wallet when it has CELO on the target Celo network.
   if (wagmiAddress) {
     const wagmiBalance = await readNativeBalance(config, wagmiAddress)
     if (wagmiBalance > 0n) {
-      await ensureRequiredChain()
+      await maybeSwitch()
       return submitClaimViaWagmi(config, claimVaultAddress, signed)
     }
   }
@@ -144,7 +172,7 @@ export async function claimCdcu(
   ) {
     const claimerBalance = await readNativeBalance(config, claimerAddress)
     if (claimerBalance > 0n) {
-      await ensureRequiredChain()
+      await maybeSwitch()
       return submitClaimViaWagmi(config, claimVaultAddress, signed)
     }
   }
