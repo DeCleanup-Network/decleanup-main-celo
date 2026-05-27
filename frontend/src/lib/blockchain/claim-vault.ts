@@ -87,7 +87,7 @@ async function submitClaimViaWallet(
         () =>
           reject(
             new Error(
-              `No transaction appeared in your wallet. On phone, use WalletConnect or open this site inside the MetaMask app. On desktop, confirm ${REQUIRED_CHAIN_NAME} is selected.`
+              `No transaction appeared in your wallet. Confirm ${REQUIRED_CHAIN_NAME} is selected, then approve the claim in your wallet app.`
             )
           ),
         TX_WAIT_MS

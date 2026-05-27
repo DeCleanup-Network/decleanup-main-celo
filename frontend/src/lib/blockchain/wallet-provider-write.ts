@@ -1,10 +1,11 @@
 /**
- * Send txs through the connected wallet provider (MetaMask / WalletConnect).
- * wagmi/core writeContract often never prompts on mobile Safari; viem walletClient does.
+ * Send txs through the connected wallet provider (MetaMask injected, WalletConnect, etc.).
+ * Uses viem walletClient so WalletConnect on mobile Safari can sign (wagmi writeContract often stalls).
  */
 
 import type { Config } from 'wagmi'
 import type { Address, Hex, WalletClient } from 'viem'
+import { encodeFunctionData } from 'viem'
 import { getAccount, getWalletClient, reconnect } from '@wagmi/core'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
 import { requiredViemChain } from '@/lib/blockchain/required-chain'
@@ -14,19 +15,9 @@ export function isMobileBrowser(): boolean {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-/** True when MetaMask injected provider is present (extension or in-app browser). */
-export function hasMetaMaskProvider(): boolean {
-  if (typeof window === 'undefined') return false
-  const eth = (window as Window & { ethereum?: { isMetaMask?: boolean } }).ethereum
-  return Boolean(eth?.isMetaMask)
-}
-
-/**
- * Mobile Safari + “connected” via stale session often cannot sign.
- * WalletConnect or MetaMask in-app browser is required.
- */
-export function mobileWalletNeedsWalletConnectHint(): boolean {
-  return isMobileBrowser() && !hasMetaMaskProvider()
+/** Show pre-connect hint only — not when WalletConnect / wagmi is already connected. */
+export function shouldShowMobileWalletConnectHint(wagmiConnected: boolean): boolean {
+  return isMobileBrowser() && !wagmiConnected
 }
 
 export async function readProviderChainId(client: WalletClient): Promise<number | null> {
@@ -55,13 +46,15 @@ export async function getConnectedWalletClient(config: Config): Promise<WalletCl
   }
 
   if (!client?.account) {
-    throw new Error('Wallet not connected. Connect MetaMask or use WalletConnect, then try again.')
+    throw new Error(
+      'Wallet not connected. On phone, use Connect wallet (WalletConnect) on the login page, then return here.'
+    )
   }
 
   return client
 }
 
-const SWITCH_POLL_MS = 60_000
+const SWITCH_POLL_MS = 45_000
 
 /** Switch network via the wallet provider (works when wagmi switchChain stalls on mobile). */
 export async function ensureProviderOnRequiredChain(config: Config): Promise<WalletClient> {
@@ -91,6 +84,9 @@ export async function ensureProviderOnRequiredChain(config: Config): Promise<Wal
           chainId: hexChainId,
           chainName: REQUIRED_CHAIN_NAME,
           rpcUrls: [requiredViemChain.rpcUrls.default.http[0]],
+          blockExplorerUrls: requiredViemChain.blockExplorers?.default?.url
+            ? [requiredViemChain.blockExplorers.default.url]
+            : [],
           nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
         },
       ],
@@ -126,12 +122,6 @@ export async function writeContractViaWalletProvider(
     args: readonly unknown[]
   }
 ): Promise<Hex> {
-  if (mobileWalletNeedsWalletConnectHint()) {
-    throw new Error(
-      'On iPhone/Android, use WalletConnect (Connect wallet on the login page). The phone browser alone cannot send the claim transaction to your wallet.'
-    )
-  }
-
   const client = await ensureProviderOnRequiredChain(config)
   const account = getAccount(config)
   const from = client.account?.address ?? account.address
@@ -139,14 +129,30 @@ export async function writeContractViaWalletProvider(
     throw new Error('Wallet account unavailable. Reconnect your wallet and try again.')
   }
 
-  const hash = await client.writeContract({
+  const writeParams = {
     chain: requiredViemChain,
     account: from,
     address: params.address,
     abi: params.abi,
     functionName: params.functionName,
     args: params.args,
-  } as Parameters<WalletClient['writeContract']>[0])
+  } as Parameters<WalletClient['writeContract']>[0]
 
-  return hash
+  try {
+    return await client.writeContract(writeParams)
+  } catch (firstError) {
+    console.warn('[wallet-provider-write] writeContract failed, trying sendTransaction:', firstError)
+    const data = encodeFunctionData({
+      abi: params.abi,
+      functionName: params.functionName,
+      args: params.args,
+    })
+    return await client.sendTransaction({
+      chain: requiredViemChain,
+      account: from,
+      to: params.address,
+      data,
+      value: 0n,
+    })
+  }
 }

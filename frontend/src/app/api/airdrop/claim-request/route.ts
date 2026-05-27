@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto'
 import { NextResponse } from 'next/server'
 import { type Address, isAddress, parseEther } from 'viem'
 import { CLAIM_CATEGORY, signClaimVaultClaim } from '@/lib/cdcu/claim-signing'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { getAirdropAllocation } from '@/lib/airdrop/manual-allocations'
 import {
   clearAirdropPending,
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   try {
     const privateKey = normalizePrivateKey(process.env.CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY)
     const claimVaultAddress = process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS as Address | undefined
-    const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 11142220)
+    const chainId = REQUIRED_CHAIN_ID
     if (!privateKey || !claimVaultAddress || !isAddress(claimVaultAddress)) {
       return NextResponse.json({ error: 'Claim signing not configured' }, { status: 503 })
     }

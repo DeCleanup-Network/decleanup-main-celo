@@ -3,6 +3,7 @@ import { defineChain } from 'viem'
 import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
 const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
@@ -36,8 +37,13 @@ const walletConnectProjectId =
  * Wagmi for AA auth mode — connectors for MetaMask / WalletConnect without nesting a second
  * WagmiProvider on /login (that broke “connected on login, logged out on home”).
  */
+const chains =
+  REQUIRED_CHAIN_ID === 42220
+    ? ([celoMainnet, celoSepoliaChain, mainnet] as const)
+    : ([celoSepoliaChain, celoMainnet, mainnet] as const)
+
 export const minimalWagmiConfig = createConfig({
-  chains: [celoSepoliaChain, celoMainnet, mainnet],
+  chains: [...chains],
   connectors: [
     injected(),
     walletConnect({

@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { isAddress, type Address } from 'viem'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
-import { mobileWalletNeedsWalletConnectHint } from '@/lib/blockchain/wallet-provider-write'
+import { shouldShowMobileWalletConnectHint } from '@/lib/blockchain/wallet-provider-write'
+import { REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
 import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -356,7 +357,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
 
           {walletMatches && (
             <div className="mt-4 flex flex-col gap-3">
-              {mobileWalletNeedsWalletConnectHint() && !isEmbeddedAccount && (
+              {shouldShowMobileWalletConnectHint(wagmiConnected) && !isEmbeddedAccount && (
                 <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
                   On this phone browser, use{' '}
                   <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`} className="underline">
@@ -409,7 +410,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 </p>
               ) : !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
                 <p className="w-full text-xs text-muted-foreground">
-                  Wallet may ask to switch to Celo Sepolia, then to confirm the claim.
+                  {`Wallet may ask to switch to ${REQUIRED_CHAIN_NAME}, then to confirm the claim.`}
                 </p>
               ) : null}
               </div>
