@@ -60,23 +60,28 @@ async function readNativeBalance(config: Config, address?: Address): Promise<big
 async function submitClaimViaWallet(
   config: Config,
   claimVaultAddress: Address,
-  signed: SignedClaimParams
+  signed: SignedClaimParams,
+  options?: { skipSwitch?: boolean }
 ): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
-  const hash = await writeContractViaWalletProvider(config, {
-    address: claimVaultAddress,
-    abi: CLAIMVAULT_ABI,
-    functionName: 'claim',
-    args: [
-      signed.recipient,
-      BigInt(signed.amount),
-      signed.category,
-      BigInt(signed.nonce),
-      BigInt(signed.expiry),
-      signed.v,
-      signed.r,
-      signed.s,
-    ],
-  })
+  const hash = await writeContractViaWalletProvider(
+    config,
+    {
+      address: claimVaultAddress,
+      abi: CLAIMVAULT_ABI,
+      functionName: 'claim',
+      args: [
+        signed.recipient,
+        BigInt(signed.amount),
+        signed.category,
+        BigInt(signed.nonce),
+        BigInt(signed.expiry),
+        signed.v,
+        signed.r,
+        signed.s,
+      ],
+    },
+    { skipSwitch: options?.skipSwitch }
+  )
 
   const receipt = await waitForTransactionReceipt(config, { hash, chainId: REQUIRED_CHAIN_ID })
   return { hash, receipt }
@@ -88,7 +93,13 @@ async function submitClaimViaWallet(
  */
 export async function claimCdcu(
   signed: SignedClaimParams,
-  options?: { gaslessClient?: GaslessClient; claimerAddress?: Address }
+  options?: {
+    gaslessClient?: GaslessClient
+    claimerAddress?: Address
+    /** Airdrop / external wallet: submit via connected wagmi wallet (WalletConnect, MetaMask). */
+    preferConnectedWallet?: boolean
+    skipSwitch?: boolean
+  }
 ): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
   const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT as Address
   if (!claimVaultAddress) {
@@ -98,6 +109,12 @@ export async function claimCdcu(
   const config = getConfig()
   const account = getAccount(config)
   const wagmiAddress = account.isConnected ? (account.address as Address | undefined) : undefined
+
+  if (options?.preferConnectedWallet && wagmiAddress) {
+    return submitClaimViaWallet(config, claimVaultAddress, signed, {
+      skipSwitch: options.skipSwitch,
+    })
+  }
 
   const claimData = encodeFunctionData({
     abi: CLAIMVAULT_ABI,

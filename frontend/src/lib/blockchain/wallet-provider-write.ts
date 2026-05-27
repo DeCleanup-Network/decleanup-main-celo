@@ -10,6 +10,15 @@ import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-c
 import { requiredViemChain } from '@/lib/blockchain/required-chain'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 
+function chainIdHex(): Hex {
+  return `0x${REQUIRED_CHAIN_ID.toString(16)}` as Hex
+}
+
+function shouldUseProviderSendTransaction(config: Config): boolean {
+  const account = getAccount(config)
+  return account.connector?.id === 'walletConnect' || isMobileBrowser()
+}
+
 export function isMobileBrowser(): boolean {
   if (typeof navigator === 'undefined') return false
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
@@ -48,8 +57,32 @@ async function sendContractTx(
     abi: readonly unknown[]
     functionName: string
     args: readonly unknown[]
-  }
+  },
+  config: Config
 ): Promise<Hex> {
+  const data = encodeFunctionData({
+    abi: params.abi,
+    functionName: params.functionName,
+    args: params.args,
+  })
+
+  // WalletConnect on mobile: viem writeContract often does not surface a tx prompt after a chain switch.
+  if (shouldUseProviderSendTransaction(config) && client.request) {
+    const hash = await client.request({
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from,
+          to: params.address,
+          data,
+          value: '0x0',
+          chainId: chainIdHex(),
+        },
+      ],
+    })
+    return hash as Hex
+  }
+
   const writeParams = {
     chain: requiredViemChain,
     account: from,
@@ -63,11 +96,6 @@ async function sendContractTx(
     return await client.writeContract(writeParams)
   } catch (firstError) {
     console.warn('[wallet-provider-write] writeContract failed, trying sendTransaction:', firstError)
-    const data = encodeFunctionData({
-      abi: params.abi,
-      functionName: params.functionName,
-      args: params.args,
-    })
     return await client.sendTransaction({
       chain: requiredViemChain,
       account: from,
@@ -102,11 +130,13 @@ export async function writeContractViaWalletProvider(
     }
   }
 
+  await reconnect(config).catch(() => {})
+
   const client = await getConnectedWalletClient(config)
   const from = (client.account?.address ?? account.address) as Address | undefined
   if (!from) {
     throw new Error('Wallet account unavailable. Reconnect and try again.')
   }
 
-  return sendContractTx(client, from, params)
+  return sendContractTx(client, from, params, config)
 }
