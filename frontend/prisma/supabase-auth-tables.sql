@@ -56,3 +56,18 @@ ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId"
 
 ALTER TABLE "Session" DROP CONSTRAINT IF EXISTS "Session_userId_fkey";
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Block PostgREST public API on auth tables (Prisma uses DATABASE_URL; service role bypasses RLS).
+ALTER TABLE public."User" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."User" FORCE ROW LEVEL SECURITY;
+ALTER TABLE public."Account" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Account" FORCE ROW LEVEL SECURITY;
+ALTER TABLE public."Session" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Session" FORCE ROW LEVEL SECURITY;
+ALTER TABLE public."VerificationToken" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."VerificationToken" FORCE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public."User" FROM anon, authenticated;
+REVOKE ALL ON TABLE public."Account" FROM anon, authenticated;
+REVOKE ALL ON TABLE public."Session" FROM anon, authenticated;
+REVOKE ALL ON TABLE public."VerificationToken" FROM anon, authenticated;

@@ -52,3 +52,14 @@ CREATE INDEX IF NOT EXISTS "WebAuthnChallenge_expiresAt_idx" ON "WebAuthnChallen
 ALTER TABLE "WebAuthnChallenge"
   ADD CONSTRAINT "WebAuthnChallenge_userId_fkey"
   FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE public."PasskeyCredential" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."PasskeyCredential" FORCE ROW LEVEL SECURITY;
+ALTER TABLE public."PasskeyUnlockSecret" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."PasskeyUnlockSecret" FORCE ROW LEVEL SECURITY;
+ALTER TABLE public."WebAuthnChallenge" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."WebAuthnChallenge" FORCE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public."PasskeyCredential" FROM anon, authenticated;
+REVOKE ALL ON TABLE public."PasskeyUnlockSecret" FROM anon, authenticated;
+REVOKE ALL ON TABLE public."WebAuthnChallenge" FROM anon, authenticated;

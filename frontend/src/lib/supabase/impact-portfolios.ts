@@ -12,13 +12,12 @@ function getSupabase() {
   if (supabaseServerClient) return supabaseServerClient
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 
   if (!url || !key) {
-    throw new Error('Missing Supabase environment variables for impact portfolios')
+    throw new Error(
+      'Missing Supabase server credentials for impact portfolios. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+    )
   }
 
   supabaseServerClient = createClient<Database>(url, key, {
