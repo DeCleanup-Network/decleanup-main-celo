@@ -1,15 +1,11 @@
 /**
- * Switch the connected external wallet (MetaMask / WalletConnect) to the app's target Celo network.
+ * Switch the connected external wallet to the app's target Celo network.
  */
 
 import { getAccount } from '@wagmi/core'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { getConfig } from '@/lib/blockchain/get-wagmi-config'
-import {
-  ensureProviderOnRequiredChain,
-  readProviderChainId,
-  getConnectedWalletClient,
-} from '@/lib/blockchain/wallet-provider-write'
+import { getConnectedWalletClient, trySwitchToRequiredChain } from '@/lib/blockchain/wallet-provider-write'
 
 export function isOnRequiredChain(): boolean {
   try {
@@ -20,15 +16,13 @@ export function isOnRequiredChain(): boolean {
   }
 }
 
-/** Ensures wallet provider is on REQUIRED_CHAIN_ID (provider RPC, not wagmi state alone). */
+/** Best-effort switch for network banner — does not block on eth_chainId polling. */
 export async function ensureRequiredChain(): Promise<void> {
   const config = getConfig()
   const account = getAccount(config)
   if (!account.isConnected) return
+  if (account.chainId === REQUIRED_CHAIN_ID) return
 
   const client = await getConnectedWalletClient(config)
-  const providerChain = await readProviderChainId(client)
-  if (providerChain === REQUIRED_CHAIN_ID && account.chainId === REQUIRED_CHAIN_ID) return
-
-  await ensureProviderOnRequiredChain(config)
+  await trySwitchToRequiredChain(config, client)
 }

@@ -177,7 +177,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       }
 
       if (!isEmbeddedAccount && wagmiConnected) {
-        setClaimPhase('Open your wallet — switch network if asked, then confirm the claim.')
+        setClaimPhase('Confirm the claim in your wallet app.')
       } else if (gaslessClient) {
         setClaimPhase('Submitting sponsored claim…')
       }
@@ -410,7 +410,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 </p>
               ) : !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
                 <p className="w-full text-xs text-muted-foreground">
-                  {`Wallet may ask to switch to ${REQUIRED_CHAIN_NAME}, then to confirm the claim.`}
+                  Approve the transaction in your wallet. If MetaMask asks for a network, choose Celo.
                 </p>
               ) : null}
               </div>

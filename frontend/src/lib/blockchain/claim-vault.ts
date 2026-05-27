@@ -45,8 +45,6 @@ type GaslessClient = {
   sendTransaction: (params: { to: Address; data?: `0x${string}`; value?: bigint }) => Promise<`0x${string}`>
 }
 
-const TX_WAIT_MS = 60_000
-
 async function readNativeBalance(config: Config, address?: Address): Promise<bigint> {
   if (!address) return 0n
   try {
@@ -64,7 +62,7 @@ async function submitClaimViaWallet(
   claimVaultAddress: Address,
   signed: SignedClaimParams
 ): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
-  const writePromise = writeContractViaWalletProvider(config, {
+  const hash = await writeContractViaWalletProvider(config, {
     address: claimVaultAddress,
     abi: CLAIMVAULT_ABI,
     functionName: 'claim',
@@ -79,21 +77,6 @@ async function submitClaimViaWallet(
       signed.s,
     ],
   })
-
-  const hash = await Promise.race([
-    writePromise,
-    new Promise<never>((_, reject) => {
-      setTimeout(
-        () =>
-          reject(
-            new Error(
-              `No transaction appeared in your wallet. Confirm ${REQUIRED_CHAIN_NAME} is selected, then approve the claim in your wallet app.`
-            )
-          ),
-        TX_WAIT_MS
-      )
-    }),
-  ])
 
   const receipt = await waitForTransactionReceipt(config, { hash, chainId: REQUIRED_CHAIN_ID })
   return { hash, receipt }
