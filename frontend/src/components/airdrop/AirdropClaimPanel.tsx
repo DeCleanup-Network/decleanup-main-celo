@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { isAddress, type Address } from 'viem'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
+import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
@@ -139,6 +140,15 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       let gaslessClient:
         | { sendTransaction: (params: { to: Address; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> }
         | undefined
+
+      if (!isEmbeddedAccount && wagmiConnected) {
+        try {
+          await ensureRequiredChain()
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Please switch MetaMask to Celo Sepolia Testnet.')
+          return
+        }
+      }
 
       if (isEmbeddedAccount) {
         if (!hasActiveSigningSession) {

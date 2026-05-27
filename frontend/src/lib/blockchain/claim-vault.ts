@@ -6,7 +6,8 @@
 import { getAccount, getPublicClient, writeContract, waitForTransactionReceipt } from '@wagmi/core'
 import type { Config } from 'wagmi'
 import { getConfig } from './get-wagmi-config'
-import { CONTRACT_ADDRESSES } from './chain-constants'
+import { CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from './chain-constants'
+import { ensureRequiredChain } from './ensure-required-chain'
 import { encodeFunctionData, type Address } from 'viem'
 import { waitForGaslessUserOperationConfirmation } from '@/lib/smart-account/wait-user-op'
 
@@ -47,7 +48,8 @@ type GaslessClient = {
 async function readNativeBalance(config: Config, address?: Address): Promise<bigint> {
   if (!address) return 0n
   try {
-    const publicClient = getPublicClient(config)
+    // Always read on the app's target chain — MetaMask may still be on Ethereum mainnet.
+    const publicClient = getPublicClient(config, { chainId: REQUIRED_CHAIN_ID })
     if (!publicClient) return 0n
     return await publicClient.getBalance({ address })
   } catch (error) {
@@ -125,10 +127,11 @@ export async function claimCdcu(
     ],
   })
 
-  // Prefer MetaMask / browser wallet when it has CELO — even if the airdrop allocation is a smart account.
+  // Prefer MetaMask / browser wallet when it has CELO on the target Celo network.
   if (wagmiAddress) {
     const wagmiBalance = await readNativeBalance(config, wagmiAddress)
     if (wagmiBalance > 0n) {
+      await ensureRequiredChain()
       return submitClaimViaWagmi(config, claimVaultAddress, signed)
     }
   }
@@ -141,6 +144,7 @@ export async function claimCdcu(
   ) {
     const claimerBalance = await readNativeBalance(config, claimerAddress)
     if (claimerBalance > 0n) {
+      await ensureRequiredChain()
       return submitClaimViaWagmi(config, claimVaultAddress, signed)
     }
   }
@@ -157,8 +161,11 @@ export async function claimCdcu(
   }
 
   if (account.isConnected && wagmiAddress) {
+    const wrongNetwork = account.chainId != null && account.chainId !== REQUIRED_CHAIN_ID
     throw new Error(
-      'Your connected MetaMask wallet has no CELO for gas on this network. Add CELO on the correct Celo network, or sign in with Google/email, unlock your smart account, and try again for sponsored gas.'
+      wrongNetwork
+        ? `Switch MetaMask to ${REQUIRED_CHAIN_NAME} (Chain ID ${REQUIRED_CHAIN_ID}). You may have CELO on Celo but the wallet is on another network.`
+        : `Your connected MetaMask wallet has no CELO for gas on ${REQUIRED_CHAIN_NAME}. Add testnet CELO from https://faucet.celo.org/ or sign in with Google/email for sponsored gas.`
     )
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useAccount, useConnect } from 'wagmi'
 import { Button } from '@/components/ui/button'
+import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
 
 type Props = {
   callbackUrl: string
@@ -43,6 +44,11 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     if (!isConnected) return
     let cancelled = false
     void (async () => {
+      try {
+        await ensureRequiredChain()
+      } catch (e) {
+        console.warn('[ExternalWalletLogin] Network switch skipped or failed:', e)
+      }
       if (status === 'authenticated') {
         await signOut({ redirect: false })
       }

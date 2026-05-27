@@ -241,8 +241,8 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
 }
 
 export function NetworkChecker() {
-  if (isAaAuthEnabledClient()) return null
-  if (isPrivyEnabled) return <NetworkCheckerEmbedded />
+  // AA mode still uses MetaMask for some flows (airdrop, external wallet login) — keep the switch banner.
+  if (isPrivyEnabled && !isAaAuthEnabledClient()) return <NetworkCheckerEmbedded />
   return <NetworkCheckerWagmi />
 }
 
