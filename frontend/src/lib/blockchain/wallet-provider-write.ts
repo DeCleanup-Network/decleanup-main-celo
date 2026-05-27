@@ -113,7 +113,7 @@ export async function ensureProviderOnRequiredChain(config: Config): Promise<Wal
   }
 
   throw new Error(
-    `Could not switch to ${REQUIRED_CHAIN_NAME}. Open MetaMask, select that network, return to this tab, and tap Claim again.`
+    `Could not switch to ${REQUIRED_CHAIN_NAME}. Switch network in your wallet, return here, and tap Claim again.`
   )
 }
 
@@ -128,7 +128,7 @@ export async function writeContractViaWalletProvider(
 ): Promise<Hex> {
   if (mobileWalletNeedsWalletConnectHint()) {
     throw new Error(
-      'On mobile, open this site in the MetaMask app browser, or sign in with WalletConnect (Connect wallet on the login page). Safari/Chrome alone cannot sign transactions.'
+      'On iPhone/Android, use WalletConnect (Connect wallet on the login page). The phone browser alone cannot send the claim transaction to your wallet.'
     )
   }
 

@@ -785,7 +785,7 @@ function HomeContent() {
             <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">
               Hypercert
               {hypercertEligibility.testingOverride && (
-                <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Sepolia Testnet)</span>
+                <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Test mode)</span>
               )}
             </h3>
             <Link href="/hypercerts" className="block">

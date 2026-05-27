@@ -362,7 +362,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`} className="underline">
                     WalletConnect
                   </Link>{' '}
-                  or open the site in the MetaMask app — otherwise the claim transaction will not appear.
+                  — otherwise the claim transaction will not appear.
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-2">
