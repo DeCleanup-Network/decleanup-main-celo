@@ -11,7 +11,6 @@ import { WalletStatusCard } from '@/components/aa/WalletStatusCard'
 import { PendingPasswordSettings } from '@/components/aa/PendingPasswordSettings'
 import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
-import { AccountHowItWorks } from '@/components/aa/AccountHowItWorks'
 import { useAaWallet } from '@/hooks/useAaWallet'
 import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
@@ -77,6 +76,9 @@ export default function SmartAccountSettingsPage() {
             Smart account settings
           </h1>
           <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm" className="border-gray-600 text-gray-300">
+            <Link href="/guide">How it works</Link>
+          </Button>
           {phase === 'unlocked' && (
             <Button
               variant="outline"
@@ -132,7 +134,6 @@ export default function SmartAccountSettingsPage() {
 
           <PasskeySettings />
           <WalletBackupSection />
-          <AccountHowItWorks />
         </>
       )}
     </div>

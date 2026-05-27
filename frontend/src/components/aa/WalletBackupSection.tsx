@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { ImportBackupForm } from '@/components/aa/ImportBackupForm'
+import { MetamaskExportSection } from '@/components/aa/MetamaskExportSection'
 import { useWallet } from '@/providers/WalletProvider'
 import { WALLET_PASSKEY, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
 
@@ -118,6 +119,8 @@ export function WalletBackupSection() {
             </p>
             <ImportBackupForm redirectTo="/wallet" compact />
           </div>
+
+          <MetamaskExportSection />
 
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
         </div>

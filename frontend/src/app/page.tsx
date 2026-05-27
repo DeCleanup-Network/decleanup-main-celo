@@ -47,6 +47,7 @@ import {
   type SignUnlockModalMode,
 } from '@/components/aa/SignUnlockModal'
 import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
+import { AirdropPendingBanner } from '@/components/airdrop/AirdropPendingBanner'
 import { WalletReadyCard } from '@/components/aa/WalletReadyCard'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { useWallet } from '@/providers/WalletProvider'
@@ -333,10 +334,10 @@ function HomeContent() {
         <div className="w-full border-t border-brand-green/25 bg-brand-green/10 py-4">
           <div className="container mx-auto flex flex-col items-center justify-center gap-3 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
             <p className="font-sans text-sm text-muted-foreground max-w-xl">
-              Past contributors can claim $cDCU airdrop here.
+              Past contributors: check $cDCU airdrop eligibility before signing in.
             </p>
             <Button asChild className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90">
-              <Link href="/airdrop">Claim airdrop</Link>
+              <Link href="/airdrop">Check airdrop</Link>
             </Button>
           </div>
         </div>
@@ -435,6 +436,7 @@ function HomeContent() {
             .
           </div>
         )}
+        <AirdropPendingBanner />
         {/* HERO — primary CTA first */}
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
@@ -1048,13 +1050,13 @@ function HomeContent() {
       >
         <div className="mx-auto flex max-w-[1200px] flex-col items-stretch gap-4 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p className="text-center font-sans text-sm leading-relaxed text-muted-foreground sm:text-left sm:max-w-xl">
-            Past contributor? You may qualify for the $cDCU airdrop.
+            Past contributor? Check or claim your $cDCU airdrop.
           </p>
           <Button
             asChild
             className="w-full shrink-0 bg-brand-green font-bebas text-sm uppercase tracking-wider text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[11rem]"
           >
-            <Link href="/airdrop">Claim airdrop</Link>
+            <Link href="/airdrop">Airdrop</Link>
           </Button>
         </div>
       </section>
