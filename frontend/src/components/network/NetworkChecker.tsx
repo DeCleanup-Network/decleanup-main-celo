@@ -2,43 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useAccount, useChainId, useSwitchChain, useWalletClient } from 'wagmi'
+import { useAccount, useChainId, useConfig } from 'wagmi'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
 import {
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
-  REQUIRED_RPC_URL,
-  REQUIRED_BLOCK_EXPLORER_URL,
 } from '@/lib/blockchain/chain-constants'
 import { AlertModal } from '@/components/ui/alert-modal'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
+import { MANUAL_SWITCH_INSTRUCTIONS } from '@/lib/blockchain/network-manual-switch'
 
 const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
-
-const NATIVE_SYMBOL = 'CELO'
-
-function chainIdToHex(chainId: number): `0x${string}` {
-  return `0x${chainId.toString(16)}` as const
-}
-
-const MANUAL_INSTRUCTIONS = (
-  requiredChainName: string,
-  requiredChainId: number,
-  requiredRpcUrl: string,
-  requiredBlockExplorer: string
-) =>
-  `Please switch to ${requiredChainName} manually in your wallet:\n\n` +
-      `1. Open your wallet's network dropdown\n` +
-      `2. Add network or "Add a network manually" if needed\n` +
-      `3. Use:\n` +
-      `   - Network Name: ${requiredChainName}\n` +
-      `   - RPC URL: ${requiredRpcUrl}\n` +
-      `   - Chain ID: ${requiredChainId}\n` +
-      `   - Currency: ${NATIVE_SYMBOL}\n` +
-      `   - Block Explorer: ${requiredBlockExplorer}\n` +
-      `4. Save and switch to this network`
 
 /** Wrong-network banner for embedded wallets: chain from provider (wagmi chain id can be stale after login). */
 function NetworkCheckerEmbedded() {
@@ -73,12 +50,12 @@ function NetworkCheckerEmbedded() {
 }
 
 function NetworkCheckerWagmi() {
+  const config = useConfig()
   const { isConnected } = useAccount()
   const chainId = useChainId()
-  const { switchChain, isPending } = useSwitchChain()
-  const { data: walletClient } = useWalletClient()
   const [showWarning, setShowWarning] = useState(false)
   const [manualSwitchModal, setManualSwitchModal] = useState<string | null>(null)
+  const [isPending, setIsPending] = useState(false)
 
   useEffect(() => {
     if (isConnected && chainId && chainId !== REQUIRED_CHAIN_ID) setShowWarning(true)
@@ -86,53 +63,18 @@ function NetworkCheckerWagmi() {
   }, [isConnected, chainId])
 
   const handleSwitchNetwork = async () => {
-    const hexChainId = chainIdToHex(REQUIRED_CHAIN_ID)
     setManualSwitchModal(null)
-
-    const tryProviderSwitch = async (): Promise<boolean> => {
-      if (!walletClient?.request) return false
-      try {
-        await (walletClient as any).request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: hexChainId }],
-        })
-        return true
-      } catch (e: any) {
-        if (e?.code === 4902) {
-          await (walletClient as any).request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: hexChainId,
-                chainName: REQUIRED_CHAIN_NAME,
-                rpcUrls: [REQUIRED_RPC_URL],
-                blockExplorerUrls: [REQUIRED_BLOCK_EXPLORER_URL].filter(Boolean),
-                nativeCurrency: { name: NATIVE_SYMBOL, symbol: NATIVE_SYMBOL, decimals: 18 },
-              },
-            ],
-          })
-          await (walletClient as any).request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: hexChainId }],
-          })
-          return true
-        }
-        throw e
-      }
-    }
-
+    setIsPending(true)
     try {
-      try {
-        await switchChain({ chainId: REQUIRED_CHAIN_ID })
-      } catch (wagmiError) {
-        const ok = await tryProviderSwitch()
-        if (!ok) throw wagmiError
+      const ok = await switchToRequiredChain(config)
+      if (!ok) {
+        setManualSwitchModal(MANUAL_SWITCH_INSTRUCTIONS)
       }
     } catch (error) {
       console.error('Failed to switch network:', error)
-      setManualSwitchModal(
-        MANUAL_INSTRUCTIONS(REQUIRED_CHAIN_NAME, REQUIRED_CHAIN_ID, REQUIRED_RPC_URL, REQUIRED_BLOCK_EXPLORER_URL)
-      )
+      setManualSwitchModal(MANUAL_SWITCH_INSTRUCTIONS)
+    } finally {
+      setIsPending(false)
     }
   }
 
@@ -194,7 +136,7 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
             <h3 className="mb-1 font-semibold text-yellow-400">Wrong Network</h3>
             <p className="mb-3 text-sm text-gray-300">
               {embedWalletMode
-                ? "You're on the wrong network. With email/Google login there's no wallet menu. Use Reset session & reconnect to log in on Celo Sepolia Testnet."
+                ? `You're on the wrong network. With email/Google login there's no wallet menu. Use Reset session & reconnect to log in on ${REQUIRED_CHAIN_NAME}.`
                 : `You're connected to the wrong network. Please switch to ${REQUIRED_CHAIN_NAME} to use this app.`}
             </p>
             <div className="flex flex-wrap gap-2">

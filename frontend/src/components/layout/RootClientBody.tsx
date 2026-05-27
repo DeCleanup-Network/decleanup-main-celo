@@ -4,7 +4,13 @@ import { Providers } from '@/lib/providers'
 import { NetworkChecker } from '@/components/network/NetworkChecker'
 import { Header } from '@/components/layout/Header'
 import { RootErrorBoundary } from '@/components/RootErrorBoundary'
+import { useAutoSwitchToAppChain } from '@/hooks/useAutoSwitchToAppChain'
 import { usePathname } from 'next/navigation'
+
+function AutoSwitchToAppChain() {
+  useAutoSwitchToAppChain()
+  return null
+}
 
 /**
  * Loaded via next/dynamic from app/layout so the layout chunk stays small.
@@ -17,6 +23,7 @@ export default function RootClientBody({ children }: { children: React.ReactNode
   return (
     <RootErrorBoundary>
       <Providers>
+        <AutoSwitchToAppChain />
         <NetworkChecker />
         <Header />
         <main className="flex-1 pb-mobile-safe">{children}</main>

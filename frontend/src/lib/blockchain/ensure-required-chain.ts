@@ -3,9 +3,9 @@
  */
 
 import { getAccount } from '@wagmi/core'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { getConfig } from '@/lib/blockchain/get-wagmi-config'
-import { getConnectedWalletClient, trySwitchToRequiredChain } from '@/lib/blockchain/wallet-provider-write'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 
 export function isOnRequiredChain(): boolean {
   try {
@@ -16,13 +16,10 @@ export function isOnRequiredChain(): boolean {
   }
 }
 
-/** Best-effort switch for network banner — does not block on eth_chainId polling. */
 export async function ensureRequiredChain(): Promise<void> {
   const config = getConfig()
   const account = getAccount(config)
   if (!account.isConnected) return
   if (account.chainId === REQUIRED_CHAIN_ID) return
-
-  const client = await getConnectedWalletClient(config)
-  await trySwitchToRequiredChain(config, client)
+  await switchToRequiredChain(config)
 }

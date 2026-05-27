@@ -4,9 +4,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { isAddress, type Address } from 'viem'
+import { useChainId, useConfig } from 'wagmi'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { shouldShowMobileWalletConnectHint } from '@/lib/blockchain/wallet-provider-write'
-import { REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
+import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
+import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -40,8 +42,17 @@ type Props = {
   initialAddress?: string
 }
 
+type ClaimSignResult = {
+  ok: boolean
+  signed?: Record<string, unknown>
+  error?: string
+  status?: number
+}
+
 export function AirdropClaimPanel({ initialAddress }: Props) {
   const searchParams = useSearchParams()
+  const config = useConfig()
+  const chainId = useChainId()
   const aaEnabled = isAaAuthEnabledClient()
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: appAddress, showMainApp, wagmiConnected } = useAppWalletAddress()
@@ -55,11 +66,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   const [checkedAddress, setCheckedAddress] = useState('')
   const [checkLoading, setCheckLoading] = useState(false)
   const [claimLoading, setClaimLoading] = useState(false)
+  const [switchLoading, setSwitchLoading] = useState(false)
   const [claimPhase, setClaimPhase] = useState<string | null>(null)
   const [result, setResult] = useState<CheckResponse | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const autoCheckedRef = useRef<string | null>(null)
+  const signPrefetchRef = useRef<Promise<ClaimSignResult> | null>(null)
+
+  const wrongNetwork =
+    !isEmbeddedAccount && wagmiConnected && chainId !== REQUIRED_CHAIN_ID
 
   const connectedClaimAddress = useMemo((): Address | undefined => {
     if (isEmbeddedAccount) {
@@ -134,10 +150,55 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     void runCheck(candidate)
   }, [searchParams, initialAddress, runCheck])
 
+  const fetchClaimSignature = useCallback(async (recipient: string): Promise<ClaimSignResult> => {
+    const signRes = await fetch('/api/airdrop/claim-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    const signed = (await signRes.json().catch(() => ({}))) as Record<string, unknown>
+    return {
+      ok: signRes.ok,
+      signed,
+      error: typeof signed.error === 'string' ? signed.error : undefined,
+      status: signRes.status,
+    }
+  }, [])
+
+  // Prefetch backend signature while user reads allocation (no chain required).
+  useEffect(() => {
+    if (!canClaim || !result?.walletAddress) {
+      signPrefetchRef.current = null
+      return
+    }
+    signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
+  }, [canClaim, result?.walletAddress, fetchClaimSignature])
+
+  async function handleSwitchNetwork() {
+    setSwitchLoading(true)
+    setError(null)
+    try {
+      const ok = await switchToRequiredChain(config)
+      if (!ok) {
+        setError(`Could not switch to ${REQUIRED_CHAIN_NAME}. Open your wallet app and select Celo, then try again.`)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network switch failed')
+    } finally {
+      setSwitchLoading(false)
+    }
+  }
+
   async function handleClaim() {
     if (!canClaim || !result?.walletAddress) return
+    if (wrongNetwork) {
+      await handleSwitchNetwork()
+      return
+    }
+
     setClaimLoading(true)
-    setClaimPhase(null)
+    setClaimPhase('Opening wallet…')
     setError(null)
     setMessage(null)
     try {
@@ -163,17 +224,30 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         gaslessClient = gasless
       }
 
-      setClaimPhase('Preparing claim signature…')
-      const signRes = await fetch('/api/airdrop/claim-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: result.walletAddress }),
-        signal: AbortSignal.timeout(30_000),
-      })
-      const signed = await signRes.json().catch(() => ({}))
-      if (!signRes.ok) {
-        setError(signed?.error || `Claim signing failed (${signRes.status})`)
+      const signPromise =
+        signPrefetchRef.current ?? fetchClaimSignature(result.walletAddress)
+      signPrefetchRef.current = null
+
+      const [signResult] = await Promise.all([
+        signPromise,
+        !isEmbeddedAccount && wagmiConnected
+          ? switchToRequiredChain(config)
+          : Promise.resolve(true),
+      ])
+
+      if (!signResult.ok) {
+        setError(signResult.error || `Claim signing failed (${signResult.status ?? 'unknown'})`)
         return
+      }
+      const signed = signResult.signed as {
+        recipient: Address
+        amount: string
+        category: number
+        nonce: string
+        expiry: number
+        v: number
+        r: `0x${string}`
+        s: `0x${string}`
       }
 
       if (!isEmbeddedAccount && wagmiConnected) {
@@ -366,7 +440,29 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   — otherwise the claim transaction will not appear.
                 </p>
               )}
+              {wrongNetwork && (
+                <p className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
+                  Your wallet is on Ethereum (chain {chainId}). Switch to {REQUIRED_CHAIN_NAME} before claiming.
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-2">
+              {wrongNetwork ? (
+                <Button
+                  type="button"
+                  onClick={() => void handleSwitchNetwork()}
+                  disabled={switchLoading}
+                  className="min-h-11 w-full shrink-0 bg-brand-green px-4 text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[10rem]"
+                >
+                  {switchLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+                      Switching network…
+                    </>
+                  ) : (
+                    `Switch to ${REQUIRED_CHAIN_NAME}`
+                  )}
+                </Button>
+              ) : (
               <Button
                 onClick={() => void handleClaim()}
                 disabled={!canClaim || claimLoading || needsEmbeddedUnlock}
@@ -375,7 +471,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 {claimLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
-                    <span className="truncate">Confirm in wallet</span>
+                    <span className="truncate">{claimPhase ?? 'Confirm in wallet'}</span>
                   </>
                 ) : result.claimed ? (
                   'Already claimed'
@@ -385,6 +481,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   `Claim ${result.amountCdcu} cDCU`
                 )}
               </Button>
+              )}
               {!hasClaimable && !result.claimed && walletMatches ? (
                 <Button
                   type="button"
@@ -408,9 +505,9 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 <p className="w-full text-xs text-muted-foreground" role="status">
                   {claimPhase}
                 </p>
-              ) : !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
+              ) : !wrongNetwork && !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
                 <p className="w-full text-xs text-muted-foreground">
-                  Approve the transaction in your wallet. If MetaMask asks for a network, choose Celo.
+                  Approve the transaction in your wallet (Rainbow, Zerion, or MetaMask). Choose Celo if asked.
                 </p>
               ) : null}
               </div>

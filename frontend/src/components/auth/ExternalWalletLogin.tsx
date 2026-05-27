@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { useAccount, useConnect } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 
 type Props = {
   callbackUrl: string
@@ -61,7 +62,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
 
   const connectWith = (connector: (typeof connectors)[number] | null) => {
     if (!connector) return
-    connect({ connector })
+    connect({ connector, chainId: REQUIRED_CHAIN_ID })
   }
 
   const showInjected = hasInjectedProvider() && injectedConnector
