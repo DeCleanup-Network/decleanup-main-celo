@@ -105,17 +105,27 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
   useEffect(() => {
     let cancelled = false
     async function fetchEligibility() {
+      const controller = new AbortController()
+      const timeout = window.setTimeout(() => controller.abort(), 25_000)
       try {
         const q = new URLSearchParams({
           recipient: rewardAddress,
           mintRecipient: payoutAddress,
         })
-        const res = await fetch(`/api/cdcu/eligibility?${q.toString()}`)
+        const res = await fetch(`/api/cdcu/eligibility?${q.toString()}`, {
+          signal: controller.signal,
+        })
         const data = await res.json().catch(() => ({}))
         if (!cancelled && res.ok) setEligibility(data)
-      } catch {
-        if (!cancelled) setEligibility(null)
+      } catch (e) {
+        if (!cancelled) {
+          setEligibility(null)
+          if (e instanceof Error && e.name === 'AbortError') {
+            setError('Eligibility check timed out. Tap below to retry or refresh the page.')
+          }
+        }
       } finally {
+        window.clearTimeout(timeout)
         if (!cancelled) setEligibilityLoading(false)
       }
     }

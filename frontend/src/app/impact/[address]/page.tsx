@@ -59,6 +59,8 @@ import {
   sanitizeProfileFromUserInput,
   type EditableProfile,
 } from '@/lib/impact/portfolio-profile'
+import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
+import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
 
 const VERIFICATION_PIPELINE_DOC_URL =
   'https://github.com/DeCleanup-Network/decleanup-main-celo/blob/main/docs/ML_VERIFICATION_ARCHITECTURE.md'
@@ -179,6 +181,9 @@ function PublicPortfolioContent() {
   const [saveProfileError, setSaveProfileError] = useState<string | null>(null)
   const [saveProfileLoading, setSaveProfileLoading] = useState(false)
   const [isPortfolioVerifier, setIsPortfolioVerifier] = useState(false)
+
+  const badgeWalletAddress = submissionOwnerOverride ?? resolved ?? undefined
+  const { showPastContributorBadge } = usePastContributorBadge(badgeWalletAddress ?? undefined)
 
   const effectiveSubmissionOwner = useMemo(() => {
     if (submissionOwnerOverride) return submissionOwnerOverride
@@ -491,8 +496,9 @@ function PublicPortfolioContent() {
                 Verified Impact · ESG Disclosure
               </div>
               <h2 className="font-bebas text-4xl leading-none tracking-wider sm:text-6xl">{displayTitle}</h2>
-              {(isPortfolioVerifier || hasMaxImpactLevel) && (
+              {(showPastContributorBadge || isPortfolioVerifier || hasMaxImpactLevel) && (
                 <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {showPastContributorBadge ? <PastContributorBadge size="md" /> : null}
                   {isPortfolioVerifier && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/45 bg-gradient-to-r from-cyan-500/20 to-sky-600/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-100 shadow-[0_0_20px_-4px_rgba(34,211,238,0.45)]">
                       <Shield className="h-3.5 w-3.5 text-cyan-300" aria-hidden />

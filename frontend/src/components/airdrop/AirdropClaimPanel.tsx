@@ -17,6 +17,7 @@ import {
   savePendingAirdropAddress,
 } from '@/lib/airdrop/pending-session'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
 
 type CheckResponse = {
   eligible: boolean
@@ -27,6 +28,7 @@ type CheckResponse = {
   category?: string
   label?: string
   claimed?: boolean
+  pastContributorBadge?: boolean
   error?: string
 }
 
@@ -98,7 +100,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       setCheckedAddress(trimmed)
       setInputAddress(trimmed)
       setResult(data)
-      if (data.eligible) {
+      if (data.eligible && BigInt(data.claimableWei ?? '0') > 0n && !data.claimed) {
         savePendingAirdropAddress(trimmed)
       } else {
         clearPendingAirdropAddress()
@@ -223,20 +225,13 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   return (
     <>
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Gift className="h-5 w-5 text-brand-green" />
           <h1 className="font-bebas text-3xl tracking-wider">Early Supporters Airdrop</h1>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Check eligibility with your wallet address. If you qualify, sign in with the same wallet to
-          claim — you will return here with your allocation ready.
-        </p>
       </section>
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <p className="mb-3 text-sm text-foreground">
-          Paste the wallet address that received the allocation (usually your smart account address).
-        </p>
         <form onSubmit={handleCheck} className="space-y-3">
           <label htmlFor="airdrop-address" className="block text-sm font-medium text-muted-foreground">
             Wallet address
@@ -265,9 +260,12 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
 
       {result?.eligible && (
         <section className="rounded-2xl border border-brand-green/40 bg-brand-green/5 p-5 sm:p-6">
-          <div className="mb-3 flex items-center gap-2 text-brand-green">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-brand-green">
             <CheckCircle2 className="h-5 w-5" />
             <h2 className="font-bebas text-2xl tracking-wider">Allocation found</h2>
+            {result.pastContributorBadge || (result.claimed && result.category === 'past_contributor') ? (
+              <PastContributorBadge />
+            ) : null}
           </div>
           <div className="space-y-1 text-sm">
             <p>
@@ -345,20 +343,17 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   `Claim ${result.amountCdcu} cDCU`
                 )}
               </Button>
-              <p className="text-xs text-muted-foreground max-w-md">
-                {isEmbeddedAccount ? (
-                  <>
-                    cDCU mints to your smart account address above. Gas is usually sponsored (unlock your
-                    wallet passkey when prompted). If you have CELO in MetaMask on this network, we use that
-                    instead — your MetaMask balance is separate from the smart account.
-                  </>
-                ) : (
-                  <>
-                    This claim uses your connected MetaMask wallet to pay gas. cDCU is minted to the
-                    allocation address above.
-                  </>
-                )}
-              </p>
+              {!hasClaimable && !result.claimed && walletMatches ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-600 text-gray-200"
+                  onClick={() => void runCheck(checkedAddress)}
+                >
+                  Refresh eligibility
+                </Button>
+              ) : null}
               {isEmbeddedAccount && !hasActiveSigningSession && (
                 <p className="text-xs text-amber-300">
                   <Link href="/wallet" className="underline">

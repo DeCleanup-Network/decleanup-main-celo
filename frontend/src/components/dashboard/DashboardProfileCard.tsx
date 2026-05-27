@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { useVerifierAccess } from '@/hooks/useVerifierAccess'
+import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
+import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -26,6 +28,8 @@ export function DashboardProfileCard({
   claimFeeInfo,
 }: Props) {
   const { showVerifierFeatures } = useVerifierAccess({ defer: true })
+  const badgeAddress = submissionOwnerAddress ?? address
+  const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
 
   const impactHref = `/impact/${address}${
     submissionOwnerAddress && submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
@@ -36,6 +40,11 @@ export function DashboardProfileCard({
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
       <SectionHeading icon={TrendingUp}>Profile and Rewards</SectionHeading>
+      {showPastContributorBadge ? (
+        <div className="mb-2">
+          <PastContributorBadge size="md" />
+        </div>
+      ) : null}
       {showVerifierFeatures ? (
         <div className="mb-2">
           <button

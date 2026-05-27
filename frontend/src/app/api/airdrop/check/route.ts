@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isAddress, parseEther } from 'viem'
 import { getAirdropAllocation } from '@/lib/airdrop/manual-allocations'
-import { getAirdropPending, hasAirdropClaimed } from '@/lib/airdrop/store'
+import { clearAirdropPending, getAirdropPending, hasAirdropClaimed } from '@/lib/airdrop/store'
 
 export async function GET(request: Request) {
   try {
@@ -18,8 +18,17 @@ export async function GET(request: Request) {
 
     const claimed = await hasAirdropClaimed(address)
     const totalWei = parseEther(allocation.amountCdcu)
-    const pendingWei = await getAirdropPending(address)
+    let pendingWei = await getAirdropPending(address)
+
+    // claim-request reserves pending before the tx lands; clear stale locks so users can retry
+    if (!claimed && pendingWei >= totalWei && totalWei > 0n) {
+      await clearAirdropPending(address)
+      pendingWei = 0n
+    }
+
     const claimableWei = claimed ? 0n : totalWei > pendingWei ? totalWei - pendingWei : 0n
+    const pastContributorBadge =
+      claimed && allocation.category === 'past_contributor'
 
     return NextResponse.json({
       eligible: true,
@@ -30,6 +39,8 @@ export async function GET(request: Request) {
       category: allocation.category,
       label: allocation.label,
       claimed,
+      pastContributorBadge,
+      stalePendingCleared: !claimed && pendingWei === 0n,
     })
   } catch (e) {
     return NextResponse.json(

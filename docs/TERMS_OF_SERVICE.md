@@ -2,7 +2,7 @@
 
 **Effective date:** April 23, 2026  
 **Operator:** DeCleanup Network (“DeCleanup”, “we”, “us”, “our”)  
-**Service:** The DeCleanup web application and related APIs (collectively, the “Service”).
+**Service:** The DeCleanup Rewards web application at [dapp.decleanup.net](https://dapp.decleanup.net) and related APIs (collectively, the “Service”).
 
 ---
 
@@ -29,8 +29,11 @@ The Service is offered to users **worldwide**. You must be **legally able to ent
 
 ## 4. Wallets, keys, and onchain risks
 
-- **Self-custody:** You control the private keys or signer for your wallet. **We cannot recover lost keys** or reverse most onchain transactions.
-- **Irreversibility:** Onchain transactions can be **public and permanent**. Gas fees may apply; networks can congest or fail.
+- **Sign-in options:** You may use **Google or email** (embedded smart account), **MetaMask**, or another **WalletConnect** wallet. Embedded wallets use a **browser-held signing key** and an **ERC-4337 smart account**; optional **passkeys** can gate unlock on your device.
+- **Self-custody:** For external wallets, you control your keys. For embedded wallets, keys are generated and encrypted **on your device**; **we do not hold your private keys on our servers**. **We cannot recover lost keys, passkeys, or backups** or reverse most onchain transactions.
+- **Backups:** You may export an encrypted backup from smart account settings. **Losing your device, backup, and passkey** may mean permanent loss of access.
+- **Gas:** Embedded users may receive **sponsored** transactions through a third-party paymaster where enabled. External wallet users pay **CELO** gas themselves.
+- **Irreversibility:** Onchain transactions can be **public and permanent**. Networks can congest or fail.
 - **Testnet vs mainnet:** Deployments may point to **test networks**; tokens there may have **no value**. Verify the network shown in your wallet before signing.
 - **Smart contract risk:** Contracts can contain bugs or be upgraded depending on deployment. **Using onchain features is at your own risk.**
 

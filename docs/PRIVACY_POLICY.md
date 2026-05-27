@@ -19,13 +19,15 @@ Depending on how you use the Service, we may process:
 
 | Category | Examples |
 |----------|-----------|
-| **Wallet & onchain data** | Public wallet address, transaction hashes, token balances, contract interaction history (this data is **often public onchain**). |
+| **Wallet & onchain data** | Public wallet and smart-account addresses, transaction hashes, UserOperation receipts, token balances, contract interaction history (this data is **often public onchain**). |
+| **Account sign-in (embedded)** | If you sign in with Google or email: OAuth subject id, email address, and session tokens processed by our auth provider and **Auth.js**; we do **not** store your raw private key. |
+| **Passkeys (optional)** | WebAuthn credential ids and public keys stored to verify unlock; biometric data stays on your device. |
 | **Cleanup submissions** | Photos, descriptions, locations, optional impact or recyclables forms - typically uploaded to **IPFS** or similar storage via our servers. |
 | **Technical logs** | IP address, user agent, timestamps, error logs, API rate-limit counters. |
 | **Account / application data** | If you use verifier onboarding or similar features backed by **Supabase** (or another DB): application status, reviewer notes you provide, email if you supply it. |
 | **Communications** | Messages you send to support channels. |
 
-We do **not** intentionally collect private keys; **never share your seed phrase** with anyone claiming to be support.
+We do **not** intentionally collect private keys or seed phrases. Encrypted wallet backups you download stay **on your device** unless you choose to store them elsewhere. **Never share your seed phrase, backup file, or signing password** with anyone claiming to be support.
 
 ## 3. How we use information
 

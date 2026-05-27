@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server'
 import { type Address, isAddress, parseEther } from 'viem'
 import { CLAIM_CATEGORY, signClaimVaultClaim } from '@/lib/cdcu/claim-signing'
 import { getAirdropAllocation } from '@/lib/airdrop/manual-allocations'
-import { getAirdropPending, hasAirdropClaimed, setAirdropPending } from '@/lib/airdrop/store'
+import {
+  clearAirdropPending,
+  getAirdropPending,
+  hasAirdropClaimed,
+  setAirdropPending,
+} from '@/lib/airdrop/store'
 
 const MAX_EXPIRY_SECONDS = 7 * 24 * 60 * 60
 
@@ -39,7 +44,11 @@ export async function POST(request: Request) {
     }
 
     const amountWei = parseEther(allocation.amountCdcu)
-    const pendingWei = await getAirdropPending(recipient)
+    let pendingWei = await getAirdropPending(recipient)
+    if (pendingWei >= amountWei && amountWei > 0n) {
+      await clearAirdropPending(recipient)
+      pendingWei = 0n
+    }
     const claimableWei = amountWei > pendingWei ? amountWei - pendingWei : 0n
     if (claimableWei <= 0n) {
       return NextResponse.json({ error: 'No claimable amount available right now' }, { status: 400 })

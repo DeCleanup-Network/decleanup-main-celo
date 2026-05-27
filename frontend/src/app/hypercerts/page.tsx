@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
+import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contracts'
@@ -23,14 +24,14 @@ import {
 } from '@/lib/blockchain/hypercerts/requests'
 
 export default function HypercertsCertificationPage() {
-  const { address, isConnected } = useAccount()
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
+  const { address: appAddress, showMainApp } = useAppWalletAddress()
   const { signMessageAsync } = useSignMessage()
   const chainId = useResolvedChainId()
   const { submissionOwnerAddress } = useSmartAccountClient()
-  // Signature verification on /api/hypercerts/requests currently uses EOA message recovery.
-  // Use connected signer address for request auth; still read impact data from submission owner when present.
-  const signerAddress = address as `0x${string}` | undefined
   const submissionDataAddress = submissionOwnerAddress as `0x${string}` | undefined
+  const displayAddress = (wagmiConnected ? wagmiAddress : appAddress) as `0x${string}` | undefined
+  const signerAddress = wagmiConnected ? (wagmiAddress as `0x${string}`) : displayAddress
 
   useEffect(() => {
     console.log('🔍 [ChainId Raw]', {
@@ -54,13 +55,17 @@ export default function HypercertsCertificationPage() {
   const [userRequests, setUserRequests] = useState<any[]>([])
 
   useEffect(() => {
-    if (!address || !isConnected) return
+    if (!showMainApp) return
 
     async function loadData() {
       setLoading(true)
       try {
         const owner = submissionDataAddress
-        if (!owner) return
+        if (!owner) {
+          setEligibility(null)
+          setAggregatedData(null)
+          return
+        }
         const submissions = await getUserSubmissions(owner)
         const verifiedCleanups = []
         let impactReportsCount = 0
@@ -133,18 +138,17 @@ export default function HypercertsCertificationPage() {
       }
     }
 
-    loadData()
-  }, [address, isConnected, brandingCids, brandingTitle, brandingDescription, submissionOwnerAddress, chainId])
+    void loadData()
+  }, [showMainApp, brandingCids, brandingTitle, brandingDescription, submissionDataAddress, chainId])
 
   useEffect(() => {
-    if (!address) return
+    if (!signerAddress) return
     void (async () => {
-      if (!signerAddress) return
       const requests = await fetchHypercertRequestsByUser(signerAddress)
       setUserRequests(requests)
       console.log('📋 User Hypercert requests:', requests)
     })()
-  }, [address, signerAddress, submitResult])
+  }, [signerAddress, submitResult])
 
   const handleBrandingUpload = async (type: 'logo' | 'banner') => {
     try {
@@ -170,7 +174,7 @@ export default function HypercertsCertificationPage() {
   }
 
   const handleSubmitRequest = async () => {
-    if (!address || !metadata || !signerAddress) return
+    if (!metadata || !signerAddress) return
     if (!signMessageAsync) {
       setSubmitResult('Wallet signing is required to submit a Hypercert request.')
       return
@@ -200,7 +204,7 @@ export default function HypercertsCertificationPage() {
   }
 
   const handleMintApprovedRequest = async (requestId: string) => {
-    if (!address || !signerAddress) return
+    if (!signerAddress) return
     if (!signMessageAsync) {
       setSubmitResult('Wallet signing is required to record the mint on the server.')
       return
@@ -248,7 +252,7 @@ export default function HypercertsCertificationPage() {
     return `Chain ID: ${validChainId} (corrected from ${chainId})`
   }
 
-  if (!isConnected) {
+  if (!showMainApp) {
     return (
       <div className="min-h-screen bg-background text-foreground selection:bg-brand-yellow/25">
         <main className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 sm:py-12">
@@ -290,7 +294,7 @@ export default function HypercertsCertificationPage() {
     )
   }
 
-  const workflowBlocked = address ? hasOpenHypercertWorkflow(userRequests) : false
+  const workflowBlocked = displayAddress ? hasOpenHypercertWorkflow(userRequests) : false
   const pendingCount = userRequests.filter((r) => r.status === 'PENDING').length
   const approvedToMintCount = userRequests.filter((r) => r.status === 'APPROVED' && !r.hypercertId).length
   const mintedCount = userRequests.filter((r) => r.status === 'MINTED' || !!r.hypercertId).length
@@ -304,7 +308,7 @@ export default function HypercertsCertificationPage() {
             <>
               Signed in as{' '}
               <span className="font-mono text-foreground">
-                {address?.slice(0, 6)}…{address?.slice(-4)}
+                {displayAddress?.slice(0, 6)}…{displayAddress?.slice(-4)}
               </span>
               <span className="text-muted-foreground"> · Network </span>
               <span className="font-medium text-foreground">{getNetworkName()}</span>
@@ -611,12 +615,12 @@ export default function HypercertsCertificationPage() {
               <div className="space-y-1">
                 <div className="font-bebas text-2xl uppercase tracking-widest">Cumulative Impact</div>
                 <p className="text-[10px] uppercase tracking-widest font-mono opacity-60">Calculated verified contributions</p>
-                {address && (
+                {displayAddress && (
                   <Link
-                    href={`/impact/${address}${
-                      submissionOwnerAddress &&
-                      submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
-                        ? `?sa=${submissionOwnerAddress}`
+                    href={`/impact/${displayAddress}${
+                      submissionDataAddress &&
+                      submissionDataAddress.toLowerCase() !== displayAddress?.toLowerCase()
+                        ? `?sa=${submissionDataAddress}`
                         : ''
                     }`}
                     className="inline-block mt-2 text-[11px] font-sans font-semibold underline underline-offset-2 hover:opacity-80"

@@ -95,6 +95,17 @@ export default function UserGuidePage() {
             </div>
           </div>
 
+          <div className="rounded-xl border border-border/80 bg-background/30 p-4 text-sm text-muted-foreground">
+            <p>
+              This guide is for <strong className="text-foreground">DeCleanup Rewards</strong> at{' '}
+              <a href="https://dapp.decleanup.net" className="text-brand-green underline">
+                dapp.decleanup.net
+              </a>
+              . DeCleanup Network is the nonprofit behind the protocol; the app is where you log cleanups,
+              earn DCU, claim $cDCU, and manage your smart account.
+            </p>
+          </div>
+
           <StepCard
             step={1}
             title="How do you want to sign in?"
@@ -243,6 +254,19 @@ export default function UserGuidePage() {
             </div>
           </StepCard>
 
+          <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm text-muted-foreground">
+            <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Past contributor airdrop</h3>
+            <p>
+              If you were on the early supporter list, open{' '}
+              <Link href="/airdrop" className="text-brand-green underline">
+                /airdrop
+              </Link>
+              , paste your wallet address, and sign in with the same wallet. After a successful claim you earn a{' '}
+              <strong className="text-foreground">Past contributor</strong> badge on your dashboard and Impact
+              Portfolio.
+            </p>
+          </div>
+
           <StepCard
             step={3}
             title="Need to access your embedded wallet later?"
@@ -271,7 +295,10 @@ export default function UserGuidePage() {
                     <h3 className="mb-1 font-bebas text-lg tracking-wide text-foreground" style={bebasHeadingStyle}>
                       Security setup
                     </h3>
-                    <p className="mt-1">Set up additional authentification methods</p>
+                    <p className="mt-1">
+                      Enable a <strong className="text-foreground">passkey</strong> so signing and claims can unlock with
+                      Face ID / Touch ID / Windows Hello. Download an encrypted backup and store it safely offline.
+                    </p>
                   </li>
                 </ul>
               </div>

@@ -5,18 +5,67 @@ import Link from 'next/link'
 import { Gift } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
-import { airdropPageUrl, readPendingAirdropAddress } from '@/lib/airdrop/pending-session'
+import { useWallet } from '@/providers/WalletProvider'
+import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
+import {
+  airdropPageUrl,
+  clearPendingAirdropAddress,
+  readPendingAirdropAddress,
+} from '@/lib/airdrop/pending-session'
 
-/** Shown on the dashboard when user checked eligibility before sign-in. */
+type AirdropCheck = {
+  eligible?: boolean
+  claimableWei?: string
+  claimed?: boolean
+}
+
+/**
+ * Shown only when session has a checked address AND the server confirms a claimable allocation.
+ */
 export function AirdropPendingBanner() {
-  const { showMainApp } = useAppWalletAddress()
-  const [pendingAddress, setPendingAddress] = useState<string | null>(null)
+  const { showMainApp, address, walletBootstrapping } = useAppWalletAddress()
+  const { smartAccountAddress } = useWallet()
+  const { isEmbeddedAccount: embedded } = useEmbeddedAuth()
+  const [sessionAddress, setSessionAddress] = useState<string | null>(null)
+  const [check, setCheck] = useState<AirdropCheck | null>(null)
+
+  // Embedded users: only their smart account (never stale session from a pre-login paste).
+  // External wallet: session from /airdrop check or connected address.
+  const verifyAddress = embedded
+    ? smartAccountAddress ?? null
+    : sessionAddress || address || null
 
   useEffect(() => {
-    setPendingAddress(readPendingAirdropAddress())
+    setSessionAddress(readPendingAirdropAddress())
   }, [])
 
-  if (!showMainApp || !pendingAddress) return null
+  useEffect(() => {
+    if (!showMainApp || !verifyAddress || (embedded && walletBootstrapping)) {
+      setCheck(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(`/api/airdrop/check?address=${encodeURIComponent(verifyAddress)}`)
+        const data = (await res.json().catch(() => ({}))) as AirdropCheck
+        if (cancelled) return
+        if (!data.eligible || data.claimed || BigInt(data.claimableWei ?? '0') <= 0n) {
+          setCheck(null)
+          if (!data.eligible) clearPendingAirdropAddress()
+        } else {
+          setCheck(data)
+        }
+      } catch {
+        if (!cancelled) setCheck(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showMainApp, verifyAddress, embedded, walletBootstrapping])
+
+  if (!showMainApp || !check || !verifyAddress) return null
 
   return (
     <section
@@ -34,7 +83,7 @@ export function AirdropPendingBanner() {
           </div>
         </div>
         <Button asChild className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90">
-          <Link href={airdropPageUrl(pendingAddress)}>Claim airdrop</Link>
+          <Link href={airdropPageUrl(verifyAddress)}>Claim airdrop</Link>
         </Button>
       </div>
     </section>
