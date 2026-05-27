@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { RootErrorBoundary } from '@/components/RootErrorBoundary'
 import { useAutoSwitchToAppChain } from '@/hooks/useAutoSwitchToAppChain'
 import { usePathname } from 'next/navigation'
+import type { State } from 'wagmi'
 
 function AutoSwitchToAppChain() {
   useAutoSwitchToAppChain()
@@ -16,13 +17,19 @@ function AutoSwitchToAppChain() {
  * Loaded via next/dynamic from app/layout so the layout chunk stays small.
  * Wallet/Privy deps live here, not in app/layout.js — avoids ChunkLoadError timeouts on huge single chunks.
  */
-export default function RootClientBody({ children }: { children: React.ReactNode }) {
+export default function RootClientBody({
+  children,
+  wagmiInitialState,
+}: {
+  children: React.ReactNode
+  wagmiInitialState?: State
+}) {
   const pathname = usePathname()
   const showGlobalFooter = pathname !== '/'
 
   return (
     <RootErrorBoundary>
-      <Providers>
+      <Providers wagmiInitialState={wagmiInitialState}>
         <AutoSwitchToAppChain />
         <NetworkChecker />
         <Header />

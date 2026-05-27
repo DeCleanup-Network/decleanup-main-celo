@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense } from 'react'
+import type { State } from 'wagmi'
 import { AaSessionProvider } from '@/lib/auth/AaSessionProvider'
 import { MinimalWagmiProviders } from '@/lib/MinimalWagmiProviders'
 import { WalletProvider } from '@/providers/WalletProvider'
@@ -19,10 +20,16 @@ function ProvidersFallback() {
   )
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  wagmiInitialState,
+}: {
+  children: React.ReactNode
+  wagmiInitialState?: State
+}) {
   if (isAaAuthEnabledClient()) {
     return (
-      <MinimalWagmiProviders>
+      <MinimalWagmiProviders initialState={wagmiInitialState}>
         <AaSessionProvider>
           <WalletProvider>{children}</WalletProvider>
         </AaSessionProvider>

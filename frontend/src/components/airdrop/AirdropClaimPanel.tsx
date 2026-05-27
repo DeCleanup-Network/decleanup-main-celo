@@ -25,6 +25,7 @@ import {
 } from '@/lib/airdrop/pending-session'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
+import { useClientMounted } from '@/hooks/useClientMounted'
 
 type CheckResponse = {
   eligible: boolean
@@ -75,9 +76,10 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   const [error, setError] = useState<string | null>(null)
   const autoCheckedRef = useRef<string | null>(null)
   const signPrefetchRef = useRef<Promise<ClaimSignResult> | null>(null)
+  const mounted = useClientMounted()
 
   const wrongNetwork =
-    !isEmbeddedAccount && wagmiConnected && chainId !== REQUIRED_CHAIN_ID
+    mounted && !isEmbeddedAccount && wagmiConnected && chainId !== REQUIRED_CHAIN_ID
 
   const connectedClaimAddress = useMemo((): Address | undefined => {
     if (isEmbeddedAccount) {

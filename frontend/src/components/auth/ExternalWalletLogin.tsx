@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { useAccount, useConnect } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
+import { useClientMounted } from '@/hooks/useClientMounted'
 
 type Props = {
   callbackUrl: string
@@ -37,6 +38,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const { isConnected } = useAccount()
   const { connect, connectors, isPending, error, reset } = useConnect()
   const target = safeCallbackUrl(callbackUrl)
+  const mounted = useClientMounted()
   const [timedOut, setTimedOut] = useState(false)
   const redirectedRef = useRef(false)
 
@@ -94,7 +96,15 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
 
   return (
     <div className="space-y-2">
-      {isConnected ? (
+      {!mounted ? (
+        <Button
+          type="button"
+          disabled
+          className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:opacity-50"
+        >
+          Connect wallet
+        </Button>
+      ) : isConnected ? (
         <p className="text-center text-xs text-brand-green">Connected — opening app…</p>
       ) : (
         <>

@@ -14,6 +14,7 @@ import { AlertModal } from '@/components/ui/alert-modal'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 import { MANUAL_SWITCH_INSTRUCTIONS } from '@/lib/blockchain/network-manual-switch'
+import { useClientMounted } from '@/hooks/useClientMounted'
 
 const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
 
@@ -183,6 +184,8 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
 }
 
 export function NetworkChecker() {
+  const mounted = useClientMounted()
+  if (!mounted) return null
   // AA mode still uses MetaMask for some flows (airdrop, external wallet login) — keep the switch banner.
   if (isPrivyEnabled && !isAaAuthEnabledClient()) return <NetworkCheckerEmbedded />
   return <NetworkCheckerWagmi />

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { headers } from "next/headers";
+import { cookieToInitialState } from "wagmi";
 import { GeistSans } from "geist/font/sans";
 import localFont from "next/font/local";
 import { Bebas_Neue } from "next/font/google";
+import { minimalWagmiConfig } from "@/lib/blockchain/minimal-wagmi-config";
 import "./globals.css";
 
 const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"), {
@@ -106,11 +109,16 @@ export const viewport = {
   themeColor: "#58B12F",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const wagmiInitialState =
+    process.env.NEXT_PUBLIC_AA_AUTH_ENABLED === "true"
+      ? cookieToInitialState(minimalWagmiConfig, (await headers()).get("cookie"))
+      : undefined;
+
   return (
     <html lang="en" className={`dark ${bebasNeue.variable}`}>
       <head>
@@ -139,7 +147,7 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-black`}
       >
-        <RootClientBody>{children}</RootClientBody>
+        <RootClientBody wagmiInitialState={wagmiInitialState}>{children}</RootClientBody>
       </body>
     </html>
   );
