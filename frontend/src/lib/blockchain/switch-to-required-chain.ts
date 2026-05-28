@@ -12,6 +12,7 @@ import {
   REQUIRED_CHAIN_NAME,
   REQUIRED_RPC_URL,
 } from '@/lib/blockchain/chain-constants'
+import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 
 const NATIVE = { name: 'CELO', symbol: 'CELO', decimals: 18 }
 
@@ -64,25 +65,24 @@ async function providerSwitch(config: Config): Promise<void> {
 }
 
 /**
- * Prompt wallet to switch to REQUIRED_CHAIN_ID. Returns true if wagmi reports correct chain
- * or switch was sent (WalletConnect may lag updating chainId — tx still includes chain).
+ * Await chain switch, then wait for WalletConnect (especially iOS) to settle before any write.
  */
 export async function switchToRequiredChain(config: Config): Promise<boolean> {
   const account = getAccount(config)
   if (!account.isConnected) return false
-  if (account.chainId === REQUIRED_CHAIN_ID) return true
 
-  try {
-    await switchChain(config, { chainId: REQUIRED_CHAIN_ID })
-  } catch {
+  if (account.chainId !== REQUIRED_CHAIN_ID) {
     try {
-      await providerSwitch(config)
-    } catch (e) {
-      console.warn('[switchToRequiredChain] failed:', e)
-      return false
+      await switchChain(config, { chainId: REQUIRED_CHAIN_ID })
+    } catch {
+      try {
+        await providerSwitch(config)
+      } catch (e) {
+        console.warn('[switchToRequiredChain] failed:', e)
+        return false
+      }
     }
   }
 
-  await reconnect(config).catch(() => {})
-  return getAccount(config).chainId === REQUIRED_CHAIN_ID
+  return waitForWalletConnectChainReady(config)
 }

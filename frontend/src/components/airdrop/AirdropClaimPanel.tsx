@@ -6,11 +6,11 @@ import { useSearchParams } from 'next/navigation'
 import { isAddress, type Address } from 'viem'
 import { useChainId, useConfig } from 'wagmi'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
-import { shouldShowMobileWalletConnectHint } from '@/lib/blockchain/wallet-provider-write'
+import { shouldShowMobileWalletConnectHint, needsWalletConnectSettle } from '@/lib/blockchain/wallet-provider-write'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
-import { waitForUserReturnFromWallet } from '@/lib/blockchain/wait-for-wallet-return'
-import { reconnect } from '@wagmi/core'
+import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
+import { getAccount } from '@wagmi/core'
 import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -170,14 +170,18 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     }
   }, [])
 
-  // Prefetch backend signature while user reads allocation (no chain required).
+  // Prefetch signature only when already on Celo (WC settle runs immediately before sign + write).
   useEffect(() => {
     if (!canClaim || !result?.walletAddress) {
       signPrefetchRef.current = null
       return
     }
+    if (wrongNetwork || needsWalletConnectSettle(config)) {
+      signPrefetchRef.current = null
+      return
+    }
     signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
-  }, [canClaim, result?.walletAddress, fetchClaimSignature])
+  }, [canClaim, result?.walletAddress, fetchClaimSignature, wrongNetwork, config])
 
   async function handleSwitchNetwork() {
     setSwitchLoading(true)
@@ -188,7 +192,6 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         setError(`Could not switch to ${REQUIRED_CHAIN_NAME}. Open your wallet app and select Celo, then try again.`)
         return
       }
-      await waitForUserReturnFromWallet()
       setMessage(`On ${REQUIRED_CHAIN_NAME}. Tap Claim to confirm the transaction in your wallet.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network switch failed')
@@ -199,10 +202,6 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
 
   async function handleClaim() {
     if (!canClaim || !result?.walletAddress) return
-    if (wrongNetwork) {
-      await handleSwitchNetwork()
-      return
-    }
 
     setClaimLoading(true)
     setClaimPhase('Opening wallet…')
@@ -231,25 +230,28 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         gaslessClient = gasless
       }
 
-      const signPromise =
-        signPrefetchRef.current ?? fetchClaimSignature(result.walletAddress)
-      signPrefetchRef.current = null
+      const externalWallet = !isEmbeddedAccount && wagmiConnected
+      if (externalWallet) {
+        signPrefetchRef.current = null
 
-      if (!isEmbeddedAccount && wagmiConnected) {
-        if (chainId !== REQUIRED_CHAIN_ID) {
+        const onChain = getAccount(config).chainId === REQUIRED_CHAIN_ID
+        if (!onChain) {
           setClaimPhase('Switch to Celo in your wallet…')
           const switched = await switchToRequiredChain(config)
           if (!switched) {
             setError(
-              `Switch to ${REQUIRED_CHAIN_NAME} in your wallet app, return to Safari, then tap Claim again.`
+              `Switch to ${REQUIRED_CHAIN_NAME} in your wallet app, return to Safari, then try Claim again.`
             )
             return
           }
-          await waitForUserReturnFromWallet()
+        } else if (needsWalletConnectSettle(config)) {
+          setClaimPhase('Preparing connection…')
+          await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
         }
       }
 
-      const signResult = await signPromise
+      setClaimPhase('Preparing claim…')
+      const signResult = await fetchClaimSignature(result.walletAddress)
 
       if (!signResult.ok) {
         setError(signResult.error || `Claim signing failed (${signResult.status ?? 'unknown'})`)
@@ -266,9 +268,8 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         s: `0x${string}`
       }
 
-      if (!isEmbeddedAccount && wagmiConnected) {
+      if (externalWallet) {
         setClaimPhase('Confirm the claim in your wallet. Keep Safari open.')
-        await reconnect(config).catch(() => {})
       } else if (gaslessClient) {
         setClaimPhase('Submitting sponsored claim…')
       }
@@ -287,8 +288,9 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         {
           gaslessClient,
           claimerAddress: connectedClaimAddress,
-          preferConnectedWallet: !isEmbeddedAccount && wagmiConnected,
+          preferConnectedWallet: externalWallet,
           skipSwitch: true,
+          skipSettle: true,
         }
       )
 
@@ -465,23 +467,6 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-2">
-              {wrongNetwork ? (
-                <Button
-                  type="button"
-                  onClick={() => void handleSwitchNetwork()}
-                  disabled={switchLoading}
-                  className="min-h-11 w-full shrink-0 bg-brand-green px-4 text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[10rem]"
-                >
-                  {switchLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
-                      Switching network…
-                    </>
-                  ) : (
-                    `Switch to ${REQUIRED_CHAIN_NAME}`
-                  )}
-                </Button>
-              ) : (
               <Button
                 onClick={() => void handleClaim()}
                 disabled={!canClaim || claimLoading || needsEmbeddedUnlock}
@@ -496,11 +481,24 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   'Already claimed'
                 ) : !hasClaimable ? (
                   'Nothing to claim'
+                ) : wrongNetwork ? (
+                  `Claim on ${REQUIRED_CHAIN_NAME}`
                 ) : (
                   `Claim ${result.amountCdcu} cDCU`
                 )}
               </Button>
-              )}
+              {wrongNetwork ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-600 text-gray-200"
+                  onClick={() => void handleSwitchNetwork()}
+                  disabled={switchLoading || claimLoading}
+                >
+                  {switchLoading ? 'Switching…' : 'Switch only'}
+                </Button>
+              ) : null}
               {!hasClaimable && !result.claimed && walletMatches ? (
                 <Button
                   type="button"
@@ -526,8 +524,12 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 </p>
               ) : !wrongNetwork && !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
                 <p className="w-full text-xs text-muted-foreground">
-                  After switching to Celo, return to Safari, tap Claim again, then approve the transaction in your
-                  wallet (Rainbow, Zerion, or MetaMask). You need a small amount of CELO for gas.
+                  Approve the transaction in your wallet (Rainbow, Zerion, or MetaMask). Keep Safari open. You need a
+                  small amount of CELO for gas.
+                </p>
+              ) : wrongNetwork && hasClaimable && !result.claimed ? (
+                <p className="w-full text-xs text-muted-foreground">
+                  One tap: we switch you to Celo, then open the claim transaction in your wallet.
                 </p>
               ) : null}
               </div>
