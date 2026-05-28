@@ -170,18 +170,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     }
   }, [])
 
-  // Prefetch signature only when already on Celo (WC settle runs immediately before sign + write).
+  // Prefetch claim signature as soon as claimable is known.
   useEffect(() => {
     if (!canClaim || !result?.walletAddress) {
       signPrefetchRef.current = null
       return
     }
-    if (wrongNetwork || needsWalletConnectSettle(config)) {
-      signPrefetchRef.current = null
-      return
+    if (!signPrefetchRef.current) {
+      signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
     }
-    signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
-  }, [canClaim, result?.walletAddress, fetchClaimSignature, wrongNetwork, config])
+  }, [canClaim, result?.walletAddress, fetchClaimSignature])
 
   async function handleSwitchNetwork() {
     setSwitchLoading(true)
@@ -232,13 +230,15 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
 
       const externalWallet = !isEmbeddedAccount && wagmiConnected
       if (externalWallet) {
-        signPrefetchRef.current = null
-
         const onChain = getAccount(config).chainId === REQUIRED_CHAIN_ID
         if (!onChain) {
+          if (!signPrefetchRef.current) {
+            signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
+          }
           setClaimPhase('Switch to Celo in your wallet…')
           const switched = await switchToRequiredChain(config)
           if (!switched) {
+            signPrefetchRef.current = null
             setError(
               `Switch to ${REQUIRED_CHAIN_NAME} in your wallet app, return to Safari, then try Claim again.`
             )
@@ -246,12 +246,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           }
         } else if (needsWalletConnectSettle(config)) {
           setClaimPhase('Preparing connection…')
+          if (!signPrefetchRef.current) {
+            signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
+          }
           await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
         }
       }
 
       setClaimPhase('Preparing claim…')
-      const signResult = await fetchClaimSignature(result.walletAddress)
+      const signResult = await (signPrefetchRef.current ?? fetchClaimSignature(result.walletAddress))
+      signPrefetchRef.current = null
 
       if (!signResult.ok) {
         setError(signResult.error || `Claim signing failed (${signResult.status ?? 'unknown'})`)
@@ -269,7 +273,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       }
 
       if (externalWallet) {
-        setClaimPhase('Confirm the claim in your wallet. Keep Safari open.')
+        setClaimPhase('Approving claim')
       } else if (gaslessClient) {
         setClaimPhase('Submitting sponsored claim…')
       }
@@ -413,9 +417,6 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   Sign in to claim
                 </Link>
               </Button>
-              <p className="mt-2 text-xs text-yellow-200/90">
-                After sign-in you will land back here — no need to enter your address again.
-              </p>
             </div>
           )}
 

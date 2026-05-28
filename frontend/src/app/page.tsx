@@ -334,7 +334,7 @@ function HomeContent() {
         <div className="w-full border-t border-brand-green/25 bg-brand-green/10 py-4">
           <div className="container mx-auto flex flex-col items-center justify-center gap-3 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
             <p className="font-sans text-sm text-muted-foreground max-w-xl">
-              Past contributors: check $cDCU airdrop eligibility before signing in.
+              Past contributors: check $cDCU airdrop eligibility.
             </p>
             <Button asChild className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90">
               <Link href="/airdrop">Check airdrop</Link>

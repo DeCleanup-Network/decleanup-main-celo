@@ -3,7 +3,7 @@
  * Get the signed claim from POST /api/cdcu/claim-request first.
  */
 
-import { getAccount, getPublicClient, waitForTransactionReceipt } from '@wagmi/core'
+import { getAccount, getPublicClient, reconnect, waitForTransactionReceipt } from '@wagmi/core'
 import type { Config } from 'wagmi'
 import { getConfig } from './get-wagmi-config'
 import { CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from './chain-constants'
@@ -111,9 +111,20 @@ export async function claimCdcu(
 
   const config = getConfig()
   const account = getAccount(config)
-  const wagmiAddress = account.isConnected ? (account.address as Address | undefined) : undefined
+  let wagmiAddress = account.isConnected ? (account.address as Address | undefined) : undefined
 
-  if (options?.preferConnectedWallet && wagmiAddress) {
+  if (options?.preferConnectedWallet) {
+    if (!wagmiAddress) {
+      await reconnect(config).catch(() => {})
+      const refreshed = getAccount(config)
+      wagmiAddress = refreshed.isConnected ? (refreshed.address as Address | undefined) : undefined
+    }
+    if (!wagmiAddress) {
+      throw new Error('Wallet connection is not ready. Reconnect and try again.')
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[claimCdcu] routing', { preferConnectedWallet: true, wagmiAddress })
+    }
     return submitClaimViaWallet(config, claimVaultAddress, signed, {
       skipSwitch: options.skipSwitch,
       skipSettle: options.skipSettle,
