@@ -7,6 +7,7 @@ import type { Config } from 'wagmi'
 import type { Address, Hex } from 'viem'
 import { getAccount, reconnect, writeContract } from '@wagmi/core'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
+import { requiredViemChain } from '@/lib/blockchain/required-chain'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 
@@ -36,7 +37,7 @@ export async function writeContractViaWalletProvider(
     args: readonly unknown[]
     gas?: bigint
   },
-  options?: { skipSwitch?: boolean; skipSettle?: boolean }
+  options?: { skipSwitch?: boolean }
 ): Promise<Hex> {
   const account = getAccount(config)
   if (!account.isConnected) {
@@ -50,7 +51,7 @@ export async function writeContractViaWalletProvider(
         `Switch to ${REQUIRED_CHAIN_NAME} in your wallet, return to the browser, then tap Claim again.`
       )
     }
-  } else if (needsWalletConnectSettle(config) && !options?.skipSettle) {
+  } else if (needsWalletConnectSettle(config)) {
     const ready = await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
     if (!ready && getAccount(config).chainId !== REQUIRED_CHAIN_ID) {
       throw new Error(
@@ -62,6 +63,7 @@ export async function writeContractViaWalletProvider(
   }
 
   const hash = await writeContract(config, {
+    chain: requiredViemChain,
     chainId: REQUIRED_CHAIN_ID,
     address: params.address,
     abi: params.abi,

@@ -61,7 +61,7 @@ async function submitClaimViaWallet(
   config: Config,
   claimVaultAddress: Address,
   signed: SignedClaimParams,
-  options?: { skipSwitch?: boolean; skipSettle?: boolean }
+  options?: { skipSwitch?: boolean }
 ): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
   const hash = await writeContractViaWalletProvider(
     config,
@@ -81,7 +81,7 @@ async function submitClaimViaWallet(
       ],
       gas: 300_000n,
     },
-    { skipSwitch: options?.skipSwitch, skipSettle: options?.skipSettle }
+    { skipSwitch: options?.skipSwitch }
   )
 
   const receipt = await waitForTransactionReceipt(config, { hash, chainId: REQUIRED_CHAIN_ID })
@@ -100,8 +100,6 @@ export async function claimCdcu(
     /** Airdrop / external wallet: submit via connected wagmi wallet (WalletConnect, MetaMask). */
     preferConnectedWallet?: boolean
     skipSwitch?: boolean
-    /** Caller already ran waitForWalletConnectChainReady (e.g. airdrop panel before sign). */
-    skipSettle?: boolean
   }
 ): Promise<{ hash: Hex; receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> }> {
   const claimVaultAddress = CONTRACT_ADDRESSES.CLAIMVAULT as Address
@@ -127,7 +125,6 @@ export async function claimCdcu(
     }
     return submitClaimViaWallet(config, claimVaultAddress, signed, {
       skipSwitch: options.skipSwitch,
-      skipSettle: options.skipSettle,
     })
   }
 

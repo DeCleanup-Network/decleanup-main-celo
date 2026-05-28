@@ -8,12 +8,10 @@ import { useChainId, useConfig } from 'wagmi'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import {
   shouldShowMobileWalletConnectHint,
-  needsWalletConnectSettle,
   isMobileBrowser,
 } from '@/lib/blockchain/wallet-provider-write'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
-import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 import { getAccount } from '@wagmi/core'
 import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
@@ -244,7 +242,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         if (!onChain) {
           if (isMobileBrowser()) {
             setError(
-              `Open MetaMask, switch to ${REQUIRED_CHAIN_NAME} manually, then return here and tap Claim again.`
+              `Open MetaMask -> tap the network name at top -> select ${REQUIRED_CHAIN_NAME} -> return here and tap Claim again.`
             )
             return
           }
@@ -260,12 +258,10 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
             )
             return
           }
-        } else if (needsWalletConnectSettle(config)) {
-          setClaimPhase('Preparing connection…')
+        } else {
           if (!signPrefetchRef.current) {
             signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
           }
-          await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
         }
       }
 
@@ -310,7 +306,6 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           claimerAddress: connectedClaimAddress,
           preferConnectedWallet: externalWallet,
           skipSwitch: true,
-          skipSettle: true,
         }
       )
 
