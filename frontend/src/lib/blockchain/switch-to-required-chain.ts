@@ -70,14 +70,31 @@ async function providerSwitch(config: Config): Promise<void> {
  */
 export async function switchToRequiredChain(config: Config): Promise<boolean> {
   const account = getAccount(config)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[switchToRequiredChain] start', {
+      isConnected: account.isConnected,
+      chainId: account.chainId,
+      connectorId: account.connector?.id,
+      connectorName: account.connector?.name,
+    })
+  }
   if (!account.isConnected) return false
 
   if (account.chainId !== REQUIRED_CHAIN_ID) {
     try {
       await switchChain(config, { chainId: REQUIRED_CHAIN_ID })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[switchToRequiredChain] switchChain succeeded')
+      }
     } catch {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[switchToRequiredChain] switchChain failed, trying providerSwitch')
+      }
       try {
         await providerSwitch(config)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[switchToRequiredChain] providerSwitch succeeded')
+        }
       } catch (e) {
         console.warn('[switchToRequiredChain] failed:', e)
         return false
