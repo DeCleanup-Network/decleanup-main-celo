@@ -79,6 +79,7 @@ async function submitClaimViaWallet(
         signed.r,
         signed.s,
       ],
+      gas: 300_000n,
     },
     { skipSwitch: options?.skipSwitch, skipSettle: options?.skipSettle }
   )

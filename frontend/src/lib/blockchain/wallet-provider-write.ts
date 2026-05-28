@@ -34,6 +34,7 @@ export async function writeContractViaWalletProvider(
     abi: readonly unknown[]
     functionName: string
     args: readonly unknown[]
+    gas?: bigint
   },
   options?: { skipSwitch?: boolean; skipSettle?: boolean }
 ): Promise<Hex> {
@@ -66,6 +67,7 @@ export async function writeContractViaWalletProvider(
     abi: params.abi,
     functionName: params.functionName,
     args: params.args,
+    ...(params.gas ? { gas: params.gas } : {}),
   } as Parameters<typeof writeContract>[1])
 
   return hash

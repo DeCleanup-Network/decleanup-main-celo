@@ -36,11 +36,10 @@ export async function waitForWalletConnectChainReady(
       }
     }
     if (chainId === REQUIRED_CHAIN_ID) {
-      await new Promise((r) => setTimeout(r, isMobileBrowser() ? 300 : 0))
+      await new Promise((r) => setTimeout(r, isMobileBrowser() ? 100 : 0))
       return true
     }
     await new Promise((r) => setTimeout(r, 400))
-    await reconnect(config).catch(() => {})
   }
 
   return getAccount(config).chainId === REQUIRED_CHAIN_ID
