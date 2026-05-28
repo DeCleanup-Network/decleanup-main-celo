@@ -6,7 +6,11 @@ import { useSearchParams } from 'next/navigation'
 import { isAddress, type Address } from 'viem'
 import { useChainId, useConfig } from 'wagmi'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
-import { shouldShowMobileWalletConnectHint, needsWalletConnectSettle } from '@/lib/blockchain/wallet-provider-write'
+import {
+  shouldShowMobileWalletConnectHint,
+  needsWalletConnectSettle,
+  isMobileBrowser,
+} from '@/lib/blockchain/wallet-provider-write'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
@@ -185,6 +189,12 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     setSwitchLoading(true)
     setError(null)
     try {
+      if (isMobileBrowser() && wagmiConnected && !isEmbeddedAccount && wrongNetwork) {
+        setError(
+          `Open MetaMask, switch to ${REQUIRED_CHAIN_NAME} manually, then return here and tap Claim again.`
+        )
+        return
+      }
       const ok = await switchToRequiredChain(config)
       if (!ok) {
         setError(`Could not switch to ${REQUIRED_CHAIN_NAME}. Open your wallet app and select Celo, then try again.`)
@@ -232,6 +242,12 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       if (externalWallet) {
         const onChain = getAccount(config).chainId === REQUIRED_CHAIN_ID
         if (!onChain) {
+          if (isMobileBrowser()) {
+            setError(
+              `Open MetaMask, switch to ${REQUIRED_CHAIN_NAME} manually, then return here and tap Claim again.`
+            )
+            return
+          }
           if (!signPrefetchRef.current) {
             signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
           }
@@ -324,6 +340,8 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ recipient: result.walletAddress }),
         }).catch(() => {})
+        setError('Operation was cancelled by you.')
+        return
       }
       setError(msg)
     } finally {
@@ -466,6 +484,14 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 <p className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
                   Your wallet is on Ethereum (chain {chainId}). Switch to {REQUIRED_CHAIN_NAME} before claiming.
                 </p>
+              )}
+              {wrongNetwork && isMobileBrowser() && (
+                <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
+                  <p>On iOS MetaMask, switch network manually first, then tap Claim.</p>
+                  <a href="metamask://" className="mt-1 inline-block underline">
+                    Open MetaMask
+                  </a>
+                </div>
               )}
               <div className="flex flex-wrap items-center gap-2">
               <Button
