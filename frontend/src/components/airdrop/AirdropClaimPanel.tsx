@@ -525,8 +525,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 </p>
               ) : !wrongNetwork && !isEmbeddedAccount && wagmiConnected && hasClaimable && !result.claimed ? (
                 <p className="w-full text-xs text-muted-foreground">
-                  Approve the transaction in your wallet (Rainbow, Zerion, or MetaMask). Keep Safari open. You need a
-                  small amount of CELO for gas.
+                  Approve the transaction in your wallet (small gas fee in CELO required).
                 </p>
               ) : wrongNetwork && hasClaimable && !result.claimed ? (
                 <p className="w-full text-xs text-muted-foreground">

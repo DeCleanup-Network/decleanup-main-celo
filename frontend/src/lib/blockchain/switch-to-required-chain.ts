@@ -65,7 +65,8 @@ async function providerSwitch(config: Config): Promise<void> {
 }
 
 /**
- * Await chain switch, then wait for WalletConnect (especially iOS) to settle before any write.
+ * Await chain switch, then settle WalletConnect without waiting for browser visibility.
+ * This helps iOS MetaMask show tx prompt immediately after network switch.
  */
 export async function switchToRequiredChain(config: Config): Promise<boolean> {
   const account = getAccount(config)
@@ -84,5 +85,5 @@ export async function switchToRequiredChain(config: Config): Promise<boolean> {
     }
   }
 
-  return waitForWalletConnectChainReady(config)
+  return waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
 }
