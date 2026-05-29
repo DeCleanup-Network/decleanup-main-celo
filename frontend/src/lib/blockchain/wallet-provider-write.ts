@@ -1,14 +1,18 @@
 /**
  * Send txs through the connected wallet provider (MetaMask, WalletConnect / Rainbow / Zerion).
  * Uses @wagmi/core writeContract so the connector client is resolved at call time (not stale).
+ * All writes go through the global wallet-write-mutex to prevent WC queue collisions on iOS.
  */
 
 import type { Config } from 'wagmi'
 import type { Address, Hex } from 'viem'
-import { getAccount, reconnect, writeContract } from '@wagmi/core'
+import { getAccount, reconnect } from '@wagmi/core'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
 import { requiredViemChain } from '@/lib/blockchain/required-chain'
-import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
+import {
+  lockedSwitchToRequiredChain,
+  lockedWriteContractRaw,
+} from '@/lib/blockchain/wallet-write-mutex'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 
 export function isMobileBrowser(): boolean {
@@ -26,7 +30,8 @@ export function needsWalletConnectSettle(config: Config): boolean {
 }
 
 /**
- * Submit contract write — switch (if needed), settle connector state, then writeContract (awaited).
+ * Submit contract write — switch (if needed), settle connector state, then writeContract.
+ * Serialized through the global mutex so only one wallet op is in-flight at a time.
  */
 export async function writeContractViaWalletProvider(
   config: Config,
@@ -45,7 +50,7 @@ export async function writeContractViaWalletProvider(
   }
 
   if (!options?.skipSwitch && account.chainId !== REQUIRED_CHAIN_ID) {
-    const switched = await switchToRequiredChain(config)
+    const switched = await lockedSwitchToRequiredChain(config)
     if (!switched) {
       throw new Error(
         `Switch to ${REQUIRED_CHAIN_NAME} in your wallet, return to the browser, then tap Claim again.`
@@ -62,7 +67,7 @@ export async function writeContractViaWalletProvider(
     await reconnect(config).catch(() => {})
   }
 
-  const hash = await writeContract(config, {
+  return lockedWriteContractRaw(config, {
     chain: requiredViemChain,
     chainId: REQUIRED_CHAIN_ID,
     address: params.address,
@@ -70,7 +75,5 @@ export async function writeContractViaWalletProvider(
     functionName: params.functionName,
     args: params.args,
     ...(params.gas ? { gas: params.gas } : {}),
-  } as Parameters<typeof writeContract>[1])
-
-  return hash
+  } as Parameters<typeof import('@wagmi/core').writeContract>[1])
 }

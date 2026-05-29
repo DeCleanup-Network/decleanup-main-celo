@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------------
 
 import { TransferRestrictions } from '@hypercerts-org/sdk'
-import { getAccount, waitForTransactionReceipt, writeContract } from '@wagmi/core'
+import { getAccount, waitForTransactionReceipt } from '@wagmi/core'
+import { lockedWriteContract } from '@/lib/blockchain/wallet-write-mutex'
 import { getUserSubmissions, getCleanupDetails } from './contracts'
 import { aggregateUserCleanups } from './hypercerts/aggregation'
 import { buildHypercertMetadata } from './hypercerts/metadata'
@@ -45,7 +46,7 @@ export async function mintHypercertOnChain(
 
     console.log('  Metadata ref:', metadataRef)
 
-    const txHash = await writeContract(config, {
+    const txHash = await lockedWriteContract(config, {
       address: HYPERCERTS_CONFIG.contract.address,
       abi: HypercertMinterAbi as any,
       functionName: 'mintClaim',

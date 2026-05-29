@@ -11,7 +11,7 @@ import {
   isMobileBrowser,
 } from '@/lib/blockchain/wallet-provider-write'
 import { REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/chain-constants'
-import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
+import { lockedSwitchToRequiredChain } from '@/lib/blockchain/wallet-write-mutex'
 import { getAccount } from '@wagmi/core'
 import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
@@ -193,7 +193,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         )
         return
       }
-      const ok = await switchToRequiredChain(config)
+      const ok = await lockedSwitchToRequiredChain(config)
       if (!ok) {
         setError(`Could not switch to ${REQUIRED_CHAIN_NAME}. Open your wallet app and select Celo, then try again.`)
         return
@@ -250,7 +250,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
             signPrefetchRef.current = fetchClaimSignature(result.walletAddress)
           }
           setClaimPhase('Switch to Celo in your wallet…')
-          const switched = await switchToRequiredChain(config)
+          const switched = await lockedSwitchToRequiredChain(config)
           if (!switched) {
             signPrefetchRef.current = null
             setError(

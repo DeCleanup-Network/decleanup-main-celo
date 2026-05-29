@@ -1,6 +1,7 @@
 import { Address, formatEther, createPublicClient, http } from 'viem'
 import { encodeFunctionData } from 'viem'
-import { readContract, writeContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
+import { readContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
+import { lockedWriteContract } from '@/lib/blockchain/wallet-write-mutex'
 import { REQUIRED_RPC_URL } from './chain-constants'
 import {
   withContractCache,
@@ -440,7 +441,7 @@ export async function submitCleanup(
         account: account!.address,
       }
       if (_fee && _fee > 0n) contractConfig.value = _fee
-      hash = await writeContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
+      hash = await lockedWriteContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
     }
 
     const receipt = await waitForTransactionReceipt(getConfig(), {
@@ -984,7 +985,7 @@ export async function verifyCleanup(
       account: account.address,
     })
 
-    hash = await writeContract(getConfig(), {
+    hash = await lockedWriteContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
@@ -1091,7 +1092,7 @@ export async function rejectCleanup(
       account: account.address,
     })
 
-    hash = await writeContract(getConfig(), {
+    hash = await lockedWriteContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
@@ -1626,7 +1627,7 @@ export async function claimImpactProductFromVerification(
             value: 0n,
           })
         } else {
-          bonusHash = await writeContract(getConfig(), {
+          bonusHash = await lockedWriteContract(getConfig(), {
             chainId: REQUIRED_CHAIN_ID,
             address: SUBMISSION_ADDRESS,
             abi: SUBMISSION_BONUS_ABI,
@@ -1898,13 +1899,13 @@ export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promi
         value,
       })
     } else {
-      hash = await writeContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
+      hash = await lockedWriteContract(getConfig(), {
+        chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'safeMint',
         account: account!.address,
-        value: value,
+        ...(value > 0n ? { value } : {}),
       })
     }
 
@@ -1967,14 +1968,14 @@ export async function upgradeImpactProductNFT(
         value,
       })
     } else {
-      hash = await writeContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
+      hash = await lockedWriteContract(getConfig(), {
+        chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'upgradeNFT',
         args: [tokenId],
         account: account!.address,
-        value: value,
+        ...(value > 0n ? { value } : {}),
       })
     }
 
@@ -2038,7 +2039,7 @@ export async function attachRecyclablesToSubmission(
         value: 0n,
       })
     } else {
-      hash = await writeContract(getConfig(), {
+      hash = await lockedWriteContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
         address: SUBMISSION_ADDRESS,
         abi: SUBMISSION_ABI,
@@ -2083,7 +2084,7 @@ export async function grantVerifierRole(targetAddress: Address): Promise<`0x${st
       functionName: 'VERIFIER_ROLE',
     })) as `0x${string}`
 
-    const hash = await writeContract(getConfig(), {
+    const hash = await lockedWriteContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,

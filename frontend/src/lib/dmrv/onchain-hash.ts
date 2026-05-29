@@ -4,7 +4,8 @@
  */
 
 import { Address } from 'viem'
-import { writeContract, readContract } from '@wagmi/core'
+import { readContract } from '@wagmi/core'
+import { lockedWriteContract } from '@/lib/blockchain/wallet-write-mutex'
 import { getConfig } from '@/lib/blockchain/get-wagmi-config'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { keccak256, toBytes, toHex } from 'viem'
@@ -71,7 +72,7 @@ export async function storeVerificationHashOnChain(
   }
   
   try {
-    const hash_tx = await writeContract(getConfig(), {
+    const hash_tx = await lockedWriteContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
       address: SUBMISSION_ADDRESS,
       abi: SUBMISSION_ABI,
