@@ -609,7 +609,11 @@ useEffect(() => {
                       }
                     : {
                         eoaAddress: address,
-                        smartAccountAddress: submissionOwnerAddress,
+                        ...(submissionOwnerAddress &&
+                        address &&
+                        submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
+                          ? { smartAccountAddress: submissionOwnerAddress }
+                          : {}),
                       }
                 )
 

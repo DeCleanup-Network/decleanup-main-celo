@@ -1497,7 +1497,7 @@ export async function claimImpactProductFromVerification(
     throw new Error('You can only claim rewards for your own cleanups.')
   }
 
-  if (matchesSmart && !gasless) {
+  if (matchesSmart && !matchesEoa && !gasless) {
     throw new Error(
       'This cleanup is tied to your smart account. Sign in with Google or email and unlock Smart account settings, or connect the wallet that owns this cleanup.'
     )

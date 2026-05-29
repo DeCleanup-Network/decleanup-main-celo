@@ -185,7 +185,19 @@ function HomeContent() {
       return
     }
 
-    if (expectsSponsoredGas) {
+    const smartAccountOwnsSubmission =
+      !!address &&
+      submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
+
+    if (smartAccountOwnsSubmission) {
+      if (!canTransact || !gaslessClient) {
+        setSignGate({
+          mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
+          purpose: 'claim your Impact Product level',
+        })
+        return
+      }
+    } else if (expectsSponsoredGas) {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
@@ -213,15 +225,19 @@ function HomeContent() {
     try {
       setIsClaiming(true)
 
-      const claimOptions = expectsSponsoredGas
-        ? {
-            gaslessClient: gaslessClient as GaslessClient,
-            smartAccountAddress: submissionOwnerAddress,
-            eoaAddress: address,
-          }
-        : {
+      const claimOptions =
+        smartAccountOwnsSubmission || expectsSponsoredGas
+          ? {
+              gaslessClient: gaslessClient as GaslessClient,
+              smartAccountAddress: submissionOwnerAddress,
+              eoaAddress: address,
+            }
+          : {
             eoaAddress: address as Address,
-            smartAccountAddress: submissionOwnerAddress,
+            // Omit smartAccountAddress when EOA owns the submission — avoids false "smart account only" errors
+            ...(submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
+              ? { smartAccountAddress: submissionOwnerAddress }
+              : {}),
           }
 
       const claimResult = await claimImpactProductFromVerification(
