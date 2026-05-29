@@ -5,6 +5,7 @@ import { WagmiProvider, type State } from 'wagmi'
 import { useState, type ReactNode } from 'react'
 import { getMinimalWagmiConfig } from '@/lib/blockchain/minimal-wagmi-config'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
+import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
 
 /**
  * Wagmi + React Query without RainbowKit/Privy.
@@ -33,6 +34,7 @@ export function MinimalWagmiProviders({
   return (
     <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
       <WagmiConfigSync />
+      <WalletConnectRelayRecovery />
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   )
