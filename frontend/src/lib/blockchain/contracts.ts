@@ -836,7 +836,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
 
     for (const submissionId of sortedIds) {
       try {
-        const details = await getCleanupDetails(submissionId)
+        const details = await getCleanupDetailsFresh(submissionId)
 
         const localClaimed =
           typeof window !== 'undefined'

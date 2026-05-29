@@ -55,8 +55,20 @@ export async function writeContractViaWalletProvider(
         `Switch to ${REQUIRED_CHAIN_NAME} in your wallet, return to the browser, then tap Claim again.`
       )
     }
+    if (needsWalletConnectSettle(config)) {
+      const ready = await waitForWalletConnectChainReady(config, {
+        skipVisibilityWait: !isMobileBrowser(),
+      })
+      if (!ready && getAccount(config).chainId !== REQUIRED_CHAIN_ID) {
+        throw new Error(
+          `Wallet is not on ${REQUIRED_CHAIN_NAME} yet. Switch in your wallet app, then tap Claim again.`
+        )
+      }
+    }
   } else if (needsWalletConnectSettle(config)) {
-    const ready = await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+    const ready = await waitForWalletConnectChainReady(config, {
+      skipVisibilityWait: !isMobileBrowser(),
+    })
     if (!ready && getAccount(config).chainId !== REQUIRED_CHAIN_ID) {
       throw new Error(
         `Wallet is not on ${REQUIRED_CHAIN_NAME} yet. Switch in your wallet app, then tap Claim again.`

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Address } from 'viem'
 import { formatEther } from 'viem'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import {
   getUserRewardStats,
   getUserLevel,
@@ -17,6 +18,7 @@ import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibili
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { loadImpactProductDisplay, type ImpactProductDisplayState } from '@/lib/dashboard/load-impact-product-display'
 import { scheduleIdle } from '@/lib/dashboard/schedule-idle'
+import { invalidateSubmissionDetailsCache } from '@/lib/contractCache'
 
 export type HomeCleanupStatus = {
   hasPendingCleanup: boolean
@@ -143,6 +145,8 @@ export function useHomeDashboardOnChain({
   const cancelledRef = useRef(false)
   const detailsLoadedRef = useRef(false)
   const idleCancelRef = useRef<(() => void) | null>(null)
+  const pollMsRef = useRef(15_000)
+  const pendingCleanupIdRef = useRef<bigint | undefined>(undefined)
 
   const loadImpactProduct = useCallback(
     (level: number, tokenId: bigint | null, cancelled: { current: boolean }) => {
@@ -237,6 +241,7 @@ export function useHomeDashboardOnChain({
 
       setClaimFeeInfo(feeInfo)
       setCleanupStatus(status ?? null)
+      pendingCleanupIdRef.current = status?.cleanupId
       setRewardStats(rewardStatsFromContract(rewardStatsData, level))
       setHasLoadedCoreOnce(true)
       loadImpactProduct(level, tokenId, cancelled)
@@ -264,6 +269,12 @@ export function useHomeDashboardOnChain({
     }
   }, [loadCore, loadSubmissionDetails])
 
+  // Faster poll while waiting for verifier approval; refresh when user returns to tab
+  useEffect(() => {
+    pollMsRef.current =
+      cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim ? 5_000 : 15_000
+  }, [cleanupStatus?.hasPendingCleanup, cleanupStatus?.canClaim])
+
   // Core load + poll
   useEffect(() => {
     cancelledRef.current = false
@@ -271,6 +282,7 @@ export function useHomeDashboardOnChain({
 
     if (!mounted || !isConnected || !address || !submissionOwnerAddress) {
       setCleanupStatus(null)
+      pendingCleanupIdRef.current = undefined
       setHypercertEligibility(null)
       setRewardStats(EMPTY_REWARD_STATS)
       setImpactProduct(EMPTY_IMPACT_PRODUCT)
@@ -283,16 +295,39 @@ export function useHomeDashboardOnChain({
 
     setHasLoadedCoreOnce(false)
 
-    void loadCore()
+    let pollTimer: ReturnType<typeof setTimeout> | null = null
+    let pollStopped = false
 
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    const scheduleNextPoll = () => {
+      if (pollStopped) return
+      pollTimer = setTimeout(async () => {
+        if (pollStopped || cancelledRef.current) return
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          scheduleNextPoll()
+          return
+        }
+        await loadCore()
+        scheduleNextPoll()
+      }, pollMsRef.current)
+    }
+
+    void loadCore().then(() => scheduleNextPoll())
+
+    const onVisibility = () => {
+      if (typeof document === 'undefined' || document.visibilityState !== 'visible') return
+      const cleanupId = pendingCleanupIdRef.current
+      if (cleanupId !== undefined) {
+        invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+      }
       void loadCore()
-    }, 15000)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       cancelledRef.current = true
-      clearInterval(interval)
+      pollStopped = true
+      if (pollTimer) clearTimeout(pollTimer)
+      document.removeEventListener('visibilitychange', onVisibility)
       idleCancelRef.current?.()
     }
   }, [mounted, isConnected, address, submissionOwnerAddress, loadCore])

@@ -3,7 +3,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { useWalletConnectionMode } from '@/hooks/useWalletConnectionMode'
 import { EmbeddedWalletConnect } from './EmbeddedWalletConnect'
@@ -15,7 +14,6 @@ const RainbowKitConnectButton = lazy(
 
 export function WalletConnect() {
   const [mounted, setMounted] = useState(false)
-  const pathname = usePathname()
   const aa = isAaAuthEnabledClient()
   const { showSmartAccountSettings, showWalletSettings } = useWalletConnectionMode()
 
@@ -38,6 +36,7 @@ export function WalletConnect() {
   }
 
   if (aa) {
+    // AA mode: wallet settings links only — login lives on home hero and /login
     if (showSmartAccountSettings || showWalletSettings) {
       return (
         <div className="flex flex-wrap items-center gap-2">
@@ -60,18 +59,7 @@ export function WalletConnect() {
         </div>
       )
     }
-    // Home hero has the primary Log in — avoid duplicate in header
-    if (pathname === '/') {
-      return null
-    }
-    return (
-      <Link
-        href="/login"
-        className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium !text-black bg-brand-green hover:bg-brand-green/90"
-      >
-        Log in
-      </Link>
-    )
+    return null
   }
 
   const isPrivyEnabled = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)

@@ -22,7 +22,10 @@ import type { Config } from 'wagmi'
 import type { Hex } from 'viem'
 import { getAccount, reconnect, signMessage, writeContract } from '@wagmi/core'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
+import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
+import { waitForUserReturnFromWallet } from '@/lib/blockchain/wait-for-wallet-return'
 
 /** Wagmi writeContract params (strict). */
 type WriteContractParams = Parameters<typeof writeContract>[1]
@@ -60,7 +63,15 @@ export function lockedWriteContract(
   config: Config,
   params: LockedWriteContractInput
 ): Promise<Hex> {
-  return enqueue(() => writeContract(config, params as WriteContractParams))
+  return enqueue(async () => {
+    _busy = true
+    try {
+      await prepareMobileWalletWrite(config)
+      return await writeContract(config, params as WriteContractParams)
+    } finally {
+      _busy = false
+    }
+  })
 }
 
 /**
@@ -82,6 +93,23 @@ export async function prepareWalletConnectSession(config: Config): Promise<void>
     account.connector?.id === 'walletConnect' || isMobileBrowser()
   if (!needsPrep) return
   await reconnect(config).catch(() => {})
+}
+
+async function prepareMobileWalletWrite(config: Config): Promise<void> {
+  const account = getAccount(config)
+  if (!account.isConnected) return
+  const needsPrep =
+    account.connector?.id === 'walletConnect' || isMobileBrowser()
+  if (!needsPrep) return
+
+  await waitForUserReturnFromWallet()
+  await prepareWalletConnectSession(config)
+  await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+  if (account.chainId != null && account.chainId !== REQUIRED_CHAIN_ID) {
+    throw new Error(
+      'Wallet is not on Celo yet. Switch in your wallet app, return to the browser, then try again.'
+    )
+  }
 }
 
 /**
@@ -116,6 +144,7 @@ export function lockedWriteContractRaw(
   return enqueue(async () => {
     _busy = true
     try {
+      await prepareMobileWalletWrite(config)
       return await writeContract(config, params as WriteContractParams)
     } finally {
       _busy = false

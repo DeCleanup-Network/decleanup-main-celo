@@ -1,16 +1,15 @@
 import { Address } from 'viem'
 import {
-  getCleanupDetails,
+  getCleanupDetailsFresh,
   findLatestClaimableCleanup,
   getUserSubmissions,
-  getUserLevel,
 } from './contracts'
 
 /** Verified submissions (approved, not rejected) for this user — drives level claim eligibility vs NFT userLevel. */
 export async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
   const submissionIds = await getUserSubmissions(user)
   if (submissionIds.length === 0) return 0
-  const detailsList = await Promise.all(submissionIds.map((sid) => getCleanupDetails(sid)))
+  const detailsList = await Promise.all(submissionIds.map((sid) => getCleanupDetailsFresh(sid)))
   let n = 0
   for (const d of detailsList) {
     if (d.verified && !d.rejected) n++
@@ -22,7 +21,8 @@ export async function countVerifiedCleanupsForUser(user: Address): Promise<numbe
 export async function isImpactClaimOutstanding(user: Address): Promise<boolean> {
   const verifiedCount = await countVerifiedCleanupsForUser(user)
   if (verifiedCount === 0) return false
-  const nftLevel = await getUserLevel(user)
+  const { getUserLevelFresh } = await import('./contracts')
+  const nftLevel = await getUserLevelFresh(user)
   return nftLevel < verifiedCount
 }
 
@@ -217,7 +217,7 @@ export async function getLatestCleanupStatus(
   }
 
   try {
-    const details = await getCleanupDetails(cleanupId)
+    const details = await getCleanupDetailsFresh(cleanupId)
     
     console.log('[verification] Cleanup details:', {
       cleanupId: cleanupId.toString(),
@@ -318,7 +318,8 @@ export async function getLatestCleanupStatus(
     if (canClaim && verified) {
       try {
         const verifiedCount = await countVerifiedCleanupsForUser(user)
-        const nftLevel = await getUserLevel(user)
+        const { getUserLevelFresh } = await import('./contracts')
+        const nftLevel = await getUserLevelFresh(user)
         if (verifiedCount > 0 && nftLevel >= verifiedCount) {
           console.log('[verification] NFT level caught up with verified cleanups; treating as claimed', {
             nftLevel,
@@ -494,7 +495,7 @@ export async function getUserCleanupStatus(user: Address): Promise<{
     let level = 1 // Default level
     try {
       if (latest.cleanupId !== undefined) {
-        const details = await getCleanupDetails(latest.cleanupId)
+        const details = await getCleanupDetailsFresh(latest.cleanupId)
         level = details.level || 1
       }
     } catch (error) {
