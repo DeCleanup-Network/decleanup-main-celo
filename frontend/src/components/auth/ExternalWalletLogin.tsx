@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { useAccount, useConnect } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { useClientMounted } from '@/hooks/useClientMounted'
 
 type Props = {
@@ -29,8 +30,8 @@ const CONNECT_TIMEOUT_MS = 45_000
  * On mobile Safari without an injected wallet, use WalletConnect instead of injected() (avoids
  * "Provider not found" from @wagmi/core).
  *
- * Do not pass chainId to WalletConnect connect — it blocks on an in-connect network switch and
- * leaves the button stuck on "Connecting…" until the wallet app approves Celo.
+ * Pass chainId so WalletConnect negotiates Celo from the start (avoids defaulting to Ethereum).
+ * Wrong-network on mobile is handled elsewhere with a manual-switch hard stop before txs.
  */
 export function ExternalWalletLogin({ callbackUrl }: Props) {
   const router = useRouter()
@@ -88,7 +89,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     if (!connector) return
     setTimedOut(false)
     reset()
-    connect({ connector })
+    connect({ connector, chainId: REQUIRED_CHAIN_ID })
   }
 
   const showInjected = hasInjectedProvider() && injectedConnector
