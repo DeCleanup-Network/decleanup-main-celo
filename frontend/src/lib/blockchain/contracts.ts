@@ -771,7 +771,7 @@ async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
   let n = 0
   for (const sid of submissionIds) {
     try {
-      const details = await getCleanupDetails(sid)
+      const details = await getCleanupDetailsFresh(sid)
       if (details.verified && !details.rejected) n++
     } catch {
       /* ignore */
@@ -789,7 +789,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
   try {
     try {
       const verifiedCnt = await countVerifiedCleanupsForUser(user)
-      const nftLvl = await getUserLevel(user)
+      const nftLvl = await getUserLevelFresh(user)
       if (verifiedCnt > 0 && nftLvl >= verifiedCnt) {
         console.log(
           `[findLatestClaimableCleanup] NFT level ${nftLvl} >= verified cleanups ${verifiedCnt} — no pending level claim`
@@ -862,46 +862,11 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
           continue
         }
 
-        let isPreFixCleanup = false
-        if (details.verified && details.rewarded && !details.rejected && REWARD_MANAGER_ADDRESS) {
-          try {
-            const balance = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-              address: REWARD_MANAGER_ADDRESS,
-              abi: [
-                {
-                  type: 'function',
-                  name: 'getBalance',
-                  stateMutability: 'view',
-                  inputs: [{ name: 'user', type: 'address' }],
-                  outputs: [{ name: '', type: 'uint256' }],
-                },
-              ] as const,
-              functionName: 'getBalance',
-              args: [user],
-            }) as bigint
-
-            if (balance === 0n && details.timestamp) {
-              const now = BigInt(Math.floor(Date.now() / 1000))
-              const oneHourAgo = now - BigInt(3600)
-              if (details.timestamp < oneHourAgo) {
-                isPreFixCleanup = true
-                console.warn(
-                  `[findLatestClaimableCleanup] Pre-fix cleanup ${submissionId.toString()}: verified >1h ago, rewarded, balance 0 — skipping`
-                )
-              }
-            }
-          } catch (error) {
-            console.warn(`[findLatestClaimableCleanup] Balance check failed for ${submissionId.toString()}:`, error)
-          }
-        }
-
         const isClaimable =
           details.user.toLowerCase() === user.toLowerCase() &&
           details.verified &&
           !details.rejected &&
-          !details.claimed &&
-          !isPreFixCleanup
+          !details.claimed
 
         if (isClaimable) {
           console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`)

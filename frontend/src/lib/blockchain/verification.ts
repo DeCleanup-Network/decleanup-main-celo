@@ -247,71 +247,12 @@ export async function getLatestCleanupStatus(
 
     const verified = details.verified
     const rejected = details.rejected
-    // Check localStorage FIRST as the source of truth for claimed status
-    // The contract doesn't track "claimed" - it only tracks if rewards were distributed
     const localClaimed = isCleanupClaimed(user, cleanupId)
-    // Don't trust contract's claimed field - it's not reliable
-    // Only use localStorage to determine if user has claimed
     const claimed = localClaimed
-    
-    // Check if this cleanup was verified before the contract fix
-    // (rewarded=true but user has no balance - indicates pre-fix cleanup)
-    // IMPORTANT: Be very conservative - only mark as pre-fix if we're absolutely sure
-    // For newly verified cleanups, always allow claiming (rewards might be distributed during claim)
-    let isPreFixCleanup = false
-    
-    // Only check for pre-fix if:
-    // 1. Cleanup is verified AND marked as rewarded (rewards were supposedly distributed)
-    // 2. Cleanup was verified a LONG time ago (more than 1 hour) - this ensures it's definitely pre-fix
-    // 3. User has 0 balance
-    // This prevents false positives for newly verified cleanups
-    if (verified && details.rewarded && !rejected && !claimed) {
-      try {
-        const now = BigInt(Math.floor(Date.now() / 1000))
-        const oneHourAgo = now - BigInt(3600) // 1 hour in seconds
-        
-        // Only check balance if cleanup was verified more than 1 hour ago
-        // This ensures we're not blocking newly verified cleanups
-        if (details.timestamp && details.timestamp < oneHourAgo) {
-          const { getDCUBalance } = await import('@/lib/blockchain/contracts')
-          const balance = await getDCUBalance(user)
-          const verifiedAgo = now - details.timestamp
-          
-          console.log('[verification] Balance check for pre-fix detection (verified >1h ago):', {
-            cleanupId: cleanupId.toString(),
-            rewarded: details.rewarded,
-            balance: balance.toString(),
-            balanceIsZero: balance === 0n,
-            verifiedAgo: verifiedAgo.toString(),
-            timestamp: details.timestamp?.toString(),
-          })
-          
-          // Only mark as pre-fix if verified >1 hour ago AND balance is still 0
-          if (balance === 0n) {
-            isPreFixCleanup = true
-            console.warn('[verification] ⚠️ Pre-fix cleanup detected: verified >1h ago, rewarded=true, but balance is 0')
-            console.warn('[verification] Verified', verifiedAgo.toString(), 'seconds ago (>1 hour), likely pre-fix cleanup')
-            console.warn('[verification] This cleanup needs manual reward distribution')
-          } else {
-            console.log('[verification] User has balance:', balance.toString(), '- not a pre-fix cleanup')
-          }
-        } else {
-          const verifiedAgo = details.timestamp ? (now - details.timestamp) : BigInt(0)
-          console.log('[verification] Cleanup verified recently (', verifiedAgo.toString(), 's ago, <1h). Allowing claim - rewards may be distributed during claim.')
-        }
-      } catch (error) {
-        console.warn('[verification] Could not check balance for pre-fix detection:', error)
-        // If balance check fails, assume it's not a pre-fix cleanup to avoid false positives
-        // This ensures newly verified cleanups can still show claim button
-      }
-    } else if (verified && !details.rewarded) {
-      console.log('[verification] Cleanup verified but not yet rewarded - allowing claim (rewards may be distributed during claim)')
-    }
-    
-    // If it's a pre-fix cleanup, don't allow claiming (needs manual reward distribution)
-    // BUT: Only block if we're absolutely sure it's pre-fix (verified >1h ago, balance=0)
-    // For newly verified cleanups, always allow claiming (rewards might be distributed during claim)
-    let canClaim = verified && !rejected && !claimed && !isPreFixCleanup
+
+    // Claim eligibility: verified, not rejected, not locally claimed.
+    // NFT level vs verified count (below) is the on-chain source of truth — not rewarded/balance heuristics.
+    let canClaim = verified && !rejected && !claimed
 
     // On-chain source of truth: each verified cleanup should eventually mint one Impact Product level.
     // localStorage "claimed" can be missing (new device / cleared storage) while NFT level already caught up.
@@ -342,38 +283,18 @@ export async function getLatestCleanupStatus(
         verified,
         rejected,
         claimed,
-        isPreFixCleanup,
-        reason: rejected ? 'rejected' : claimed ? 'claimed' : isPreFixCleanup ? 'pre-fix cleanup' : 'unknown',
+        reason: rejected ? 'rejected' : claimed ? 'claimed' : 'unknown',
       })
     } else if (verified && canClaim) {
       console.log('[verification] ✅ Cleanup is verified and canClaim is true - claim button should appear')
     }
     
-    console.log('[verification] Pre-fix cleanup check:', {
-      cleanupId: cleanupId.toString(),
-      isPreFixCleanup,
-      canClaim,
-      verified,
-      rejected,
-      claimed,
-      rewarded: details.rewarded,
-    })
-    
-    console.log('[verification] Claimed status check:', {
-      cleanupId: cleanupId.toString(),
-      localClaimed,
-      contractClaimed: details.claimed,
-      finalClaimed: claimed,
-      canClaim,
-    })
-
     console.log('[verification] Status calculation:', {
       verified,
       rejected,
       contractClaimed: details.claimed,
       localClaimed,
       claimed,
-      isPreFixCleanup,
       canClaim,
     })
 
@@ -392,26 +313,11 @@ export async function getLatestCleanupStatus(
       // Return null for rejected cleanups (user needs to submit new one)
       return null
     } else if (verified && canClaim) {
-      // Verified and can claim - keep it in localStorage so user can see claim button
       storePendingCleanup(user, cleanupId)
     } else if (verified && !canClaim) {
-      // Verified but can't claim - could be:
-      // 1. Already claimed
-      // 2. Pre-fix cleanup (needs manual reward distribution)
-      if (isPreFixCleanup) {
-        // Pre-fix cleanup: clear from localStorage and return null
-        // User needs to contact support or use manual reward distribution script
-        console.warn('[verification] 🚫 Pre-fix cleanup detected, clearing from localStorage and hiding claim button')
-        clearPendingCleanup(user)
-        // Also mark it as claimed locally to prevent it from showing again
-        markCleanupAsClaimed(user, cleanupId)
-        return null
-      } else {
-        // Already claimed - clear pending and return null
-        console.log('[verification] Cleanup already claimed, clearing from localStorage')
-        clearPendingCleanup(user)
-        return null
-      }
+      console.log('[verification] Cleanup already claimed, clearing from localStorage')
+      clearPendingCleanup(user)
+      return null
     }
 
     return {
