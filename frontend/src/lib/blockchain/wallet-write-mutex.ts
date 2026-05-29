@@ -25,7 +25,6 @@ import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
-import { waitForUserReturnFromWallet } from '@/lib/blockchain/wait-for-wallet-return'
 
 /** Wagmi writeContract params (strict). */
 type WriteContractParams = Parameters<typeof writeContract>[1]
@@ -102,10 +101,10 @@ async function prepareMobileWalletWrite(config: Config): Promise<void> {
     account.connector?.id === 'walletConnect' || isMobileBrowser()
   if (!needsPrep) return
 
-  await waitForUserReturnFromWallet()
   await prepareWalletConnectSession(config)
   await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
-  if (account.chainId != null && account.chainId !== REQUIRED_CHAIN_ID) {
+  const fresh = getAccount(config)
+  if (fresh.chainId != null && fresh.chainId !== REQUIRED_CHAIN_ID) {
     throw new Error(
       'Wallet is not on Celo yet. Switch in your wallet app, return to the browser, then try again.'
     )
