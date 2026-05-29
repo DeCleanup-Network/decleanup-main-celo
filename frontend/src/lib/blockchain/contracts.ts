@@ -787,9 +787,11 @@ async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
  */
 export async function findLatestClaimableCleanup(user: Address): Promise<bigint | null> {
   try {
+    let verifiedCnt = 0
+    let nftLvl = 0
     try {
-      const verifiedCnt = await countVerifiedCleanupsForUser(user)
-      const nftLvl = await getUserLevelFresh(user)
+      verifiedCnt = await countVerifiedCleanupsForUser(user)
+      nftLvl = await getUserLevelFresh(user)
       if (verifiedCnt > 0 && nftLvl >= verifiedCnt) {
         console.log(
           `[findLatestClaimableCleanup] NFT level ${nftLvl} >= verified cleanups ${verifiedCnt} — no pending level claim`
@@ -812,25 +814,40 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
       return 0
     })
 
+    const localClaimedEffective = (submissionId: bigint): boolean => {
+      if (typeof window === 'undefined') return false
+      try {
+        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
+        const claimedIds = localStorage.getItem(claimedKey)
+        if (!claimedIds) return false
+        const parsed = JSON.parse(claimedIds) as string[]
+        if (!parsed.includes(submissionId.toString())) return false
+        // Stale local "claimed" from old bugs — on-chain NFT level wins
+        if (verifiedCnt > 0 && nftLvl < verifiedCnt) {
+          const filtered = parsed.filter((id) => id !== submissionId.toString())
+          if (filtered.length === 0) localStorage.removeItem(claimedKey)
+          else localStorage.setItem(claimedKey, JSON.stringify(filtered))
+          console.log(
+            `[findLatestClaimableCleanup] Cleared stale claimed flag for ${submissionId.toString()} — NFT ${nftLvl} < verified ${verifiedCnt}`
+          )
+          return false
+        }
+        return true
+      } catch {
+        return false
+      }
+    }
+
     // Strict submit -> verify -> claim loop:
     // if the latest submission is already claimed locally, do not surface any older
     // verified cleanups as claimable. User must submit a newer cleanup first.
-    if (typeof window !== 'undefined' && sortedIds.length > 0) {
-      try {
-        const latestSubmissionId = sortedIds[0]
-        const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-        const claimedIdsRaw = localStorage.getItem(claimedKey)
-        if (claimedIdsRaw) {
-          const claimedIds = JSON.parse(claimedIdsRaw) as string[]
-          if (claimedIds.includes(latestSubmissionId.toString())) {
-            console.log(
-              `[findLatestClaimableCleanup] Latest submission ${latestSubmissionId.toString()} already claimed — waiting for a new submission before next claim`
-            )
-            return null
-          }
-        }
-      } catch {
-        /* ignore malformed local storage */
+    if (sortedIds.length > 0) {
+      const latestSubmissionId = sortedIds[0]
+      if (localClaimedEffective(latestSubmissionId)) {
+        console.log(
+          `[findLatestClaimableCleanup] Latest submission ${latestSubmissionId.toString()} already claimed — waiting for a new submission before next claim`
+        )
+        return null
       }
     }
 
@@ -838,24 +855,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
       try {
         const details = await getCleanupDetailsFresh(submissionId)
 
-        const localClaimed =
-          typeof window !== 'undefined'
-            ? (() => {
-                try {
-                  const claimedKey = `claimed_cleanup_ids_${user.toLowerCase()}`
-                  const claimedIds = localStorage.getItem(claimedKey)
-                  if (claimedIds) {
-                    const parsed = JSON.parse(claimedIds) as string[]
-                    return parsed.includes(submissionId.toString())
-                  }
-                } catch {
-                  /* ignore */
-                }
-                return false
-              })()
-            : false
-
-        if (localClaimed) {
+        if (localClaimedEffective(submissionId)) {
           console.log(
             `[findLatestClaimableCleanup] Skip ${submissionId.toString()} — already in claimed_cleanup_ids (claim again requires a new submission)`
           )
@@ -865,8 +865,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
         const isClaimable =
           details.user.toLowerCase() === user.toLowerCase() &&
           details.verified &&
-          !details.rejected &&
-          !details.claimed
+          !details.rejected
 
         if (isClaimable) {
           console.log(`[findLatestClaimableCleanup] Found claimable cleanup: ${submissionId.toString()}`)

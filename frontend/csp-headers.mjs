@@ -12,6 +12,14 @@ const GOOGLE_AUTH = 'https://accounts.google.com https://oauth2.googleapis.com'
  */
 const WALLET_EXTENSION_RPC = 'https://eth.merkle.io https://*.merkle.io'
 
+/** WalletConnect verify iframe (attestation modal). */
+const WALLETCONNECT_FRAMES = [
+  'https://verify.walletconnect.org',
+  'https://verify.walletconnect.com',
+  'https://secure.walletconnect.org',
+  'https://secure.walletconnect.com',
+].join(' ')
+
 /** WalletConnect / Reown AppKit + relay (required when RainbowKit or WC is on the page). */
 const WALLETCONNECT_CONNECT = [
   'https://pulse.walletconnect.org',
@@ -80,11 +88,11 @@ export function buildContentSecurityPolicy(isDev) {
     isDev
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
       : "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${connectSrc}`,
-    "frame-src 'none'",
+    `frame-src 'self' ${WALLETCONNECT_FRAMES} ${GOOGLE_AUTH}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

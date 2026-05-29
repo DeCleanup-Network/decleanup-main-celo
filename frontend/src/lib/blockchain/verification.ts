@@ -91,9 +91,48 @@ function getClaimedCleanupIds(user: Address): string[] {
   }
 }
 
+export function unmarkCleanupClaimed(user: Address, cleanupId: bigint) {
+  if (typeof window === 'undefined') return
+  const key = claimedKey(user)
+  const claimed = getClaimedCleanupIds(user)
+  const cleanupIdStr = cleanupId.toString()
+  const filtered = claimed.filter((id) => id !== cleanupIdStr)
+  if (filtered.length === claimed.length) return
+  if (filtered.length === 0) {
+    localStorage.removeItem(key)
+  } else {
+    localStorage.setItem(key, JSON.stringify(filtered))
+  }
+  console.log('[verification] Cleared stale claimed flag:', { user, cleanupId: cleanupIdStr })
+}
+
 export function isCleanupClaimed(user: Address, cleanupId: bigint): boolean {
   const claimed = getClaimedCleanupIds(user)
   return claimed.includes(cleanupId.toString())
+}
+
+/**
+ * Local claimed flags can be stale (e.g. old pre-fix bug). On-chain NFT level wins:
+ * if NFT level is still behind verified count, treat as unclaimed and clear the flag.
+ */
+export async function isCleanupClaimedEffective(
+  user: Address,
+  cleanupId: bigint
+): Promise<boolean> {
+  if (!isCleanupClaimed(user, cleanupId)) return false
+  const verifiedCount = await countVerifiedCleanupsForUser(user)
+  const { getUserLevelFresh } = await import('./contracts')
+  const nftLevel = await getUserLevelFresh(user)
+  if (verifiedCount > 0 && nftLevel < verifiedCount) {
+    unmarkCleanupClaimed(user, cleanupId)
+    console.log('[verification] Ignoring stale local claimed — NFT level still behind verified count', {
+      cleanupId: cleanupId.toString(),
+      nftLevel,
+      verifiedCount,
+    })
+    return false
+  }
+  return true
 }
 
 function getPendingCleanupId(user: Address): bigint | null {
@@ -156,17 +195,8 @@ export async function getLatestCleanupStatus(
       
       // IMPORTANT: Check for null/undefined explicitly, not truthiness, because cleanup ID 0 is valid!
       if (foundCleanupId !== null && foundCleanupId !== undefined) {
-        // Double-check: if this cleanup is marked as claimed in localStorage, skip it
-        // (This handles pre-fix cleanups that were manually cleared)
-        const isClaimed = isCleanupClaimed(user, foundCleanupId)
-        if (isClaimed) {
-          console.log('[verification] Found cleanup is marked as claimed in localStorage, skipping:', foundCleanupId.toString())
-          return null
-        }
-        
         cleanupId = foundCleanupId
         console.log('[verification] Found claimable cleanup from contract:', cleanupId.toString())
-        // Store it in localStorage for future checks
         storePendingCleanup(user, cleanupId)
       } else {
         console.log('[verification] No claimable cleanup found in contract')
@@ -179,7 +209,7 @@ export async function getLatestCleanupStatus(
   // If we have a cleanup ID, verify it's still claimable FIRST
   // If it's been claimed, clear it and return null (don't search for others)
   if (cleanupId !== null && cleanupId !== undefined) {
-    const localClaimed = isCleanupClaimed(user, cleanupId)
+    const localClaimed = await isCleanupClaimedEffective(user, cleanupId)
     if (localClaimed) {
       console.log('[verification] Cleanup in localStorage is already claimed, clearing it')
       clearPendingCleanup(user)
@@ -247,7 +277,7 @@ export async function getLatestCleanupStatus(
 
     const verified = details.verified
     const rejected = details.rejected
-    const localClaimed = isCleanupClaimed(user, cleanupId)
+    const localClaimed = await isCleanupClaimedEffective(user, cleanupId)
     const claimed = localClaimed
 
     // Claim eligibility: verified, not rejected, not locally claimed.
