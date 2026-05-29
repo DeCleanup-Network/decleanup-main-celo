@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useSession } from 'next-auth/react'
+import { useAccount } from 'wagmi'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import {
@@ -88,7 +89,9 @@ function HomeContent() {
     canTransact,
     walletReady,
     walletBootstrapping,
+    wagmiConnected,
   } = useAppWalletAddress()
+  const { isConnected: wagmiIsConnected } = useAccount()
   const { error: walletSetupError, retryWalletBootstrap } = useWallet()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
@@ -143,7 +146,8 @@ function HomeContent() {
   }, [address])
 
   const chainId = useResolvedChainId()
-  const { submissionOwnerAddress, client: gaslessClient } = useSmartAccountClient()
+  const { submissionOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
+    useSmartAccountClient()
   const {
     cleanupStatus,
     hypercertEligibility,
@@ -177,13 +181,31 @@ function HomeContent() {
       return
     }
     if (!submissionOwnerAddress) {
-      console.warn('[Home] Claim blocked: submission owner not ready (gasless wallet still loading)')
+      console.warn('[Home] Claim blocked: submission owner not ready')
       return
     }
-    if (!canTransact || !gaslessClient) {
-      setSignGate({
-        mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-        purpose: 'claim your Impact Product level',
+
+    if (expectsSponsoredGas) {
+      if (!canTransact || !gaslessClient) {
+        setSignGate({
+          mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
+          purpose: 'claim your Impact Product level',
+        })
+        return
+      }
+    } else if (!wagmiIsConnected && !wagmiConnected) {
+      setClaimModal({
+        variant: 'error',
+        title: 'Wallet not connected',
+        message:
+          'Connect your wallet (MetaMask or WalletConnect), then tap CLAIM LEVEL again. You will confirm the transaction in your wallet and pay gas on Celo.',
+      })
+      return
+    } else if (!address) {
+      setClaimModal({
+        variant: 'error',
+        title: 'Wallet not ready',
+        message: 'Your wallet address is still loading. Wait a moment and try again.',
       })
       return
     }
@@ -191,11 +213,21 @@ function HomeContent() {
     try {
       setIsClaiming(true)
 
-      const claimResult = await claimImpactProductFromVerification(cleanupStatus.cleanupId, {
-        gaslessClient: gaslessClient ? (gaslessClient as GaslessClient) : undefined,
-        smartAccountAddress: submissionOwnerAddress,
-        eoaAddress: address,
-      })
+      const claimOptions = expectsSponsoredGas
+        ? {
+            gaslessClient: gaslessClient as GaslessClient,
+            smartAccountAddress: submissionOwnerAddress,
+            eoaAddress: address,
+          }
+        : {
+            eoaAddress: address as Address,
+            smartAccountAddress: submissionOwnerAddress,
+          }
+
+      const claimResult = await claimImpactProductFromVerification(
+        cleanupStatus.cleanupId,
+        claimOptions
+      )
 
       if (address && cleanupStatus.cleanupId !== undefined && cleanupStatus.cleanupId !== null) {
         const claimOwner = submissionOwnerAddress as Address
@@ -577,8 +609,9 @@ function HomeContent() {
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    Your cleanup is verified! Claim your Impact Product (level {cleanupStatus.level ?? 1}) using the yellow
-                    button in the section above to mint and unlock rewards.
+                    {expectsSponsoredGas
+                      ? `Your cleanup is verified! Tap CLAIM LEVEL above to mint your Impact Product (level ${cleanupStatus.level ?? 1}). You will unlock your wallet passkey to confirm (gasless on Celo).`
+                      : `Your cleanup is verified! Tap CLAIM LEVEL above to mint your Impact Product (level ${cleanupStatus.level ?? 1}). Confirm the transaction in your connected wallet — you pay gas on Celo.`}
                   </p>
                 </div>
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">

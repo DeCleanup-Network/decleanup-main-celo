@@ -83,7 +83,8 @@ function extractImpactStats(metadata: ImpactMetadata | null) {
 
 export default function ProfilePage() {
   const { address, isConnected } = useAccount()
-  const { submissionOwnerAddress, client: gaslessClient } = useSmartAccountClient()
+  const { submissionOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
+    useSmartAccountClient()
   const chainId = useChainId()
   const [hasMounted, setHasMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -581,7 +582,16 @@ useEffect(() => {
             
                 await claimImpactProductFromVerification(
                   cleanupStatus.cleanupId,
-                  gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
+                  expectsSponsoredGas && gaslessClient
+                    ? {
+                        gaslessClient: gaslessClient as GaslessClient,
+                        smartAccountAddress: submissionOwnerAddress,
+                        eoaAddress: address,
+                      }
+                    : {
+                        eoaAddress: address,
+                        smartAccountAddress: submissionOwnerAddress,
+                      }
                 )
 
                 // Mark as claimed in localStorage

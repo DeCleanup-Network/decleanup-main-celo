@@ -48,10 +48,14 @@ function resolveClaimIdentity(options?: GaslessClaimOptions): {
     }
   }
   const account = getAccount(getConfig())
-  const eoa = account.address as Address | undefined
-  const smart = options?.gaslessClient
-    ? getSmartAccountAddressFromClient(options.gaslessClient) ?? options.gaslessClient.accountAddress ?? null
-    : null
+  const eoa = (options?.eoaAddress ?? account.address) as Address | undefined
+  const smart =
+    options?.smartAccountAddress ??
+    (options?.gaslessClient
+      ? getSmartAccountAddressFromClient(options.gaslessClient) ??
+        options.gaslessClient.accountAddress ??
+        null
+      : null)
   return { eoaAddress: eoa, smartAccountAddress: smart, gasless: false }
 }
 
@@ -1495,7 +1499,7 @@ export async function claimImpactProductFromVerification(
 
   if (matchesSmart && !gasless) {
     throw new Error(
-      'This cleanup is tied to your smart account. Unlock your wallet in Smart account settings, then try again.'
+      'This cleanup is tied to your smart account. Sign in with Google or email and unlock Smart account settings, or connect the wallet that owns this cleanup.'
     )
   }
 
