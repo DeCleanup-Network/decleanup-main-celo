@@ -52,7 +52,7 @@ export function AirdropPendingBanner() {
         if (cancelled) return
         if (!data.eligible || data.claimed || BigInt(data.claimableWei ?? '0') <= 0n) {
           setCheck(null)
-          if (!data.eligible) clearPendingAirdropAddress()
+          if (!data.eligible || data.claimed) clearPendingAirdropAddress()
         } else {
           setCheck(data)
         }

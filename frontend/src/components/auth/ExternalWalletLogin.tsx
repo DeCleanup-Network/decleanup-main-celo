@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import { useAccount, useConfig, useConnect } from 'wagmi'
-import { reconnect } from '@wagmi/core'
+import { useAccount, useConnect } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
@@ -28,13 +27,10 @@ const CONNECT_TIMEOUT_MS = 45_000
 
 /**
  * MetaMask / WalletConnect login.
- *
- * Mobile WC: deep-link immediately (no chainId on connect, no QR modal) — chain is Celo
- * because minimal wagmi config lists only Celo chains. Desktop / injected: pass chainId.
+ * Desktop WC: modal + Celo chainId. Mobile WC: modal/deep-link without in-connect chain switch.
  */
 export function ExternalWalletLogin({ callbackUrl }: Props) {
   const router = useRouter()
-  const config = useConfig()
   const { status } = useSession()
   const { isConnected } = useAccount()
   const { connect, connectors, isPending, error, reset } = useConnect()
@@ -88,10 +84,6 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
 
     const isWalletConnect = connector.id === 'walletConnect'
     const mobile = isMobileBrowser()
-
-    if (isWalletConnect) {
-      void reconnect(config).catch(() => {})
-    }
 
     if (isWalletConnect && mobile) {
       connect({ connector })
@@ -148,9 +140,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
           ) : null}
           {isPending && !timedOut ? (
             <p className="text-center text-xs text-gray-400">
-              {isMobileBrowser()
-                ? 'Opening your wallet app… Approve the connection in MetaMask, Zerion, or Rainbow.'
-                : 'Approve the connection in your wallet app (Rainbow, Zerion, MetaMask).'}
+              Choose a wallet in the modal, or approve the connection in your wallet app.
             </p>
           ) : null}
           {timedOut ? (
