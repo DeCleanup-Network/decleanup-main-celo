@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAccount, useConfig } from 'wagmi'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
-import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
+import { lockedSwitchToRequiredChain } from '@/lib/blockchain/wallet-write-mutex'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 
 /** After WalletConnect / MetaMask connect, prompt switch off Ethereum mainnet once. */
@@ -27,7 +27,7 @@ export function useAutoSwitchToAppChain() {
     if (attemptedRef.current) return
     attemptedRef.current = true
 
-    void switchToRequiredChain(config).catch(() => {
+    void lockedSwitchToRequiredChain(config).catch(() => {
       attemptedRef.current = false
     })
   }, [pathname, isEmbeddedAccount, isConnected, chainId, config])

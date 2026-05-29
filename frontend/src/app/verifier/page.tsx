@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAccount, useSignMessage } from 'wagmi'
+import { useAccount, useConfig } from 'wagmi'
+import { lockedSignMessage } from '@/lib/blockchain/wallet-write-mutex'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, Loader2, Shield, ArrowLeft, MapPin, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
@@ -69,7 +70,7 @@ export default function VerifierPage() {
     const router = useRouter()
     const [mounted, setMounted] = useState(false)
     const { address, isConnected } = useAccount()
-    const { signMessageAsync, isPending: isSigning } = useSignMessage()
+    const config = useConfig()
     const [loading, setLoading] = useState(true)
     const [isVerifierUser, setIsVerifierUser] = useState(false)
     const [isAdminUser, setIsAdminUser] = useState(false)
@@ -79,6 +80,7 @@ export default function VerifierPage() {
     const [error, setError] = useState<string | null>(null)
     const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
     const [verifierContext, setVerifierContext] = useState<any>(null)
+    const [isSigning, setIsSigning] = useState(false)
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
     const [verifierApplications, setVerifierApplications] = useState<VerifierApplicationRow[]>([])
     const [loadingVerifierApplications, setLoadingVerifierApplications] = useState(false)
@@ -236,27 +238,42 @@ export default function VerifierPage() {
             return
         }
 
-        if (!signMessageAsync) {
-            setError('Signature functionality not available. Please ensure your wallet supports message signing.')
-            return
-        }
-
         setError(null)
+        setIsSigning(true)
         try {
-            const signature = await signMessageAsync({ message: VERIFIER_AUTH_MESSAGE })
-            
+            const signature = await lockedSignMessage(config, {
+                message: VERIFIER_AUTH_MESSAGE,
+                account: address,
+            })
+
             if (!signature) {
                 setError('Signature request was cancelled or rejected. Please try again.')
                 return
             }
 
-            // Now verify against contract
             setLoading(true)
             await verifyAgainstContract(address)
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error during signature:', error)
-            setError(error?.message || 'Failed to sign message. Please try again.')
+            const msg = error instanceof Error ? error.message : 'Failed to sign message. Please try again.'
+            if (/rejected|denied|cancel/i.test(msg)) {
+                setError('Signature request was cancelled. Open your wallet app and try again.')
+            } else {
+                setError(msg)
+            }
+        } finally {
+            setIsSigning(false)
         }
+    }
+
+    const signMessageForWallet = async (params: { message: string }) => {
+        if (!address) {
+            throw new Error('Wallet not connected')
+        }
+        return lockedSignMessage(config, {
+            message: params.message,
+            account: address,
+        })
     }
 
     const fetchCleanups = async () => {
@@ -700,14 +717,6 @@ export default function VerifierPage() {
 
     const handleApproveHypercert = async (requestId: string) => {
         if (!address || !isAdminUser) return
-        if (!signMessageAsync) {
-            setActionModal({
-                variant: 'error',
-                title: 'Wallet not ready',
-                message: 'Message signing is required to approve Hypercert requests.',
-            })
-            return
-        }
 
         setProcessingRequestId(requestId)
         setError(null)
@@ -718,7 +727,7 @@ export default function VerifierPage() {
             const approvedRequest = await approveHypercertRequest({
                 requestId,
                 verifierAddress: address,
-                signMessageAsync,
+                signMessageAsync: signMessageForWallet,
             })
             
             if (!approvedRequest) {
@@ -749,14 +758,6 @@ export default function VerifierPage() {
 
     const handleRejectHypercert = async (requestId: string) => {
         if (!address || !isAdminUser) return
-        if (!signMessageAsync) {
-            setActionModal({
-                variant: 'error',
-                title: 'Wallet not ready',
-                message: 'Message signing is required to reject Hypercert requests.',
-            })
-            return
-        }
 
         const reason = prompt('Enter rejection reason (optional):')
         
@@ -770,7 +771,7 @@ export default function VerifierPage() {
                 requestId,
                 verifierAddress: address,
                 reason: reason || undefined,
-                signMessageAsync,
+                signMessageAsync: signMessageForWallet,
             })
             
             if (!rejectedRequest) {

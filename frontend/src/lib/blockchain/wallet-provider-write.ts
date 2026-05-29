@@ -15,10 +15,9 @@ import {
 } from '@/lib/blockchain/wallet-write-mutex'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 
-export function isMobileBrowser(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-}
+import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
+
+export { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 
 export function shouldShowMobileWalletConnectHint(wagmiConnected: boolean): boolean {
   return isMobileBrowser() && !wagmiConnected

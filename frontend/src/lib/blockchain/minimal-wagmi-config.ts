@@ -1,10 +1,11 @@
-import { celo, mainnet } from 'wagmi/chains'
+import { celo } from 'wagmi/chains'
 import { defineChain } from 'viem'
 import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { getWalletConnectMetadata } from '@/lib/blockchain/wallet-connect-metadata'
+import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
 const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
@@ -38,10 +39,15 @@ const walletConnectProjectId =
  * Wagmi for AA auth mode — connectors for MetaMask / WalletConnect without nesting a second
  * WagmiProvider on /login (that broke “connected on login, logged out on home”).
  */
+/** Celo only — omit Ethereum mainnet so WC does not default to chain 1. */
 const chains =
   REQUIRED_CHAIN_ID === 42220
-    ? ([celoMainnet, celoSepoliaChain, mainnet] as const)
-    : ([celoSepoliaChain, celoMainnet, mainnet] as const)
+    ? ([celoMainnet, celoSepoliaChain] as const)
+    : ([celoSepoliaChain, celoMainnet] as const)
+
+/** SSR: false (mobile-first). Client: QR only on desktop; mobile uses deep-link. */
+const walletConnectShowQrModal =
+  typeof window === 'undefined' ? false : !isMobileBrowser()
 
 export const minimalWagmiConfig = createConfig({
   chains: [...chains],
@@ -49,7 +55,7 @@ export const minimalWagmiConfig = createConfig({
     injected(),
     walletConnect({
       projectId: walletConnectProjectId,
-      showQrModal: true,
+      showQrModal: walletConnectShowQrModal,
       metadata: getWalletConnectMetadata(),
     }),
   ],
@@ -57,7 +63,6 @@ export const minimalWagmiConfig = createConfig({
   transports: {
     [celoMainnet.id]: http(celoMainnetRpcUrl),
     [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
-    [mainnet.id]: http(),
   },
   ssr: true,
 })

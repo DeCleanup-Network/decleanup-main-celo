@@ -1,10 +1,9 @@
 /**
- * Global mutex for all wallet write operations (writeContract + switchChain).
+ * Global mutex for wallet RPC requests (writeContract, switchChain, signMessage).
  *
- * WalletConnect on iOS queues requests in the order they arrive. If two writeContract
- * calls (or a switchChain + writeContract) fire concurrently, MetaMask surfaces them
- * out of order or drops the second one entirely. This module serializes every wallet
- * write across the whole app so only one is in-flight at a time.
+ * WalletConnect on iOS queues requests in the order they arrive. If two requests
+ * fire concurrently, MetaMask surfaces them out of order or drops the second one.
+ * This module serializes every wallet op across the app so only one is in-flight.
  *
  * Usage:
  *   import { lockedWriteContract, lockedSwitchToRequiredChain } from '@/lib/blockchain/wallet-write-mutex'
@@ -21,7 +20,8 @@
 
 import type { Config } from 'wagmi'
 import type { Hex } from 'viem'
-import { writeContract } from '@wagmi/core'
+import { getAccount, reconnect, signMessage, writeContract } from '@wagmi/core'
+import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 
 /** Wagmi writeContract params (strict). */
@@ -69,6 +69,32 @@ export function lockedWriteContract(
  */
 export function lockedSwitchToRequiredChain(config: Config): Promise<boolean> {
   return enqueue(() => switchToRequiredChain(config))
+}
+
+/**
+ * Warm WalletConnect / mobile session before personal_sign or eth_sendTransaction.
+ * Call synchronously at the start of a click handler when possible.
+ */
+export async function prepareWalletConnectSession(config: Config): Promise<void> {
+  const account = getAccount(config)
+  if (!account.isConnected) return
+  const needsPrep =
+    account.connector?.id === 'walletConnect' || isMobileBrowser()
+  if (!needsPrep) return
+  await reconnect(config).catch(() => {})
+}
+
+/**
+ * Serialized personal_sign — use instead of useSignMessage().signMessageAsync on WC/mobile.
+ */
+export function lockedSignMessage(
+  config: Config,
+  params: Parameters<typeof signMessage>[1]
+): Promise<Hex> {
+  return enqueue(async () => {
+    await prepareWalletConnectSession(config)
+    return signMessage(config, params)
+  })
 }
 
 /**

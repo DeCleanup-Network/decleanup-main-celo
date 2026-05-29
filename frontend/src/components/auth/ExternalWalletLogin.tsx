@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import { useAccount, useConnect } from 'wagmi'
+import { useAccount, useConfig, useConnect } from 'wagmi'
+import { reconnect } from '@wagmi/core'
 import { Button } from '@/components/ui/button'
-import { ensureRequiredChain } from '@/lib/blockchain/ensure-required-chain'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 import { useClientMounted } from '@/hooks/useClientMounted'
 
 type Props = {
@@ -26,15 +27,14 @@ function hasInjectedProvider(): boolean {
 const CONNECT_TIMEOUT_MS = 45_000
 
 /**
- * MetaMask / browser wallet — same wagmi tree as the rest of the app (no nested RainbowKit provider).
- * On mobile Safari without an injected wallet, use WalletConnect instead of injected() (avoids
- * "Provider not found" from @wagmi/core).
+ * MetaMask / WalletConnect login.
  *
- * Pass chainId so WalletConnect negotiates Celo from the start (avoids defaulting to Ethereum).
- * Wrong-network on mobile is handled elsewhere with a manual-switch hard stop before txs.
+ * Mobile WC: deep-link immediately (no chainId on connect, no QR modal) — chain is Celo
+ * because minimal wagmi config lists only Celo chains. Desktop / injected: pass chainId.
  */
 export function ExternalWalletLogin({ callbackUrl }: Props) {
   const router = useRouter()
+  const config = useConfig()
   const { status } = useSession()
   const { isConnected } = useAccount()
   const { connect, connectors, isPending, error, reset } = useConnect()
@@ -71,10 +71,6 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
         await signOut({ redirect: false })
       }
       if (!cancelled) router.replace(target)
-      // Switch after navigation — do not block connect UI on chain switch.
-      void ensureRequiredChain().catch((e) => {
-        console.warn('[ExternalWalletLogin] Network switch skipped or failed:', e)
-      })
     })()
     return () => {
       cancelled = true
@@ -89,6 +85,19 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     if (!connector) return
     setTimedOut(false)
     reset()
+
+    const isWalletConnect = connector.id === 'walletConnect'
+    const mobile = isMobileBrowser()
+
+    if (isWalletConnect) {
+      void reconnect(config).catch(() => {})
+    }
+
+    if (isWalletConnect && mobile) {
+      connect({ connector })
+      return
+    }
+
     connect({ connector, chainId: REQUIRED_CHAIN_ID })
   }
 
@@ -139,7 +148,9 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
           ) : null}
           {isPending && !timedOut ? (
             <p className="text-center text-xs text-gray-400">
-              Approve the connection in your wallet app (Rainbow, Zerion, MetaMask).
+              {isMobileBrowser()
+                ? 'Opening your wallet app… Approve the connection in MetaMask, Zerion, or Rainbow.'
+                : 'Approve the connection in your wallet app (Rainbow, Zerion, MetaMask).'}
             </p>
           ) : null}
           {timedOut ? (
