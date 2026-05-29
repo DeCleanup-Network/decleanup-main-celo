@@ -24,6 +24,19 @@ import type { Hex } from 'viem'
 import { writeContract } from '@wagmi/core'
 import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
 
+/** Wagmi writeContract params (strict). */
+type WriteContractParams = Parameters<typeof writeContract>[1]
+
+/**
+ * Input accepted by lockedWriteContract — widened so payable txs (value) and
+ * const ABIs type-check at call sites; cast to WriteContractParams at invoke.
+ */
+export type LockedWriteContractInput = WriteContractParams extends infer P
+  ? P extends WriteContractParams
+    ? P | (Omit<WriteContractParams, 'value'> & { value?: bigint })
+    : never
+  : never
+
 // Module-level promise chain — all wallet ops queue behind this.
 let _queue: Promise<unknown> = Promise.resolve()
 
@@ -45,9 +58,9 @@ function enqueue<T>(op: () => Promise<T>): Promise<T> {
  */
 export function lockedWriteContract(
   config: Config,
-  params: Parameters<typeof writeContract>[1]
+  params: LockedWriteContractInput
 ): Promise<Hex> {
-  return enqueue(() => writeContract(config, params))
+  return enqueue(() => writeContract(config, params as WriteContractParams))
 }
 
 /**
@@ -72,12 +85,12 @@ export function isWalletOpInProgress(): boolean {
 // which already handles settle/switch logic and just needs the queue.
 export function lockedWriteContractRaw(
   config: Config,
-  params: Parameters<typeof writeContract>[1]
+  params: LockedWriteContractInput
 ): Promise<Hex> {
   return enqueue(async () => {
     _busy = true
     try {
-      return await writeContract(config, params)
+      return await writeContract(config, params as WriteContractParams)
     } finally {
       _busy = false
     }

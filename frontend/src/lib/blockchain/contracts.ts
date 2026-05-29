@@ -1905,7 +1905,7 @@ export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promi
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'safeMint',
         account: account!.address,
-        ...(value > 0n ? { value } : {}),
+        value,
       })
     }
 
@@ -1975,7 +1975,7 @@ export async function upgradeImpactProductNFT(
         functionName: 'upgradeNFT',
         args: [tokenId],
         account: account!.address,
-        ...(value > 0n ? { value } : {}),
+        value,
       })
     }
 
