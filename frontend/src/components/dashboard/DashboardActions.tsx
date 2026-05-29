@@ -132,14 +132,14 @@ export function DashboardActions({
                             ) : (
                                 <Award className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             )}
-                            Claim level
+                            CLAIM LEVEL
                         </button>
                     </ActionHint>
                 ) : (
                     <ActionHint hint="Get your Impact Product and level-tied rewards (available after a cleanup is verified)">
                         <span className={stepClass(false)}>
                             <Award className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
-                            Claim level
+                            CLAIM LEVEL
                         </span>
                     </ActionHint>
                 )}

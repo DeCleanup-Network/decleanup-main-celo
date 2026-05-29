@@ -1772,8 +1772,9 @@ function CleanupContent() {
             <div className="flex-1 space-y-3">
               <h3 className="text-sm font-semibold text-brand-yellow">Ready to claim</h3>
               <p className="text-sm text-gray-200">
-                Your cleanup #{pendingCleanup.id.toString()} is verified. Claim your Impact Product level on the home
-                dashboard to receive your rewards.
+                Your cleanup #{pendingCleanup.id.toString()} is verified. On the home page, tap{' '}
+                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your Impact Product and
+                unlock rewards.
               </p>
               <Button asChild className={claimLevelButtonClasses}>
                 <Link href="/" className="inline-flex items-center justify-center">

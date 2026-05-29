@@ -514,24 +514,32 @@ function HomeContent() {
               </p>
             )}
             {showHeroClaimCta && (
-              <Button
-                type="button"
-                onClick={() => void handleClaimImpactLevel()}
-                disabled={isClaiming}
-                className={`${heroCtaClass} inline-flex bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-70`}
-              >
-                {isClaiming ? (
-                  <>
-                    <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-                    CLAIMING…
-                  </>
-                ) : (
-                  <>
-                    <Award className="h-5 w-5 shrink-0" />
-                    CLAIM LEVEL
-                  </>
-                )}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  onClick={() => void handleClaimImpactLevel()}
+                  disabled={isClaiming}
+                  className={`${heroCtaClass} inline-flex bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-70`}
+                >
+                  {isClaiming ? (
+                    <>
+                      <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                      CLAIMING…
+                    </>
+                  ) : (
+                    <>
+                      <Award className="h-5 w-5 shrink-0" />
+                      CLAIM LEVEL
+                    </>
+                  )}
+                </Button>
+                <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
+                  Your cleanup is verified. Mint Impact Product level {cleanupStatus.level ?? 1} here
+                  {expectsSponsoredGas
+                    ? ' (wallet passkey unlock, gasless on Celo).'
+                    : ' — confirm in your connected wallet and pay gas on Celo.'}
+                </p>
+              </>
             )}
             {showHeroUnderReview && (
               <div
@@ -609,9 +617,9 @@ function HomeContent() {
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    {expectsSponsoredGas
-                      ? `Your cleanup is verified! Tap CLAIM LEVEL above to mint your Impact Product (level ${cleanupStatus.level ?? 1}). You will unlock your wallet passkey to confirm (gasless on Celo).`
-                      : `Your cleanup is verified! Tap CLAIM LEVEL above to mint your Impact Product (level ${cleanupStatus.level ?? 1}). Confirm the transaction in your connected wallet — you pay gas on Celo.`}
+                    Your cleanup is verified. Use the yellow{' '}
+                    <span className="font-semibold uppercase tracking-wide">CLAIM LEVEL</span> button at the top of
+                    this page to mint Impact Product level {cleanupStatus.level ?? 1}.
                   </p>
                 </div>
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
