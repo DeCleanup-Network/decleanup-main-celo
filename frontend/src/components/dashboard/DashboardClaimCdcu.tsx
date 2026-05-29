@@ -108,7 +108,7 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
     let cancelled = false
     async function fetchEligibility() {
       const controller = new AbortController()
-      const timeout = window.setTimeout(() => controller.abort(), 25_000)
+      const timeout = window.setTimeout(() => controller.abort(), 45_000)
       try {
         const q = new URLSearchParams({
           recipient: rewardAddress,
@@ -117,13 +117,27 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
         const res = await fetch(`/api/cdcu/eligibility?${q.toString()}`, {
           signal: controller.signal,
         })
-        const data = await res.json().catch(() => ({}))
-        if (!cancelled && res.ok) setEligibility(data)
+        const data = (await res.json().catch(() => ({}))) as EligibilityData & { error?: string }
+        if (!cancelled) {
+          if (res.ok) {
+            setEligibility(data)
+            setError(null)
+          } else {
+            setEligibility(null)
+            setError(
+              typeof data.error === 'string' && data.error
+                ? data.error
+                : 'Eligibility check failed. Tap below to retry or refresh the page.'
+            )
+          }
+        }
       } catch (e) {
         if (!cancelled) {
           setEligibility(null)
           if (e instanceof Error && e.name === 'AbortError') {
             setError('Eligibility check timed out. Tap below to retry or refresh the page.')
+          } else {
+            setError('Could not reach eligibility service. Check your connection and retry.')
           }
         }
       } finally {

@@ -209,6 +209,16 @@ export interface SignedClaim extends ClaimPayload {
 
 const CELO_MAINNET_CHAIN_ID = 42220
 
+/** Avoid hanging serverless eligibility when ClaimVault log scan is slow. */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => resolve(fallback), ms)
+    }),
+  ])
+}
+
 function getChain() {
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 11142220)
   const isMainnet = chainId === CELO_MAINNET_CHAIN_ID
@@ -324,9 +334,19 @@ export async function getEligibilityAndClaimable(
 
   if (opts?.mintRecipient) {
     try {
-      const onChainClaims = await getCleanupCampaignClaimCountForRecipient(opts.mintRecipient)
-      const cappedByTiers = Math.min(tierSafe, onChainClaims)
-      milestonesClaimed = Math.max(milestonesClaimed, cappedByTiers)
+      const onChainClaims = await withTimeout(
+        getCleanupCampaignClaimCountForRecipient(opts.mintRecipient),
+        12_000,
+        -1
+      )
+      if (onChainClaims >= 0) {
+        const cappedByTiers = Math.min(tierSafe, onChainClaims)
+        milestonesClaimed = Math.max(milestonesClaimed, cappedByTiers)
+      } else {
+        console.warn(
+          '[getEligibilityAndClaimable] On-chain claim count timed out; using stored milestones. Set CDCU_CLAIM_LOGS_FROM_BLOCK to ClaimVault deploy block on mainnet.'
+        )
+      }
     } catch (e) {
       console.warn('[getEligibilityAndClaimable] On-chain claim count failed:', e)
     }

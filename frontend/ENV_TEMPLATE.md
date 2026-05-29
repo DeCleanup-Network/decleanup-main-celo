@@ -33,6 +33,8 @@ NEXT_PUBLIC_DCU_TOKEN_CONTRACT=
 # There is no NEXT_PUBLIC_RECYCLABLES_CONTRACT  -  recyclables data lives on Submission; DCU bucket is RewardManager.rewardRecyclables (optional owner hook Submission.recyclablesRewardContract is onchain only, not this env).
 # $cDCU / ClaimVault  -  set address for testnet/mainnet deploy you are targeting
 NEXT_PUBLIC_CLAIMVAULT_ADDRESS=
+# Mainnet: block number when ClaimVault was deployed (speeds up $cDCU eligibility; without it, log scan can time out).
+# CDCU_CLAIM_LOGS_FROM_BLOCK=
 # Optional: cDCU token address (e.g. for balance in UI); else read ClaimVault.token()
 # NEXT_PUBLIC_CDCU_TOKEN_ADDRESS=
 
