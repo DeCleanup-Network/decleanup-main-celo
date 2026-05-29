@@ -1041,7 +1041,7 @@ function CleanupContent() {
       })
       return
     }
-    if (!canTransact && aaEnabled) {
+    if (expectsSponsoredGas && !canTransact) {
       pendingRecyclablesRef.current = hasRecyclables
       setSignGate({
         mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',

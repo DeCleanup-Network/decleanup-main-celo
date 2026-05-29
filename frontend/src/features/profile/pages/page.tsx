@@ -37,6 +37,7 @@ import {
 import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/wagmi'
 import { useChainId } from 'wagmi'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { DashboardReferralLinkCard } from '@/components/dashboard/DashboardReferralLinkCard'
 import { DashboardPersonalStats } from '@/components/dashboard/DashboardPersonalStats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
@@ -83,6 +84,7 @@ function extractImpactStats(metadata: ImpactMetadata | null) {
 
 export default function ProfilePage() {
   const { address, isConnected } = useAccount()
+  const { canTransact } = useAppWalletAddress()
   const { submissionOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
     useSmartAccountClient()
   const chainId = useChainId()
@@ -573,6 +575,23 @@ useEffect(() => {
                 console.warn('[Profile] Claim blocked:', {
                   cleanupId: cleanupStatus?.cleanupId?.toString(),
                   isClaiming,
+                })
+                return
+              }
+
+              if (expectsSponsoredGas && (!canTransact || !gaslessClient)) {
+                setClaimModal({
+                  variant: 'error',
+                  message:
+                    'Unlock your wallet passkey in Smart account settings to claim (gasless), then try again.',
+                })
+                return
+              }
+              if (!expectsSponsoredGas && !isConnected) {
+                setClaimModal({
+                  variant: 'error',
+                  message:
+                    'Connect your wallet (MetaMask or WalletConnect), then try again. You will confirm the transaction in your wallet and pay gas on Celo.',
                 })
                 return
               }

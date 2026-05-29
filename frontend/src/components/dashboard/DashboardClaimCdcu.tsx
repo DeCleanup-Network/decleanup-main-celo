@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useAccount } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, HelpCircle, ExternalLink, Copy } from 'lucide-react'
 import { CONTRACT_ADDRESSES, REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/chain-constants'
@@ -72,7 +73,8 @@ interface DashboardClaimCdcuProps {
 const TOKENOMICS_URL = 'https://decleanup.net/tokenomics'
 
 export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardClaimCdcuProps) {
-  const { client: gaslessClient } = useSmartAccountClient()
+  const { client: gaslessClient, expectsSponsoredGas } = useSmartAccountClient()
+  const { isConnected: wagmiConnected } = useAccount()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -170,8 +172,18 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
         s: data.s as `0x${string}`,
       }
       const { hash } = await claimCdcu(signed, {
-        gaslessClient: gaslessClient as { sendTransaction: (params: { to: `0x${string}`; value?: bigint; data?: `0x${string}` }) => Promise<`0x${string}`> } | undefined,
+        gaslessClient:
+          expectsSponsoredGas && gaslessClient
+            ? (gaslessClient as {
+                sendTransaction: (params: {
+                  to: `0x${string}`
+                  value?: bigint
+                  data?: `0x${string}`
+                }) => Promise<`0x${string}`>
+              })
+            : undefined,
         claimerAddress: payoutAddress as `0x${string}`,
+        preferConnectedWallet: !expectsSponsoredGas && wagmiConnected,
       })
       const recordIssuedResponse = await fetch('/api/cdcu/record-issued', {
         method: 'POST',
