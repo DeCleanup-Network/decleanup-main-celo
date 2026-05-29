@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_IS_TESTNET } from '@/lib/blockchain/chain-constants'
 import { getImpactProductImagePath, getImpactProductAnimationPath } from '@/lib/utils/impact-product'
 import { proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import { ImpactProductLevelHelp } from '@/components/dashboard/ImpactProductLevelHelp'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { cn } from '@/lib/utils'
 
@@ -162,17 +163,20 @@ export function DashboardImpactProduct({
         icon={Award}
         className="!flex-row items-center justify-between gap-2"
         aside={
-          level > 0 ? (
-            <button
-              type="button"
-              onClick={openDetails}
-              className="inline-flex rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
-              aria-label="Impact Product details, contract, and metadata"
-              aria-expanded={detailsOpen}
-            >
-              <Info className="h-4 w-4" aria-hidden />
-            </button>
-          ) : null
+          <div className="flex items-center gap-1">
+            <ImpactProductLevelHelp />
+            {level > 0 ? (
+              <button
+                type="button"
+                onClick={openDetails}
+                className="inline-flex rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
+                aria-label="Impact Product details, contract, and metadata"
+                aria-expanded={detailsOpen}
+              >
+                <Info className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+          </div>
         }
       >
         Your Impact Product level

@@ -31,6 +31,7 @@ import {
   getStreakCount,
   hasActiveStreak,
   claimImpactProductFromVerification,
+  getCleanupDetailsFresh,
   getUserRewardStats,
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
@@ -579,7 +580,26 @@ useEffect(() => {
                 return
               }
 
-              if (expectsSponsoredGas && (!canTransact || !gaslessClient)) {
+              let onChainCleanupOwner: Address | null = null
+              try {
+                const details = await getCleanupDetailsFresh(cleanupStatus.cleanupId)
+                onChainCleanupOwner = details.user
+              } catch (e) {
+                console.warn('[Profile] Could not read cleanup owner before claim:', e)
+              }
+
+              const eoaOwnsCleanupOnChain =
+                !!address &&
+                !!onChainCleanupOwner &&
+                onChainCleanupOwner.toLowerCase() === address.toLowerCase()
+
+              const smartAccountOwnsSubmission =
+                !eoaOwnsCleanupOnChain &&
+                !!address &&
+                !!onChainCleanupOwner &&
+                onChainCleanupOwner.toLowerCase() !== address.toLowerCase()
+
+              if (smartAccountOwnsSubmission && (!canTransact || !gaslessClient)) {
                 setClaimModal({
                   variant: 'error',
                   message:
@@ -587,7 +607,15 @@ useEffect(() => {
                 })
                 return
               }
-              if (!expectsSponsoredGas && !isConnected) {
+              if (expectsSponsoredGas && !eoaOwnsCleanupOnChain && (!canTransact || !gaslessClient)) {
+                setClaimModal({
+                  variant: 'error',
+                  message:
+                    'Unlock your wallet passkey in Smart account settings to claim (gasless), then try again.',
+                })
+                return
+              }
+              if (!expectsSponsoredGas && !eoaOwnsCleanupOnChain && !isConnected) {
                 setClaimModal({
                   variant: 'error',
                   message:
@@ -595,27 +623,36 @@ useEffect(() => {
                 })
                 return
               }
-            
+              if (eoaOwnsCleanupOnChain && !isConnected) {
+                setClaimModal({
+                  variant: 'error',
+                  message:
+                    'Connect your wallet (MetaMask or WalletConnect), then try again. You will confirm the transaction in your wallet and pay gas on Celo.',
+                })
+                return
+              }
+
               try {
                 setIsClaiming(true)
-            
-                await claimImpactProductFromVerification(
-                  cleanupStatus.cleanupId,
-                  expectsSponsoredGas && gaslessClient
+
+                const claimOptions = eoaOwnsCleanupOnChain
+                  ? { eoaAddress: address as Address }
+                  : smartAccountOwnsSubmission || expectsSponsoredGas
                     ? {
                         gaslessClient: gaslessClient as GaslessClient,
-                        smartAccountAddress: submissionOwnerAddress,
+                        smartAccountAddress: (onChainCleanupOwner ?? submissionOwnerAddress) as Address,
                         eoaAddress: address,
                       }
                     : {
-                        eoaAddress: address,
-                        ...(submissionOwnerAddress &&
+                        eoaAddress: address as Address,
+                        ...(onChainCleanupOwner &&
                         address &&
-                        submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
-                          ? { smartAccountAddress: submissionOwnerAddress }
+                        onChainCleanupOwner.toLowerCase() !== address.toLowerCase()
+                          ? { smartAccountAddress: onChainCleanupOwner }
                           : {}),
                       }
-                )
+
+                await claimImpactProductFromVerification(cleanupStatus.cleanupId, claimOptions)
 
                 // Mark as claimed in localStorage
                 if (address && cleanupStatus.cleanupId && submissionOwnerAddress) {

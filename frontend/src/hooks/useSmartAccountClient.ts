@@ -187,7 +187,8 @@ export function useSmartAccountClient(): {
     if (aa) {
       if (!isEmbeddedAccount) {
         if (chainId != null && chainId !== REQUIRED_CHAIN_ID) return undefined
-        return (aaSmartAddress ?? address) as Address
+        // External MetaMask/WC: submissions and claims use the connected EOA, not a stale AA address from a prior session.
+        return address as Address
       }
       // Submissions are owned by the smart account; keep that identity even when the wallet is locked.
       if (aaSmartAddress) return aaSmartAddress

@@ -23,12 +23,14 @@ import {
 } from 'lucide-react'
 import {
   claimImpactProductFromVerification,
+  getCleanupDetailsFresh,
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { CONTRACT_ADDRESSES, MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
+import { ImpactProductLevelHelp } from '@/components/dashboard/ImpactProductLevelHelp'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { DashboardClaimCdcu } from '@/components/dashboard/DashboardClaimCdcu'
@@ -185,9 +187,24 @@ function HomeContent() {
       return
     }
 
-    const smartAccountOwnsSubmission =
+    let onChainCleanupOwner: Address | null = null
+    try {
+      const details = await getCleanupDetailsFresh(cleanupStatus.cleanupId)
+      onChainCleanupOwner = details.user
+    } catch (e) {
+      console.warn('[Home] Could not read cleanup owner before claim:', e)
+    }
+
+    const eoaOwnsCleanupOnChain =
       !!address &&
-      submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
+      !!onChainCleanupOwner &&
+      onChainCleanupOwner.toLowerCase() === address.toLowerCase()
+
+    const smartAccountOwnsSubmission =
+      !eoaOwnsCleanupOnChain &&
+      !!address &&
+      !!onChainCleanupOwner &&
+      onChainCleanupOwner.toLowerCase() !== address.toLowerCase()
 
     if (smartAccountOwnsSubmission) {
       if (!canTransact || !gaslessClient) {
@@ -197,7 +214,7 @@ function HomeContent() {
         })
         return
       }
-    } else if (expectsSponsoredGas) {
+    } else if (expectsSponsoredGas && !eoaOwnsCleanupOnChain) {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
@@ -222,23 +239,26 @@ function HomeContent() {
       return
     }
 
+    const connectedEoa = address as Address
+
     try {
       setIsClaiming(true)
 
-      const claimOptions =
-        smartAccountOwnsSubmission || expectsSponsoredGas
+      const claimOptions = eoaOwnsCleanupOnChain
+        ? { eoaAddress: connectedEoa }
+        : smartAccountOwnsSubmission || expectsSponsoredGas
           ? {
               gaslessClient: gaslessClient as GaslessClient,
-              smartAccountAddress: submissionOwnerAddress,
-              eoaAddress: address,
+              smartAccountAddress: (onChainCleanupOwner ?? submissionOwnerAddress) as Address,
+              eoaAddress: connectedEoa,
             }
           : {
-            eoaAddress: address as Address,
-            // Omit smartAccountAddress when EOA owns the submission — avoids false "smart account only" errors
-            ...(submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
-              ? { smartAccountAddress: submissionOwnerAddress }
-              : {}),
-          }
+              eoaAddress: connectedEoa,
+              ...(onChainCleanupOwner &&
+              onChainCleanupOwner.toLowerCase() !== connectedEoa.toLowerCase()
+                ? { smartAccountAddress: onChainCleanupOwner }
+                : {}),
+            }
 
       const claimResult = await claimImpactProductFromVerification(
         cleanupStatus.cleanupId,
@@ -530,32 +550,24 @@ function HomeContent() {
               </p>
             )}
             {showHeroClaimCta && (
-              <>
-                <Button
-                  type="button"
-                  onClick={() => void handleClaimImpactLevel()}
-                  disabled={isClaiming}
-                  className={`${heroCtaClass} inline-flex bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-70`}
-                >
-                  {isClaiming ? (
-                    <>
-                      <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-                      CLAIMING…
-                    </>
-                  ) : (
-                    <>
-                      <Award className="h-5 w-5 shrink-0" />
-                      CLAIM LEVEL
-                    </>
-                  )}
-                </Button>
-                <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
-                  Your cleanup is verified. Mint Impact Product level {cleanupStatus.level ?? 1} here
-                  {expectsSponsoredGas
-                    ? ' (wallet passkey unlock, gasless on Celo).'
-                    : ' — confirm in your connected wallet and pay gas on Celo.'}
-                </p>
-              </>
+              <Button
+                type="button"
+                onClick={() => void handleClaimImpactLevel()}
+                disabled={isClaiming}
+                className={`${heroCtaClass} inline-flex bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-70`}
+              >
+                {isClaiming ? (
+                  <>
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                    CLAIMING…
+                  </>
+                ) : (
+                  <>
+                    <Award className="h-5 w-5 shrink-0" />
+                    CLAIM LEVEL
+                  </>
+                )}
+              </Button>
             )}
             {showHeroUnderReview && (
               <div
@@ -629,13 +641,13 @@ function HomeContent() {
             />
           ) : cleanupStatus?.canClaim ? (
             <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-brand-yellow/30 bg-card p-5 sm:p-8 lg:h-full">
-              <SectionHeading icon={Award}>Your Impact Product level</SectionHeading>
+              <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
+                Your Impact Product level
+              </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    Your cleanup is verified. Use the yellow{' '}
-                    <span className="font-semibold uppercase tracking-wide">CLAIM LEVEL</span> button at the top of
-                    this page to mint Impact Product level {cleanupStatus.level ?? 1}.
+                    Your cleanup is verified. Claim level above to mint your Impact Product
                   </p>
                 </div>
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
@@ -646,7 +658,9 @@ function HomeContent() {
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 sm:p-8 lg:h-full">
-              <SectionHeading icon={Award}>Your Impact Product level</SectionHeading>
+              <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
+                Your Impact Product level
+              </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 rounded-2xl border-2 border-border/50 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
                   <Award className="mx-auto h-16 w-16 text-muted-foreground/50 sm:h-20 sm:w-20" />

@@ -49,13 +49,17 @@ function resolveClaimIdentity(options?: GaslessClaimOptions): {
   }
   const account = getAccount(getConfig())
   const eoa = (options?.eoaAddress ?? account.address) as Address | undefined
-  const smart =
+  let smart =
     options?.smartAccountAddress ??
     (options?.gaslessClient
       ? getSmartAccountAddressFromClient(options.gaslessClient) ??
         options.gaslessClient.accountAddress ??
         null
       : null)
+  // Same hex as EOA — treat as a normal wallet claim (avoids false "smart account only" blocks).
+  if (eoa && smart && eoa.toLowerCase() === smart.toLowerCase()) {
+    smart = null
+  }
   return { eoaAddress: eoa, smartAccountAddress: smart, gasless: false }
 }
 
@@ -1492,12 +1496,14 @@ export async function claimImpactProductFromVerification(
   const ownerLower = cleanupDetails.user.toLowerCase()
   const matchesEoa = !!(eoaAddress && ownerLower === eoaAddress.toLowerCase())
   const matchesSmart = !!(smartFromClient && ownerLower === smartFromClient.toLowerCase())
+  /** On-chain submission owner is the connected wallet — claim with EOA + gas, not smart-account UserOps. */
+  const eoaOwnsCleanupOnChain = matchesEoa
 
   if (!matchesEoa && !matchesSmart) {
     throw new Error('You can only claim rewards for your own cleanups.')
   }
 
-  if (matchesSmart && !matchesEoa && !gasless) {
+  if (matchesSmart && !eoaOwnsCleanupOnChain && !gasless) {
     throw new Error(
       'This cleanup is tied to your smart account. Sign in with Google or email and unlock Smart account settings, or connect the wallet that owns this cleanup.'
     )
@@ -1511,8 +1517,8 @@ export async function claimImpactProductFromVerification(
 
   /** Onchain identity that owns this cleanup (= reward/NFT recipient reads). */
   const submissionOwner = cleanupDetails.user
-  /** Execute writes as Safe UserOp only when cleanup owner is the smart account. */
-  const useGasless = matchesSmart && gasless
+  /** Execute writes as Safe UserOp only when cleanup owner is the smart account (not the connected EOA). */
+  const useGasless = matchesSmart && gasless && !eoaOwnsCleanupOnChain
   console.log('Submission owner (claim address):', submissionOwner)
   console.log('Connected EOA:', eoaAddress ?? '(gasless — not required)')
   console.log('Smart account:', smartFromClient ?? '(none)')
