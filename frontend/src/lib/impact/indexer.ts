@@ -259,8 +259,8 @@ function normalizeEntry(submission: any): ImpactEntry {
     submissionId: submission.id.toString(),
     submitter: submitterAddr ? String(submitterAddr) : '0x0000000000000000000000000000000000000000',
     timestamp: Number(submission.timestamp),
-    latitude: Number(submission.latitude),
-    longitude: Number(submission.longitude),
+    latitude: Number(submission.latitude) / 1_000_000,
+    longitude: Number(submission.longitude) / 1_000_000,
     
     locationType: impactData.locationType || 'Unknown',
     areaSqm,

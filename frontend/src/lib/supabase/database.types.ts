@@ -121,6 +121,92 @@ export interface Database {
         }
         Relationships: []
       }
+      cleanup_feed: {
+        Row: {
+          submission_id: string
+          chain_id: number
+          submitter: string
+          submitted_at: string | null
+          verified_at: string | null
+          latitude: number | null
+          longitude: number | null
+          location_type: string
+          location_label: string
+          area_sqm: number
+          weight_kg: number
+          bags: number
+          duration_minutes: number
+          waste_types: Json
+          contributors_count: number
+          has_impact_report: boolean
+          has_recyclables: boolean
+          recyclables_amount_kg: number | null
+          recyclables_amount_display: string | null
+          recyclables_photo_cid: string
+          recyclables_receipt_cid: string
+          before_photo_cid: string
+          after_photo_cid: string
+          impact_ipfs_cid: string
+          summary: string
+          synced_at: string
+          created_at: string
+        }
+        Insert: {
+          submission_id: string
+          chain_id: number
+          submitter: string
+          submitted_at?: string | null
+          verified_at?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          location_type?: string
+          location_label?: string
+          area_sqm?: number
+          weight_kg?: number
+          bags?: number
+          duration_minutes?: number
+          waste_types?: Json
+          contributors_count?: number
+          has_impact_report?: boolean
+          has_recyclables?: boolean
+          recyclables_amount_kg?: number | null
+          recyclables_amount_display?: string | null
+          recyclables_photo_cid?: string
+          recyclables_receipt_cid?: string
+          before_photo_cid?: string
+          after_photo_cid?: string
+          impact_ipfs_cid?: string
+          summary?: string
+          synced_at?: string
+        }
+        Update: {
+          submitter?: string
+          submitted_at?: string | null
+          verified_at?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          location_type?: string
+          location_label?: string
+          area_sqm?: number
+          weight_kg?: number
+          bags?: number
+          duration_minutes?: number
+          waste_types?: Json
+          contributors_count?: number
+          has_impact_report?: boolean
+          has_recyclables?: boolean
+          recyclables_amount_kg?: number | null
+          recyclables_amount_display?: string | null
+          recyclables_photo_cid?: string
+          recyclables_receipt_cid?: string
+          before_photo_cid?: string
+          after_photo_cid?: string
+          impact_ipfs_cid?: string
+          summary?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
       impact_portfolios: {
         Row: {
           address: string

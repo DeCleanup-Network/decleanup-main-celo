@@ -1,0 +1,130 @@
+import type { CleanupFeedRow } from '@/lib/supabase/cleanup-feed'
+import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-data'
+
+function fmtNum(n: number, digits = 1): string {
+  if (!Number.isFinite(n) || n <= 0) return '0'
+  return Number.isInteger(n) ? String(n) : n.toFixed(digits)
+}
+
+export function buildCleanupSummary(
+  row: Pick<
+    CleanupFeedRow,
+    | 'weight_kg'
+    | 'location_label'
+    | 'has_recyclables'
+    | 'recyclables_amount_kg'
+    | 'recyclables_amount_display'
+    | 'area_sqm'
+    | 'bags'
+  >
+): string {
+  const parts: string[] = []
+
+  if (row.weight_kg > 0) {
+    parts.push(`Removed ${fmtNum(row.weight_kg)} kg of waste`)
+  } else {
+    parts.push('Verified cleanup')
+  }
+
+  if (row.location_label) {
+    parts.push(`at ${row.location_label}`)
+  }
+
+  if (row.has_recyclables) {
+    if (row.recyclables_amount_kg != null && row.recyclables_amount_kg > 0) {
+      parts.push(`recycled ${fmtNum(row.recyclables_amount_kg)} kg`)
+    } else if (row.recyclables_amount_display) {
+      parts.push(`recycled ${row.recyclables_amount_display}`)
+    } else {
+      parts.push('includes recyclables')
+    }
+  }
+
+  if (row.area_sqm > 0) {
+    parts.push(`${fmtNum(row.area_sqm)} m² cleared`)
+  }
+
+  if (row.bags > 0) {
+    parts.push(`${row.bags} bag${row.bags === 1 ? '' : 's'} collected`)
+  }
+
+  return parts.join(' · ')
+}
+
+export type PublicCleanupFeedItem = {
+  submissionId: string
+  chainId: number
+  submitter: string
+  submittedAt: string | null
+  verifiedAt: string | null
+  location: {
+    type: string
+    label: string
+    latitude: number | null
+    longitude: number | null
+  }
+  impact: {
+    weightKg: number
+    areaSqm: number
+    bags: number
+    durationMinutes: number
+    wasteTypes: string[]
+    contributorsCount: number
+    hasImpactReport: boolean
+  }
+  recyclables: {
+    hasRecyclables: boolean
+    amountKg: number | null
+    amountDisplay: string | null
+    photoUrl: string | null
+    receiptUrl: string | null
+  }
+  media: {
+    beforePhotoUrl: string | null
+    afterPhotoUrl: string | null
+  }
+  summary: string
+  syncedAt: string
+}
+
+export function rowToPublicFeedItem(row: CleanupFeedRow): PublicCleanupFeedItem {
+  return {
+    submissionId: row.submission_id,
+    chainId: row.chain_id,
+    submitter: row.submitter,
+    submittedAt: row.submitted_at,
+    verifiedAt: row.verified_at,
+    location: {
+      type: row.location_type,
+      label: row.location_label,
+      latitude: row.latitude,
+      longitude: row.longitude,
+    },
+    impact: {
+      weightKg: row.weight_kg,
+      areaSqm: row.area_sqm,
+      bags: row.bags,
+      durationMinutes: row.duration_minutes,
+      wasteTypes: row.waste_types,
+      contributorsCount: row.contributors_count,
+      hasImpactReport: row.has_impact_report,
+    },
+    recyclables: {
+      hasRecyclables: row.has_recyclables,
+      amountKg: row.recyclables_amount_kg,
+      amountDisplay: row.recyclables_amount_display,
+      photoUrl: row.recyclables_photo_cid
+        ? hashToProxyDisplayUrl(row.recyclables_photo_cid)
+        : null,
+      receiptUrl: row.recyclables_receipt_cid
+        ? hashToProxyDisplayUrl(row.recyclables_receipt_cid)
+        : null,
+    },
+    media: {
+      beforePhotoUrl: row.before_photo_cid ? hashToProxyDisplayUrl(row.before_photo_cid) : null,
+      afterPhotoUrl: row.after_photo_cid ? hashToProxyDisplayUrl(row.after_photo_cid) : null,
+    },
+    summary: row.summary || buildCleanupSummary(row),
+    syncedAt: row.synced_at,
+  }
+}

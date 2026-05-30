@@ -172,6 +172,7 @@ export interface CleanupDetails {
   approver?: Address
   rewarded?: boolean
   referrer?: Address // Referrer address if user was referred
+  processedTimestamp?: bigint
 }
 
 const SUBMISSION_ADDRESS =
@@ -569,6 +570,7 @@ async function getCleanupDetailsImpl(
         ? (result.approver as Address) 
         : undefined,
       rewarded: result.rewarded || false,
+      processedTimestamp: result.processedTimestamp ?? 0n,
     }
   } catch (error: any) {
     const errorMessage = error?.message || error?.shortMessage || String(error)

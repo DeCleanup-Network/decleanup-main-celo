@@ -146,6 +146,16 @@ CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
 # TELEGRAM_VERIFIER_CHAT_ID=-100xxxxxxxxxx
 
 # ============================================
+# OPTIONAL: Public cleanup feed (landing page)
+# ============================================
+# Apply migration: frontend/supabase/migrations/20260530_create_cleanup_feed.sql
+# Syncs verified cleanups + IPFS impact reports into Supabase for fast public APIs:
+#   GET /api/impact/cleanups  — recent feed (location, weight, recyclables, photos)
+#   GET /api/impact/global    — aggregated totals
+#   POST /api/impact/sync     — rebuild index (header x-impact-sync-secret or ?secret=)
+# IMPACT_SYNC_SECRET=
+
+# ============================================
 # OPTIONAL: GPU / ML verification (VPS or trusted network  -  not localhost in production)
 # ============================================
 # ML_VERIFICATION_ENABLED=true

@@ -1263,6 +1263,18 @@ function CleanupContent() {
             
             console.log('✅ Recyclables attached successfully! Transaction hash:', recyclablesTxHash)
             console.log('✅ Recyclables will be rewarded when cleanup is verified')
+
+            void fetch('/api/impact/cleanup-meta', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                submissionId: cleanupId.toString(),
+                amount: Number(recyclablesAmount),
+                unit: recyclablesUnit,
+              }),
+            }).catch((err) =>
+              console.warn('[cleanup-meta] Failed to save recyclables amount for feed:', err)
+            )
           } catch (recyclablesError: any) {
             console.error('Error attaching recyclables (non-fatal):', recyclablesError)
             // Don't fail the entire submission if recyclables attachment fails
