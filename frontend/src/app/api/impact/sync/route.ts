@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       synced: result.synced,
+      primaryCount: result.primaryCount,
+      legacyCount: result.legacyCount,
       chainId: result.chainId,
       syncedAt: new Date().toISOString(),
     })

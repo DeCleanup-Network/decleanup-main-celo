@@ -12,6 +12,10 @@ interface IDCUNftRewardManager {
     function setPoiVerificationStatus(address user, bool status) external;
 }
 
+interface ISubmissionBonusClaim {
+    function claimSubmissionBonusRewardsFromImpactProduct(address submitter, uint256 submissionId) external;
+}
+
 /**
  * @title ImpactProductNFT
  * @dev Soulbound-style NFT that tracks POI verification, impact stats, and admin transfer overrides.
@@ -145,6 +149,18 @@ contract ImpactProductNFT is ERC721, Ownable {
     // --- Minting ---
 
     function safeMint() external payable {
+        _safeMintPayable();
+    }
+
+    /**
+     * @dev Mint Impact Product and claim submission bonus rewards in the same transaction.
+     */
+    function safeMintWithBonus(uint256 bonusSubmissionId) external payable {
+        _safeMintPayable();
+        _claimBonusForSubmission(msg.sender, bonusSubmissionId);
+    }
+
+    function _safeMintPayable() internal {
         // Validate and collect fee if enabled
         if (feeEnabled) {
             require(msg.value >= claimFee, "Insufficient claim fee");
@@ -190,6 +206,18 @@ contract ImpactProductNFT is ERC721, Ownable {
     // --- Upgrades & Impact ---
 
     function upgradeNFT(uint256 tokenId) external payable {
+        _upgradePayable(tokenId);
+    }
+
+    /**
+     * @dev Upgrade Impact Product and claim submission bonus rewards in the same transaction.
+     */
+    function upgradeNFTWithBonus(uint256 tokenId, uint256 bonusSubmissionId) external payable {
+        _upgradePayable(tokenId);
+        _claimBonusForSubmission(msg.sender, bonusSubmissionId);
+    }
+
+    function _upgradePayable(uint256 tokenId) internal {
         // Validate and collect fee if enabled
         if (feeEnabled) {
             require(msg.value >= claimFee, "Insufficient claim fee");
@@ -343,6 +371,14 @@ contract ImpactProductNFT is ERC721, Ownable {
         if (rewardsContract != address(0)) {
             try IDCUNftRewardManager(rewardsContract).updateNftMintStatus(user, hasMinted) {} catch {}
         }
+    }
+
+    function _claimBonusForSubmission(address user, uint256 bonusSubmissionId) internal {
+        if (submissionContract == address(0)) revert("Submission contract not set");
+        ISubmissionBonusClaim(submissionContract).claimSubmissionBonusRewardsFromImpactProduct(
+            user,
+            bonusSubmissionId
+        );
     }
 
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {

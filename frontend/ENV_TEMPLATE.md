@@ -101,6 +101,13 @@ SUPABASE_SERVICE_ROLE_KEY=
 # NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM=0
 
 # ============================================
+# OPTIONAL: Single-tx submit / claim (requires redeployed Submission + ImpactProductNFT)
+# ============================================
+# When 1: use createSubmissionWithRecyclables (submit + recyclables) and safeMintWithBonus / upgradeNFTWithBonus.
+# Deploy: CONFIRM_REDEPLOY_ATOMIC_TX=YES npx hardhat run contracts/scripts/redeploy-atomic-tx-stack.ts --network celo
+# NEXT_PUBLIC_ATOMIC_CONTRACT_TX=1
+
+# ============================================
 # OPTIONAL: Hypercerts (API key not required for basic minting)
 # ============================================
 # Note: The Hypercerts SDK works without an API key for minting.
@@ -154,6 +161,8 @@ CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
 #   GET /api/impact/global    — aggregated totals
 #   POST /api/impact/sync     — rebuild index (header x-impact-sync-secret or ?secret=)
 # IMPACT_SYNC_SECRET=
+# After Submission redeploy, index historical cleanups from the previous contract:
+# IMPACT_FEED_LEGACY_SUBMISSION_CONTRACT=0xc6523bf318e39b6d9dfbcd95aed9d5c3c5d041d1
 
 # ============================================
 # OPTIONAL: GPU / ML verification (VPS or trusted network  -  not localhost in production)

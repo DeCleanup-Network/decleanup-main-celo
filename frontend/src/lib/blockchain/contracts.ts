@@ -111,6 +111,20 @@ async function waitForOnChainConfirmation(
 }
 
 /**
+ * When `1`, use v2 contract entrypoints that combine txs:
+ * - createSubmissionWithRecyclables (submit + recyclables)
+ * - safeMintWithBonus / upgradeNFTWithBonus (NFT + bonus rewards)
+ * Requires redeployed Submission + ImpactProductNFT linked to each other.
+ */
+export function isAtomicContractTxEnabled(): boolean {
+  const v = process.env.NEXT_PUBLIC_ATOMIC_CONTRACT_TX?.trim()
+  if (v === '0' || v?.toLowerCase() === 'false' || v?.toLowerCase() === 'off' || v?.toLowerCase() === 'no') {
+    return false
+  }
+  return v === '1' || v?.toLowerCase() === 'true' || v?.toLowerCase() === 'on' || v?.toLowerCase() === 'yes'
+}
+
+/**
  * Optional on-chain hook: `Submission.claimSubmissionBonusRewards` after Impact Product mint/upgrade.
  * Default: enabled. Set `NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM=0` to skip `claimSubmissionBonusRewards` after mint/upgrade.
  */
@@ -284,6 +298,23 @@ const SUBMISSION_ABI = [
   },
   {
     type: 'function',
+    name: 'createSubmissionWithRecyclables',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'dataURI', type: 'string' },
+      { name: 'beforePhotoHash', type: 'string' },
+      { name: 'afterPhotoHash', type: 'string' },
+      { name: 'impactFormDataHash', type: 'string' },
+      { name: 'lat', type: 'int256' },
+      { name: 'lng', type: 'int256' },
+      { name: 'referrer', type: 'address' },
+      { name: 'recyclablesPhotoHash', type: 'string' },
+      { name: 'recyclablesReceiptHash', type: 'string' },
+    ],
+    outputs: [{ name: 'submissionId', type: 'uint256' }],
+  },
+  {
+    type: 'function',
     name: 'attachRecyclables',
     stateMutability: 'nonpayable',
     inputs: [
@@ -369,7 +400,11 @@ export async function submitCleanup(
   _hasImpactForm: boolean,
   _impactReportHash: string,
   _fee?: bigint,
-  options?: { gaslessClient?: GaslessClient }
+  options?: {
+    gaslessClient?: GaslessClient
+    recyclablesPhotoHash?: string
+    recyclablesReceiptHash?: string
+  }
 ): Promise<bigint> {
   if (!SUBMISSION_ADDRESS) {
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
@@ -397,6 +432,10 @@ export async function submitCleanup(
     )
   }
   const impactFormDataHash = _hasImpactForm && trimmedImpact ? trimmedImpact : ''
+  const recyclablesPhoto = options?.recyclablesPhotoHash?.trim() ?? ''
+  const recyclablesReceipt = options?.recyclablesReceiptHash?.trim() ?? ''
+  const useCombinedRecyclablesSubmit =
+    isAtomicContractTxEnabled() && recyclablesPhoto.length > 0
 
   try {
     const submissionCountBefore = await readContract(getConfig(), {
@@ -406,7 +445,7 @@ export async function submitCleanup(
       functionName: 'submissionCount',
     })
 
-    const args = [
+    const baseArgs = [
       dataURI,
       beforeHash,
       afterHash,
@@ -416,7 +455,16 @@ export async function submitCleanup(
       referrer,
     ] as const
 
+    const args = useCombinedRecyclablesSubmit
+      ? ([...baseArgs, recyclablesPhoto, recyclablesReceipt || ''] as const)
+      : baseArgs
+
+    const functionName = useCombinedRecyclablesSubmit
+      ? 'createSubmissionWithRecyclables'
+      : 'createSubmission'
+
     console.log('Submitting transaction with args:', {
+      functionName,
       dataURI: dataURI.substring(0, 50) + '...',
       beforeHash: beforeHash.substring(0, 20) + '...',
       afterHash: afterHash.substring(0, 20) + '...',
@@ -424,6 +472,7 @@ export async function submitCleanup(
       lat: latInt256.toString(),
       lng: lngInt256.toString(),
       referrer: referrer,
+      recyclablesPhotoHash: recyclablesPhoto ? recyclablesPhoto.substring(0, 20) + '...' : '(none)',
       fee: _fee?.toString() || '0',
       gasless: !!options?.gaslessClient,
     })
@@ -433,7 +482,7 @@ export async function submitCleanup(
     if (options?.gaslessClient) {
       const data = encodeFunctionData({
         abi: SUBMISSION_ABI,
-        functionName: 'createSubmission',
+        functionName,
         args,
       })
       hash = await options.gaslessClient.sendTransaction({
@@ -445,7 +494,7 @@ export async function submitCleanup(
       const contractConfig: any = {
         address: SUBMISSION_ADDRESS,
         abi: SUBMISSION_ABI,
-        functionName: 'createSubmission',
+        functionName,
         args,
         account: account!.address,
       }
@@ -505,9 +554,10 @@ export async function submitCleanup(
 }
 
 async function getCleanupDetailsImpl(
-  cleanupId: bigint
+  cleanupId: bigint,
+  submissionAddress: Address = SUBMISSION_ADDRESS as Address
 ): Promise<CleanupDetails> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!submissionAddress) {
     return {
       id: cleanupId,
       user: '0x0000000000000000000000000000000000000000',
@@ -526,7 +576,7 @@ async function getCleanupDetailsImpl(
   try {
     const result: any = await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      address: submissionAddress,
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionDetails',
       args: [cleanupId],
@@ -613,15 +663,20 @@ export async function getCleanupDetailsFresh(cleanupId: bigint): Promise<Cleanup
   return getCleanupDetailsImpl(cleanupId)
 }
 
-export async function getCleanupCounter(): Promise<bigint> {
-  if (!SUBMISSION_ADDRESS) {
-    return 0n
-  }
+/** Read submission details from an alternate Submission contract (e.g. legacy feed indexing). */
+export async function getCleanupDetailsAt(
+  submissionAddress: Address,
+  cleanupId: bigint
+): Promise<CleanupDetails> {
+  return getCleanupDetailsImpl(cleanupId, submissionAddress)
+}
 
+export async function getCleanupCounterAt(submissionAddress: Address): Promise<bigint> {
+  if (!submissionAddress) return 0n
   try {
     const count = await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      address: submissionAddress,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
     })
@@ -630,6 +685,13 @@ export async function getCleanupCounter(): Promise<bigint> {
     if (!isNoDataOrWrongChainError(error)) console.error('Error getting cleanup counter:', error)
     return 0n
   }
+}
+
+export async function getCleanupCounter(): Promise<bigint> {
+  if (!SUBMISSION_ADDRESS) {
+    return 0n
+  }
+  return getCleanupCounterAt(SUBMISSION_ADDRESS)
 }
 
 async function getUserSubmissionsImpl(user: Address): Promise<bigint[]> {
@@ -1557,12 +1619,21 @@ export async function claimImpactProductFromVerification(
 
       if (needsMint) {
         console.log('Minting Impact Product NFT')
-        nftTxHash = await mintImpactProductNFT(useGasless ? options : undefined)
+        const useAtomicClaim = isAtomicContractTxEnabled() && isSubmissionBonusClaimEnabled()
+        nftTxHash = await mintImpactProductNFT(
+          useGasless ? options : undefined,
+          useAtomicClaim ? cleanupId : undefined
+        )
         hash = nftTxHash
         console.log('Impact Product NFT minted:', hash)
       } else if (needsUpgrade) {
         console.log(`Upgrading Impact Product NFT: level ${currentLevel} → ${currentLevel + 1}`)
-        nftTxHash = await upgradeImpactProductNFT(currentTokenId, useGasless ? options : undefined)
+        const useAtomicClaim = isAtomicContractTxEnabled() && isSubmissionBonusClaimEnabled()
+        nftTxHash = await upgradeImpactProductNFT(
+          currentTokenId,
+          useGasless ? options : undefined,
+          useAtomicClaim ? cleanupId : undefined
+        )
         hash = nftTxHash
         console.log('Impact Product NFT upgraded:', hash)
       } else {
@@ -1574,8 +1645,23 @@ export async function claimImpactProductFromVerification(
       )
     }
 
-    /** Optional: `claimSubmissionBonusRewards` after NFT (impact + recyclables on RewardManager). */
-    const wantsSubmissionBonus = isSubmissionBonusClaimEnabled()
+    const usedAtomicBonusClaim =
+      isAtomicContractTxEnabled() && isSubmissionBonusClaimEnabled() && nftStepRequired
+    if (usedAtomicBonusClaim && hash) {
+      bonusClaimed = true
+      invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+      try {
+        const stats = await getUserRewardStats(submissionOwner)
+        impactReportRewardsWei = stats.impactReportRewardsAmount
+        recyclablesRewardsWei = stats.recyclablesRewardsAmount
+      } catch (e) {
+        console.warn('[Claim] Could not read post-atomic-bonus reward stats:', e)
+      }
+    }
+
+    /** Optional: separate `claimSubmissionBonusRewards` after NFT when atomic contract tx is off. */
+    const wantsSubmissionBonus =
+      isSubmissionBonusClaimEnabled() && !isAtomicContractTxEnabled()
 
     // After NFT mint/upgrade, submission bonus (impact report + recyclables on RewardManager) unless env disables it.
     if (wantsSubmissionBonus) {
@@ -1836,7 +1922,10 @@ export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> 
   }
 }
 
-export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promise<`0x${string}`> {
+export async function mintImpactProductNFT(
+  options?: GaslessClaimOptions,
+  bonusSubmissionId?: bigint
+): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
   }
@@ -1851,12 +1940,20 @@ export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promi
   const { fee, enabled } = await getClaimFee()
   const value = enabled ? fee : 0n
 
+  const useBonus = bonusSubmissionId != null
   const IMPACT_PRODUCT_ABI = [
     {
       type: 'function',
       name: 'safeMint',
       stateMutability: 'payable',
       inputs: [],
+      outputs: [],
+    },
+    {
+      type: 'function',
+      name: 'safeMintWithBonus',
+      stateMutability: 'payable',
+      inputs: [{ name: 'bonusSubmissionId', type: 'uint256' }],
       outputs: [],
     },
   ] as const
@@ -1866,8 +1963,8 @@ export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promi
     if (gasless) {
       const data = encodeFunctionData({
         abi: IMPACT_PRODUCT_ABI,
-        functionName: 'safeMint',
-        args: [],
+        functionName: useBonus ? 'safeMintWithBonus' : 'safeMint',
+        args: useBonus ? [bonusSubmissionId] : [],
       })
       hash = await options!.gaslessClient!.sendTransaction({
         to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
@@ -1879,7 +1976,8 @@ export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promi
         chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
-        functionName: 'safeMint',
+        functionName: useBonus ? 'safeMintWithBonus' : 'safeMint',
+        args: useBonus ? [bonusSubmissionId] : [],
         account: account!.address,
         value,
       })
@@ -1904,7 +2002,8 @@ export async function mintImpactProductNFT(options?: GaslessClaimOptions): Promi
 
 export async function upgradeImpactProductNFT(
   tokenId: bigint,
-  options?: GaslessClaimOptions
+  options?: GaslessClaimOptions,
+  bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
   if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
     throw new Error('Impact Product NFT contract address not configured')
@@ -1920,12 +2019,23 @@ export async function upgradeImpactProductNFT(
   const { fee, enabled } = await getClaimFee()
   const value = enabled ? fee : 0n
 
+  const useBonus = bonusSubmissionId != null
   const IMPACT_PRODUCT_ABI = [
     {
       type: 'function',
       name: 'upgradeNFT',
       stateMutability: 'payable',
       inputs: [{ name: 'tokenId', type: 'uint256' }],
+      outputs: [],
+    },
+    {
+      type: 'function',
+      name: 'upgradeNFTWithBonus',
+      stateMutability: 'payable',
+      inputs: [
+        { name: 'tokenId', type: 'uint256' },
+        { name: 'bonusSubmissionId', type: 'uint256' },
+      ],
       outputs: [],
     },
   ] as const
@@ -1935,8 +2045,8 @@ export async function upgradeImpactProductNFT(
     if (gasless) {
       const data = encodeFunctionData({
         abi: IMPACT_PRODUCT_ABI,
-        functionName: 'upgradeNFT',
-        args: [tokenId],
+        functionName: useBonus ? 'upgradeNFTWithBonus' : 'upgradeNFT',
+        args: useBonus ? [tokenId, bonusSubmissionId] : [tokenId],
       })
       hash = await options!.gaslessClient!.sendTransaction({
         to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
@@ -1948,8 +2058,8 @@ export async function upgradeImpactProductNFT(
         chainId: REQUIRED_CHAIN_ID,
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
-        functionName: 'upgradeNFT',
-        args: [tokenId],
+        functionName: useBonus ? 'upgradeNFTWithBonus' : 'upgradeNFT',
+        args: useBonus ? [tokenId, bonusSubmissionId] : [tokenId],
         account: account!.address,
         value,
       })

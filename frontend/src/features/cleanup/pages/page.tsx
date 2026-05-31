@@ -17,7 +17,7 @@ import { FeeDisplay } from '@/components/ui/fee-display'
 import { BackButton } from '@/components/layout/BackButton'
 import { Camera, Upload, ArrowRight, ArrowLeft, Check, Loader2, ExternalLink, X, Clock, AlertCircle, Users, CheckCircle, Award } from 'lucide-react'
 import { uploadToIPFS, uploadJSONToIPFS } from '@/lib/blockchain/ipfs'
-import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission, getUserLevel, type GaslessClient } from '@/lib/blockchain/contracts'
+import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission, getUserLevel, isAtomicContractTxEnabled, type GaslessClient } from '@/lib/blockchain/contracts'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
@@ -1225,6 +1225,12 @@ function CleanupContent() {
         }
 
         // Pass chainId from hook to avoid false chain detection issues
+        const submitOpts = gaslessClient
+          ? { gaslessClient: gaslessClient as GaslessClient }
+          : undefined
+        const combinedRecyclablesSubmit =
+          isAtomicContractTxEnabled() && hasRecyclables && !!recyclablesPhotoHash
+
         const cleanupId = await submitCleanup(
           beforeHash.hash,
           afterHash.hash,
@@ -1234,7 +1240,13 @@ function CleanupContent() {
           impactFormEligible,
           impactFormDataHash || '',
           feeValue,
-          gaslessClient ? { gaslessClient: gaslessClient as GaslessClient } : undefined
+          combinedRecyclablesSubmit
+            ? {
+                ...submitOpts,
+                recyclablesPhotoHash,
+                recyclablesReceiptHash: recyclablesReceiptHash || '',
+              }
+            : submitOpts
         )
         
 
@@ -1244,9 +1256,23 @@ function CleanupContent() {
           console.log('✅ Referral reward will be distributed when cleanup is verified and user claims their first Impact Product level!')
         }
 
-        // Attach recyclables to submission if provided
+        const saveRecyclablesMeta = () => {
+          void fetch('/api/impact/cleanup-meta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              submissionId: cleanupId.toString(),
+              amount: Number(recyclablesAmount),
+              unit: recyclablesUnit,
+            }),
+          }).catch((err) =>
+            console.warn('[cleanup-meta] Failed to save recyclables amount for feed:', err)
+          )
+        }
+
+        // Attach recyclables to submission if provided (legacy two-tx path)
         // Only attach if we have a recyclables photo hash (IPFS upload succeeded)
-        if (hasRecyclables && recyclablesPhotoHash && address) {
+        if (hasRecyclables && recyclablesPhotoHash && address && !combinedRecyclablesSubmit) {
           try {
             console.log('📝 Attaching recyclables to submission onchain...')
             console.log('Submission ID:', cleanupId.toString())
@@ -1264,17 +1290,7 @@ function CleanupContent() {
             console.log('✅ Recyclables attached successfully! Transaction hash:', recyclablesTxHash)
             console.log('✅ Recyclables will be rewarded when cleanup is verified')
 
-            void fetch('/api/impact/cleanup-meta', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                submissionId: cleanupId.toString(),
-                amount: Number(recyclablesAmount),
-                unit: recyclablesUnit,
-              }),
-            }).catch((err) =>
-              console.warn('[cleanup-meta] Failed to save recyclables amount for feed:', err)
-            )
+            saveRecyclablesMeta()
           } catch (recyclablesError: any) {
             console.error('Error attaching recyclables (non-fatal):', recyclablesError)
             // Don't fail the entire submission if recyclables attachment fails
@@ -1291,6 +1307,9 @@ function CleanupContent() {
               })
             }
           }
+        } else if (combinedRecyclablesSubmit) {
+          console.log('✅ Recyclables included in createSubmissionWithRecyclables (single tx)')
+          saveRecyclablesMeta()
         } else if (hasRecyclables && !recyclablesPhotoHash) {
           console.warn('⚠️ Recyclables were selected but IPFS upload failed - recyclables not attached to submission')
         }

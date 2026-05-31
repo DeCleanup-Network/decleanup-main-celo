@@ -1,8 +1,15 @@
 import 'server-only'
-import { getCleanupDetailsFresh } from '@/lib/blockchain/contracts'
+import { getCleanupDetailsFresh, getCleanupDetailsAt, type Address } from '@/lib/blockchain/contracts'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
-import { getImpactIndex } from '@/lib/impact/indexer'
+import {
+  buildImpactIndexAt,
+  getImpactIndex,
+  isLegacyFeedSubmissionId,
+  legacyFeedOnChainSubmissionId,
+  legacyFeedSubmissionId,
+} from '@/lib/impact/indexer'
 import type { ImpactEntry } from '@/lib/impact/types'
+import { isAddress } from 'viem'
 import { formatLocationLabel } from '@/lib/impact/location-label'
 import { buildCleanupSummary } from '@/lib/impact/cleanup-feed-format'
 import {
@@ -34,9 +41,14 @@ function coordsFromContract(rawLat: number, rawLng: number): { lat: number | nul
 
 async function mapEntryToFeedRow(
   entry: ImpactEntry,
-  existing: CleanupFeedRow | null
+  existing: CleanupFeedRow | null,
+  submissionAddress?: Address
 ): Promise<Omit<CleanupFeedRow, 'created_at'>> {
-  const details = await getCleanupDetailsFresh(BigInt(entry.submissionId))
+  const onChainId = legacyFeedOnChainSubmissionId(entry.submissionId) ?? BigInt(entry.submissionId)
+  const readAt = submissionAddress
+  const details = readAt
+    ? await getCleanupDetailsAt(readAt, onChainId)
+    : await getCleanupDetailsFresh(onChainId)
   const { lat, lng } = coordsFromContract(entry.latitude, entry.longitude)
   const locationLabel = formatLocationLabel(entry.locationType, lat ?? 0, lng ?? 0)
   const nowIso = new Date().toISOString()
@@ -76,20 +88,58 @@ async function mapEntryToFeedRow(
   return row
 }
 
+function legacySubmissionAddress(): Address | undefined {
+  const raw = process.env.IMPACT_FEED_LEGACY_SUBMISSION_CONTRACT?.trim()
+  if (!raw || !isAddress(raw)) return undefined
+  return raw as Address
+}
+
+async function collectImpactEntriesForFeed(): Promise<{
+  entries: ImpactEntry[]
+  legacyAddress?: Address
+}> {
+  const primary = await getImpactIndex()
+  const legacyAddress = legacySubmissionAddress()
+  if (!legacyAddress) {
+    return { entries: primary }
+  }
+
+  const legacy = await buildImpactIndexAt(legacyAddress)
+  const legacyEntries = legacy.map((entry) => ({
+    ...entry,
+    submissionId: legacyFeedSubmissionId(entry.submissionId),
+  }))
+
+  console.log(
+    `📦 Feed index: ${primary.length} current + ${legacyEntries.length} legacy (${legacyAddress})`
+  )
+  return { entries: [...legacyEntries, ...primary], legacyAddress }
+}
+
 export async function syncCleanupFeedFromChain(): Promise<{
   synced: number
   chainId: number
+  primaryCount: number
+  legacyCount: number
 }> {
-  const entries = await getImpactIndex()
+  const { entries, legacyAddress } = await collectImpactEntriesForFeed()
   const rows: Omit<CleanupFeedRow, 'created_at'>[] = []
 
   for (const entry of entries) {
     const existing = await getCleanupFeedRow(REQUIRED_CHAIN_ID, entry.submissionId)
-    rows.push(await mapEntryToFeedRow(entry, existing))
+    const legacyReadAt =
+      legacyAddress && isLegacyFeedSubmissionId(entry.submissionId) ? legacyAddress : undefined
+    rows.push(await mapEntryToFeedRow(entry, existing, legacyReadAt))
   }
 
   const synced = await upsertCleanupFeedRows(rows)
-  return { synced, chainId: REQUIRED_CHAIN_ID }
+  const legacyCount = entries.filter((e) => isLegacyFeedSubmissionId(e.submissionId)).length
+  return {
+    synced,
+    chainId: REQUIRED_CHAIN_ID,
+    primaryCount: entries.length - legacyCount,
+    legacyCount,
+  }
 }
 
 export async function ensureCleanupFeedSynced(options?: {

@@ -1,13 +1,14 @@
 {
   "DCURewardManager": "0x1936270b066ebadedc2d84f4ce3b488729d1d638",
-  "Submission": "0xc6523bf318e39b6d9dfbcd95aed9d5c3c5d041d1",
-  "ImpactProductNFT": "0xc6a7ec8b1695023d3ee74adc29972cd341aba3ea",
+  "Submission": "0x2f3654f0ad8117c41185c589dcd0ea22522fe5af",
+  "ImpactProductNFT": "0x97fa526fba91f01b5a4e0f25c71751e474cb6f45",
   "network": "celo",
   "chainId": 42220,
   "deployedAt": "2026-05-10T16:14:01.196Z",
-  "note": "Greenfield core stack (DCURewardManager + ImpactProductNFT + Submission); $cDCU via deploy-cdcu.ts",
-  "updatedAt": "2026-05-10T16:14:01.196Z",
+  "note": "Cross-links done; RewardManager owner still must setSubmissionContract + updateNftCollection",
+  "updatedAt": "2026-05-31T03:51:04.089Z",
   "oldDCURewardManager": "0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a",
   "oldSubmission": "0x1e355123f9dec3939552d80ad1a24175fd10688f",
-  "oldImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959"
+  "oldImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959",
+  "pendingRewardManagerLink": true
 }

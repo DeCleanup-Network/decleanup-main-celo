@@ -20,9 +20,10 @@
  *   Future: Use Redis or persistent cache layer
  */
 
-import { getCleanupDetails, getCleanupCounter } from '@/lib/blockchain/contracts'
+import { getCleanupDetails, getCleanupCounter, getCleanupDetailsAt, getCleanupCounterAt } from '@/lib/blockchain/contracts'
 import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
 import { ImpactEntry, ImpactIndexCache } from './types'
+import type { Address } from 'viem'
 
 // ============================================================================
 // CONSTANTS
@@ -129,6 +130,41 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
   })()
 
   return rebuildInFlight
+}
+
+/** Build impact index from a specific Submission contract (no shared cache — for legacy feed backfill). */
+export async function buildImpactIndexAt(submissionAddress: Address): Promise<ImpactEntry[]> {
+  const submissionCount = Number(await getCleanupCounterAt(submissionAddress))
+  console.log(`📊 [${submissionAddress}] Found ${submissionCount} total submissions`)
+
+  const submissions = await Promise.allSettled(
+    Array.from({ length: submissionCount }, (_, i) =>
+      getCleanupDetailsAt(submissionAddress, BigInt(i))
+    )
+  )
+
+  const approvedSubmissions = submissions
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => (result as PromiseFulfilledResult<any>).value)
+    .filter((submission) => submission.verified === true && submission.rejected !== true)
+
+  const entries = await resolveIPFSDataWithConcurrency(approvedSubmissions, IPFS_PARALLEL_LIMIT)
+  return entries.filter((entry): entry is ImpactEntry => entry !== null).map(normalizeEntry)
+}
+
+export function legacyFeedSubmissionId(submissionId: string): string {
+  return `legacy-${submissionId}`
+}
+
+export function isLegacyFeedSubmissionId(submissionId: string): boolean {
+  return submissionId.startsWith('legacy-')
+}
+
+export function legacyFeedOnChainSubmissionId(feedSubmissionId: string): bigint | null {
+  if (!isLegacyFeedSubmissionId(feedSubmissionId)) return null
+  const raw = feedSubmissionId.slice('legacy-'.length)
+  if (!/^\d+$/.test(raw)) return null
+  return BigInt(raw)
 }
 
 // ============================================================================

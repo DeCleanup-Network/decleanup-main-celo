@@ -194,6 +194,58 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         int256 lng,
         address referrer
     ) external payable nonReentrant returns (uint256) {
+        string memory empty = "";
+        return _createSubmission(
+            dataURI,
+            beforePhotoHash,
+            afterPhotoHash,
+            impactFormDataHash,
+            lat,
+            lng,
+            referrer,
+            empty,
+            empty
+        );
+    }
+
+    /**
+     * @dev Create a submission and attach recyclables in one transaction when recyclablesPhotoHash is non-empty.
+     */
+    function createSubmissionWithRecyclables(
+        string calldata dataURI,
+        string calldata beforePhotoHash,
+        string calldata afterPhotoHash,
+        string calldata impactFormDataHash,
+        int256 lat,
+        int256 lng,
+        address referrer,
+        string calldata recyclablesPhotoHash,
+        string calldata recyclablesReceiptHash
+    ) external payable nonReentrant returns (uint256) {
+        return _createSubmission(
+            dataURI,
+            beforePhotoHash,
+            afterPhotoHash,
+            impactFormDataHash,
+            lat,
+            lng,
+            referrer,
+            recyclablesPhotoHash,
+            recyclablesReceiptHash
+        );
+    }
+
+    function _createSubmission(
+        string calldata dataURI,
+        string calldata beforePhotoHash,
+        string calldata afterPhotoHash,
+        string calldata impactFormDataHash,
+        int256 lat,
+        int256 lng,
+        address referrer,
+        string memory recyclablesPhotoHash,
+        string memory recyclablesReceiptHash
+    ) internal returns (uint256) {
         if (bytes(dataURI).length == 0) revert SUBMISSION__InvalidSubmissionData();
         if (bytes(beforePhotoHash).length == 0) revert SUBMISSION__InvalidSubmissionData();
         if (bytes(afterPhotoHash).length == 0) revert SUBMISSION__InvalidSubmissionData();
@@ -213,7 +265,7 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
             if (referrers[msg.sender] == address(0)) {
                 referrers[msg.sender] = referrer;
                 emit ReferralRegistered(referrer, msg.sender);
-                
+
                 // Also register referral in DCURewardManager so referral rewards can be distributed
                 // when the user claims their first Impact Product NFT
                 if (address(rewardManager) != address(0)) {
@@ -229,6 +281,7 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
 
         uint256 submissionId = submissionCount;
         bool hasImpactForm = bytes(impactFormDataHash).length > 0;
+        bool hasRecyclables = bytes(recyclablesPhotoHash).length > 0;
 
         submissions[submissionId] = CleanupSubmission({
             id: submissionId,
@@ -247,9 +300,9 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
             feePaid: paid,
             feeRefunded: false,
             hasImpactForm: hasImpactForm,
-            hasRecyclables: false,
-            recyclablesPhotoHash: "",
-            recyclablesReceiptHash: ""
+            hasRecyclables: hasRecyclables,
+            recyclablesPhotoHash: hasRecyclables ? recyclablesPhotoHash : "",
+            recyclablesReceiptHash: hasRecyclables ? recyclablesReceiptHash : ""
         });
 
         userSubmissions[msg.sender].push(submissionId);
@@ -259,6 +312,10 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         if (hasImpactForm) {
             userImpactFormCount[msg.sender]++;
             emit ImpactFormSubmitted(msg.sender, submissionId, userImpactFormCount[msg.sender]);
+        }
+
+        if (hasRecyclables) {
+            emit RecyclablesSubmitted(msg.sender, submissionId, recyclablesPhotoHash, recyclablesReceiptHash);
         }
 
         emit SubmissionCreated(submissionId, msg.sender, dataURI, block.timestamp);
@@ -275,11 +332,20 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         string calldata recyclablesPhotoHash,
         string calldata recyclablesReceiptHash
     ) external nonReentrant {
+        _attachRecyclables(submissionId, msg.sender, recyclablesPhotoHash, recyclablesReceiptHash);
+    }
+
+    function _attachRecyclables(
+        uint256 submissionId,
+        address submitter,
+        string memory recyclablesPhotoHash,
+        string memory recyclablesReceiptHash
+    ) internal {
         if (submissionId >= submissionCount) revert SUBMISSION__SubmissionNotFound(submissionId);
 
         CleanupSubmission storage s = submissions[submissionId];
 
-        if (s.submitter != msg.sender) revert SUBMISSION__Unauthorized(msg.sender);
+        if (s.submitter != submitter) revert SUBMISSION__Unauthorized(submitter);
         if (s.status != SubmissionStatus.Pending) revert SUBMISSION__SubmissionNotFound(submissionId);
         if (bytes(recyclablesPhotoHash).length == 0) revert SUBMISSION__InvalidSubmissionData();
 
@@ -287,7 +353,7 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         s.recyclablesPhotoHash = recyclablesPhotoHash;
         s.recyclablesReceiptHash = recyclablesReceiptHash;
 
-        emit RecyclablesSubmitted(msg.sender, submissionId, recyclablesPhotoHash, recyclablesReceiptHash);
+        emit RecyclablesSubmitted(submitter, submissionId, recyclablesPhotoHash, recyclablesReceiptHash);
     }
 
     /**
@@ -421,13 +487,28 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
      * Callable only by the submission owner, after verifier approval and after NFT mint/upgrade.
      */
     function claimSubmissionBonusRewards(uint256 submissionId) external nonReentrant {
+        _claimSubmissionBonusRewards(msg.sender, submissionId);
+    }
+
+    /**
+     * @dev Same as claimSubmissionBonusRewards but callable only by ImpactProductNFT immediately after mint/upgrade.
+     */
+    function claimSubmissionBonusRewardsFromImpactProduct(address submitter, uint256 submissionId)
+        external
+        nonReentrant
+    {
+        if (msg.sender != address(impactProductNFT)) revert SUBMISSION__Unauthorized(msg.sender);
+        _claimSubmissionBonusRewards(submitter, submissionId);
+    }
+
+    function _claimSubmissionBonusRewards(address submitter, uint256 submissionId) internal {
         if (submissionId >= submissionCount) revert SUBMISSION__SubmissionNotFound(submissionId);
 
         CleanupSubmission storage s = submissions[submissionId];
-        if (s.submitter != msg.sender) revert SUBMISSION__Unauthorized(msg.sender);
+        if (s.submitter != submitter) revert SUBMISSION__Unauthorized(submitter);
         if (s.status != SubmissionStatus.Approved) revert SUBMISSION__SubmissionNotApproved(submissionId);
         if (bonusRewardsClaimed[submissionId]) revert SUBMISSION__BonusRewardsAlreadyClaimed(submissionId);
-        if (address(impactProductNFT) == address(0) || !impactProductNFT._userHasMinted(msg.sender)) {
+        if (address(impactProductNFT) == address(0) || !impactProductNFT._userHasMinted(submitter)) {
             revert SUBMISSION__BonusRewardsRequireMintedImpactProduct();
         }
 
@@ -435,24 +516,24 @@ contract Submission is Ownable, ReentrancyGuard, AccessControl {
         bool recyclablesRewarded = false;
 
         if (s.hasImpactForm) {
-            rewardManager.rewardImpactReports(s.submitter, 1);
+            rewardManager.rewardImpactReports(submitter, 1);
             impactRewarded = true;
         }
 
         if (s.hasRecyclables) {
-            rewardManager.rewardRecyclables(s.submitter, 1);
+            rewardManager.rewardRecyclables(submitter, 1);
             recyclablesRewarded = true;
 
             // Optional external recyclables token reward (disabled by default; set address(0) to skip).
             if (recyclablesRewardContract != address(0)) {
-                try RecyclablesReward(recyclablesRewardContract).rewardRecyclables(s.submitter, submissionId) {
+                try RecyclablesReward(recyclablesRewardContract).rewardRecyclables(submitter, submissionId) {
                 } catch {
                 }
             }
         }
 
         bonusRewardsClaimed[submissionId] = true;
-        emit SubmissionBonusRewardsClaimed(msg.sender, submissionId, impactRewarded, recyclablesRewarded);
+        emit SubmissionBonusRewardsClaimed(submitter, submissionId, impactRewarded, recyclablesRewarded);
     }
 
     /**
