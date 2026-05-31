@@ -14,5 +14,6 @@
 | **`TERMS_OF_SERVICE.md`** | Terms of Service (canonical markdown; app route **`/terms`**) |
 | **`PRIVACY_POLICY.md`** | Privacy policy (canonical markdown; app route **`/privacy`**) |
 | **`CHANGELOG.md`** | Doc set change log |
+| **`PUBLIC_IMPACT_API.md`** | Public read API for landing page (global stats + cleanup feed) |
 
 **On-chain addresses:** `contracts/scripts/deployed_addresses.json` in the repo root (not duplicated here).
