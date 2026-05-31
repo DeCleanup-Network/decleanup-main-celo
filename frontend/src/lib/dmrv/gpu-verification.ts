@@ -134,7 +134,7 @@ export async function inferImage(
 }
 
 /**
- * Product scoring (see docs/DEVELOPER_SPECS.md — ML Verification Flow).
+ * Product scoring (see docs/ML_VERIFICATION_ARCHITECTURE.md).
  * Aligns with PR #29 stability rules, then maps to API verdicts:
  * AUTO_VERIFIED → approved, NEEDS_REVIEW → pending, REJECTED → rejected.
  */

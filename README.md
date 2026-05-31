@@ -1,19 +1,20 @@
 # DeCleanup Network - Celo MVP
 
-**Website:** [decleanup.net](https://decleanup.net)
+**Website:** [decleanup.net](https://decleanup.net) · **Dapp:** [dapp.decleanup.net](https://dapp.decleanup.net)
 
-Celo-native stack for verified cleanups → onchain **Impact Products**, **DCU** participation points, optional **Hypercerts**, and **`$cDCU`** (minted via **ClaimVault** signed claims). This repo is the contracts + Next.js app used for testnet and staging work.
+Celo mainnet stack for verified cleanups → onchain **Impact Products**, **DCU** participation points, optional **Hypercerts**, and **`$cDCU`** (minted via **ClaimVault** signed claims).
 
-## What’s in the repo
+## What's in the repo
 
 | Path | Contents |
 |------|----------|
-| `contracts/` | Hardhat: `Submission`, `DCURewardManager`, `ImpactProductNFT`, `CDCUToken`, `ClaimVault`, scripts, tests |
-| `frontend/` | Next.js app (dashboard, cleanup, verifier flows, APIs, Supabase clients) |
-| `docs/` | Architecture, token/$cDCU notes, deployment, security, ML verify, Hypercerts |
-| `gpu-inference-service/` | Optional GPU worker for ML-assisted verification |
+| `contracts/` | Hardhat: Submission, DCURewardManager, ImpactProductNFT, CDCUToken, ClaimVault |
+| `frontend/` | Next.js app (dashboard, cleanup, verifier, APIs, Supabase) |
+| `gpu-inference-service/` | Optional YOLOv8 worker for ML pre-screening |
+| `docs/` | Architecture, deployment, VPS, ML, public API |
+| `scripts/vps/` | Deploy and harden VPS (PM2, Nginx, GPU) |
 
-**Deployed addresses (current Sepolia deploy):** `contracts/scripts/deployed_addresses.json` - always treat this file as source of truth when wiring `NEXT_PUBLIC_*` variables.
+**Deployed addresses:** `contracts/scripts/deployed_addresses.json` → wire into `NEXT_PUBLIC_*` env vars.
 
 ## Local setup
 
@@ -22,28 +23,21 @@ cd frontend && npm install && npm run dev    # http://localhost:3000
 cd ../contracts && npm install && npx hardhat test
 ```
 
-### Environment
+Copy **`frontend/ENV_TEMPLATE.md`** → `frontend/.env.local`. For mainnet local testing set `NEXT_PUBLIC_CHAIN_ID=42220` and addresses from `deployed_addresses.json`.
 
-- Copy **`frontend/ENV_TEMPLATE.md`** → `frontend/.env.local` and fill RPC, WalletConnect, contract addresses, Pinata, ClaimVault signer, optional Supabase.
-- **`$cDCU` / ClaimVault / deploy commands:** **`docs/B_CDCU_ONLY_ARCHITECTURE.md`**
-- Root **`.env`** for Hardhat (`PRIVATE_KEY`, RPC, explorer API key for verify).
+## Documentation
 
-## Documentation index
-
-- **`docs/system-architecture.md`** - end-to-end diagram and components
-- **`docs/B_CDCU_ONLY_ARCHITECTURE.md`** - DCU ledger vs `$cDCU`, ClaimVault, deploy
-- **`docs/HYPERCERTS.md`** - Hypercerts implementation overview
-- **`docs/hypercerts-and-impact.md`** - impact data → certificate pipeline
-- **`docs/deployment-plan.md`** - release checklist
-- **`docs/TOKEN_SPEC.md`** - tokenomics, ClaimVault, governance threshold
-- **`docs/VPS_*.md`** - optional VPS / hardening / post-deploy
+| Doc | Topic |
+|-----|--------|
+| [`docs/README.md`](docs/README.md) | Full index |
+| [`docs/system-architecture.md`](docs/system-architecture.md) | End-to-end architecture |
+| [`docs/deployment-plan.md`](docs/deployment-plan.md) | Vercel / mainnet release checklist |
+| [`docs/VPS_DEPLOYMENT.md`](docs/VPS_DEPLOYMENT.md) | VPS + ML enablement |
+| [`docs/PUBLIC_IMPACT_API.md`](docs/PUBLIC_IMPACT_API.md) | Landing page feed API |
+| [`docs/B_CDCU_ONLY_ARCHITECTURE.md`](docs/B_CDCU_ONLY_ARCHITECTURE.md) | DCU vs `$cDCU`, ClaimVault |
 
 ## Links
 
-- [Celo Sepolia Blockscout](https://celo-sepolia.blockscout.com/)
+- [CeloScan (mainnet)](https://celoscan.io/)
 - [Tokenomics](https://decleanup.net/tokenomics)
-- Legal (in-app when running the frontend): `/terms`, `/privacy` - full markdown in `docs/TERMS_OF_SERVICE.md` and `docs/PRIVACY_POLICY.md`
-
----
-
-Happy cleaning
+- Legal: `/terms`, `/privacy` (source in `docs/`)

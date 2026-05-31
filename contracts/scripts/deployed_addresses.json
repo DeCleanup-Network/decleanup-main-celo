@@ -5,10 +5,9 @@
   "network": "celo",
   "chainId": 42220,
   "deployedAt": "2026-05-10T16:14:01.196Z",
-  "note": "Cross-links done; RewardManager owner still must setSubmissionContract + updateNftCollection",
+  "note": "Celo mainnet production stack. Old contracts kept for reference only.",
   "updatedAt": "2026-05-31T03:51:04.089Z",
   "oldDCURewardManager": "0xa462ad03f09e9dd8190d5ce9fec71f0ff835288a",
   "oldSubmission": "0x1e355123f9dec3939552d80ad1a24175fd10688f",
-  "oldImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959",
-  "pendingRewardManagerLink": true
+  "oldImpactProductNFT": "0x97448790fd64dd36504d7f5ce7c2d27794b01959"
 }

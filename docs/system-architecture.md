@@ -39,7 +39,7 @@
 
 ### Smart contracts (source of truth: `contracts/scripts/deployed_addresses.json`)
 
-Typical **Celo Sepolia** greenfield deploy (see JSON for live hexes):
+Typical **Celo mainnet** deploy (chain ID `42220`; see `contracts/scripts/deployed_addresses.json`):
 
 | Contract | Role |
 |----------|------|
@@ -77,9 +77,10 @@ Both embedded and external users can open **`/hypercerts`** when signed in; elig
 |--------|------|
 | Pinata (via API route) | Photos, forms, Hypercert assets + metadata |
 | Celo RPC | Contract reads/writes |
-| Supabase | Verifier applications, Hypercert request workflow, impact portfolio storage, airdrop issued/pending state (see `frontend/supabase/migrations/`) |
+| Supabase | Verifier applications, Hypercert requests, impact portfolio, cleanup feed, airdrop state (`frontend/supabase/migrations/`) |
 | Prisma (optional) | Passkey credentials, wallet metadata when AA auth enabled |
 | Optional geocoding | Leaderboard country resolution |
+| VPS `UPLOAD_DIR` (optional) | ML pre-screening photo cache when `ML_VERIFICATION_ENABLED=true` |
 
 ## Dev commands
 
@@ -90,5 +91,6 @@ Both embedded and external users can open **`/hypercerts`** when signed in; elig
 ## Maintenance notes
 
 - Prefer **`contracts/scripts/deployed_addresses.json`** over hardcoding addresses in docs.
-- **`docs/deployment-plan.md`** — operational checklist for releases.
-- Web3Auth was removed in favor of Auth.js + non-custodial embedded wallets; do not reintroduce custodial key storage in docs or env templates.
+- **`docs/deployment-plan.md`** — Vercel / mainnet release checklist.
+- **`docs/VPS_DEPLOYMENT.md`** — VPS, PM2, ML enablement.
+- Auth: **Auth.js** (Google/email) + embedded Safe smart accounts; external MetaMask/WalletConnect. Do not use custodial key storage.

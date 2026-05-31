@@ -3,7 +3,7 @@
 # Run from repo root: ./scripts/vps/rsync-frontend-to-vps.sh
 # Optional: VPS_SSH=root@ip  or  VPS_HOST=ip  (same as deploy-gpu-inference-pm2.sh)
 #
-# Prereq: local branch checked out with the code you want live (e.g. AI-verification + main merged).
+# Prereq: checkout the branch you want live (e.g. main).
 #
 set -euo pipefail
 REMOTE_DIR="${VPS_FRONTEND:-/var/www/decleanup/frontend}"

@@ -5,15 +5,21 @@
 | **`system-architecture.md`** | Stack diagram, contracts, data flows |
 | **`B_CDCU_ONLY_ARCHITECTURE.md`** | DCU vs `$cDCU`, ClaimVault, deploy summary |
 | **`TOKEN_SPEC.md`** | Tokenomics, governance threshold, mint rules |
+| **`deployment-plan.md`** | Release checklist (mainnet + Vercel) |
+| **`VPS_DEPLOYMENT.md`** | VPS + PM2 + ML enablement |
+| **`VPS_SECURITY_PROTOCOL.md`** | Nginx, UFW, fail2ban, rate limits |
+| **`SECRETS_ROTATION.md`** | Rotate API keys and sync secrets |
+| **`ML_VERIFICATION_ARCHITECTURE.md`** | Optional GPU / ML pre-screening |
+| **`PUBLIC_IMPACT_API.md`** | Landing page read API (feed + global stats) |
+| **`TELEGRAM_VERIFIER_BOT.md`** | Verifier Telegram notifications |
 | **`hypercerts-and-impact.md`** | Impact forms → Hypercert pipeline |
-| **`HYPERCERTS.md`** | Engineering map for Hypercerts code |
-| **`deployment-plan.md`** | Short release checklist |
-| **`ML_VERIFICATION_ARCHITECTURE.md`** | Optional ML / GPU verification |
-| **`VPS_SECURITY_PROTOCOL.md`** | Server hardening notes |
-| **`PARTNERSHIP_OPPORTUNITIES.md`** | Non-technical outreach scratchpad |
-| **`TERMS_OF_SERVICE.md`** | Terms of Service (canonical markdown; app route **`/terms`**) |
-| **`PRIVACY_POLICY.md`** | Privacy policy (canonical markdown; app route **`/privacy`**) |
-| **`CHANGELOG.md`** | Doc set change log |
-| **`PUBLIC_IMPACT_API.md`** | Public read API for landing page (global stats + cleanup feed) |
+| **`HYPERCERTS.md`** | Hypercerts code map |
+| **`TERMS_OF_SERVICE.md`** | Terms (`/terms`) |
+| **`PRIVACY_POLICY.md`** | Privacy (`/privacy`) |
+| **`PARTNERSHIP_OPPORTUNITIES.md`** | Outreach scratchpad (non-technical) |
 
-**On-chain addresses:** `contracts/scripts/deployed_addresses.json` in the repo root (not duplicated here).
+**Onchain addresses:** `contracts/scripts/deployed_addresses.json` (Celo mainnet `42220`).
+
+**Environment template:** `frontend/ENV_TEMPLATE.md`.
+
+Code history: `git log`. Application changelog: root **`CHANGELOG.md`**.

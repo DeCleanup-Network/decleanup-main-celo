@@ -1,6 +1,8 @@
 # VPS Security Protocol (DeCleanup App)
 
-This protocol is for a production deployment on VPS where `next start` is behind Nginx and managed by PM2.
+Deploy and ML setup: **`docs/VPS_DEPLOYMENT.md`**. Secrets: **`docs/SECRETS_ROTATION.md`**.
+
+Production deployment on VPS where `next start` is behind Nginx and managed by PM2.
 
 Primary goals:
 
