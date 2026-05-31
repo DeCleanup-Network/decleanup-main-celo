@@ -46,7 +46,7 @@ type Step = 'photos' | 'enhanced' | 'recyclables' | 'review'
 
 /** Shown when GPS fails or before first capture — covers phone OS + browser site permissions. */
 const LOCATION_PERMISSION_HINT =
-  'Turn on Location Services in your phone Settings and allow your browser app to use location. In the browser, allow location for this site (lock or site icon → Site settings → Location).'
+  'Enable location in phone Settings and allow this site in your browser (site settings > Location).'
 
 const NATIVE_SYMBOL = 'ETH'
 const BLOCK_EXPLORER_NAME = REQUIRED_BLOCK_EXPLORER_URL.includes('sepolia')
@@ -755,7 +755,7 @@ function CleanupContent() {
             errorMessage += ` ${LOCATION_PERMISSION_HINT}`
             break
           case error.POSITION_UNAVAILABLE:
-            errorMessage += ' Location may be off in phone Settings or unavailable indoors — try again outdoors or enter coordinates manually.'
+            errorMessage += ' Location may be off in Settings or indoors. Try outdoors or enter coordinates manually.'
             break
           case error.TIMEOUT:
             errorMessage += ' Location request timed out. Please try again.'
@@ -1173,14 +1173,14 @@ function CleanupContent() {
         } catch (error) {
           console.error('Error uploading impact report data to IPFS:', error)
           throw new Error(
-            `Impact report upload failed: ${error instanceof Error ? error.message : String(error)}. Fix your connection or try again — without this hash onchain you will not earn impact report DCU.`
+            `Impact report upload failed: ${error instanceof Error ? error.message : String(error)}. Retry. Without this hash onchain you will not earn impact report DCU.`
           )
         }
       }
 
       if (impactFormEligible && !impactFormDataHash) {
         throw new Error(
-          'Impact report data did not produce an IPFS hash. Cannot submit without it — you would lose impact report DCU on claim.'
+          'Impact report has no IPFS hash. Submitting without it loses impact report DCU on claim.'
         )
       }
 
@@ -1636,10 +1636,9 @@ function CleanupContent() {
             <Users className="h-5 w-5 text-brand-green" />
           </div>
           <div className="flex-1">
-            <h3 className="mb-1 text-sm font-bold uppercase text-brand-green">You were invited!</h3>
-            <p className="text-sm text-gray-300">You&apos;ve been referred to DeCleanup Rewards!</p>
-            <p className="mt-2 text-sm text-gray-300">
-              Submit a cleanup below to get started and claim your referral reward!
+            <h3 className="mb-1 text-sm font-bold uppercase text-brand-green">Invited by a friend</h3>
+            <p className="text-sm text-gray-300">
+              You were referred to DeCleanup Rewards. Submit a cleanup to start.
             </p>
           </div>
           <button
@@ -1731,8 +1730,7 @@ function CleanupContent() {
           <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-6 space-y-3">
             <h2 className="text-xl font-bebas tracking-wide text-foreground">SUBMISSION CLOSED</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL} (the maximum). New cleanup submissions
-              aren&apos;t available for this program phase. Your impact remains visible on your dashboard and in your{' '}
+              You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
               <Link
                 href={`/impact/${address as string}${
                   submissionOwnerAddress && submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
@@ -1764,12 +1762,11 @@ function CleanupContent() {
             <div className="flex-1">
               <h3 className="mb-1 font-semibold text-red-400">Wrong Network</h3>
               <p className="mb-3 text-sm text-gray-300">
-                You&apos;re on Chain ID {chainId} ({describeChain(chainId)}). This app needs{' '}
+                You&apos;re on Chain ID {chainId} ({describeChain(chainId)}). Switch to{' '}
                 <strong className="text-white">
                   {REQUIRED_CHAIN_NAME} ({REQUIRED_CHAIN_ID})
                 </strong>
-                . MetaMask often won&apos;t switch automatically—open the wallet extension or app and pick Celo
-                Mainnet there. If it&apos;s missing, add network: RPC {REQUIRED_RPC_URL}, symbol CELO.
+                . In MetaMask: Networks, pick Celo Mainnet. If missing, add RPC {REQUIRED_RPC_URL}, symbol CELO.
               </p>
               <Button
                 onClick={async () => {
@@ -1779,7 +1776,7 @@ function CleanupContent() {
                     setAlertModal({
                       title: 'Switch in MetaMask',
                       message:
-                        `Could not switch from the browser. In MetaMask: Networks → select or add Celo Mainnet (Chain ID ${REQUIRED_CHAIN_ID}). On Safari, use MetaMask&apos;s in-app browser if the button keeps failing.`,
+                        `Could not switch in the browser. In MetaMask: Networks, select Celo Mainnet (Chain ID ${REQUIRED_CHAIN_ID}). On Safari, try MetaMask's in-app browser.`,
                       variant: 'warning',
                     })
                   }
@@ -1805,9 +1802,8 @@ function CleanupContent() {
             <div className="flex-1 space-y-3">
               <h3 className="text-sm font-semibold text-brand-yellow">Ready to claim</h3>
               <p className="text-sm text-gray-200">
-                Your cleanup #{pendingCleanup.id.toString()} is verified. On the home page, tap{' '}
-                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your Impact Product and
-                unlock rewards.
+                Cleanup #{pendingCleanup.id.toString()} is verified. On home, tap{' '}
+                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your Impact Product.
               </p>
               <Button asChild className={claimLevelButtonClasses}>
                 <Link href="/" className="inline-flex items-center justify-center">
@@ -1859,9 +1855,7 @@ function CleanupContent() {
             setConfirmModal({
               title: 'Clear pending cleanup?',
               message:
-                `Cleanup #${pendingCleanup.id.toString()} exists onchain and is pending verification.\n\n` +
-                `Are you sure you want to clear it? This won't delete it from the blockchain, but will allow you to submit a new cleanup.\n\n` +
-                `Note: The old cleanup will still be in the verifier dashboard.`,
+                `Cleanup #${pendingCleanup.id.toString()} is onchain and pending verification.\n\nClear local data only? It stays onchain. You can submit a new cleanup.\n\nThe old entry remains in the verifier dashboard.`,
               onConfirm: () => {
                 setConfirmModal(null)
                 clearPendingKeys()
@@ -1907,8 +1901,8 @@ function CleanupContent() {
                 Submission on Cooldown
               </h3>
               <p className="text-sm text-gray-300">
-                You have a cleanup submission (ID: {pendingCleanup.id.toString()}) pending verification.
-                Please wait until it's verified before submitting a new cleanup.
+                Cleanup #{pendingCleanup.id.toString()} is pending verification. Wait until it is verified before
+                submitting again.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link
@@ -1969,8 +1963,7 @@ function CleanupContent() {
         <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
           <p className="font-medium text-amber-200">Preparing gasless submit…</p>
           <p className="mt-1 text-amber-100/90">
-            Connecting the sponsored smart account (Pimlico). Wait a few seconds after login, then try again if submit
-            stays disabled.
+            Loading sponsored smart account. Wait a few seconds after login, then retry if submit stays disabled.
           </p>
         </div>
       )
@@ -1981,15 +1974,15 @@ function CleanupContent() {
           <p className="font-semibold text-orange-200">Gasless wallet unavailable</p>
           <p className="mt-1 whitespace-pre-wrap text-orange-100/95">{gaslessError.message}</p>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Sponsored submissions stay disabled until this succeeds. Confirm Pimlico API key and Celo RPC, then
-            refresh. External wallets (MetaMask, etc.) use their own CELO gas and skip this path.
+            Sponsored submit stays off until this works. Check Pimlico key and Celo RPC, then refresh. External wallets
+            use their own CELO gas.
           </p>
         </div>
       )
     }
     return (
       <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        Gasless submit will activate when the smart account finishes loading.
+        Gasless submit activates when the smart account finishes loading.
       </div>
     )
   }
@@ -2056,7 +2049,7 @@ function CleanupContent() {
               Submit Cleanup Photos
             </h1>
             <p className="text-sm text-gray-400">
-              Upload before and after cleanup photos with geotag. Supported formats: JPEG, JPG, HEIC. Maximum size per image: 10 MB.
+              Before/after photos with location. JPEG, JPG, or HEIC, max 10 MB each.
             </p>
           </div>
 
@@ -2106,7 +2099,7 @@ function CleanupContent() {
                   onChange={(e) => setBeforePhotoAllowed(e.target.checked)}
                   className="rounded border-gray-700 bg-gray-800"
                 />
-                Allow before photo on our website & social (landing page, X, Telegram)
+                Allow before photo on website and social
               </label>
             </div>
 
@@ -2155,7 +2148,7 @@ function CleanupContent() {
                   onChange={(e) => setAfterPhotoAllowed(e.target.checked)}
                   className="rounded border-gray-700 bg-gray-800"
                 />
-                Allow after photo on our website & social (landing page, X, Telegram)
+                Allow after photo on website and social
               </label>
             </div>
 
@@ -2202,7 +2195,7 @@ function CleanupContent() {
               {manualLocationMode && (
                 <div className="mt-3 space-y-3 rounded-lg border border-gray-800 bg-gray-950 p-3">
                   <p className="text-xs text-gray-400">
-                    Paste coordinates from Google Maps (right-click the spot → click the &ldquo;lat, lng&rdquo; line). Stored locally for this session.
+                    Paste lat, lng from Google Maps (right-click the spot). Saved for this session.
                   </p>
                   <input
                     type="text"
@@ -2285,10 +2278,10 @@ function CleanupContent() {
               Impact Report
             </h1>
             <p className="mb-2 text-sm font-medium text-brand-yellow">
-              +5 DCU Points Bonus
+              +5 DCU bonus
             </p>
             <p className="text-sm text-gray-400">
-              Provide more details on your cleanup (optional)
+              Optional cleanup details
             </p>
           </div>
 
@@ -2584,8 +2577,7 @@ function CleanupContent() {
                 </button>
                 {enhancedData.contributors.length > 0 && (
                   <p className="text-xs text-gray-500">
-                    Contributors are listed for attribution only (no DCU). Use a wallet address or resolve ENS (e.g.{' '}
-                    vitalik.eth). Mentioned wallets get cleanup credit in public stats when verified.
+                    Attribution only (no DCU). Wallet or ENS (e.g. vitalik.eth).
                   </p>
                 )}
               </div>
@@ -2609,8 +2601,7 @@ function CleanupContent() {
                 Photo sharing license *
               </label>
               <p className="mb-2 text-xs text-gray-500">
-                Required for Hypercerts. Pick one of the five standard options — stored as{' '}
-                <span className="text-gray-400">hypercert.rights</span> on your impact certificate.
+                Required for Hypercerts. Saved as hypercert.rights on your certificate.
               </p>
               <select
                 value={enhancedData.rightsAssignment}
@@ -2632,7 +2623,7 @@ function CleanupContent() {
                 <option value="">Choose one…</option>
                 {HYPERCERT_RIGHTS_PRESETS.map((preset) => (
                   <option key={preset.id} value={preset.id}>
-                    {preset.label} ({preset.hypercertNote})
+                    {preset.label}
                   </option>
                 ))}
               </select>
@@ -2834,10 +2825,10 @@ function CleanupContent() {
               Recyclables Submission
             </h1>
             <p className="mb-2 text-sm font-medium text-brand-green">
-              +5 DCU Points Bonus
+              +5 DCU bonus
             </p>
             <p className="text-sm text-gray-400">
-              If you recycled any materials from your cleanup, upload proof (optional)
+              Optional recyclables proof
             </p>
           </div>
 
@@ -3065,7 +3056,7 @@ function CleanupContent() {
             <p className="mb-2 text-xs font-mono text-brand-green">Submission ID: {cleanupId.toString()}</p>
           )}
           <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-            Pending verification (often 2–12 hours). Claim rewards from your Impact Product level after approval.
+            Pending verification (often 2-12 hours). Claim rewards after approval.
           </p>
 
           <div className="mb-4 rounded-lg border border-cyan-500/40 bg-cyan-950/30 p-3 text-left">
@@ -3088,7 +3079,7 @@ function CleanupContent() {
               <p className="mt-2 text-[11px] leading-relaxed text-gray-400">{mlVerificationSummary}</p>
             ) : (
               <p className="mt-2 text-center text-[11px] text-gray-500">
-                Waiting for automated check… Verifiers still review manually if this stays blank.
+                Waiting for automated check. Verifiers still review manually if this stays blank.
               </p>
             )}
           </div>
@@ -3119,7 +3110,7 @@ function CleanupContent() {
             <ul className="space-y-0.5 text-[10px] leading-snug text-muted-foreground">
               <li className="flex gap-1.5">
                 <span className="text-brand-green">•</span>
-                <span>Verifiers review your submission (photos and any AI note) onchain.</span>
+                <span>Verifiers review your submission onchain.</span>
               </li>
               <li className="flex gap-1.5">
                 <span className="text-brand-green">•</span>

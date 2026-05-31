@@ -51,6 +51,7 @@ import {
 } from '@/components/aa/SignUnlockModal'
 import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
 import { AirdropPendingBanner } from '@/components/airdrop/AirdropPendingBanner'
+import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributorAirdropStrip'
 import { WalletReadyCard } from '@/components/aa/WalletReadyCard'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { useWallet } from '@/providers/WalletProvider'
@@ -307,7 +308,7 @@ function HomeContent() {
 
       setClaimModal({
         variant: claimResult.bonusError ? 'warning' : 'success',
-        title: claimResult.bonusError ? 'Level claimed — bonuses pending' : 'Impact Product claimed',
+        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'Impact Product claimed',
         message: successMessage,
       })
 
@@ -399,16 +400,7 @@ function HomeContent() {
           </div>
         </main>
 
-        <div className="w-full border-t border-brand-green/25 bg-brand-green/10 py-4">
-          <div className="container mx-auto flex flex-col items-center justify-center gap-3 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
-            <p className="font-sans text-sm text-muted-foreground max-w-xl">
-              Past contributors: check $cDCU airdrop eligibility.
-            </p>
-            <Button asChild className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90">
-              <Link href="/airdrop">Check airdrop</Link>
-            </Button>
-          </div>
-        </div>
+        <PastContributorAirdropStrip variant="prelogin" />
 
         {/* Footer */}
         <footer className="border-t border-border py-6 flex-shrink-0">
@@ -517,9 +509,6 @@ function HomeContent() {
               </span>{' '}
               <span className="text-foreground">REWARDS</span>
             </h1>
-            <p className="mt-2 font-sans text-sm text-muted-foreground sm:text-base">
-              Log cleanups. Build your record. Earn rewards.
-            </p>
           </div>
           <div className="flex w-full flex-col items-center gap-3">
             {showHeroSubmitSlot && !heroMaxLevelLocked && (
@@ -546,7 +535,7 @@ function HomeContent() {
             )}
             {heroMaxLevelLocked && !showHeroClaimCta && !showHeroUnderReview && (
               <p className="max-w-md text-center text-sm text-muted-foreground sm:text-left">
-                You&apos;re at the maximum Impact Product level — new submissions are closed for this program phase.
+                Maximum Impact Product level reached. New submissions are closed for this program phase.
               </p>
             )}
             {showHeroClaimCta && (
@@ -1091,8 +1080,8 @@ function HomeContent() {
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-bebas text-lg text-brand-green">5. Verifier work</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">1 DCU</strong> per submission you review—approved or rejected with
-                  a clear reason—once you are an active verifier.
+                  Earn <strong className="text-foreground">1 DCU</strong> per submission you review (approved or rejected
+                  with a clear reason) once you are an active verifier.
                 </p>
               </div>
 
@@ -1115,22 +1104,7 @@ function HomeContent() {
         </div>
       )}
 
-      <section
-        aria-label="$cDCU airdrop for past contributors"
-        className="w-full border-t border-brand-green/25 bg-brand-green/10 py-5 sm:py-6"
-      >
-        <div className="mx-auto flex max-w-[1200px] flex-col items-stretch gap-4 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="text-center font-sans text-sm leading-relaxed text-muted-foreground sm:text-left sm:max-w-xl">
-            Past contributor? Check or claim your $cDCU airdrop.
-          </p>
-          <Button
-            asChild
-            className="w-full shrink-0 bg-brand-green font-bebas text-sm uppercase tracking-wider text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[11rem]"
-          >
-            <Link href="/airdrop">Airdrop</Link>
-          </Button>
-        </div>
-      </section>
+      <PastContributorAirdropStrip variant="app" />
 
       <footer className="border-t border-border py-8 mt-0 flex-shrink-0">
         <div className="container mx-auto px-4">

@@ -6,11 +6,11 @@ import Link from 'next/link'
 export function AccountReadyBanner() {
   return (
     <div className="rounded-lg border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm text-gray-200">
-      Your account is ready. We recommend exploring{' '}
+      Account ready. Optional:{' '}
       <Link href="/wallet" className="font-medium text-brand-green underline underline-offset-2">
         Smart account settings
-      </Link>{' '}
-      before you start.
+      </Link>
+      .
     </div>
   )
 }
