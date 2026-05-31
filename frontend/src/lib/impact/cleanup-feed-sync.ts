@@ -1,5 +1,5 @@
 import 'server-only'
-import { getCleanupDetailsFresh, getCleanupDetailsAt, type Address } from '@/lib/blockchain/contracts'
+import { getCleanupDetailsFresh, getCleanupDetailsAt } from '@/lib/blockchain/contracts'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import {
   buildImpactIndexAt,
@@ -9,7 +9,7 @@ import {
   legacyFeedSubmissionId,
 } from '@/lib/impact/indexer'
 import type { ImpactEntry } from '@/lib/impact/types'
-import { isAddress } from 'viem'
+import { isAddress, type Address } from 'viem'
 import { formatLocationLabel } from '@/lib/impact/location-label'
 import { buildCleanupSummary } from '@/lib/impact/cleanup-feed-format'
 import {

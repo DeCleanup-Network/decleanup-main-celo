@@ -1243,7 +1243,7 @@ function CleanupContent() {
           combinedRecyclablesSubmit
             ? {
                 ...submitOpts,
-                recyclablesPhotoHash,
+                recyclablesPhotoHash: recyclablesPhotoHash!,
                 recyclablesReceiptHash: recyclablesReceiptHash || '',
               }
             : submitOpts
