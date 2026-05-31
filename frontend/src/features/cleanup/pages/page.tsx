@@ -39,6 +39,8 @@ import {
 } from '@/lib/blockchain/chain-constants'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
+import type { HypercertRightsPresetId } from '@/lib/blockchain/hypercerts/rights-presets'
+import { HYPERCERT_RIGHTS_PRESETS } from '@/lib/blockchain/hypercerts/rights-presets'
 
 type Step = 'photos' | 'enhanced' | 'recyclables' | 'review'
 
@@ -397,7 +399,7 @@ function CleanupContent() {
     wasteTypes: [] as string[],
     contributors: [] as string[], // Array of contributor addresses
     scopeOfWork: '', // Auto-generated
-    rightsAssignment: '' as '' | 'attribution' | 'non-commercial' | 'no-derivatives' | 'share-alike' | 'all-rights-reserved',
+    rightsAssignment: '' as '' | HypercertRightsPresetId,
     environmentalChallenges: '',
     preventionIdeas: '',
     additionalNotes: '',
@@ -2104,7 +2106,7 @@ function CleanupContent() {
                   onChange={(e) => setBeforePhotoAllowed(e.target.checked)}
                   className="rounded border-gray-700 bg-gray-800"
                 />
-                Allow us to post this picture on social platforms (X, Telegram)
+                Allow before photo on our website & social (landing page, X, Telegram)
               </label>
             </div>
 
@@ -2153,7 +2155,7 @@ function CleanupContent() {
                   onChange={(e) => setAfterPhotoAllowed(e.target.checked)}
                   className="rounded border-gray-700 bg-gray-800"
                 />
-                Allow us to post this picture on social platforms (X, Telegram)
+                Allow after photo on our website & social (landing page, X, Telegram)
               </label>
             </div>
 
@@ -2601,29 +2603,38 @@ function CleanupContent() {
               </div>
             )}
 
-            {/* Rights Assignment */}
+            {/* Hypercerts rights (required — 5 preset licenses) */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-300">
-                Rights Assignment
+                Photo sharing license *
               </label>
+              <p className="mb-2 text-xs text-gray-500">
+                Required for Hypercerts. Pick one of the five standard options — stored as{' '}
+                <span className="text-gray-400">hypercert.rights</span> on your impact certificate.
+              </p>
               <select
                 value={enhancedData.rightsAssignment}
-                onChange={(e) => setEnhancedData({ ...enhancedData, rightsAssignment: e.target.value as any })}
+                onChange={(e) =>
+                  setEnhancedData({
+                    ...enhancedData,
+                    rightsAssignment: e.target.value as HypercertRightsPresetId | '',
+                  })
+                }
                 onBlur={(e) => e.currentTarget.blur()}
                 onWheel={(e) => {
-                  // Prevent scroll from changing select value
                   if (document.activeElement === e.currentTarget) {
                     e.currentTarget.blur()
                   }
                 }}
                 className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white"
+                required
               >
-                <option value="">Select license</option>
-                <option value="attribution">Allow use with credit (CC BY)</option>
-                <option value="non-commercial">Non-commercial use only (CC BY-NC)</option>
-                <option value="no-derivatives">No modifications allowed (CC BY-ND)</option>
-                <option value="share-alike">Share with same license (CC BY-SA)</option>
-                <option value="all-rights-reserved">All rights reserved</option>
+                <option value="">Choose one…</option>
+                {HYPERCERT_RIGHTS_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label} ({preset.hypercertNote})
+                  </option>
+                ))}
               </select>
             </div>
 

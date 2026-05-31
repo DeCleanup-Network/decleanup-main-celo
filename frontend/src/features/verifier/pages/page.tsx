@@ -30,6 +30,7 @@ import {
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
+import { formatRightsAssignment } from '@/lib/blockchain/hypercerts/rights-presets'
 import { AlertModal } from '@/components/ui/alert-modal'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 
@@ -997,8 +998,8 @@ export default function VerifierPage() {
           )}
           {impactData.rightsAssignment && (
             <div>
-              <dt className="text-xs uppercase text-gray-400">Rights Assignment</dt>
-              <dd className="text-base text-white">{impactData.rightsAssignment}</dd>
+              <dt className="text-xs uppercase text-gray-400">Photo sharing license (Hypercert: rights)</dt>
+              <dd className="text-base text-white">{formatRightsAssignment(impactData.rightsAssignment)}</dd>
             </div>
           )}
           {impactData.environmentalChallenges && (

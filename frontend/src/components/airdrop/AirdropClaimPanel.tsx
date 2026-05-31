@@ -128,9 +128,16 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       setResult(data)
       if (data.eligible && BigInt(data.claimableWei ?? '0') > 0n && !data.claimed) {
         savePendingAirdropAddress(trimmed)
+        setMessage(null)
       } else {
         clearPendingAirdropAddress()
-        setMessage('No allocation found for this address.')
+        if (!data.eligible) {
+          setMessage('No allocation found for this address.')
+        } else if (data.claimed) {
+          setMessage('This $cDCU allocation was already claimed.')
+        } else {
+          setMessage('Allocation found but nothing claimable right now. Wait a minute and try again.')
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to check allocation')

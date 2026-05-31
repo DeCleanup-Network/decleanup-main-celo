@@ -82,12 +82,25 @@ export type PublicCleanupFeedItem = {
   media: {
     beforePhotoUrl: string | null
     afterPhotoUrl: string | null
+    /** True when at least one photo URL is present (user opted in + shareable license). */
+    hasPublicPhotos: boolean
   }
   summary: string
   syncedAt: string
 }
 
 export function rowToPublicFeedItem(row: CleanupFeedRow): PublicCleanupFeedItem {
+  const beforePhotoUrl = row.before_photo_cid
+    ? hashToProxyDisplayUrl(row.before_photo_cid)
+    : null
+  const afterPhotoUrl = row.after_photo_cid ? hashToProxyDisplayUrl(row.after_photo_cid) : null
+  const recyclablesPhotoUrl = row.recyclables_photo_cid
+    ? hashToProxyDisplayUrl(row.recyclables_photo_cid)
+    : null
+  const recyclablesReceiptUrl = row.recyclables_receipt_cid
+    ? hashToProxyDisplayUrl(row.recyclables_receipt_cid)
+    : null
+
   return {
     submissionId: row.submission_id,
     chainId: row.chain_id,
@@ -113,16 +126,13 @@ export function rowToPublicFeedItem(row: CleanupFeedRow): PublicCleanupFeedItem 
       hasRecyclables: row.has_recyclables,
       amountKg: row.recyclables_amount_kg,
       amountDisplay: row.recyclables_amount_display,
-      photoUrl: row.recyclables_photo_cid
-        ? hashToProxyDisplayUrl(row.recyclables_photo_cid)
-        : null,
-      receiptUrl: row.recyclables_receipt_cid
-        ? hashToProxyDisplayUrl(row.recyclables_receipt_cid)
-        : null,
+      photoUrl: recyclablesPhotoUrl,
+      receiptUrl: recyclablesReceiptUrl,
     },
     media: {
-      beforePhotoUrl: row.before_photo_cid ? hashToProxyDisplayUrl(row.before_photo_cid) : null,
-      afterPhotoUrl: row.after_photo_cid ? hashToProxyDisplayUrl(row.after_photo_cid) : null,
+      beforePhotoUrl,
+      afterPhotoUrl,
+      hasPublicPhotos: Boolean(beforePhotoUrl || afterPhotoUrl || recyclablesPhotoUrl),
     },
     summary: row.summary || buildCleanupSummary(row),
     syncedAt: row.synced_at,

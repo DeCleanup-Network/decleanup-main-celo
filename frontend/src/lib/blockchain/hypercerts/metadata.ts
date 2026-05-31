@@ -1,4 +1,5 @@
 import { HypercertMetadataInput, HypercertMetadata, HypercertDimension } from './types'
+import { buildHypercertRightsDimension } from './rights-presets'
 
 /**
  * Build work_scope dimension from impact data
@@ -108,14 +109,10 @@ function buildContributors(input: HypercertMetadataInput): HypercertDimension<st
 }
 
 /**
- * Build rights dimension (v1 only supports Public Display)
+ * Build rights dimension from impact report selection (Hypercerts required field).
  */
-function buildRights(): HypercertDimension<string> {
-  return {
-    name: 'Rights',
-    value: ['Public Display'],
-    display_value: 'Public Display'
-  }
+function buildRights(rightsAssignment?: string): HypercertDimension<string> {
+  return buildHypercertRightsDimension(rightsAssignment)
 }
 
 /**
@@ -193,7 +190,7 @@ export function buildHypercertMetadata(input: HypercertMetadataInput): Hypercert
       impact_scope: buildImpactScope(input),
       impact_timeframe: buildImpactTimeframe(input),
       contributors: buildContributors(input),
-      rights: buildRights()
+      rights: buildRights(input.impactData?.rightsAssignment)
     },
     version: input.version,
     generated_at: Date.now()

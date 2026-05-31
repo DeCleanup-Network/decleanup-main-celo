@@ -8,3 +8,9 @@ export * from './requests'
 export { checkHypercertEligibility } from './eligibility'
 export { aggregateUserCleanups, buildVerifierContext } from './aggregation'
 export { buildHypercertMetadata, extractImpactSummaryFromMetadata } from './metadata'
+export {
+  HYPERCERT_RIGHTS_PRESETS,
+  formatRightsAssignment,
+  resolveHypercertRightsPreset,
+  type HypercertRightsPresetId,
+} from './rights-presets'

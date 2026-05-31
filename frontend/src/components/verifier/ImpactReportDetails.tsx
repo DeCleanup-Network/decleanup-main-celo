@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
+import { formatRightsAssignment } from '@/lib/blockchain/hypercerts/rights-presets'
 
 interface ImpactReportDetailsProps {
   impactReportHash?: string | null
@@ -295,8 +296,8 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
         )}
         {impactData.rightsAssignment && (
           <div>
-            <dt className="text-xs uppercase text-gray-400">Rights Assignment</dt>
-            <dd className="text-base text-white">{impactData.rightsAssignment}</dd>
+            <dt className="text-xs uppercase text-gray-400">Photo sharing license (Hypercert: rights)</dt>
+            <dd className="text-base text-white">{formatRightsAssignment(impactData.rightsAssignment)}</dd>
           </div>
         )}
         {impactData.environmentalChallenges && (

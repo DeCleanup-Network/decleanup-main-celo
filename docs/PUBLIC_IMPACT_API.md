@@ -209,8 +209,9 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 | `recyclables.amountDisplay` | string \| null | Display string (e.g. `"3.2 kg"`) |
 | `recyclables.photoUrl` | string \| null | Recyclables photo |
 | `recyclables.receiptUrl` | string \| null | Receipt photo, if any |
-| `media.beforePhotoUrl` | string \| null | Before photo |
-| `media.afterPhotoUrl` | string \| null | After photo |
+| `media.beforePhotoUrl` | string \| null | Before photo (only if submitter opted in) |
+| `media.afterPhotoUrl` | string \| null | After photo (only if submitter opted in) |
+| `media.hasPublicPhotos` | boolean | `true` when any photo URL is present |
 | `summary` | string | Pre-built card copy — use as subtitle or teaser |
 | `syncedAt` | string | ISO 8601 — when this row was last indexed |
 
@@ -222,9 +223,33 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 - **Map pins** — Use `location.latitude` / `location.longitude` when both are non-null; skip items with missing coordinates.
 - **Pagination** — Increment `offset` by `limit` until `offset >= total`.
 
+### Photos (optional for landing UI)
+
+Numbers and location always appear. **Photos are optional** — use them only if you want a gallery or card thumbnails.
+
+| Rule | Detail |
+|------|--------|
+| When URLs are present | Submitter picked a **Hypercerts rights preset** that includes Public Display **and** checked the box for that photo |
+| When URLs are `null` | “All Rights Reserved”, no impact report, or submitter did **not** allow that photo — **do not fetch elsewhere** |
+| Quick check | `item.media.hasPublicPhotos === true` before rendering an `<img>` |
+| Numbers-only UI | Ignore `media` and `recyclables.photoUrl` entirely; use `summary`, `impact`, and `location` |
+
+```javascript
+// Numbers-only card (no images)
+const { summary, impact, location } = item;
+
+// With optional thumbnail
+const thumb = item.media.afterPhotoUrl ?? item.media.beforePhotoUrl;
+if (item.media.hasPublicPhotos && thumb) {
+  // render <img src={thumb} alt="" />
+}
+```
+
+Photo URLs use the dapp IPFS proxy. Prefix relative paths with `https://dapp.decleanup.net`.
+
 ---
 
-## 3. Integration example
+## 4. Integration example
 
 ```javascript
 const BASE = 'https://dapp.decleanup.net';
@@ -254,7 +279,7 @@ TypeScript types matching the API are in `frontend/src/lib/impact/cleanup-feed-f
 
 ---
 
-## 4. Error handling
+## 5. Error handling
 
 | HTTP status | Body shape | Recommended client behavior |
 |-------------|------------|----------------------------|
@@ -266,7 +291,7 @@ TypeScript types matching the API are in `frontend/src/lib/impact/cleanup-feed-f
 
 ---
 
-## 5. Caching
+## 6. Caching
 
 Responses include CDN-friendly headers:
 
@@ -279,7 +304,7 @@ Expect numbers to lag new on-chain verifications by up to the cache window (plus
 
 ---
 
-## 6. Current data status
+## 7. Current data status
 
 As of deployment, the feed may show **zero cleanups** until new submissions are verified on mainnet and indexed. A `200` response with empty `items` and zero metrics is normal — not an error.
 
@@ -292,7 +317,7 @@ No setup or API keys are required on the landing site side.
 
 ---
 
-## 7. Related links
+## 8. Related links
 
 | Resource | URL |
 |----------|-----|
@@ -304,7 +329,7 @@ No setup or API keys are required on the landing site side.
 
 ---
 
-## 8. Out of scope for landing integration
+## 9. Out of scope for landing integration
 
 Do **not** use these from the public landing site:
 

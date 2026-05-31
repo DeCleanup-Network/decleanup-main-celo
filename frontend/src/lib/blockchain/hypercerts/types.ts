@@ -89,6 +89,7 @@ export interface HypercertMetadataInput {
     minutes?: number
     contributors?: string[]
     scopeOfWork?: string
+    rightsAssignment?: string
     environmentalChallenges?: string
     preventionIdeas?: string
   }

@@ -13,10 +13,15 @@ import { isAddress, type Address } from 'viem'
 import { formatLocationLabel } from '@/lib/impact/location-label'
 import { buildCleanupSummary } from '@/lib/impact/cleanup-feed-format'
 import {
+  applyPublicFeedPhotoCids,
+  parseImpactReportPhotoPermissions,
+} from '@/lib/impact/feed-photo-permissions'
+import {
   getCleanupFeedRow,
   upsertCleanupFeedRows,
   type CleanupFeedRow,
 } from '@/lib/supabase/cleanup-feed'
+import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
 
 function cidFromHash(hash: string): string {
   if (!hash) return ''
@@ -37,6 +42,23 @@ function coordsFromContract(rawLat: number, rawLng: number): { lat: number | nul
   const lng = rawLng / 1_000_000
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return { lat: null, lng: null }
   return { lat, lng }
+}
+
+async function fetchImpactReportPermissions(impactCid: string) {
+  if (!impactCid) return null
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12_000)
+    const response = await fetchIpfsByCid(impactCid, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!response.ok) return null
+    const text = await response.text()
+    const trimmed = text.trim()
+    if (!trimmed || trimmed.startsWith('<')) return null
+    return parseImpactReportPhotoPermissions(JSON.parse(trimmed))
+  } catch {
+    return null
+  }
 }
 
 async function mapEntryToFeedRow(
@@ -83,6 +105,21 @@ async function mapEntryToFeedRow(
     summary: '',
     synced_at: nowIso,
   }
+
+  const permissions = row.impact_ipfs_cid
+    ? await fetchImpactReportPermissions(row.impact_ipfs_cid)
+    : null
+  const publicPhotos = applyPublicFeedPhotoCids({
+    beforePhotoCid: row.before_photo_cid,
+    afterPhotoCid: row.after_photo_cid,
+    recyclablesPhotoCid: row.recyclables_photo_cid,
+    recyclablesReceiptCid: row.recyclables_receipt_cid,
+    permissions,
+  })
+  row.before_photo_cid = publicPhotos.before_photo_cid
+  row.after_photo_cid = publicPhotos.after_photo_cid
+  row.recyclables_photo_cid = publicPhotos.recyclables_photo_cid
+  row.recyclables_receipt_cid = publicPhotos.recyclables_receipt_cid
 
   row.summary = buildCleanupSummary(row as CleanupFeedRow)
   return row
