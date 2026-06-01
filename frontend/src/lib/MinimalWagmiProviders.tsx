@@ -2,18 +2,15 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider, type State } from 'wagmi'
-import { useEffect, useState, type ReactNode } from 'react'
-import {
-  createMinimalWagmiConfig,
-  getServerMinimalWagmiConfig,
-} from '@/lib/blockchain/minimal-wagmi-config'
-import type { Config } from 'wagmi'
+import { useState, type ReactNode } from 'react'
+import { createMinimalWagmiConfig } from '@/lib/blockchain/minimal-wagmi-config'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
+import { WalletConnectUriOpener } from '@/components/wallet/WalletConnectUriOpener'
 
 /**
  * Wagmi + React Query without RainbowKit in AA auth mode.
- * Client config uses mobile deep-link WC (no bottom AppKit sheet on Safari).
+ * Client config is created once on mount (avoid server showQrModal:false connector stuck on mobile).
  */
 export function MinimalWagmiProviders({
   children,
@@ -22,7 +19,7 @@ export function MinimalWagmiProviders({
   children: ReactNode
   initialState?: State
 }) {
-  const [config, setConfig] = useState<Config>(() => getServerMinimalWagmiConfig())
+  const [config] = useState(createMinimalWagmiConfig)
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -35,14 +32,11 @@ export function MinimalWagmiProviders({
       })
   )
 
-  useEffect(() => {
-    setConfig(createMinimalWagmiConfig())
-  }, [])
-
   return (
     <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
       <WagmiConfigSync />
       <WalletConnectRelayRecovery />
+      <WalletConnectUriOpener />
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   )

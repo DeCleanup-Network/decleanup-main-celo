@@ -394,22 +394,33 @@
   z-index: 5;
 }
 
-/* RainbowKit + WalletConnect / Reown modals above app chrome (non-AA paths) */
+/* WalletConnect / Reown AppKit modals above app chrome */
 [data-rk] [role="dialog"],
 div[id^="rk_connect"],
 wcm-modal,
-w3m-modal {
-  z-index: 2147483646 !important;
+w3m-modal,
+appkit-modal {
+  z-index: 2147483647 !important;
 }
 
-/* Desktop WC QR modal — centered; avoid clipped bottom sheet on mobile (mobile uses deep-link) */
-wcm-modal::part(container),
-w3m-modal {
+wcm-modal,
+w3m-modal,
+appkit-modal {
   position: fixed !important;
   inset: 0 !important;
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-end !important;
   justify-content: center !important;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+@media (min-width: 640px) {
+  wcm-modal,
+  w3m-modal,
+  appkit-modal {
+    align-items: center !important;
+    padding-bottom: 0 !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

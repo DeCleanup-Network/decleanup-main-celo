@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import { useAccount, useConnect } from 'wagmi'
+import { useAccount, useConfig, useConnect } from 'wagmi'
+import { reconnect } from '@wagmi/core'
 import { Button } from '@/components/ui/button'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
@@ -23,7 +24,7 @@ function hasInjectedProvider(): boolean {
   return Boolean((window as Window & { ethereum?: unknown }).ethereum)
 }
 
-const CONNECT_TIMEOUT_MS = 45_000
+const CONNECT_TIMEOUT_MS = 25_000
 
 /**
  * MetaMask / WalletConnect login (pre–RainbowKit AA path).
@@ -31,6 +32,7 @@ const CONNECT_TIMEOUT_MS = 45_000
  */
 export function ExternalWalletLogin({ callbackUrl }: Props) {
   const router = useRouter()
+  const config = useConfig()
   const { status } = useSession()
   const { isConnected } = useAccount()
   const { connect, connectors, isPending, error, reset } = useConnect()
@@ -85,6 +87,10 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     const isWalletConnect = connector.id === 'walletConnect'
     const mobile = isMobileBrowser()
 
+    if (isWalletConnect) {
+      void reconnect(config).catch(() => {})
+    }
+
     if (isWalletConnect && mobile) {
       connect({ connector })
       return
@@ -133,9 +139,23 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
           {isPending && !timedOut ? (
             <p className="text-center text-xs text-gray-400">
               {isMobileBrowser()
-                ? 'Opening your wallet app… approve the connection there, then return here.'
+                ? 'Choose your wallet in the popup, or wait to be sent to your wallet app.'
                 : 'Choose a wallet in the modal, or approve the connection in your wallet app.'}
             </p>
+          ) : null}
+          {isPending && !timedOut ? (
+            <Button
+              type="button"
+              variant="brandGhost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                reset()
+                setTimedOut(false)
+              }}
+            >
+              Cancel
+            </Button>
           ) : null}
           {timedOut ? (
             <p className="text-center text-xs text-amber-300" role="alert">
