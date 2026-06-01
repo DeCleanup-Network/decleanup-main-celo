@@ -248,14 +248,14 @@
     background: rgba(255, 255, 255, 0.04);
   }
 
-  /* Landing footer links — Space Mono uppercase */
+  /* Landing footer links — Space Mono uppercase (compact) */
   .footer-link {
     font-family: var(--font-space-mono), ui-monospace, monospace;
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 400;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.92);
+    color: rgba(255, 255, 255, 0.72);
     text-decoration: none;
     transition: color 0.15s ease;
   }
@@ -393,10 +393,22 @@
   z-index: 5;
 }
 
-/* RainbowKit + WalletConnect modals above app chrome */
+/* RainbowKit + WalletConnect / Reown modals above app chrome (non-AA paths) */
 [data-rk] [role="dialog"],
-div[id^="rk_connect"] {
-  z-index: 10000 !important;
+div[id^="rk_connect"],
+wcm-modal,
+w3m-modal {
+  z-index: 2147483646 !important;
+}
+
+/* Desktop WC QR modal — centered; avoid clipped bottom sheet on mobile (mobile uses deep-link) */
+wcm-modal::part(container),
+w3m-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

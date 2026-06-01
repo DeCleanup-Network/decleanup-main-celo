@@ -1,19 +1,19 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { type State } from 'wagmi'
-import { AaRainbowKitWagmiProvider } from '@/lib/AaRainbowKitWagmiProvider'
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
-import { useState, type ReactNode } from 'react'
-import { aaWagmiChains } from '@/lib/blockchain/aa-wagmi-chains'
+import { WagmiProvider, type State } from 'wagmi'
+import { useEffect, useState, type ReactNode } from 'react'
+import {
+  createMinimalWagmiConfig,
+  getServerMinimalWagmiConfig,
+} from '@/lib/blockchain/minimal-wagmi-config'
+import type { Config } from 'wagmi'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
-import { CustomAvatar } from '@/components/wallet/CustomAvatar'
-import '@rainbow-me/rainbowkit/styles.css'
 
 /**
- * Wagmi + React Query without RainbowKit/Privy.
- * Required so shared layout hooks (useAccount, useConfig) work in AA auth mode.
+ * Wagmi + React Query without RainbowKit in AA auth mode.
+ * Client config uses mobile deep-link WC (no bottom AppKit sheet on Safari).
  */
 export function MinimalWagmiProviders({
   children,
@@ -22,7 +22,7 @@ export function MinimalWagmiProviders({
   children: ReactNode
   initialState?: State
 }) {
-  const initialChainId = aaWagmiChains[0].id
+  const [config, setConfig] = useState<Config>(() => getServerMinimalWagmiConfig())
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -35,32 +35,15 @@ export function MinimalWagmiProviders({
       })
   )
 
-  const rkTheme = darkTheme({
-    accentColor: '#4ADE80',
-    accentColorForeground: '#0a0a0a',
-    borderRadius: 'medium',
-    fontStack: 'system',
-    overlayBlur: 'small',
-  })
+  useEffect(() => {
+    setConfig(createMinimalWagmiConfig())
+  }, [])
 
   return (
-    <AaRainbowKitWagmiProvider initialState={initialState}>
+    <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
       <WagmiConfigSync />
       <WalletConnectRelayRecovery />
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={rkTheme}
-          modalSize="compact"
-          initialChain={initialChainId}
-          avatar={CustomAvatar}
-          appInfo={{
-            appName: 'DeCleanup Rewards',
-            learnMoreUrl: 'https://decleanup.net',
-          }}
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </AaRainbowKitWagmiProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
   )
 }
