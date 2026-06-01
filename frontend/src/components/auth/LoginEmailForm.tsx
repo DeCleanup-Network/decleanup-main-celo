@@ -35,7 +35,7 @@ export function LoginEmailForm({ callbackUrl }: Props) {
       if (result?.error) {
         const hint =
           result.error === 'Configuration'
-            ? 'Email or database not configured — check EMAIL_SERVER, DATABASE_URL, then npm run db:check.'
+            ? 'Email sign-in is not set up on this server. Use Continue with Google, or ask the team to add EMAIL_SERVER on Vercel.'
             : result.error === 'EmailSignin'
               ? 'Could not send email. Use your Resend account email while testing onboarding@resend.dev.'
               : `Could not send sign-in link (${result.error}). Check EMAIL_SERVER in .env.local.`

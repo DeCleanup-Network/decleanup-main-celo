@@ -93,17 +93,29 @@ try {
 
   const tables = await client.query(`
     SELECT table_name FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name IN ('User', 'Account', 'Session')
+    WHERE table_schema = 'public'
+      AND table_name IN ('User', 'Account', 'Session', 'VerificationToken', 'UserWallet')
     ORDER BY table_name
   `)
   const names = tables.rows.map((r) => r.table_name)
   console.log('Auth tables found:', names.length ? names.join(', ') : '(none)')
 
-  if (!names.includes('User')) {
-    console.error('\nFAIL: User table missing.')
-    console.error('  Local: docker compose -f docker-compose.db.yml up -d && npm run db:local:push')
-    console.error('  Supabase: SQL Editor → run prisma/supabase-full-schema.sql')
+  const required = ['User', 'Account', 'Session', 'VerificationToken']
+  const missing = required.filter((t) => !names.includes(t))
+  if (missing.length) {
+    console.error('\nFAIL: Missing auth tables:', missing.join(', '))
+    console.error('  Supabase SQL Editor → run prisma/supabase-auth-tables.sql (safe IF NOT EXISTS)')
     process.exit(1)
+  }
+
+  if (!names.includes('UserWallet')) {
+    console.warn('\nWARN: UserWallet missing (Google login works; run full prisma/supabase-full-schema.sql for wallets)')
+  }
+
+  if (process.env.EMAIL_SERVER?.trim()) {
+    console.log('OK: EMAIL_SERVER is set (magic link email enabled)')
+  } else {
+    console.warn('WARN: EMAIL_SERVER not set — email login disabled on this machine')
   }
 
   const users = await client.query('SELECT COUNT(*)::int AS n FROM "User"')

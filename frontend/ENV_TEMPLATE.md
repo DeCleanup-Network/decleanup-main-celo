@@ -82,9 +82,18 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 # ============================================
-# Auth.js + Account abstraction
+# Auth.js + Account abstraction (Google / email login)
 # ============================================
 NEXT_PUBLIC_AA_AUTH_ENABLED=true
+AUTH_SECRET=   # openssl rand -base64 32
+DATABASE_URL=postgresql://...@...supabase.com:5432/postgres?sslmode=require
+DIRECT_URL=postgresql://...@...supabase.com:5432/postgres?sslmode=require
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Magic link email (optional — if unset, login page hides "Continue with Email")
+# Resend example:
+# EMAIL_SERVER=smtp://resend:re_YOUR_API_KEY@smtp.resend.com:587
+# EMAIL_FROM=DeCleanup <onboarding@resend.dev>
 # NEXT_PUBLIC_PIMLICO_API_KEY=
 
 # ============================================
