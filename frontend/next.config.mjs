@@ -78,9 +78,8 @@ const nextConfig = {
           aggregateTimeout: 300,
         }
       }
-      if (process.env.NEXT_WEBPACK_SAFE_DEVTOOL === '1') {
-        config.devtool = 'cheap-module-source-map'
-      }
+      // Do not set config.devtool — Next.js 14 forces eval-source-map in dev and logs
+      // https://nextjs.org/docs/messages/improper-devtool if you override it.
     }
     return config;
   },

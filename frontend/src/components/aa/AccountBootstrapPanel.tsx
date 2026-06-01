@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type AccountBootstrapPanelProps = {
-  /** Signing in with Google or email */
+  /** Session sign-in (Google, email, etc.) vs smart-account setup */
   stage?: 'auth' | 'wallet'
   error?: string | null
   onRetry?: () => void
@@ -21,11 +21,10 @@ export function AccountBootstrapPanel({ stage = 'wallet', error, onRetry }: Acco
     return () => window.clearTimeout(id)
   }, [error, stage])
 
-  const title =
-    stage === 'auth' ? 'Signing you in' : 'Connecting your smart account'
+  const title = stage === 'auth' ? 'Preparing login' : 'Connecting your smart account'
   const detail =
     stage === 'auth'
-      ? 'Connecting your Google account to DeCleanup Rewards.'
+      ? 'Setting up your session. This usually takes a few seconds.'
       : slow && !error
         ? 'This is taking longer than usual (network or RPC). You can wait or try again.'
         : 'Setting up your DeCleanup Rewards smart account on this device. This usually takes a few seconds.'
@@ -55,7 +54,7 @@ export function AccountBootstrapPanel({ stage = 'wallet', error, onRetry }: Acco
             </Button>
           ) : null}
         </div>
-        {!error && !slow ? (
+        {!error && !slow && stage === 'wallet' ? (
           <p className="mt-4 text-xs text-muted-foreground">
             Submit cleanup will unlock when your account is ready.
           </p>

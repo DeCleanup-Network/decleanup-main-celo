@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { SiteFooterLinks } from '@/components/layout/SiteFooterLinks'
-import { useSession } from 'next-auth/react'
 import { useAccount } from 'wagmi'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
@@ -80,7 +79,6 @@ const WalletConnect = dynamic(
 
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
-  const { status: authStatus } = useSession()
   const aaAuth = isAaAuthEnabledClient()
   const {
     address,
@@ -335,10 +333,7 @@ function HomeContent() {
     return <div className="min-h-screen bg-background" />
   }
 
-  if (aaAuth && authStatus === 'loading') {
-    return <AccountBootstrapPanel stage="auth" />
-  }
-
+  // Do not block the guest hero while NextAuth checks session (avoids Google-only modal on every reload).
   if (aaEnabled && isEmbeddedAccount && walletBootstrapping) {
     return (
       <AccountBootstrapPanel
