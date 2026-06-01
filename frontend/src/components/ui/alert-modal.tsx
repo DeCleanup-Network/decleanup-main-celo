@@ -113,10 +113,7 @@ export function AlertModal({
             </div>
           )
         )}
-        <Button
-          onClick={onClose}
-          className={`w-full ${variant === 'success' ? 'border-2 border-brand-green bg-brand-green text-black hover:bg-brand-green/90 font-semibold' : 'border-2 border-gray-700 bg-gray-800 text-white hover:bg-gray-700'}`}
-        >
+        <Button onClick={onClose} variant={variant === 'success' ? 'default' : 'brandGhost'} className="w-full">
           OK
         </Button>
       </div>

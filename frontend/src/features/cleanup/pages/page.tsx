@@ -1697,7 +1697,7 @@ function CleanupContent() {
               </Link>
               <Link
                 href="/wallet"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-white/[0.06]"
               >
                 Smart account settings
               </Link>
@@ -1783,7 +1783,7 @@ function CleanupContent() {
                 }}
                 disabled={isSwitchingChain}
                 size="sm"
-                className="bg-brand-green text-black hover:bg-brand-green/90"
+                className=""
               >
                 {isSwitchingChain ? 'Switching...' : `Switch to ${REQUIRED_CHAIN_NAME}`}
               </Button>
@@ -2476,7 +2476,7 @@ function CleanupContent() {
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {wasteTypeOptions.map((type) => (
-                  <label key={type} className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 p-2 hover:bg-gray-800 cursor-pointer">
+                  <label key={type} className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 p-2 hover:bg-white/[0.06] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={enhancedData.wasteTypes.includes(type)}
@@ -2570,7 +2570,7 @@ function CleanupContent() {
                 <button
                   type="button"
                   onClick={() => setEnhancedData({ ...enhancedData, contributors: [...enhancedData.contributors, ''] })}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06]"
                 >
                   <span className="text-lg">+</span>
                   Add Contributor
@@ -2754,7 +2754,7 @@ function CleanupContent() {
                 variant="outline"
                 onClick={handleSkipEnhanced}
                 disabled={isSubmitting}
-                className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
+                className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-white/[0.06]"
               >
                 Skip
               </Button>
@@ -2805,7 +2805,7 @@ function CleanupContent() {
             <Button
               variant="outline"
               onClick={() => setStep('enhanced')}
-              className="gap-2 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
+              className="gap-2 border-2 border-gray-700 bg-black text-white hover:bg-white/[0.06]"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
@@ -2971,7 +2971,7 @@ function CleanupContent() {
                 variant="outline"
                 onClick={handleSkipRecyclables}
                 disabled={isSubmitting || isSubmissionDisabled}
-                className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-gray-900"
+                className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-white/[0.06]"
               >
                 Skip
               </Button>

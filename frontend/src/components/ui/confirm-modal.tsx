@@ -65,11 +65,7 @@ export function ConfirmModal({
           {message}
         </p>
         <div className="flex gap-3">
-          <Button
-            onClick={onClose}
-            variant="outline"
-            className="flex-1 border-2 border-gray-700 bg-gray-900 text-white hover:bg-gray-800"
-          >
+          <Button onClick={onClose} variant="brandGhost" className="flex-1">
             {cancelLabel}
           </Button>
           <Button
@@ -77,7 +73,8 @@ export function ConfirmModal({
               onConfirm()
               onClose()
             }}
-            className={`flex-1 ${isDanger ? 'border-2 border-red-500 bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-brand-green text-black hover:bg-brand-green/90'}`}
+            variant={isDanger ? 'destructive' : 'default'}
+            className="flex-1"
           >
             {confirmLabel}
           </Button>

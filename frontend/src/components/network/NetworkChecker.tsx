@@ -143,7 +143,7 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
             <div className="flex flex-wrap gap-2">
               {embedWalletMode ? (
                 <>
-                  <Button onClick={onDismiss} variant="outline" size="sm" className="border-gray-600 text-gray-300">
+                  <Button onClick={onDismiss} variant="outline" size="sm" className="border-white/10 text-muted-foreground">
                     Dismiss
                   </Button>
                 </>
@@ -153,11 +153,11 @@ function NetworkCheckerUI(props: NetworkCheckerUIProps) {
                     onClick={onSwitch}
                     disabled={isPending}
                     size="sm"
-                    className="bg-brand-green text-black hover:bg-brand-green/90"
+                    className=""
                   >
                     {isPending ? 'Switching...' : `Switch to ${REQUIRED_CHAIN_NAME}`}
                   </Button>
-                  <Button onClick={onDismiss} variant="outline" size="sm" className="border-gray-600 text-gray-300">
+                  <Button onClick={onDismiss} variant="outline" size="sm" className="border-white/10 text-muted-foreground">
                     Dismiss
                   </Button>
                 </>

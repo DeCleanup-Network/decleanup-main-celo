@@ -142,7 +142,7 @@ export function ExportWallet() {
                 variant="outline"
                 size="sm"
                 disabled={pending || (!unlocked && !password)}
-                className="border-gray-600 text-gray-200"
+                className="border-white/10 text-foreground"
                 onClick={() => void revealKey()}
               >
                 Reveal private key
@@ -159,7 +159,7 @@ export function ExportWallet() {
               </p>
               <button
                 type="button"
-                className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-gray-800"
+                className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-white/[0.06]"
                 onClick={() => setShowKey((v) => !v)}
                 aria-label={showKey ? 'Hide key' : 'Show key'}
               >

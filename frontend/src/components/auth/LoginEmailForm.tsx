@@ -66,8 +66,8 @@ export function LoginEmailForm({ callbackUrl }: Props) {
       />
       <Button
         type="submit"
-        variant="outline"
-        className="w-full border-gray-600 text-gray-200"
+        variant="brandGhost"
+        className="w-full border-white/10 text-foreground"
         disabled={pending || sent}
       >
         {sent ? 'Check your inbox' : pending ? 'Sending…' : 'Continue with Email'}

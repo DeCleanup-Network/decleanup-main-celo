@@ -170,7 +170,7 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
+            className="shrink-0 rounded p-1 text-gray-400 hover:bg-white/[0.06] hover:text-white"
             aria-label="Close"
           >
             ✕
@@ -243,7 +243,7 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
             variant={mode === 'unlock' && showPasskeyUnlock ? 'outline' : 'default'}
             className={
               mode === 'unlock' && showPasskeyUnlock
-                ? 'w-full border-gray-600 text-gray-200'
+                ? 'w-full border-white/10 text-foreground'
                 : 'w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90'
             }
           >

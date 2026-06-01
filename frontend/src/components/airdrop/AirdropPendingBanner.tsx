@@ -82,7 +82,7 @@ export function AirdropPendingBanner() {
             </p>
           </div>
         </div>
-        <Button asChild className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90">
+        <Button asChild className="shrink-0">
           <Link href={airdropPageUrl(verifyAddress)}>Claim airdrop</Link>
         </Button>
       </div>

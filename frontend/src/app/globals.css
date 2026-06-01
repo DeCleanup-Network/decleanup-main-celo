@@ -393,6 +393,12 @@
   z-index: 5;
 }
 
+/* RainbowKit + WalletConnect modals above app chrome */
+[data-rk] [role="dialog"],
+div[id^="rk_connect"] {
+  z-index: 10000 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cta-particle {
     display: none;

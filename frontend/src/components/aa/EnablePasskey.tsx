@@ -87,7 +87,7 @@ export function EnablePasskey({
         type="submit"
         disabled={pending || passkeyLoading}
         variant="outline"
-        className="w-full border-gray-600 text-gray-200"
+        className="w-full border-white/10 text-foreground"
       >
         {pending ? 'Enabling biometrics…' : 'Enable Face ID / Touch ID'}
       </Button>

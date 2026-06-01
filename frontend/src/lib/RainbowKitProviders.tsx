@@ -1,17 +1,24 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider } from 'wagmi'
+import { WagmiProvider, type State } from 'wagmi'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
 import { config } from './blockchain/wagmi'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 import { CustomAvatar } from '@/components/wallet/CustomAvatar'
+import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
 import '@rainbow-me/rainbowkit/styles.css'
 
 const APP_NAME = 'DeCleanup Rewards'
 
-export function RainbowKitProviders({ children }: { children: React.ReactNode }) {
+export function RainbowKitProviders({
+  children,
+  initialState,
+}: {
+  children: React.ReactNode
+  initialState?: State
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -30,7 +37,7 @@ export function RainbowKitProviders({ children }: { children: React.ReactNode })
   )
 
   const customTheme = darkTheme({
-    accentColor: '#58B12F',
+    accentColor: '#4ADE80',
     accentColorForeground: 'black',
     borderRadius: 'medium',
     fontStack: 'system',
@@ -38,8 +45,9 @@ export function RainbowKitProviders({ children }: { children: React.ReactNode })
   })
 
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
       <WagmiConfigSync />
+      <WalletConnectRelayRecovery />
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={customTheme}

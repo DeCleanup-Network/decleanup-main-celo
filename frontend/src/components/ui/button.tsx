@@ -23,10 +23,11 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "border border-white/10 bg-transparent hover:bg-white/[0.04] hover:text-foreground",
+          "border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04] hover:text-foreground",
         secondary:
           "bg-elevated text-foreground border border-white/10 hover:border-white/20 hover:bg-elevated-2",
-        ghost: "hover:bg-white/[0.06] hover:text-foreground",
+        ghost:
+          "border border-transparent text-foreground hover:bg-white/[0.06] hover:text-foreground",
         link: "text-brand-green underline-offset-4 hover:underline",
       },
       size: {

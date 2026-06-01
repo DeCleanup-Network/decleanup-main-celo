@@ -50,7 +50,7 @@ export function WalletPasskeySetupForm({ defaultOpen = false, compact = false }:
         type="button"
         variant="outline"
         size="sm"
-        className="border-gray-600 text-gray-300"
+        className="border-white/10 text-muted-foreground"
         onClick={() => setOpen(true)}
       >
         {`Set ${WALLET_PASSKEY_LOWER} now`}

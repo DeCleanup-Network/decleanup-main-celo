@@ -155,7 +155,7 @@ export default function ExternalWalletSettingsPage() {
           type="button"
           variant="outline"
           disabled={signingOut}
-          className="w-full border-gray-600 text-gray-200"
+          className="w-full border-white/10 text-foreground"
           onClick={disconnectAll}
         >
           {signingOut ? 'Signing out…' : 'Sign out'}

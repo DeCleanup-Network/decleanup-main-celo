@@ -325,7 +325,7 @@ export function VerifierApplyCard() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
+                    className="font-semibold"
                     disabled={isApplying || !eligibility?.eligible}
                     onClick={() => void handleApply()}
                   >
@@ -431,7 +431,7 @@ export function VerifierApplyCard() {
         <Button
           onClick={handleApply}
           disabled={isApplying || !!latestApp}
-          className="w-full bg-brand-green text-black hover:bg-brand-green/90 font-semibold"
+          className="w-full font-semibold"
         >
           {isApplying ? (
             <>

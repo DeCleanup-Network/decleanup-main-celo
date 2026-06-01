@@ -23,7 +23,7 @@ export function AddressCopyIconButton({ address }: { address: string }) {
       onClick={() => void copy()}
       title="Copy address"
       aria-label="Copy wallet address"
-      className="shrink-0 rounded-md border border-gray-600/80 p-1.5 text-gray-400 transition hover:bg-gray-800 hover:text-brand-green"
+      className="shrink-0 rounded-md border border-gray-600/80 p-1.5 text-gray-400 transition hover:bg-white/[0.06] hover:text-brand-green"
     >
       {copied ? <Check className="h-3.5 w-3.5 text-brand-green" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
     </button>

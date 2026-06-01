@@ -706,7 +706,7 @@ function PublicPortfolioContent() {
                     setSaveProfileLoading(false)
                   }
                 }}
-                className="bg-brand-green text-black hover:bg-brand-green/90"
+                className=""
                 disabled={saveProfileLoading}
               >
                 {saveProfileLoading ? (

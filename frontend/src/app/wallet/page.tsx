@@ -76,14 +76,14 @@ export default function SmartAccountSettingsPage() {
             Smart account settings
           </h1>
           <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm" className="border-gray-600 text-gray-300">
+          <Button asChild variant="outline" size="sm" className="border-white/10 text-muted-foreground">
             <Link href="/guide">How it works</Link>
           </Button>
           {phase === 'unlocked' && (
             <Button
               variant="outline"
               size="sm"
-              className="border-gray-600 text-gray-300"
+              className="border-white/10 text-muted-foreground"
               onClick={() => lock()}
             >
               Lock
@@ -92,7 +92,7 @@ export default function SmartAccountSettingsPage() {
           <Button
             variant="outline"
             size="sm"
-            className="border-gray-600 text-gray-300"
+            className="border-white/10 text-muted-foreground"
             disabled={signingOut}
             onClick={() => void signOutAll({ callbackUrl: '/login' })}
           >

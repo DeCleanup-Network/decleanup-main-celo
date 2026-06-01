@@ -1,8 +1,8 @@
 'use client'
 
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { useWalletConnectionMode } from '@/hooks/useWalletConnectionMode'
 import { EmbeddedWalletConnect } from './EmbeddedWalletConnect'
@@ -11,6 +11,36 @@ const RainbowKitConnectButton = lazy(
   () =>
     import('./RainbowKitConnectButton').then((m) => ({ default: m.RainbowKitConnectButton }))
 )
+
+function ConnectLoadingButton() {
+  return (
+    <Button type="button" disabled aria-busy="true" aria-label="Loading wallet" className="min-w-[8.75rem]">
+      Loading…
+    </Button>
+  )
+}
+
+function ConnectErrorFallback() {
+  return (
+    <Button asChild variant="brandGhost" size="sm" className="min-w-[8.75rem]">
+      <Link href="/login">Log in</Link>
+    </Button>
+  )
+}
+
+class ConnectLazyBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  render() {
+    if (this.state.hasError) return <ConnectErrorFallback />
+    return this.props.children
+  }
+}
 
 export function WalletConnect() {
   const [mounted, setMounted] = useState(false)
@@ -22,44 +52,31 @@ export function WalletConnect() {
   }, [])
 
   if (!mounted) {
-    return (
-      <Button
-        type="button"
-        disabled
-        aria-busy="true"
-        aria-label="Loading wallet"
-        className="min-w-[8.75rem] font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:!text-black"
-      >
-        Loading…
-      </Button>
-    )
+    return <ConnectLoadingButton />
   }
 
   if (aa) {
-    // AA mode: wallet settings links only — login lives on home hero and /login
     if (showSmartAccountSettings || showWalletSettings) {
       return (
         <div className="flex flex-wrap items-center gap-2">
           {showSmartAccountSettings && (
-            <Link
-              href="/wallet"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-3 py-2 text-sm text-gray-200 hover:bg-gray-900"
-            >
-              Smart account settings
-            </Link>
+            <Button asChild variant="brandGhost" size="sm">
+              <Link href="/wallet">Smart account settings</Link>
+            </Button>
           )}
           {showWalletSettings && (
-            <Link
-              href="/wallet/external"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-3 py-2 text-sm text-gray-200 hover:bg-gray-900"
-            >
-              Wallet settings
-            </Link>
+            <Button asChild variant="brandGhost" size="sm">
+              <Link href="/wallet/external">Wallet settings</Link>
+            </Button>
           )}
         </div>
       )
     }
-    return null
+    return (
+      <Button asChild className="min-w-[8.75rem] font-plakat tracking-normal">
+        <Link href="/login?callbackUrl=/">Log in</Link>
+      </Button>
+    )
   }
 
   const isPrivyEnabled = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
@@ -68,48 +85,24 @@ export function WalletConnect() {
     return <EmbeddedWalletConnect />
   }
 
+  const connectButton = (
+    <ConnectLazyBoundary>
+      <Suspense fallback={<ConnectLoadingButton />}>
+        <RainbowKitConnectButton />
+      </Suspense>
+    </ConnectLazyBoundary>
+  )
+
   if (showWalletSettings) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href="/wallet/external"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-3 py-2 text-sm text-gray-200 hover:bg-gray-900"
-        >
-          Wallet settings
-        </Link>
-        <Suspense
-          fallback={
-            <Button
-              type="button"
-              disabled
-              aria-busy="true"
-              className="min-w-[8.75rem] font-sans !text-black bg-brand-green hover:bg-brand-green/90"
-            >
-              Loading…
-            </Button>
-          }
-        >
-          <RainbowKitConnectButton />
-        </Suspense>
+        <Button asChild variant="brandGhost" size="sm">
+          <Link href="/wallet/external">Wallet settings</Link>
+        </Button>
+        {connectButton}
       </div>
     )
   }
 
-  return (
-    <Suspense
-      fallback={
-        <Button
-          type="button"
-          disabled
-          aria-busy="true"
-          aria-label="Loading wallet"
-          className="min-w-[8.75rem] font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:!opacity-100 disabled:bg-brand-green/65 disabled:!text-black"
-        >
-          Loading…
-        </Button>
-      }
-    >
-      <RainbowKitConnectButton />
-    </Suspense>
-  )
+  return connectButton
 }

@@ -389,7 +389,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
           <Button
             type="submit"
             disabled={checkDisabled}
-            className="w-full bg-brand-green text-black hover:bg-brand-green/90 sm:w-auto"
+            className="w-full sm:w-auto"
           >
             {checkLoading ? (
               <>
@@ -439,7 +439,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 Sign in with the wallet that owns this address to claim
               </p>
-              <Button asChild className="w-full bg-brand-green text-black hover:bg-brand-green/90">
+              <Button asChild className="w-full">
                 <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`}>
                   Sign in to claim
                 </Link>
@@ -528,7 +528,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-gray-600 text-gray-200"
+                  className="border-white/10 text-foreground"
                   onClick={() => void handleSwitchNetwork()}
                   disabled={switchLoading || claimLoading}
                 >
@@ -540,7 +540,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-gray-600 text-gray-200"
+                  className="border-white/10 text-foreground"
                   onClick={() => void runCheck(checkedAddress)}
                 >
                   Refresh eligibility

@@ -144,7 +144,7 @@ export function ImportBackupForm({ redirectTo = '/wallet', compact = false }: Pr
           type="button"
           variant="outline"
           disabled={!backup || !password || pending}
-          className="border-gray-600 text-gray-200 sm:flex-1"
+          className="border-white/10 text-foreground sm:flex-1"
           onClick={() => void verifyPassword()}
         >
           Test password

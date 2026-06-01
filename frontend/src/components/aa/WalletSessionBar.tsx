@@ -61,7 +61,7 @@ export function WalletSessionBar() {
         type="button"
         variant="outline"
         size="sm"
-        className="w-full border-gray-600 text-gray-300 sm:w-auto"
+        className="w-full border-white/10 text-muted-foreground sm:w-auto"
         onClick={() => endSigningSession()}
       >
         Lock wallet now

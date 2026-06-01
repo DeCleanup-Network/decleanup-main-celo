@@ -35,7 +35,7 @@ export default function Error({
         <div className="flex gap-3 justify-center">
           <Button
             onClick={reset}
-            className="bg-brand-green text-black hover:bg-brand-green/90"
+            className=""
           >
             Try again
           </Button>

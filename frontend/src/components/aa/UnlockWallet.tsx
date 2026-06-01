@@ -92,7 +92,7 @@ export function UnlockWallet() {
           variant={showPasskey ? 'outline' : 'default'}
           className={
             showPasskey
-              ? 'w-full border-gray-600 text-gray-200'
+              ? 'w-full border-white/10 text-foreground'
               : 'w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90'
           }
         >

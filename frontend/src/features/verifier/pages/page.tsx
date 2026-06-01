@@ -1160,7 +1160,7 @@ export default function VerifierPage() {
                     <Button
                       onClick={() => handleApproveHypercert(request.id)}
                       disabled={processingRequestId === request.id}
-                      className="flex-1 bg-brand-green text-black hover:bg-brand-green/90"
+                      className="flex-1"
                     >
                       {processingRequestId === request.id ? (
                         <>
@@ -1252,7 +1252,7 @@ export default function VerifierPage() {
             <Button
               onClick={handleSignIn}
               disabled={isSigning || loading}
-              className="bg-brand-green text-black hover:bg-brand-green/90"
+              className=""
             >
               {isSigning ? (
                 <>
@@ -1731,7 +1731,7 @@ export default function VerifierPage() {
                       <Button
                         onClick={() => handleVerify(cleanup.id)}
                         disabled={verifying || rejecting}
-                        className="bg-brand-green text-black hover:bg-brand-green/90"
+                        className=""
                       >
                         {verifying ? (
                           <>

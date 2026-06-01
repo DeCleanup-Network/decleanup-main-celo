@@ -876,7 +876,7 @@ export default function VerifierPage() {
                         <Button
                             onClick={handleSignIn}
                             disabled={isSigning || loading}
-                            className="gap-2 bg-brand-green text-black hover:bg-brand-green/90"
+                            className="gap-2"
                         >
                             {isSigning || loading ? (
                                 <>
@@ -1091,7 +1091,7 @@ export default function VerifierPage() {
                                                                   type="button"
                                                                   onClick={() => void handleConfirmGrantFromTxHash(app)}
                                                                   disabled={processingVerifierAppId === app.id}
-                                                                  className="shrink-0 bg-brand-green text-black hover:bg-brand-green/90"
+                                                                  className="shrink-0"
                                                                   size="sm"
                                                               >
                                                                   {processingVerifierAppId === app.id ? (

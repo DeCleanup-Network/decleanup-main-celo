@@ -63,7 +63,7 @@ export function WalletSignInButton({ callbackUrl }: Props) {
         <Button
           type="button"
           variant="outline"
-          className="w-full border-gray-600 text-gray-200"
+          className="w-full border-white/10 text-foreground"
           disabled={pending}
           onClick={() => void signInWithWallet()}
         >

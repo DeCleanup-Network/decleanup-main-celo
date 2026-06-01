@@ -43,14 +43,14 @@ export function AccountBootstrapPanel({ stage = 'wallet', error, onRetry }: Acco
             <Button
               type="button"
               variant="outline"
-              className="border-gray-600 text-gray-200"
+              className="border-white/10 text-foreground"
               onClick={onRetry}
             >
               Try again
             </Button>
           ) : null}
           {error || slow ? (
-            <Button asChild className="bg-brand-green text-black hover:bg-brand-green/90">
+            <Button asChild className="">
               <Link href="/wallet">Smart account settings</Link>
             </Button>
           ) : null}

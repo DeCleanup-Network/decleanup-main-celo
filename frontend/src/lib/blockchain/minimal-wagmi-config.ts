@@ -51,7 +51,6 @@ export function createMinimalWagmiConfig(): Config {
       injected(),
       walletConnect({
         projectId: walletConnectProjectId,
-        showQrModal: true,
         metadata: getWalletConnectMetadata(),
       }),
     ],
