@@ -70,5 +70,3 @@ export function getMinimalWagmiConfig(): Config {
   return clientSingleton
 }
 
-/** @deprecated Use getServerMinimalWagmiConfig() in Server Components. */
-export const minimalWagmiConfig = getServerMinimalWagmiConfig()

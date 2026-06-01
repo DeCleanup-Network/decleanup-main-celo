@@ -21,11 +21,7 @@ function ConnectLoadingButton() {
 }
 
 function ConnectErrorFallback() {
-  return (
-    <Button asChild variant="brandGhost" size="sm" className="min-w-[8.75rem]">
-      <Link href="/login">Log in</Link>
-    </Button>
-  )
+  return null
 }
 
 class ConnectLazyBoundary extends React.Component<
@@ -52,7 +48,7 @@ export function WalletConnect() {
   }, [])
 
   if (!mounted) {
-    return <ConnectLoadingButton />
+    return null
   }
 
   if (aa) {
@@ -72,11 +68,7 @@ export function WalletConnect() {
         </div>
       )
     }
-    return (
-      <Button asChild className="min-w-[8.75rem] font-plakat tracking-normal">
-        <Link href="/login?callbackUrl=/">Log in</Link>
-      </Button>
-    )
+    return null
   }
 
   const isPrivyEnabled = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)

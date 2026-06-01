@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { SiteFooterLinks } from '@/components/layout/SiteFooterLinks'
 import { useSession } from 'next-auth/react'
 import { useAccount } from 'wagmi'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
@@ -371,20 +372,15 @@ function HomeContent() {
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
               {aaAuth ? (
-                <Button asChild size="default" className="font-plakat tracking-normal">
+                <Button asChild size="default">
                   <Link href="/login?callbackUrl=/">Log in</Link>
                 </Button>
               ) : (
                 <WalletConnect />
               )}
-              <Link
-                href="https://www.decleanup.net/userguide"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="landing-ghost-link"
-              >
-                How it works
-              </Link>
+              <Button asChild variant="brandGhost" size="default">
+                <Link href="/guide">How it works</Link>
+              </Button>
             </div>
             <p className="text-landing-hint">
               {aaAuth
@@ -400,43 +396,7 @@ function HomeContent() {
         <footer className="border-t border-white/10 py-8 flex-shrink-0">
           <div className="container mx-auto px-4">
             <div className="flex flex-col items-center gap-5">
-              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
-                <a href="https://decleanup.net" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Website
-                </a>
-                <a href="https://github.com/DeCleanup-Network" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  GitHub
-                </a>
-                <a href="https://decleanup.net/litepaper" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Litepaper
-                </a>
-                <a href="https://decleanup.net/tokenomics" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Tokenomics
-                </a>
-                <a href="https://x.com/decleanupnet" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Follow on X
-                </a>
-                <a href="https://farcaster.xyz/decleanupnet" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Farcaster
-                </a>
-                <a href="https://t.me/decentralizedcleanup" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Telegram
-                </a>
-                <a href="https://giveth.io/project/decentralized-cleanup-network" target="_blank" rel="noopener noreferrer" className="footer-link">
-                  Donate on Giveth
-                </a>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-                <Link href="/guide" className="footer-link">
-                  User Guide
-                </Link>
-                <Link href="/terms" className="footer-link">
-                  Terms of Service
-                </Link>
-                <Link href="/privacy" className="footer-link">
-                  Privacy Policy
-                </Link>
-              </div>
+              <SiteFooterLinks />
               <div className="font-meta flex items-center justify-center gap-2 opacity-50">
                 <span>Built on</span>
                 <img
@@ -1099,40 +1059,7 @@ function HomeContent() {
       <footer className="border-t border-white/10 py-8 mt-0 flex-shrink-0">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-5">
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
-              {[
-                { label: 'Website', href: 'https://decleanup.net' },
-                { label: 'GitHub', href: 'https://github.com/DeCleanup-Network' },
-                { label: 'Litepaper', href: 'https://decleanup.net/litepaper' },
-                { label: 'Tokenomics', href: 'https://decleanup.net/tokenomics' },
-                { label: 'Follow on X', href: 'https://x.com/decleanupnet' },
-                { label: 'Farcaster', href: 'https://farcaster.xyz/decleanupnet' },
-                { label: 'Telegram', href: 'https://t.me/decentralizedcleanup' },
-                { label: 'Donate on Giveth', href: 'https://giveth.io/project/decleanup-network-cleaning-the-planet-empowering-communities' },
-              ].map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="footer-link"
-                >
-                  {link.label}
-                </a>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-              <Link href="/guide" className="footer-link">
-                User Guide
-              </Link>
-              <Link href="/terms" className="footer-link">
-                Terms of Service
-              </Link>
-              <Link href="/privacy" className="footer-link">
-                Privacy Policy
-              </Link>
-            </div>
+            <SiteFooterLinks />
 
             <div className="font-meta flex items-center justify-center gap-2 opacity-50 select-none">
               <span>Built on</span>

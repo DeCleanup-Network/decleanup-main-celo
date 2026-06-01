@@ -86,10 +86,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const wagmiInitialState =
-    process.env.NEXT_PUBLIC_AA_AUTH_ENABLED === "true"
-      ? cookieToInitialState(getServerMinimalWagmiConfig(), (await headers()).get("cookie"))
-      : undefined;
+  let wagmiInitialState: ReturnType<typeof cookieToInitialState> | undefined;
+  if (process.env.NEXT_PUBLIC_AA_AUTH_ENABLED === "true") {
+    try {
+      wagmiInitialState = cookieToInitialState(
+        getServerMinimalWagmiConfig(),
+        (await headers()).get("cookie")
+      );
+    } catch (err) {
+      console.error("[layout] wagmi cookie hydration failed:", err);
+      wagmiInitialState = undefined;
+    }
+  }
 
   return (
     <html lang="en" className={`dark ${landingFontClassName}`}>

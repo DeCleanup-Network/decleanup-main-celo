@@ -221,17 +221,18 @@
     line-height: 1.5;
   }
 
-  /* Landing .btn-ghost — "How it works" secondary CTA */
+  /* Secondary CTA — matches Button brandGhost / font-plakat */
   .landing-ghost-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-height: 48px;
     padding: 0 22px;
-    font-family: var(--font-inter), sans-serif;
-    font-weight: 600;
+    font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
+    font-weight: 700;
     font-size: 14px;
-    letter-spacing: 0.02em;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
     color: var(--foreground);
     border: 1px solid var(--line);
     border-radius: 8px;

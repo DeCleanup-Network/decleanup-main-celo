@@ -1,4 +1,4 @@
-import { celo } from 'wagmi/chains'
+import { celo } from 'viem/chains'
 import { defineChain, type Chain } from 'viem'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
