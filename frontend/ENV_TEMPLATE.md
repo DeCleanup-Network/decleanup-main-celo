@@ -91,6 +91,8 @@ NEXT_PUBLIC_AA_AUTH_ENABLED=true
 # ClaimVault signer (server only)
 # ============================================
 CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
+# Mainnet: ClaimVault deploy block (fast airdrop / $cDCU log checks; without it mainnet scans from block 0 ~40s)
+# CDCU_CLAIM_LOGS_FROM_BLOCK=
 # CLAIM_VAULT_UNLOCK_SECRET=
 
 # ============================================

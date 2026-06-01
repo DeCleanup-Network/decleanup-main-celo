@@ -117,7 +117,9 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
 
     setCheckLoading(true)
     try {
-      const res = await fetch(`/api/airdrop/check?address=${encodeURIComponent(trimmed)}`)
+      const res = await fetch(`/api/airdrop/check?address=${encodeURIComponent(trimmed)}`, {
+        signal: AbortSignal.timeout(20_000),
+      })
       const data = (await res.json().catch(() => ({}))) as CheckResponse
       if (!res.ok) {
         setError(data?.error || `Check failed (${res.status})`)
@@ -140,7 +142,12 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to check allocation')
+      const msg = e instanceof Error ? e.message : 'Failed to check allocation'
+      if (msg.includes('timeout') || msg.includes('aborted')) {
+        setError('Eligibility check timed out. Try again in a moment.')
+      } else {
+        setError(msg)
+      }
     } finally {
       setCheckLoading(false)
     }
