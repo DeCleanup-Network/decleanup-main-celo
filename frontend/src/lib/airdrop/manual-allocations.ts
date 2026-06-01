@@ -17,25 +17,31 @@ const GIVETH_DONOR_ALLOCATIONS: readonly AirdropAllocation[] = GIVETH_DONOR_WALL
   })
 )
 
-/** Other manual rows (not in Giveth list). Giveth addresses override via map merge order. */
-const OTHER_MANUAL_ALLOCATIONS: readonly AirdropAllocation[] = [
+/** Past contributors (250 cDCU each). Giveth list wins on duplicate addresses if merged later. */
+const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
   {
     walletAddress: '0xEf0862aE5175dF25E59Db4E9115Fb6987Cf4B779',
     amountCdcu: '250',
-    category: 'whitelist',
-    label: '$cDCU whitelist',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
   },
   {
     walletAddress: '0xCa0349e71C30C888919F4E6B2e40C9550888e805',
     amountCdcu: '250',
-    category: 'whitelist',
-    label: '$cDCU whitelist',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
   },
   {
     walletAddress: '0x447b7830481763001df8e0e3e2e5714d452a37e7',
     amountCdcu: '250',
-    category: 'whitelist',
-    label: '$cDCU whitelist',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
+  },
+  {
+    walletAddress: '0x46524951c7cCDf154578522F765f2D42d02ca7a4',
+    amountCdcu: '250',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
   },
   {
     walletAddress: '0x173D87dfa68aEB0E821C6021f5652B9C3a7556b4',
@@ -44,6 +50,9 @@ const OTHER_MANUAL_ALLOCATIONS: readonly AirdropAllocation[] = [
     label: 'Past contributor, $cDCU airdrop',
   },
 ] as const
+
+/** Other manual rows (not in Giveth list). Giveth addresses override via map merge order. */
+const OTHER_MANUAL_ALLOCATIONS: readonly AirdropAllocation[] = [...PAST_CONTRIBUTOR_ALLOCATIONS] as const
 
 /**
  * Temporary manual list until CSV import is ready.
