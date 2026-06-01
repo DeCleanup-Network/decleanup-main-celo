@@ -143,7 +143,7 @@ export default function ExternalWalletSettingsPage() {
         <Button
           type="button"
           disabled={switching || !wrongNetwork}
-          className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90 disabled:opacity-50"
+          className="w-full disabled:opacity-50"
           onClick={() => switchChain({ chainId: REQUIRED_CHAIN_ID })}
         >
           {switching ? 'Switching…' : `Switch to ${REQUIRED_CHAIN_NAME}`}

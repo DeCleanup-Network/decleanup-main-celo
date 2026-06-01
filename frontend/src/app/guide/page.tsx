@@ -367,7 +367,7 @@ export default function UserGuidePage() {
               href="https://t.me/c/DecentralizedCleanup/17"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+              className="footer-link inline-flex items-center gap-1 normal-case no-underline hover:underline"
             >
               <MessageCircle className="h-3.5 w-3.5" aria-hidden />
               Message us on Telegram

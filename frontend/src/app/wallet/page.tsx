@@ -112,12 +112,9 @@ export default function SmartAccountSettingsPage() {
             Your wallet is saved to your account but is not unlocked on this device yet. Use your wallet
             passkey, or import an encrypted backup file if you created one earlier.
           </div>
-          <Link
-            href="/import-wallet"
-            className="inline-flex w-full items-center justify-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium !text-black hover:bg-brand-green/90"
-          >
-            Import backup file
-          </Link>
+          <Button asChild className="w-full">
+            <Link href="/import-wallet">Import backup file</Link>
+          </Button>
         </div>
       )}
 

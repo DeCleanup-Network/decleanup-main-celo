@@ -22,14 +22,14 @@ export function Footer() {
                     {/* Quick Links */}
                     <div>
                         <h4 className="font-semibold text-sm mb-3">Quick Links</h4>
-                        <ul className="space-y-2 text-sm">
+                        <ul className="space-y-2">
                             <li>
-                                <Link href="/" className="text-muted-foreground hover:text-brand-green transition-colors">
+                                <Link href="/" className="footer-link">
                                     Home
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/cleanup" className="text-muted-foreground hover:text-brand-green transition-colors">
+                                <Link href="/cleanup" className="footer-link">
                                     Submit Cleanup
                                 </Link>
                             </li>
@@ -39,13 +39,13 @@ export function Footer() {
                     {/* Resources */}
                     <div>
                         <h4 className="font-semibold text-sm mb-3">Resources</h4>
-                        <ul className="space-y-2 text-sm">
+                        <ul className="space-y-2">
                             <li>
                                 <a
                                     href="https://github.com/DeCleanup-Network"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-muted-foreground hover:text-brand-green transition-colors flex items-center gap-2"
+                                    className="footer-link inline-flex items-center gap-2"
                                 >
                                     <Book className="h-3 w-3" />
                                     Documentation
@@ -56,7 +56,7 @@ export function Footer() {
                                     href="https://github.com/DeCleanup-Network"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-muted-foreground hover:text-brand-green transition-colors flex items-center gap-2"
+                                    className="footer-link inline-flex items-center gap-2"
                                 >
                                     <FileText className="h-3 w-3" />
                                     Litepaper
@@ -67,7 +67,7 @@ export function Footer() {
                                     href="https://app.gardens.fund/gardens/42161/0x912ce59144191c1204e64559fe8253a0e49e6548/0x5396c94ea47916f5661734fee769d0d7cc8b14c6"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-muted-foreground hover:text-brand-green transition-colors flex items-center gap-2"
+                                    className="footer-link inline-flex items-center gap-2"
                                 >
                                     🌱 Governance
                                 </a>
@@ -105,10 +105,10 @@ export function Footer() {
                 <div className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
                     <p>© {currentYear} DeCleanup Network. All rights reserved.</p>
                     <div className="flex gap-4">
-                        <Link href="/privacy" className="hover:text-brand-green transition-colors">
+                        <Link href="/privacy" className="footer-link">
                             Privacy Policy
                         </Link>
-                        <Link href="/terms" className="hover:text-brand-green transition-colors">
+                        <Link href="/terms" className="footer-link">
                             Terms of Service
                         </Link>
                     </div>

@@ -86,8 +86,8 @@ export function PastContributorAirdropStrip({ variant }: PastContributorAirdropS
           asChild
           className={
             variant === 'prelogin'
-              ? 'shrink-0 font-plakat tracking-normal'
-              : 'w-full shrink-0 font-plakat tracking-normal sm:w-auto sm:min-w-[11rem]'
+              ? 'shrink-0'
+              : 'w-full shrink-0 sm:w-auto sm:min-w-[11rem]'
           }
         >
           <Link href="/airdrop">{variant === 'prelogin' ? 'Check airdrop' : 'Airdrop'}</Link>

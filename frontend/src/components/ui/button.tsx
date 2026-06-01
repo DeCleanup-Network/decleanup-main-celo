@@ -6,28 +6,28 @@ import { cn } from "@/lib/utils"
 import { spawnCtaParticles } from "@/lib/ui/cta-particles"
 
 const buttonVariants = cva(
-  "relative isolate inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-brand-green/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "relative isolate inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-brand-green/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default:
-          "bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
+          "font-plakat tracking-normal bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
         brand:
-          "bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
+          "font-plakat tracking-normal bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
         brandYellow:
-          "bg-brand-yellow text-[#0a0a0a] border border-brand-yellow shadow-[0_2px_8px_rgba(250,255,0,0.15)] hover:shadow-[0_0_0_4px_rgba(250,255,0,0.12),0_6px_20px_rgba(250,255,0,0.2)] hover:-translate-y-px active:translate-y-0.5",
+          "font-plakat tracking-normal bg-brand-yellow text-[#0a0a0a] border border-brand-yellow shadow-[0_2px_8px_rgba(250,255,0,0.15)] hover:shadow-[0_0_0_4px_rgba(250,255,0,0.12),0_6px_20px_rgba(250,255,0,0.2)] hover:-translate-y-px active:translate-y-0.5",
         brandGhost:
-          "border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04]",
+          "font-plakat tracking-normal border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04]",
         brandMono:
           "font-mono text-xs uppercase tracking-[0.12em] font-medium border border-white/10 bg-elevated/60 text-muted-foreground hover:border-white/25 hover:text-foreground",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "font-plakat tracking-normal bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04] hover:text-foreground",
+          "font-plakat tracking-normal border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04] hover:text-foreground",
         secondary:
-          "bg-elevated text-foreground border border-white/10 hover:border-white/20 hover:bg-elevated-2",
+          "font-plakat tracking-normal bg-elevated text-foreground border border-white/10 hover:border-white/20 hover:bg-elevated-2",
         ghost:
-          "border border-transparent text-foreground hover:bg-white/[0.06] hover:text-foreground",
+          "font-plakat tracking-normal border border-transparent text-foreground hover:bg-white/[0.06] hover:text-foreground",
         link: "text-brand-green underline-offset-4 hover:underline",
       },
       size: {
