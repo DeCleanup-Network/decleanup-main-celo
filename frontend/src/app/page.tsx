@@ -357,27 +357,21 @@ function HomeContent() {
             {/* Hero Heading: less space above/below */}
             <div className="space-y-2 animate-fade-in-up">
               <h1
-                className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl lg:text-7xl"
+                className="font-plakat text-4xl sm:text-5xl md:text-6xl lg:text-7xl"
                 style={decleanupRewardsTitleStyle}
               >
-                <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent animate-pulse">
-                  DECLEANUP
-                </span>{' '}
+                <span className="gradient-text">DECLEANUP</span>{' '}
                 <span className="text-foreground">REWARDS</span>
               </h1>
-              <h2 className="font-sans text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl font-normal mx-auto max-w-2xl normal-case break-words">
+              <p className="text-landing-lede mx-auto max-w-2xl normal-case">
                 Log cleanups. Build a verified record. Earn your voice in the network.
-              </h2>
+              </p>
             </div>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1 animate-fade-in-up font-sans">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
               {aaAuth ? (
-                <Button
-                  asChild
-                  size="default"
-                  className="h-10 px-6 font-sans text-sm !text-black bg-brand-green hover:bg-brand-green/90"
-                >
+                <Button asChild size="default" className="font-plakat tracking-normal">
                   <Link href="/login?callbackUrl=/">Log in</Link>
                 </Button>
               ) : (
@@ -387,12 +381,12 @@ function HomeContent() {
                 href="https://www.decleanup.net/userguide"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-muted-foreground hover:text-brand-green transition-colors underline underline-offset-4"
+                className="landing-ghost-link"
               >
                 How it works
               </Link>
             </div>
-            <p className="font-sans text-xs text-muted-foreground/80">
+            <p className="text-landing-hint">
               {aaAuth
                 ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
                 : 'Connect your wallet to start cleaning'}
@@ -403,48 +397,48 @@ function HomeContent() {
         <PastContributorAirdropStrip variant="prelogin" />
 
         {/* Footer */}
-        <footer className="border-t border-border py-6 flex-shrink-0">
+        <footer className="border-t border-white/10 py-8 flex-shrink-0">
           <div className="container mx-auto px-4">
-            <div className="font-sans flex flex-col items-center gap-4 text-xs text-muted-foreground sm:text-sm">
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-6">
-                <a href="https://decleanup.net" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+            <div className="flex flex-col items-center gap-5">
+              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
+                <a href="https://decleanup.net" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Website
                 </a>
-                <a href="https://github.com/DeCleanup-Network" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://github.com/DeCleanup-Network" target="_blank" rel="noopener noreferrer" className="footer-link">
                   GitHub
                 </a>
-                <a href="https://decleanup.net/litepaper" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://decleanup.net/litepaper" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Litepaper
                 </a>
-                <a href="https://decleanup.net/tokenomics" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://decleanup.net/tokenomics" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Tokenomics
                 </a>
-                <a href="https://x.com/decleanupnet" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://x.com/decleanupnet" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Follow on X
                 </a>
-                <a href="https://farcaster.xyz/decleanupnet" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://farcaster.xyz/decleanupnet" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Farcaster
                 </a>
-                <a href="https://t.me/decentralizedcleanup" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://t.me/decentralizedcleanup" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Telegram
                 </a>
-                <a href="https://giveth.io/project/decentralized-cleanup-network" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-brand-green transition-colors">
+                <a href="https://giveth.io/project/decentralized-cleanup-network" target="_blank" rel="noopener noreferrer" className="footer-link">
                   Donate on Giveth
                 </a>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground sm:text-sm">
-                <Link href="/guide" className="font-medium hover:text-brand-green transition-colors">
+              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                <Link href="/guide" className="footer-link">
                   User Guide
                 </Link>
-                <Link href="/terms" className="font-medium hover:text-brand-green transition-colors">
+                <Link href="/terms" className="footer-link">
                   Terms of Service
                 </Link>
-                <Link href="/privacy" className="font-medium hover:text-brand-green transition-colors">
+                <Link href="/privacy" className="footer-link">
                   Privacy Policy
                 </Link>
               </div>
-              <div className="font-sans flex items-center justify-center gap-2 text-xs uppercase tracking-widest opacity-40 sm:text-sm">
-                <span className="font-medium">Built on</span>
+              <div className="font-meta flex items-center justify-center gap-2 opacity-50">
+                <span>Built on</span>
                 <img
                   src="/celo-celo-logo.svg"
                   alt="Celo"
@@ -504,19 +498,14 @@ function HomeContent() {
               className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
               style={decleanupRewardsTitleStyle}
             >
-              <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent">
-                DECLEANUP
-              </span>{' '}
+              <span className="gradient-text">DECLEANUP</span>{' '}
               <span className="text-foreground">REWARDS</span>
             </h1>
           </div>
           <div className="flex w-full flex-col items-center gap-3">
             {showHeroSubmitSlot && !heroMaxLevelLocked && (
               canHeroSubmit ? (
-                <Button
-                  asChild
-                  className={`${heroCtaClass} inline-flex bg-brand-green text-black hover:bg-brand-green/90`}
-                >
+                <Button asChild className={`${heroCtaClass} font-plakat`}>
                   <Link href="/cleanup" className="inline-flex items-center justify-center">
                     <Leaf className="h-5 w-5 shrink-0" />
                     SUBMIT CLEANUP
@@ -539,11 +528,12 @@ function HomeContent() {
               </p>
             )}
             {showHeroClaimCta && (
-              <Button
+                <Button
                 type="button"
+                variant="brandYellow"
                 onClick={() => void handleClaimImpactLevel()}
                 disabled={isClaiming}
-                className={`${heroCtaClass} inline-flex bg-brand-yellow text-black hover:bg-brand-yellow/90 disabled:opacity-70`}
+                className={`${heroCtaClass} font-plakat disabled:opacity-70`}
               >
                 {isClaiming ? (
                   <>
@@ -629,7 +619,7 @@ function HomeContent() {
               verifiedCleanupsCount={hasLoadedDashboardOnce ? rewardStats.verifiedCleanupsCount : null}
             />
           ) : cleanupStatus?.canClaim ? (
-            <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-brand-yellow/30 bg-card p-5 sm:p-8 lg:h-full">
+            <div className="dcu-card dcu-card-glow flex min-h-0 flex-1 flex-col border-brand-yellow/30 p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
                 Your Impact Product level
               </SectionHeading>
@@ -646,12 +636,12 @@ function HomeContent() {
               </div>
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 sm:p-8 lg:h-full">
+            <div className="dcu-card flex min-h-0 flex-1 flex-col p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
                 Your Impact Product level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
-                <div className="mb-4 rounded-2xl border-2 border-border/50 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
+                <div className="mb-4 rounded-[10px] border border-white/10 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
                   <Award className="mx-auto h-16 w-16 text-muted-foreground/50 sm:h-20 sm:w-20" />
                 </div>
                 <h3 className="mb-2 font-bebas text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
@@ -683,7 +673,7 @@ function HomeContent() {
                 />
               ) : null}
 
-              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-4 sm:p-5">
+              <div className="dcu-card flex min-h-0 flex-1 flex-col p-4 sm:p-5">
                 <SectionHeading icon={TrendingUp}>REWARDS</SectionHeading>
                 <div className="mb-3 mt-2 grid min-h-0 grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="min-w-0 rounded-xl border border-brand-green/30 bg-brand-green/5 p-3 sm:p-4">
@@ -1106,10 +1096,10 @@ function HomeContent() {
 
       <PastContributorAirdropStrip variant="app" />
 
-      <footer className="border-t border-border py-8 mt-0 flex-shrink-0">
+      <footer className="border-t border-white/10 py-8 mt-0 flex-shrink-0">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+          <div className="flex flex-col items-center gap-5">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
               {[
                 { label: 'Website', href: 'https://decleanup.net' },
                 { label: 'GitHub', href: 'https://github.com/DeCleanup-Network' },
@@ -1125,27 +1115,27 @@ function HomeContent() {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs sm:text-sm font-normal text-muted-foreground hover:text-brand-green transition-colors"
+                  className="footer-link"
                 >
                   {link.label}
                 </a>
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground sm:text-sm">
-              <Link href="/guide" className="font-normal hover:text-brand-green transition-colors">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              <Link href="/guide" className="footer-link">
                 User Guide
               </Link>
-              <Link href="/terms" className="font-normal hover:text-brand-green transition-colors">
+              <Link href="/terms" className="footer-link">
                 Terms of Service
               </Link>
-              <Link href="/privacy" className="font-normal hover:text-brand-green transition-colors">
+              <Link href="/privacy" className="footer-link">
                 Privacy Policy
               </Link>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-widest opacity-40 select-none sm:text-sm">
-              <span className="font-sans font-medium">Built on</span>
+            <div className="font-meta flex items-center justify-center gap-2 opacity-50 select-none">
+              <span>Built on</span>
               <img
                 src="/celo-celo-logo.svg"
                 alt="Celo"

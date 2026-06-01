@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 export const decleanupRewardsTitleStyle = {
-  fontFamily: 'var(--font-bebas-neue), sans-serif',
-  letterSpacing: '0.05em',
-  lineHeight: 1.1,
+  fontFamily: 'var(--font-space-grotesk), var(--font-inter), sans-serif',
+  fontWeight: 700,
+  letterSpacing: '-0.02em',
+  lineHeight: 0.92,
 } as const
 
 export type DeCleanupPageHeroProps = {
@@ -20,7 +21,7 @@ export type DeCleanupPageHeroProps = {
 }
 
 /**
- * Shared program hero: matches the logged-in dashboard (gradient DECLEANUP + Bebas + muted body).
+ * Shared program hero: gradient DECLEANUP + Space Grotesk display + Inter body.
  */
 export function DeCleanupPageHero({
   programWord,
@@ -45,9 +46,7 @@ export function DeCleanupPageHero({
             className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
             style={decleanupRewardsTitleStyle}
           >
-            <span className="bg-gradient-to-r from-[#58B12F] via-[#FAFF00] to-[#58B12F] bg-clip-text text-transparent">
-              DECLEANUP
-            </span>{' '}
+            <span className="gradient-text">DECLEANUP</span>{' '}
             <span className="text-foreground">{programWord}</span>
           </h1>
           <div className="font-sans text-sm text-muted-foreground sm:text-base">{description}</div>

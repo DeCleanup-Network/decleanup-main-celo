@@ -76,8 +76,8 @@ export function PastContributorAirdropStrip({ variant }: PastContributorAirdropS
         <p
           className={
             variant === 'prelogin'
-              ? 'font-sans text-sm text-muted-foreground max-w-xl'
-              : 'text-center font-sans text-sm leading-relaxed text-muted-foreground sm:text-left sm:max-w-xl'
+              ? 'text-landing-lede max-w-xl text-sm sm:text-base'
+              : 'text-landing-lede text-center text-sm sm:text-left sm:max-w-xl'
           }
         >
           {copy}
@@ -86,8 +86,8 @@ export function PastContributorAirdropStrip({ variant }: PastContributorAirdropS
           asChild
           className={
             variant === 'prelogin'
-              ? 'shrink-0 bg-brand-green text-black hover:bg-brand-green/90'
-              : 'w-full shrink-0 bg-brand-green font-bebas text-sm uppercase tracking-wider text-black hover:bg-brand-green/90 sm:w-auto sm:min-w-[11rem]'
+              ? 'shrink-0 font-plakat tracking-normal'
+              : 'w-full shrink-0 font-plakat tracking-normal sm:w-auto sm:min-w-[11rem]'
           }
         >
           <Link href="/airdrop">{variant === 'prelogin' ? 'Check airdrop' : 'Airdrop'}</Link>

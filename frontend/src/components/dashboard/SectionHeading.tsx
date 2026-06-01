@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { IconAccent } from '@/components/ui/icon-accent'
 import { cn } from '@/lib/utils'
 
 export type SectionHeadingProps = {
@@ -13,13 +14,13 @@ export type SectionHeadingProps = {
 }
 
 /**
- * Matches the Impact Product card title row: yellow accent icon + Bebas heading.
+ * Impact Product card title row: yellow accent icon + display heading.
  */
 export function SectionHeading({ icon: Icon, children, aside, className }: SectionHeadingProps) {
   const title = (
     <>
-      <Icon className="h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
-      <h2 className="font-bebas text-xl tracking-wider text-foreground sm:text-2xl">{children}</h2>
+      <IconAccent icon={Icon} tone="yellow" size="sm" />
+      <h2 className="font-plakat text-xl text-foreground sm:text-2xl">{children}</h2>
     </>
   )
 

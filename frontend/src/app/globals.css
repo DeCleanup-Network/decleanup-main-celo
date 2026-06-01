@@ -3,16 +3,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Typography: Bebas Neue = primary/headings (impact). Geist Sans = secondary/body, buttons, nav (readability, premium tech). */
+/* Typography: decleanup-landing-standalone — Space Grotesk display, Inter body, Space Mono data. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-bebas: var(--font-bebas-neue);
-  --font-heading: var(--font-bebas-neue);
-  --color-brand-green: #58B12F;
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-space-mono);
+  --font-heading: var(--font-space-grotesk);
+  /* Legacy class name used across the app — now maps to Space Grotesk. */
+  --font-bebas: var(--font-space-grotesk);
+  --color-brand-green: #4ADE80;
   --color-brand-yellow: #FAFF00;
+  --color-elevated: #141414;
+  --color-elevated-2: #1b1b1b;
+  --color-ink-dim: #8b8b89;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,17 +52,24 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Design tokens aligned with decleanup.net landing (DeCleanup-Network/decleanup-network.github.io) */
+/* Design tokens — decleanup-landing-standalone */
 :root {
   --radius: 0.625rem;
-  --background: #000000;
+  --background: #0a0a0a;
   --foreground: #ffffff;
-  --yellow: #FAFF00;
-  --green: #58B12F;
-  --green-dark: #4FA02A;
-  --gray-light: #1a1a1a;
+  --yellow: #faff00;
+  --green: #4ade80;
+  --green-hover: color-mix(in oklch, #4ade80 88%, white);
+  --green-soft: color-mix(in oklch, #4ade80 18%, transparent);
+  --yellow-soft: color-mix(in oklch, #faff00 22%, transparent);
+  --grad-heading: linear-gradient(92deg, #4ade80 0%, #a8f050 55%, #faff00 100%);
+  --line: rgba(255, 255, 255, 0.1);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --bg-elev: #141414;
+  --bg-elev-2: #1b1b1b;
+  --gray-light: #141414;
   --gray-medium: #2a2a2a;
-  --gray-dark: #111111;
+  --gray-dark: #0a0a0a;
   --text-hero: 5rem;
   --text-section: 3rem;
   --text-sub: 1.875rem;
@@ -100,24 +111,24 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --card: #141414;
+  --card-foreground: #ffffff;
+  --popover: #1b1b1b;
+  --popover-foreground: #ffffff;
+  --primary: #4ade80;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1b1b1b;
+  --secondary-foreground: #ffffff;
+  --muted: #1b1b1b;
+  --muted-foreground: rgba(255, 255, 255, 0.72);
+  --accent: #1b1b1b;
+  --accent-foreground: #ffffff;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #4ade80;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -139,20 +150,119 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    position: relative;
   }
-  
-  /* Bebas Neue for major headings and titles (decleanup.net landing: uppercase, condensed) */
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(
+      60vw 80vh at 20% 0%,
+      color-mix(in oklch, var(--green) 6%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Landing .plakat — display headings */
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-bebas-neue), sans-serif;
-    font-weight: 400;
+    font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    line-height: 1.1;
+    letter-spacing: -0.02em;
+    line-height: 0.92;
   }
   h1 { font-size: clamp(2.5rem, 8vw, 5rem); }
   h2 { font-size: clamp(2rem, 5vw, 3rem); }
   h3 { font-size: clamp(1.5rem, 3vw, 1.875rem); }
+
+  /* Landing .meta — mono labels (stats, eyebrows) */
+  .font-meta {
+    font-family: var(--font-space-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-feature-settings: "tnum";
+  }
+
+  .font-plakat {
+    font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 0.92;
+    text-transform: uppercase;
+  }
+
+  /* Landing body copy (Inter) — hero subhead, hints */
+  .text-landing-lede {
+    font-family: var(--font-inter), sans-serif;
+    font-weight: 500;
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    color: rgba(255, 255, 255, 0.92);
+    line-height: 1.5;
+  }
+
+  .text-landing-hint {
+    font-family: var(--font-inter), sans-serif;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--color-ink-dim);
+    line-height: 1.5;
+  }
+
+  /* Landing .btn-ghost — "How it works" secondary CTA */
+  .landing-ghost-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0 22px;
+    font-family: var(--font-inter), sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    color: var(--foreground);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    text-decoration: none;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .landing-ghost-link:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* Landing footer links — Space Mono uppercase */
+  .footer-link {
+    font-family: var(--font-space-mono), ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.92);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .footer-link:hover {
+    color: var(--green);
+  }
   
   /* Better mobile touch targets */
   button, a {
@@ -183,6 +293,114 @@
   .border-brand-yellow {
     border-color: var(--color-brand-yellow);
   }
+
+  .bg-elevated {
+    background-color: var(--bg-elev);
+  }
+
+  .bg-elevated-2 {
+    background-color: var(--bg-elev-2);
+  }
+
+  .gradient-text {
+    background: var(--grad-heading);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .dcu-card {
+    @apply rounded-[10px] border border-white/10 bg-card transition-all duration-300;
+  }
+
+  .dcu-card:hover {
+    border-color: color-mix(in oklch, white 25%, transparent);
+  }
+
+  .dcu-card-glow {
+    animation: border-glow 3s ease-in-out infinite;
+  }
+
+  .shadow-btn-brand {
+    box-shadow:
+      0 1px 0 color-mix(in oklch, var(--green) 60%, #000) inset,
+      0 2px 8px color-mix(in oklch, var(--green) 20%, transparent);
+  }
+
+  .shadow-btn-brand-hover {
+    box-shadow:
+      0 1px 0 color-mix(in oklch, var(--green) 60%, #000) inset,
+      0 0 0 4px color-mix(in oklch, var(--green) 14%, transparent),
+      0 6px 20px color-mix(in oklch, var(--green) 35%, transparent);
+  }
+
+  .icon-accent-ring-green {
+    box-shadow: 0 0 0 3px var(--green-soft);
+  }
+
+  .icon-accent-ring-yellow {
+    box-shadow: 0 0 0 3px var(--yellow-soft);
+  }
+
+  .icon-accent-ring-muted {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06);
+  }
+
+  .status-chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }
+
+  .status-chip-pilot .status-chip-dot {
+    box-shadow: 0 0 0 3px var(--yellow-soft);
+  }
+
+  .status-chip .status-chip-dot.bg-brand-green {
+    box-shadow: 0 0 0 3px var(--green-soft);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes cta-particle {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--tx, 0)), calc(-50% + var(--ty, 0))) scale(0.4);
+  }
+}
+
+.cta-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px var(--green);
+  animation: cta-particle 0.7s cubic-bezier(0.18, 0.7, 0.3, 1) forwards;
+  z-index: 5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-particle {
+    display: none;
+  }
+  .dcu-card-glow,
+  .status-chip .status-chip-dot.bg-brand-green {
+    animation: none;
+  }
 }
 
 /* Animations from decleanup.net landing */
@@ -195,8 +413,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes border-glow {
-  0%, 100% { border-color: rgba(88, 177, 47, 0.35); box-shadow: 0 0 0 1px rgba(88, 177, 47, 0.2); }
-  50% { border-color: rgba(88, 177, 47, 0.6); box-shadow: 0 0 20px rgba(88, 177, 47, 0.15); }
+  0%, 100% {
+    border-color: color-mix(in oklch, var(--green) 35%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--green) 20%, transparent);
+  }
+  50% {
+    border-color: color-mix(in oklch, var(--green) 60%, transparent);
+    box-shadow: 0 0 20px color-mix(in oklch, var(--green) 15%, transparent);
+  }
 }
 .animate-fade-in { animation: fade-in 0.8s ease-out; }
 .animate-fade-in-up { animation: fade-in-up 0.8s ease-out; }
@@ -208,7 +432,7 @@
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--gray-dark, #111); }
 ::-webkit-scrollbar-thumb { background: var(--gray-medium, #2a2a2a); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--green, #58B12F); }
+::-webkit-scrollbar-thumb:hover { background: var(--green); }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 

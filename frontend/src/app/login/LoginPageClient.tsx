@@ -14,9 +14,9 @@ import { LoginRecoverySection } from '@/components/auth/LoginRecoverySection'
 function LoginDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="h-px flex-1 bg-gray-700" />
-      <span className="text-[10px] uppercase tracking-wide text-gray-500">{label}</span>
-      <div className="h-px flex-1 bg-gray-700" />
+      <div className="h-px flex-1 bg-white/10" />
+      <span className="font-meta text-[10px] text-muted-foreground">{label}</span>
+      <div className="h-px flex-1 bg-white/10" />
     </div>
   )
 }
@@ -87,7 +87,7 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
       <div className="mt-8 space-y-4">
         <Button
           type="button"
-          className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90"
+          className="w-full"
           onClick={() => {
             disconnect()
             void signIn('google', { callbackUrl })

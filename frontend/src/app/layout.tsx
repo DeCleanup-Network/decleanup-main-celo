@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
-import { GeistSans } from "geist/font/sans";
-import localFont from "next/font/local";
-import { Bebas_Neue } from "next/font/google";
 import { minimalWagmiConfig } from "@/lib/blockchain/minimal-wagmi-config";
+import { landingFontClassName } from "@/lib/fonts/landing-fonts";
 import "./globals.css";
 
 const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"), {
@@ -18,32 +16,6 @@ const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"
       </div>
     </div>
   ),
-});
-
-const bebasNeue = Bebas_Neue({
-  variable: "--font-bebas-neue",
-  weight: "400",
-  subsets: ["latin"],
-});
-
-// Same file as geist/font/mono; preload off so Chrome does not warn when monospace is not in first paint.
-const geistMono = localFont({
-  src: "../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-  adjustFontFallback: false,
-  fallback: [
-    "ui-monospace",
-    "SFMono-Regular",
-    "Roboto Mono",
-    "Menlo",
-    "Monaco",
-    "Liberation Mono",
-    "DejaVu Sans Mono",
-    "Courier New",
-    "monospace",
-  ],
-  preload: false,
 });
 
 const OG_IMAGE_URL =
@@ -106,7 +78,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover" as const,
-  themeColor: "#58B12F",
+  themeColor: "#4ADE80",
 };
 
 export default async function RootLayout({
@@ -120,7 +92,7 @@ export default async function RootLayout({
       : undefined;
 
   return (
-    <html lang="en" className={`dark ${bebasNeue.variable}`}>
+    <html lang="en" className={`dark ${landingFontClassName}`}>
       <head>
         {/* Open Graph Meta Tags */}
         <meta property="og:url" content={SITE_URL} />
@@ -144,9 +116,7 @@ export default async function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
 
-      <body
-        className={`${GeistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-black`}
-      >
+      <body className="antialiased flex flex-col min-h-screen bg-black">
         <RootClientBody wagmiInitialState={wagmiInitialState}>{children}</RootClientBody>
       </body>
     </html>
