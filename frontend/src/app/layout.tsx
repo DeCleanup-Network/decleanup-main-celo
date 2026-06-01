@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
-import { minimalWagmiConfig } from "@/lib/blockchain/minimal-wagmi-config";
+import { getAaWagmiCookieConfigSingleton } from "@/lib/blockchain/aa-wagmi-cookie-config";
 import { landingFontClassName } from "@/lib/fonts/landing-fonts";
 import "./globals.css";
 
@@ -88,7 +88,7 @@ export default async function RootLayout({
 }>) {
   const wagmiInitialState =
     process.env.NEXT_PUBLIC_AA_AUTH_ENABLED === "true"
-      ? cookieToInitialState(minimalWagmiConfig, (await headers()).get("cookie"))
+      ? cookieToInitialState(getAaWagmiCookieConfigSingleton(), (await headers()).get("cookie"))
       : undefined;
 
   return (

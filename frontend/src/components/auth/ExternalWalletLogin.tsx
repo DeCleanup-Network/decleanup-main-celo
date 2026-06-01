@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount } from 'wagmi'
+import { useAccount, useConnect, useConnectors } from 'wagmi'
 import { Button } from '@/components/ui/button'
+import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 
 type Props = {
   callbackUrl: string
@@ -16,10 +17,7 @@ function safeCallbackUrl(url: string): string {
   return url
 }
 
-/**
- * MetaMask / WalletConnect via RainbowKit modal (works in AA auth mode).
- */
-export function ExternalWalletLogin({ callbackUrl }: Props) {
+function useWalletRedirect(callbackUrl: string) {
   const router = useRouter()
   const { status } = useSession()
   const { isConnected } = useAccount()
@@ -44,6 +42,63 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   useEffect(() => {
     if (!isConnected) redirectedRef.current = false
   }, [isConnected])
+}
+
+/**
+ * Mobile Safari has no injected wallet — open WalletConnect directly instead of the
+ * RainbowKit intro-only view when no extension wallets are "ready".
+ */
+function MobileWalletConnectButtons() {
+  const { connect, isPending, error } = useConnect()
+  const connectors = useConnectors()
+  const walletConnect = connectors.find((c) => c.id === 'walletConnect')
+  const injected = connectors.find((c) => c.type === 'injected')
+
+  return (
+    <div className="space-y-2">
+      {walletConnect ? (
+        <Button
+          type="button"
+          className="w-full font-plakat tracking-normal"
+          disabled={isPending}
+          onClick={() => connect({ connector: walletConnect })}
+        >
+          {isPending ? 'Opening wallet…' : 'WalletConnect'}
+        </Button>
+      ) : null}
+      {injected ? (
+        <Button
+          type="button"
+          variant="brandGhost"
+          className="w-full font-plakat tracking-normal"
+          disabled={isPending}
+          onClick={() => connect({ connector: injected })}
+        >
+          In-app browser wallet
+        </Button>
+      ) : null}
+      <p className="text-center text-landing-hint">
+        Opens MetaMask, Rainbow, Valora, or another wallet app on your phone.
+      </p>
+      {error ? (
+        <p className="text-center text-xs text-red-400" role="alert">
+          {error.message}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * MetaMask / WalletConnect via RainbowKit (desktop) or direct WC on mobile browsers.
+ */
+export function ExternalWalletLogin({ callbackUrl }: Props) {
+  useWalletRedirect(callbackUrl)
+  const mobile = isMobileBrowser()
+
+  if (mobile) {
+    return <MobileWalletConnectButtons />
+  }
 
   return (
     <ConnectButton.Custom>
@@ -68,7 +123,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
               Connect wallet
             </Button>
             <p className="text-center text-landing-hint">
-              Choose MetaMask, WalletConnect, or another wallet in the modal.
+              Choose MetaMask, WalletConnect, Valora, or another wallet in the modal.
             </p>
           </div>
         )

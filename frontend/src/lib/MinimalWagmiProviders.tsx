@@ -1,10 +1,11 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider, type State } from 'wagmi'
+import { type State } from 'wagmi'
+import { AaRainbowKitWagmiProvider } from '@/lib/AaRainbowKitWagmiProvider'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { useState, type ReactNode } from 'react'
-import { getMinimalWagmiConfig } from '@/lib/blockchain/minimal-wagmi-config'
+import { aaWagmiChains } from '@/lib/blockchain/aa-wagmi-chains'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
 import { CustomAvatar } from '@/components/wallet/CustomAvatar'
@@ -21,7 +22,7 @@ export function MinimalWagmiProviders({
   children: ReactNode
   initialState?: State
 }) {
-  const [config] = useState(getMinimalWagmiConfig)
+  const initialChainId = aaWagmiChains[0].id
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -43,13 +44,14 @@ export function MinimalWagmiProviders({
   })
 
   return (
-    <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
+    <AaRainbowKitWagmiProvider initialState={initialState}>
       <WagmiConfigSync />
       <WalletConnectRelayRecovery />
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={rkTheme}
           modalSize="compact"
+          initialChain={initialChainId}
           avatar={CustomAvatar}
           appInfo={{
             appName: 'DeCleanup Rewards',
@@ -59,6 +61,6 @@ export function MinimalWagmiProviders({
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
-    </WagmiProvider>
+    </AaRainbowKitWagmiProvider>
   )
 }
