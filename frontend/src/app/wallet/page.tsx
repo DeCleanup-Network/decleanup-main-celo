@@ -116,6 +116,7 @@ export default function SmartAccountSettingsPage() {
           <Button asChild className="w-full">
             <Link href="/import-wallet">Import backup file</Link>
           </Button>
+          <ResetWalletAccessCard visible />
         </div>
       )}
 
@@ -131,7 +132,7 @@ export default function SmartAccountSettingsPage() {
           {phase === 'locked' && <UnlockSigningForm />}
 
           <PasskeySettings />
-          <ResetWalletAccessCard visible={phase === 'locked' || phase === 'server-only'} />
+          <ResetWalletAccessCard visible={phase === 'locked'} />
           <WalletBackupSection />
         </>
       )}
