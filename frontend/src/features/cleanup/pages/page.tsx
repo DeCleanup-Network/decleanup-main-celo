@@ -1110,6 +1110,28 @@ function CleanupContent() {
       return
     }
 
+    if (embeddedSponsoredSubmit && isPaymasterConfigured()) {
+      if (isGaslessLoading) {
+        setAlertModal({
+          title: 'Preparing gasless submit',
+          message:
+            'Your sponsored smart account is still initializing. Wait a few seconds, then submit again.',
+          variant: 'warning',
+        })
+        return
+      }
+      if (!gaslessClient) {
+        setAlertModal({
+          title: 'Gasless wallet unavailable',
+          message:
+            gaslessError?.message ||
+            'Your sponsored smart account is not ready yet. Open Smart account settings, unlock once, then retry submit.',
+          variant: 'warning',
+        })
+        return
+      }
+    }
+
     setIsSubmitting(true)
     setMlVerificationLoading(false)
     setMlVerificationSummary(null)
@@ -1241,7 +1263,13 @@ function CleanupContent() {
             (isGaslessLoading
               ? 'Smart account is still initializing. Please wait a few seconds and retry.'
               : 'Smart account client is unavailable.')
-          throw new Error(`Sponsored submit unavailable: ${detail}`)
+          setAlertModal({
+            title: 'Preparing gasless submit',
+            message: detail,
+            variant: 'warning',
+          })
+          setIsSubmitting(false)
+          return
         }
 
         // Pass chainId from hook to avoid false chain detection issues
