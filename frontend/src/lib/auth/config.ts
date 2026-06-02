@@ -27,8 +27,15 @@ const emailServer = process.env.EMAIL_SERVER?.trim()
 
 if (resendApiKey) {
   const from = getEmailFrom()
+  // Auth.js still instantiates Nodemailer at load time; `server` is required even when
+  // we send via Resend HTTP API in sendVerificationRequest (SMTP is never called).
   providers.push(
     Email({
+      server: {
+        host: 'smtp.resend.com',
+        port: 587,
+        auth: { user: 'resend', pass: resendApiKey },
+      },
       from,
       async sendVerificationRequest({ identifier: email, url, provider }) {
         await sendResendMagicLink({
