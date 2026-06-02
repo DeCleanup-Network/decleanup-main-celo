@@ -7,7 +7,11 @@ import { CopyableAddress } from '@/components/ui/copyable-address'
 import { ImportBackupForm } from '@/components/aa/ImportBackupForm'
 import { MetamaskExportSection } from '@/components/aa/MetamaskExportSection'
 import { useWallet } from '@/providers/WalletProvider'
-import { WALLET_PASSKEY, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
+import {
+  WALLET_PASSKEY,
+  WALLET_PASSKEY_LOWER,
+  WALLET_PASSKEY_POSSESSIVE,
+} from '@/lib/client-wallet/copy'
 
 /**
  * Backup download + restore — the real "forgot wallet passkey" path (same onchain address).
