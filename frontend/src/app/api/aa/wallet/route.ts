@@ -6,7 +6,7 @@ import { getWalletBootstrapState } from '@/lib/wallet/bootstrap'
 import { getSmartAccountBalance } from '@/lib/smart-account/server'
 import { isPimlicoConfigured } from '@/lib/paymaster/pimlico'
 import { syncWalletSchema } from '@/lib/aa/validation'
-import { findWalletByUserId, upsertWalletMetadata } from '@/lib/wallet/repository'
+import { deleteWalletByUserId, findWalletByUserId, upsertWalletMetadata } from '@/lib/wallet/repository'
 import { assertAddress } from '@/lib/smart-account/server'
 
 export const dynamic = 'force-dynamic'
@@ -104,6 +104,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     console.error('[aa/wallet POST]', message)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+/** Reset wallet metadata for the signed-in account (used by destructive recovery). */
+export async function DELETE(request: NextRequest) {
+  try {
+    const userId = await requireSessionUserId()
+    const limited = enforceWalletApiRateLimit(request, 'aa-wallet', userId)
+    if (!limited.ok) return limited.response
+
+    await deleteWalletByUserId(userId)
+    return NextResponse.json({ ok: true, reset: true })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Reset failed'
+    if (message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    console.error('[aa/wallet DELETE]', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

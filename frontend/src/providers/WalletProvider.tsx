@@ -109,6 +109,8 @@ type WalletContextValue = {
   passkeyLoading: boolean
   refreshPasskeyStatus: () => Promise<void>
   registerPasskey: (unlockPassword: string) => Promise<void>
+  /** Destructive recovery for forgotten wallet passkey: deletes current wallet and creates a new one. */
+  resetWalletAccess: () => Promise<void>
   /** Re-run wallet hydrate (e.g. stuck setup screen). */
   retryWalletBootstrap: () => void
 }
@@ -554,6 +556,46 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setPhase('no-wallet')
   }, [lock, userId])
 
+  const resetWalletAccess = useCallback(async () => {
+    if (!userId) throw new Error('Not signed in')
+    setError(null)
+    lock()
+
+    const resetRes = await fetchWithTimeout(
+      '/api/aa/wallet',
+      { method: 'DELETE', credentials: 'include' },
+      20_000
+    )
+    const resetJson = await resetRes.json().catch(() => ({}))
+    if (!resetRes.ok) {
+      throw new Error(resetJson.error ?? 'Failed to reset wallet on server')
+    }
+
+    await fetchWithTimeout(
+      '/api/passkey/remove',
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeAll: true }),
+      },
+      20_000
+    ).catch(() => {
+      // Non-fatal: reset can continue even when passkey cleanup fails.
+    })
+
+    clearPasskeyUnlockRecord(userId)
+    await clearWallet(userId)
+    localRecordRef.current = null
+    setIsPasskeyEnabled(false)
+    setEoaAddress(null)
+    setSmartAccountAddress(null)
+    setChainId(null)
+    setBalance(null)
+    setPhase('no-wallet')
+    setBootstrapNonce((n) => n + 1)
+  }, [lock, userId])
+
   const retryWalletBootstrap = useCallback(() => {
     setError(null)
     hydrateInFlightRef.current = false
@@ -731,6 +773,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       passkeyLoading,
       refreshPasskeyStatus,
       registerPasskey,
+      resetWalletAccess,
       retryWalletBootstrap,
     } satisfies WalletContextValue),
     [
@@ -767,6 +810,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       passkeyLoading,
       refreshPasskeyStatus,
       registerPasskey,
+      resetWalletAccess,
       retryWalletBootstrap,
     ]
   )

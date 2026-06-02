@@ -7,9 +7,7 @@ import {
   SignUnlockModal,
   type SignUnlockModalMode,
 } from '@/components/aa/SignUnlockModal'
-import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
 import { AccountReadyBanner } from '@/components/aa/AccountReadyBanner'
-import { useWallet } from '@/providers/WalletProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -218,7 +216,6 @@ function CleanupContent() {
     isEmbeddedAccount,
     embeddedSponsoredSubmit,
   } = useAppWalletAddress()
-  const { error: walletSetupError, retryWalletBootstrap } = useWallet()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
     purpose: string
@@ -1111,15 +1108,7 @@ function CleanupContent() {
     }
 
     if (embeddedSponsoredSubmit && isPaymasterConfigured()) {
-      if (isGaslessLoading) {
-        setAlertModal({
-          title: 'Preparing gasless submit',
-          message:
-            'Your sponsored smart account is still initializing. Wait a few seconds, then submit again.',
-          variant: 'warning',
-        })
-        return
-      }
+      if (isGaslessLoading) return
       if (!gaslessClient) {
         setAlertModal({
           title: 'Gasless wallet unavailable',
@@ -1643,17 +1632,22 @@ function CleanupContent() {
   const hasPendingCleanup = pendingCleanup !== null && pendingCleanup !== undefined
   const canClaimPendingLevel =
     hasPendingCleanup && !!pendingCleanup?.verified && !pendingCleanup?.claimed
+  const isGaslessInitBlocking =
+    embeddedSponsoredSubmit && isPaymasterConfigured() && isGaslessLoading
   const isSubmissionDisabled =
     !walletReady ||
     (hasPendingCleanup && !pendingCleanup.verified) ||
     canClaimPendingLevel ||
     isWrongNetwork ||
-    isSwitchingChain
+    isSwitchingChain ||
+    isGaslessInitBlocking
 
   const claimLevelButtonClasses =
     'w-full gap-2 bg-brand-yellow py-4 font-bebas text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
   const uploadDisabledHint = !walletReady
     ? 'Your account is still setting up'
+    : isGaslessInitBlocking
+      ? 'Preparing gasless submit…'
     : canClaimPendingLevel
       ? 'Verified: claim your level below'
       : isWrongNetwork
@@ -1709,18 +1703,6 @@ function CleanupContent() {
             <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
           </div>
         </div>
-      </div>
-    )
-  }
-
-  if (aaEnabled && isEmbeddedAccount && walletBootstrapping) {
-    return (
-      <div className="min-h-screen bg-background">
-        <AccountBootstrapPanel
-          stage="wallet"
-          error={walletSetupError}
-          onRetry={retryWalletBootstrap}
-        />
       </div>
     )
   }

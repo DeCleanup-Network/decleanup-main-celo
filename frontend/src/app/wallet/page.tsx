@@ -11,6 +11,7 @@ import { WalletStatusCard } from '@/components/aa/WalletStatusCard'
 import { PendingPasswordSettings } from '@/components/aa/PendingPasswordSettings'
 import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
+import { ResetWalletAccessCard } from '@/components/aa/ResetWalletAccessCard'
 import { useAaWallet } from '@/hooks/useAaWallet'
 import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
@@ -130,6 +131,7 @@ export default function SmartAccountSettingsPage() {
           {phase === 'locked' && <UnlockSigningForm />}
 
           <PasskeySettings />
+          <ResetWalletAccessCard visible={phase === 'locked' || phase === 'server-only'} />
           <WalletBackupSection />
         </>
       )}

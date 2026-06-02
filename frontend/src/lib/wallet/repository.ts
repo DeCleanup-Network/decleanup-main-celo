@@ -61,3 +61,7 @@ export async function findWalletMetadata(userId: string): Promise<WalletMetadata
     walletVersion: row.walletVersion,
   }
 }
+
+export async function deleteWalletByUserId(userId: string): Promise<void> {
+  await prisma.userWallet.deleteMany({ where: { userId } })
+}
