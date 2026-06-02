@@ -6,7 +6,7 @@ import { WalletErrorBoundary } from '@/features/wallet/components/WalletErrorBou
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#0a0a0a]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-black shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]">
       <div className="container mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex h-[4.5rem] sm:h-[5.5rem] items-center justify-between gap-3 min-w-0">
           <Link

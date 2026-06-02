@@ -1051,7 +1051,7 @@ function CleanupContent() {
     if (!isConnected || !address) {
       setAlertModal({
         message: aaEnabled
-          ? 'Sign in and set up your wallet in Smart account settings first.'
+          ? 'Sign in and set up your wallet in Account settings first.'
           : 'Please connect your wallet first',
         variant: 'warning',
       })
@@ -1117,7 +1117,7 @@ function CleanupContent() {
         title: 'Gasless wallet unavailable',
         message:
           gaslessError?.message ||
-          'Unlock your wallet in Smart account settings, wait a few seconds, then try submit again.',
+          'Unlock your wallet in Account settings, wait a few seconds, then try submit again.',
         variant: 'warning',
       })
       return
@@ -1699,7 +1699,7 @@ function CleanupContent() {
           </h2>
           <p className="mb-6 text-gray-400">
             {aaEnabled
-              ? 'Sign in and set up your wallet in Smart account settings to submit a cleanup.'
+              ? 'Sign in and set up your wallet in Account settings to submit a cleanup.'
               : 'Please connect your wallet to submit a cleanup.'}
           </p>
           {aaEnabled ? (
@@ -1714,7 +1714,7 @@ function CleanupContent() {
                 href="/wallet"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-white/[0.06]"
               >
-                Smart account settings
+                Account settings
               </Link>
             </div>
           ) : null}
@@ -1747,11 +1747,12 @@ function CleanupContent() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
               <Link
-                href={`/impact/${address as string}${
-                  submissionOwnerAddress && submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
-                    ? `?sa=${submissionOwnerAddress}`
-                    : ''
-                }`}
+                href={
+                  submissionOwnerAddress &&
+                  submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
+                    ? `/impact/${submissionOwnerAddress}?signer=${address as string}`
+                    : `/impact/${(submissionOwnerAddress ?? address) as string}`
+                }
                 className="text-brand-green underline"
               >
                 Impact Portfolio

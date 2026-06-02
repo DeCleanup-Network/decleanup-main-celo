@@ -77,7 +77,7 @@ export default function ExternalWalletSettingsPage() {
           connect MetaMask from the home page or sign-in screen.
         </p>
         <Link href="/wallet" className="block text-brand-green underline">
-          Smart account settings
+          Account settings
         </Link>
         <BackToDeCleanupLink className="text-sm" />
       </div>
@@ -91,9 +91,7 @@ export default function ExternalWalletSettingsPage() {
       <div>
         <BackToDeCleanupLink />
         <h1 className="mt-2 font-bebas text-2xl tracking-wider text-white sm:text-3xl">Wallet settings</h1>
-        <p className="mt-1 text-base text-gray-400">
-          External wallet connected via {connector?.name ?? 'browser extension'}
-        </p>
+        <p className="mt-1 text-base text-gray-400">External wallet</p>
       </div>
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 space-y-4">

@@ -471,7 +471,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }) => {
       const key = privateKeyRef.current
       if (!key || !isSigningSessionActive(signingSession)) {
-        throw new Error('Unlock your wallet in Smart account settings to continue.')
+        throw new Error('Unlock your wallet in Account settings to continue.')
       }
       extendSigningSession()
       const { writeContractWithEmbeddedEoa } = await import('@/lib/aa/embedded-eoa-write')

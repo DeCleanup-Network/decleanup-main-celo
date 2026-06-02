@@ -159,11 +159,17 @@ function PublicPortfolioContent() {
   const raw = typeof params?.address === 'string' ? params.address : ''
 
   const saParam = searchParams.get('sa') || searchParams.get('submissionOwner')
+  const signerParam = searchParams.get('signer')
   const submissionOwnerOverride = useMemo(() => {
     if (!saParam?.trim()) return undefined
     const t = saParam.trim()
     return isAddress(t) ? (t as Address) : undefined
   }, [saParam])
+  const signerFromQuery = useMemo(() => {
+    if (!signerParam?.trim()) return undefined
+    const t = signerParam.trim()
+    return isAddress(t) ? (t as Address) : undefined
+  }, [signerParam])
 
   const [resolved, setResolved] = useState<Address | null>(null)
   const [ensName, setEnsName] = useState<string | null>(null)
@@ -187,11 +193,41 @@ function PublicPortfolioContent() {
 
   const effectiveSubmissionOwner = useMemo(() => {
     if (submissionOwnerOverride) return submissionOwnerOverride
+    if (signerFromQuery && resolved) return resolved
     if (!resolved || !connectedAddress || !submissionOwnerAddress) return undefined
     if (connectedAddress.toLowerCase() !== resolved.toLowerCase()) return undefined
     if (submissionOwnerAddress.toLowerCase() === resolved.toLowerCase()) return undefined
     return submissionOwnerAddress as Address
-  }, [submissionOwnerOverride, resolved, connectedAddress, submissionOwnerAddress])
+  }, [submissionOwnerOverride, signerFromQuery, resolved, connectedAddress, submissionOwnerAddress])
+
+  const portfolioDisplayAddress = useMemo((): Address | null => {
+    if (!resolved) return null
+    return (effectiveSubmissionOwner ?? resolved) as Address
+  }, [resolved, effectiveSubmissionOwner])
+
+  const signerDisplayAddress = useMemo((): Address | null => {
+    if (!resolved || !portfolioDisplayAddress) return null
+    if (signerFromQuery) return signerFromQuery
+    if (submissionOwnerOverride && resolved.toLowerCase() !== portfolioDisplayAddress.toLowerCase()) {
+      return resolved
+    }
+    if (
+      connectedAddress &&
+      submissionOwnerAddress &&
+      connectedAddress.toLowerCase() === resolved.toLowerCase() &&
+      submissionOwnerAddress.toLowerCase() !== resolved.toLowerCase()
+    ) {
+      return resolved
+    }
+    return null
+  }, [
+    resolved,
+    portfolioDisplayAddress,
+    signerFromQuery,
+    submissionOwnerOverride,
+    connectedAddress,
+    submissionOwnerAddress,
+  ])
 
   /** Reverse-ENS for the on-chain identity shown on this page (explicit ?sa=, linked Safe, else path address). */
   const ensLookupAddress = useMemo((): Address | null => {
@@ -281,8 +317,24 @@ function PublicPortfolioContent() {
   }, [showImpactReports])
 
   const shareUrl =
-    typeof window !== 'undefined' && resolved
-      ? `${window.location.origin}/impact/${resolved}${effectiveSubmissionOwner ? `?sa=${effectiveSubmissionOwner}` : ''}`
+    typeof window !== 'undefined' && portfolioDisplayAddress
+      ? (() => {
+          const base = `${window.location.origin}/impact/${portfolioDisplayAddress}`
+          if (
+            signerDisplayAddress &&
+            signerDisplayAddress.toLowerCase() !== portfolioDisplayAddress.toLowerCase()
+          ) {
+            return `${base}?signer=${signerDisplayAddress}`
+          }
+          if (
+            submissionOwnerOverride &&
+            resolved &&
+            resolved.toLowerCase() !== portfolioDisplayAddress.toLowerCase()
+          ) {
+            return `${base}?signer=${resolved}`
+          }
+          return base
+        })()
       : ''
 
   const copyShare = async () => {
@@ -524,9 +576,24 @@ function PublicPortfolioContent() {
                   )}
                 </div>
               )}
-              {resolved && (
-                <div className="min-w-0 max-w-full">
-                  <CopyableAddress address={resolved} truncate className="font-mono text-xs text-muted-foreground sm:text-sm" />
+              {portfolioDisplayAddress && (
+                <div className="min-w-0 max-w-full space-y-1">
+                  <CopyableAddress
+                    address={portfolioDisplayAddress}
+                    truncate
+                    className="font-mono text-xs text-muted-foreground sm:text-sm"
+                  />
+                  {signerDisplayAddress &&
+                  signerDisplayAddress.toLowerCase() !== portfolioDisplayAddress.toLowerCase() ? (
+                    <p className="text-[11px] text-muted-foreground/80">
+                      Signer:{' '}
+                      <CopyableAddress
+                        address={signerDisplayAddress}
+                        truncate
+                        className="inline font-mono text-[11px]"
+                      />
+                    </p>
+                  ) : null}
                 </div>
               )}
               {profile?.bio?.trim() ? (

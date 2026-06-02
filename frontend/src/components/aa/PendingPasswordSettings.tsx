@@ -3,7 +3,7 @@
 import { WalletPasskeySetupForm } from '@/components/aa/WalletPasskeySetupForm'
 import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
 
-/** First-time wallet passkey — after protection overview on Smart account settings. */
+/** First-time wallet passkey — after protection overview on Account settings. */
 export function PendingPasswordSettings() {
   return (
     <div className="rounded-xl border border-brand-green/25 bg-gray-900/50 p-6 space-y-4">

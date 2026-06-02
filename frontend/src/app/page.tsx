@@ -442,7 +442,7 @@ function HomeContent() {
           <div className="rounded-lg border border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400">
             Wallet locked. You&apos;ll be asked for your wallet passkey when you submit or claim onchain in DeCleanup Rewards.{' '}
             <Link href="/wallet" className="font-medium text-brand-green underline">
-              Go to smart account settings
+              Go to account settings
             </Link>
             .
           </div>
@@ -451,7 +451,7 @@ function HomeContent() {
           <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-200">
             Restore your wallet in{' '}
             <Link href="/wallet" className="font-medium text-brand-green underline">
-              Smart account settings
+              Account settings
             </Link>
             .
           </div>
@@ -863,7 +863,8 @@ function HomeContent() {
           }
           message={claimModal.message}
           variant={claimModal.variant}
-          autoCloseMs={claimModal.variant === 'success' ? 3000 : undefined}
+          autoCloseMs={claimModal.variant === 'success' ? 12000 : undefined}
+          closeOnBackdropClick={claimModal.variant !== 'success'}
         />
       )}
       {signGate && (

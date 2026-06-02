@@ -8,7 +8,7 @@ import { getPreferredSessionDuration, type SessionDurationId } from '@/lib/clien
 import { SigningSessionDurationField } from '@/components/aa/SigningSessionDurationField'
 import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
 
-/** Compact unlock block for Smart account settings (not a full-page gate). */
+/** Compact unlock block for Account settings (not a full-page gate). */
 export function UnlockSigningForm() {
   const { unlock, unlockWithPasskey, isPasskeyEnabled, passkeyLoading, error } = useWallet()
   const [password, setPassword] = useState('')

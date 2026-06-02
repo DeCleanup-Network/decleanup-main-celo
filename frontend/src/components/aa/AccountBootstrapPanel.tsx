@@ -50,7 +50,7 @@ export function AccountBootstrapPanel({ stage = 'wallet', error, onRetry }: Acco
           ) : null}
           {error || slow ? (
             <Button asChild className="">
-              <Link href="/wallet">Smart account settings</Link>
+              <Link href="/wallet">Account settings</Link>
             </Button>
           ) : null}
         </div>

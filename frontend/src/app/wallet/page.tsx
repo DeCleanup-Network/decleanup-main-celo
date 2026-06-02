@@ -11,10 +11,11 @@ import { WalletStatusCard } from '@/components/aa/WalletStatusCard'
 import { PendingPasswordSettings } from '@/components/aa/PendingPasswordSettings'
 import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
-import { WalletRecoveryInfoCard } from '@/components/aa/WalletRecoveryInfoCard'
 import { WalletLostAccessContactCard } from '@/components/aa/WalletLostAccessContactCard'
+import { AccountSetupIntro } from '@/components/aa/AccountSetupIntro'
 import { WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
 import { useAaWallet } from '@/hooks/useAaWallet'
+import { useAccountSetupComplete } from '@/hooks/useAccountSetupComplete'
 import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
@@ -31,7 +32,7 @@ const WalletBackupSection = dynamic(
   { ssr: false, loading: () => <div className="h-16 animate-pulse rounded-xl bg-gray-900/50" /> }
 )
 
-export default function SmartAccountSettingsPage() {
+export default function AccountSettingsPage() {
   const { status } = useSession()
   const router = useRouter()
   const aaEnabled = isAaAuthEnabledClient()
@@ -39,6 +40,7 @@ export default function SmartAccountSettingsPage() {
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { isConnected: wagmiConnected } = useAccount()
   const { signOutAll, disconnecting: signingOut } = useSignOutAll()
+  const { setupComplete, refreshBackupFlag } = useAccountSetupComplete(phase)
 
   useEffect(() => {
     if (!aaEnabled) return
@@ -54,7 +56,7 @@ export default function SmartAccountSettingsPage() {
   if (!aaEnabled) {
     return (
       <div className="mx-auto max-w-lg px-4 py-12 text-center text-gray-400">
-        Smart account settings are not enabled.
+        Account settings are not enabled.
       </div>
     )
   }
@@ -75,32 +77,30 @@ export default function SmartAccountSettingsPage() {
       <header className="space-y-3 border-b border-gray-800 pb-5">
         <BackToDeCleanupLink />
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="font-bebas text-2xl tracking-wider text-white sm:text-3xl">
-            Smart account settings
-          </h1>
+          <h1 className="font-bebas text-2xl tracking-wider text-white sm:text-3xl">Account settings</h1>
           <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm" className="border-white/10 text-muted-foreground">
-            <Link href="/guide">How it works</Link>
-          </Button>
-          {phase === 'unlocked' && (
+            <Button asChild variant="outline" size="sm" className="border-white/10 text-muted-foreground">
+              <Link href="/guide#embedded-wallet">How it works</Link>
+            </Button>
+            {phase === 'unlocked' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/10 text-muted-foreground"
+                onClick={() => lock()}
+              >
+                Lock
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
               className="border-white/10 text-muted-foreground"
-              onClick={() => lock()}
+              disabled={signingOut}
+              onClick={() => void signOutAll({ callbackUrl: '/login' })}
             >
-              Lock
+              {signingOut ? 'Signing out…' : 'Sign out'}
             </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-muted-foreground"
-            disabled={signingOut}
-            onClick={() => void signOutAll({ callbackUrl: '/login' })}
-          >
-            {signingOut ? 'Signing out…' : 'Sign out'}
-          </Button>
           </div>
         </div>
       </header>
@@ -109,7 +109,7 @@ export default function SmartAccountSettingsPage() {
 
       {phase === 'server-only' && (
         <div className="space-y-4">
-          <WalletRecoveryInfoCard />
+          {!setupComplete && <AccountSetupIntro />}
           <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
             Your wallet is saved to your account but is not unlocked on this device yet. Use your wallet
             passkey, or import an encrypted backup file if you created one earlier.
@@ -127,7 +127,7 @@ export default function SmartAccountSettingsPage() {
 
       {showWalletDetails && (
         <>
-          <WalletRecoveryInfoCard />
+          {!setupComplete && <AccountSetupIntro />}
 
           {phase === 'pending-password' && <PendingPasswordSettings />}
 
@@ -136,7 +136,7 @@ export default function SmartAccountSettingsPage() {
           {phase === 'unlocked' && <WalletSessionBar />}
           {phase === 'locked' && <UnlockSigningForm />}
 
-          {phase !== 'pending-password' && (
+          {phase !== 'pending-password' && !setupComplete && (
             <p className="text-sm text-gray-400">
               Set up Face ID / Touch ID below so you are not asked for your {WALLET_PASSKEY_LOWER} every time
               you submit or claim.
@@ -144,7 +144,7 @@ export default function SmartAccountSettingsPage() {
           )}
 
           <PasskeySettings />
-          <WalletBackupSection />
+          <WalletBackupSection onBackupDownloaded={refreshBackupFlag} />
           <WalletLostAccessContactCard />
         </>
       )}

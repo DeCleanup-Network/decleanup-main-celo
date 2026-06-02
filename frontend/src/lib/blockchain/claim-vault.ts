@@ -185,7 +185,7 @@ export async function claimCdcu(
 
   if (claimerAddress) {
     throw new Error(
-      'Your smart account has no CELO for gas. Connect MetaMask with CELO to submit the claim, unlock your wallet in Smart account settings for sponsored gas, or send a small amount of CELO to your smart account address.'
+      'Your smart account has no CELO for gas. Connect MetaMask with CELO to submit the claim, unlock your wallet in Account settings for sponsored gas, or send a small amount of CELO to your smart account address.'
     )
   }
 

@@ -57,7 +57,7 @@ export function WalletConnect() {
         <div className="flex flex-wrap items-center gap-2">
           {showSmartAccountSettings && (
             <Button asChild variant="brandGhost" size="sm">
-              <Link href="/wallet">Smart account settings</Link>
+              <Link href="/wallet">Account settings</Link>
             </Button>
           )}
           {showWalletSettings && (

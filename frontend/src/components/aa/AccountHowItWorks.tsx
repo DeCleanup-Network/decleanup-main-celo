@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 
-/** Collapsed by default — keeps Smart account settings scannable. */
+/** Collapsed by default — keeps Account settings scannable. */
 export function AccountHowItWorks() {
   const { data: session } = useSession()
   const email = session?.user?.email?.trim()

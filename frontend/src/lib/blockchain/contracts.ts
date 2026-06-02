@@ -1620,13 +1620,13 @@ export async function claimImpactProductFromVerification(
 
   if (matchesSmart && !eoaOwnsCleanupOnChain && !gasless) {
     throw new Error(
-      'This cleanup is tied to your smart account. Sign in with Google or email and unlock Smart account settings, or connect the wallet that owns this cleanup.'
+      'This cleanup is tied to your smart account. Sign in with Google or email and unlock Account settings, or connect the wallet that owns this cleanup.'
     )
   }
 
   if (gasless && matchesSmart && !smartFromClient) {
     throw new Error(
-      'Gasless claim unavailable: smart account not ready. Unlock your wallet in Smart account settings and wait a few seconds.'
+      'Gasless claim unavailable: smart account not ready. Unlock your wallet in Account settings and wait a few seconds.'
     )
   }
 

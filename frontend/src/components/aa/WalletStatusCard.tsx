@@ -48,7 +48,17 @@ export function WalletStatusCard({ wallet, loading }: Props) {
           <GasSponsorshipBadge enabled={wallet.gaslessEnabled} />
         </div>
 
-        <CopyableAddress address={wallet.smartAccountAddress} className="text-sm text-gray-200" />
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-wide text-gray-500">Smart account (onchain identity)</p>
+          <CopyableAddress address={wallet.smartAccountAddress} className="text-sm text-gray-200" />
+        </div>
+        {wallet.eoaAddress &&
+        wallet.eoaAddress.toLowerCase() !== wallet.smartAccountAddress.toLowerCase() ? (
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">Signer address (not shown on Impact Portfolio)</p>
+            <CopyableAddress address={wallet.eoaAddress} className="text-xs text-gray-500" />
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-6 text-sm">
           <div>

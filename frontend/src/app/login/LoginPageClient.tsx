@@ -61,8 +61,8 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
   }
 
   const subtitle = emailLoginEnabled
-    ? 'Google · Email · MetaMask · Recovery import'
-    : 'Google · MetaMask · Recovery import'
+    ? 'Google · Email · WalletConnect · Recovery import'
+    : 'Google · WalletConnect · Recovery import'
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">

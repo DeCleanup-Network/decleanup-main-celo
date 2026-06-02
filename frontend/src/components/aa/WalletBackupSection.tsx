@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { ImportBackupForm } from '@/components/aa/ImportBackupForm'
 import { MetamaskExportSection } from '@/components/aa/MetamaskExportSection'
+import { useSession } from 'next-auth/react'
 import { useWallet } from '@/providers/WalletProvider'
+import { markWalletBackupDownloaded } from '@/lib/client-wallet/account-setup'
 import {
   WALLET_PASSKEY,
   WALLET_PASSKEY_LOWER,
@@ -16,8 +18,10 @@ import {
 /**
  * Backup download + restore — the real "forgot wallet passkey" path (same onchain address).
  */
-export function WalletBackupSection() {
+export function WalletBackupSection({ onBackupDownloaded }: { onBackupDownloaded?: () => void }) {
   const [open, setOpen] = useState(false)
+  const { data: session } = useSession()
+  const userId = session?.user?.id
   const {
     downloadEncryptedBackup,
     downloadEncryptedBackupInSession,
@@ -51,6 +55,10 @@ export function WalletBackupSection() {
         await downloadEncryptedBackup(password)
       }
       setSuccess('Backup saved. Keep the file with your passkey.')
+      if (userId) {
+        markWalletBackupDownloaded(userId)
+        onBackupDownloaded?.()
+      }
       setPassword('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backup failed')
@@ -70,7 +78,7 @@ export function WalletBackupSection() {
         <div>
           <h2 className="text-base font-semibold text-white">Backup &amp; restore</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Forgot your {WALLET_PASSKEY_LOWER}? Import your backup here — same smart account address.
+            Forgot your {WALLET_PASSKEY_LOWER}? Import your backup here - same smart account address.
           </p>
         </div>
         {open ? (

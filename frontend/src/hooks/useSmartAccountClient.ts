@@ -88,7 +88,7 @@ export function useSmartAccountClient(): {
               () =>
                 reject(
                   new Error(
-                    'Smart account load timed out. Unlock in Smart account settings, then refresh and try submit.'
+                    'Smart account load timed out. Unlock in Account settings, then refresh and try submit.'
                   )
                 ),
               GASLESS_CLIENT_LOAD_MS
@@ -98,7 +98,7 @@ export function useSmartAccountClient(): {
         if (cancelled || loadGen !== gaslessLoadGenRef.current) return
         setClient(gasless)
         if (!gasless) {
-          setError(new Error('Signing session expired. Unlock your wallet in Smart account settings.'))
+          setError(new Error('Signing session expired. Unlock your wallet in Account settings.'))
         }
       } catch (e) {
         if (cancelled || loadGen !== gaslessLoadGenRef.current) return

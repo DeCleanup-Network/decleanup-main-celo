@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { BackButton } from '@/components/layout/BackButton'
 import { ChevronDown, Mail, Wallet, MessageCircle } from 'lucide-react'
 const EMBEDDED_WALLET_DASHBOARD_PATH = '/wallet'
+const EMBEDDED_WALLET_GUIDE_HASH = '#embedded-wallet'
 
 type StepId = 1 | 2 | 3
 
@@ -102,7 +103,7 @@ export default function UserGuidePage() {
                 dapp.decleanup.net
               </a>
               . DeCleanup Network is the nonprofit behind the protocol; the app is where you log cleanups,
-              earn DCU, claim $cDCU, and manage your smart account.
+              earn DCU, claim $cDCU, and manage your account settings.
             </p>
           </div>
 
@@ -273,7 +274,36 @@ export default function UserGuidePage() {
             activeStep={activeStep}
             onOpen={setActiveStep}
           >
-            <div className="space-y-4">
+            <div id="embedded-wallet" className="scroll-mt-24 space-y-4">
+              <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
+                <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground" style={bebasHeadingStyle}>
+                  How your wallet is protected
+                </h3>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Google sign-in only opens the app. It does not store or recover your onchain wallet.
+                  </p>
+                  <p>
+                    Your <strong className="text-foreground">wallet passkey</strong> encrypts your wallet key in this
+                    browser. DeCleanup Rewards is non-custodial — our team cannot see, reset, or recover your passkey or
+                    private key.
+                  </p>
+                  <p>
+                    Use your encrypted backup file from{' '}
+                    <Link href={EMBEDDED_WALLET_DASHBOARD_PATH} className="text-brand-green underline">
+                      Account settings
+                    </Link>{' '}
+                    (same smart account address). Without that backup, we cannot restore access — you would need a team
+                    reset and a new onchain address.
+                  </p>
+                  <p>
+                    You have two onchain addresses: a <strong className="text-foreground">smart account (Safe)</strong>{' '}
+                    that owns submissions and Impact Products, and a <strong className="text-foreground">signer address</strong>{' '}
+                    that unlocks it. Account settings shows both; your Impact Portfolio link uses the smart account.
+                  </p>
+                </div>
+              </div>
+
               <div className="rounded-xl border border-border bg-background/40 p-4">
                 <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
                   <li>
@@ -283,12 +313,12 @@ export default function UserGuidePage() {
                     <p className="mt-1">
                       Go to{' '}
                       <Link
-                        href={EMBEDDED_WALLET_DASHBOARD_PATH}
+                        href={`${EMBEDDED_WALLET_DASHBOARD_PATH}${EMBEDDED_WALLET_GUIDE_HASH}`}
                         className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
                       >
-                        your wallet dashboard
+                        Account settings
                       </Link>{' '}
-                      and log in with the same Google or email you used in DeCleanup Rewards.
+                      and log in with the same Google account you used in DeCleanup Rewards.
                     </p>
                   </li>
                   <li>
@@ -296,8 +326,8 @@ export default function UserGuidePage() {
                       Security setup
                     </h3>
                     <p className="mt-1">
-                      Enable a <strong className="text-foreground">passkey</strong> so signing and claims can unlock with
-                      Face ID / Touch ID / Windows Hello. Download an encrypted backup and store it safely offline.
+                      Create a wallet passkey, enable Face ID / Touch ID / Windows Hello for faster unlock, and download
+                      an encrypted backup stored safely offline.
                     </p>
                   </li>
                 </ul>

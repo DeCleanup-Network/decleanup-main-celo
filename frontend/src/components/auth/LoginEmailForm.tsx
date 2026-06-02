@@ -5,6 +5,8 @@ import { signIn } from 'next-auth/react'
 import { useDisconnect } from 'wagmi'
 import { Button } from '@/components/ui/button'
 
+const INPUT_ID = 'dcu-magic-link-contact'
+
 type Props = {
   callbackUrl: string
 }
@@ -15,6 +17,7 @@ export function LoginEmailForm({ callbackUrl }: Props) {
   const [pending, setPending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [contactReadOnly, setContactReadOnly] = useState(true)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,18 +54,36 @@ export function LoginEmailForm({ callbackUrl }: Props) {
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="space-y-2">
-      <label className="block text-left text-xs text-gray-500" htmlFor="login-email">
+    <form
+      onSubmit={(e) => void submit(e)}
+      className="space-y-2"
+      autoComplete="off"
+      data-1p-ignore="true"
+      data-lpignore="true"
+    >
+      <label className="block text-left text-xs text-gray-500" htmlFor={INPUT_ID}>
         Email (magic link)
       </label>
       <input
-        id="login-email"
-        type="email"
-        autoComplete="email"
+        id={INPUT_ID}
+        name="dcu-magic-link-contact"
+        type="text"
+        inputMode="email"
+        enterKeyHint="send"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        readOnly={contactReadOnly}
         placeholder="you@example.com"
         value={email}
+        onFocus={() => setContactReadOnly(false)}
         onChange={(e) => setEmail(e.target.value)}
         className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder:text-gray-600"
+        data-1p-ignore="true"
+        data-lpignore="true"
+        data-form-type="other"
+        aria-label="Email for magic link sign-in"
       />
       <Button
         type="submit"
