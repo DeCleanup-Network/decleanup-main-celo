@@ -1,5 +1,5 @@
-/** @deprecated Use minimal-wagmi-config (createServerMinimalWagmiConfig). */
+/** @deprecated Use minimal-wagmi-config. */
 export {
-  createServerMinimalWagmiConfig as getAaWagmiCookieConfig,
+  getServerMinimalWagmiConfig as getAaWagmiCookieConfig,
   getServerMinimalWagmiConfig as getAaWagmiCookieConfigSingleton,
 } from '@/lib/blockchain/minimal-wagmi-config'
