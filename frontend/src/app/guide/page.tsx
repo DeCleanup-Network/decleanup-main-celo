@@ -1,424 +1,394 @@
-'use client'
-
-import { useState } from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { BackButton } from '@/components/layout/BackButton'
-import { ChevronDown, Mail, Wallet, MessageCircle } from 'lucide-react'
-const EMBEDDED_WALLET_DASHBOARD_PATH = '/wallet'
-const EMBEDDED_WALLET_GUIDE_HASH = '#embedded-wallet'
+import { ChevronDown, Mail, MessageCircle, Wallet } from 'lucide-react'
 
-type StepId = 1 | 2 | 3
+export const metadata: Metadata = {
+  title: 'User Guide | DeCleanup Rewards',
+  description:
+    'How to sign in, submit cleanups, earn DCU, claim $cDCU, and secure your embedded wallet on DeCleanup Rewards.',
+}
 
-const bebasHeadingStyle = {
-  fontFamily: 'var(--font-bebas-neue), sans-serif',
-  letterSpacing: '0.05em',
-} as const
+const ACCOUNT_SETTINGS_PATH = '/wallet'
 
-function StepCard({
-  step,
-  title,
-  activeStep,
-  onOpen,
+const REWARDS_ROWS = [
+  { action: 'Verified cleanup (Impact Product level claim)', dcu: '10 DCU' },
+  { action: 'Referral - invited user completes a verified cleanup', dcu: '3 DCU' },
+  { action: 'Streak level (weekly activity)', dcu: '3 DCU per level' },
+  { action: 'Impact report (verified)', dcu: '5 DCU' },
+  { action: 'Recyclables report (verified)', dcu: '5 DCU' },
+  { action: 'Verifier work (reviewing a submission)', dcu: '1 DCU per review' },
+  { action: 'Hypercert creation (per 10 verified cleanups)', dcu: '10 DCU' },
+] as const
+
+const TOKEN_CONCEPTS = [
+  {
+    title: 'DCU',
+    body: 'On-chain participation points. Earned from verified actions in the app.',
+  },
+  {
+    title: 'Impact Product',
+    body: 'Your on-chain progression asset. Each approved cleanup can advance your level.',
+  },
+  {
+    title: '$cDCU',
+    body: 'The claimable ERC-20 token. Every 50 DCU milestone unlocks a claim.',
+  },
+] as const
+
+const SUBMIT_STEPS = [
+  'Take one before photo and one after photo of your cleanup site (up to 10 MB each).',
+  {
+    main: 'Allow location access when prompted - this is required for geotagging your submission.',
+    sub: 'If location fails: enable Location Services in your phone Settings, allow your browser to use location, and allow this site in your browser\'s site settings. You can also enter coordinates manually on the submit screen.',
+  },
+  'Optionally add an impact report and/or recyclables report.',
+  'Submit the cleanup.',
+  'Wait for verifier review and approval.',
+  'Once approved, claim your Impact Product level from the dashboard.',
+] as const
+
+const WALLET_SECURITY_STEPS = [
+  'Go to Account Settings and sign in with the same Google account you used in DeCleanup Rewards.',
+  'Create a wallet passkey. Enable Face ID, Touch ID, or Windows Hello for faster unlock.',
+  'Download an encrypted backup file and store it safely offline. This backup uses the same smart account address.',
+] as const
+
+function SectionCard({
+  id,
   children,
+  className = '',
 }: {
-  step: StepId
-  title: string
-  activeStep: StepId
-  onOpen: (step: StepId) => void
+  id?: string
   children: React.ReactNode
+  className?: string
 }) {
-  const isActive = activeStep === step
-
   return (
     <section
-      className={`rounded-2xl border bg-card transition-all duration-300 ${
-        isActive ? 'border-brand-green/50 shadow-[0_0_0_1px_rgba(88,177,47,0.15)]' : 'border-border hover:border-brand-green/30'
-      }`}
+      id={id}
+      className={`rounded-xl border border-white/[0.08] bg-[#141414] p-5 sm:p-6 ${className}`}
     >
-      <button
-        type="button"
-        onClick={() => onOpen(step)}
-        className={`flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors sm:px-5 ${
-          isActive ? 'border-l-2 border-l-brand-green' : 'border-l-2 border-l-transparent'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-brand-green/40 bg-brand-green/10 text-xs font-semibold text-brand-green">
-            {step}
-          </span>
-          <h2 className="font-bebas text-xl tracking-wide text-foreground sm:text-2xl">{title}</h2>
-        </div>
-        <ChevronDown
-          className={`h-5 w-5 text-muted-foreground transition-transform duration-300 ${isActive ? 'rotate-180 text-brand-green' : ''}`}
-          aria-hidden
-        />
-      </button>
-
-      <div
-        className={`overflow-hidden px-4 transition-all duration-300 sm:px-5 ${
-          isActive ? 'max-h-[2000px] pb-5 opacity-100' : 'max-h-0 pb-0 opacity-0'
-        }`}
-      >
-        {children}
-      </div>
+      {children}
     </section>
   )
 }
 
-export default function UserGuidePage() {
-  const [activeStep, setActiveStep] = useState<StepId>(1)
-  const [showAdvancedExport, setShowAdvancedExport] = useState(false)
-
+function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
-        <BackButton href="/" label="Back" />
-        <article className="mt-4 space-y-4 rounded-2xl border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground sm:p-6">
-          <h1 className="font-bebas text-3xl tracking-wide text-brand-green sm:text-4xl">User Guide</h1>
+    <h2 className="font-heading mb-4 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+      {children}
+    </h2>
+  )
+}
 
-          <div className="rounded-xl border border-border bg-background/40 p-3">
-            <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground">
-              <span>Progress</span>
-              <span>Step {activeStep} of 3</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((step) => (
-                <button
-                  key={step}
-                  type="button"
-                  onClick={() => setActiveStep(step as StepId)}
-                  className={`h-2 rounded-full transition-all ${
-                    activeStep >= step ? 'bg-brand-green' : 'bg-muted'
-                  } hover:opacity-80`}
-                  aria-label={`Open step ${step}`}
-                />
-              ))}
-            </div>
-          </div>
+function ExternalLink({
+  href,
+  children,
+  className = 'text-brand-green underline underline-offset-2 hover:text-brand-green/90',
+}: {
+  href: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      {children}
+    </a>
+  )
+}
 
-          <div className="rounded-xl border border-border/80 bg-background/30 p-4 text-sm text-muted-foreground">
-            <p>
-              This guide is for <strong className="text-foreground">DeCleanup Rewards</strong> at{' '}
-              <a href="https://dapp.decleanup.net" className="text-brand-green underline">
+export default function UserGuidePage() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+        {/* Page header */}
+        <header className="mb-10 space-y-4 border-b border-white/[0.08] pb-8">
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center transition-opacity hover:opacity-90"
+            aria-label="DeCleanup Rewards home"
+          >
+            <img src="/logo.png" alt="DeCleanup Network" className="h-14 w-14 sm:h-16 sm:w-16" />
+          </Link>
+          <div className="space-y-2">
+            <h1 className="font-heading text-3xl font-semibold tracking-tight text-brand-green sm:text-4xl">
+              User Guide
+            </h1>
+            <p className="max-w-2xl text-sm leading-relaxed text-white/60 sm:text-base">
+              DeCleanup Rewards at{' '}
+              <ExternalLink href="https://dapp.decleanup.net" className="text-brand-green underline underline-offset-2">
                 dapp.decleanup.net
-              </a>
-              . DeCleanup Network is the nonprofit behind the protocol; the app is where you log cleanups,
-              earn DCU, claim $cDCU, and manage your account settings.
+              </ExternalLink>{' '}
+              - where you log cleanups, earn DCU, and claim $cDCU.
             </p>
           </div>
+        </header>
 
-          <StepCard
-            step={1}
-            title="How do you want to sign in?"
-            activeStep={activeStep}
-            onOpen={setActiveStep}
-          >
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="rounded-xl border border-brand-green/40 bg-brand-green/5 p-4">
-                <div className="mb-2 flex items-center justify-between">
+        <div className="space-y-8">
+          {/* Step 1: Sign In */}
+          <SectionCard>
+            <SectionHeading>Step 1 - Sign In</SectionHeading>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-brand-green/35 bg-brand-green/5 p-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-brand-green" />
-                    <h3 className="font-bebas text-lg tracking-wide text-foreground">Email or Google</h3>
+                    <Mail className="h-4 w-4 shrink-0 text-brand-green" aria-hidden />
+                    <h3 className="font-heading text-base font-semibold text-white">Email or Google</h3>
                   </div>
-                  <span className="rounded-full border border-brand-green/50 bg-brand-green/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-green">
+                  <span className="rounded-full border border-brand-green/50 bg-brand-green/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-green">
                     Recommended
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Fastest way to start. We create a wallet for you automatically. Nothing to install.
+                <p className="text-sm leading-relaxed text-white/60">
+                  The fastest way to start. We create a wallet for you automatically. Nothing to install, no browser
+                  extension needed.
                 </p>
-                <p className="mt-3 inline-flex rounded-full border border-brand-green/40 bg-brand-green/10 px-2.5 py-1 text-[11px] font-medium text-brand-green">
-                  Gas fees covered for you
+                <p className="mt-3 inline-flex rounded-lg border border-brand-green/40 bg-brand-green/10 px-2.5 py-1 text-[11px] font-medium text-brand-green">
+                  Gas fees are covered for you
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-500/35 bg-amber-500/5 p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-amber-300" />
-                  <h3 className="font-bebas text-lg tracking-wide text-foreground">Your own wallet</h3>
+              <div className="rounded-xl border border-white/[0.08] bg-background/40 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Wallet className="h-4 w-4 shrink-0 text-white/70" aria-hidden />
+                  <h3 className="font-heading text-base font-semibold text-white">Connect your wallet</h3>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Connect MetaMask or any WalletConnect app. You keep full control of your keys.
+                <p className="text-sm leading-relaxed text-white/60">
+                  Connect MetaMask or any WalletConnect-compatible app. You keep full custody of your keys.
                 </p>
-                <p className="mt-3 inline-flex rounded-full border border-amber-500/45 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-200">
-                  You&apos;ll need a small CELO balance for gas
-                </p>
-                <p className="mt-3">
-                  <a
-                    href="https://docs.celo.org/home/gas-fees"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-medium text-amber-300 underline underline-offset-2 hover:text-amber-200"
-                  >
-                    How to get CELO →
-                  </a>
+                <p className="mt-3 text-sm text-white/60">
+                  You will need a small CELO balance for gas.{' '}
+                  <ExternalLink href="https://docs.celo.org/home/gas-fees">How to get CELO</ExternalLink>
                 </p>
               </div>
             </div>
-          </StepCard>
+          </SectionCard>
 
-          <StepCard
-            step={2}
-            title="Actions and flow"
-            activeStep={activeStep}
-            onOpen={setActiveStep}
-          >
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-background/40 p-4">
-                <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Do your first cleanup submission</h3>
-                <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>Add one before cleanup photo and one after cleanup photo (up to 10 MB each).</li>
-                  <li>
-                    Allow location when prompted (required for geotagging). If it fails, turn on Location Services in
-                    phone Settings, allow your browser to use location, and allow this site in browser site settings —
-                    or enter coordinates manually on the submit screen.
-                  </li>
-                  <li>Add impact report and recyclables report (optional).</li>
-                  <li>Submit the cleanup.</li>
-                  <li>Wait for verifier approval.</li>
-                  <li>Claim your level after approval.</li>
-                </ol>
-              </div>
-
-              <div className="rounded-xl border border-border bg-background/40 p-4">
-                <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Understand rewards breakdown</h3>
-                <p className="mb-2 text-sm text-muted-foreground">
-                  DCU are onchain participation points. You earn them from actions in the app:
-                </p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>
-                    <span className="text-foreground">Impact Products:</span> 10 DCU per verified level claim.
-                  </li>
-                  <li>
-                    <span className="text-foreground">Referrals:</span> 3 DCU when your invite completes a verified cleanup.
-                  </li>
-                  <li>
-                    <span className="text-foreground">Streaks:</span> 3 DCU per streak level for weekly activity.
-                  </li>
-                  <li>
-                    <span className="text-foreground">Impact report or recyclables report:</span> 5 DCU each when verified.
-                  </li>
-                  <li>
-                    <span className="text-foreground">Verifier work:</span> 1 DCU per reviewed submission.
-                  </li>
-                  <li>
-                    <span className="text-foreground">Hypercerts:</span> 10 DCU per ten verified cleanups when you create a Hypercert.
-                  </li>
-                </ul>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Impact Product is your onchain progression asset. Each approved cleanup can move your level forward.
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  $cDCU is the claimable ERC-20 token. Every 50 DCU milestone can unlock a claim from the dashboard.
-                </p>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  More details:{' '}
-                  <a
-                    href="http://decleanup.net/litepaper"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+          {/* Step 2: Submit a Cleanup */}
+          <SectionCard>
+            <SectionHeading>Step 2 - Submit a Cleanup</SectionHeading>
+            <ol className="space-y-4">
+              {SUBMIT_STEPS.map((step, index) => (
+                <li key={index} className="flex gap-3 text-sm leading-relaxed text-white/60">
+                  <span
+                    className="font-mono flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-brand-green/30 bg-brand-green/10 text-xs font-semibold text-brand-green"
+                    aria-hidden
                   >
-                    Litepaper
-                  </a>
-                  {' · '}
-                  <a
-                    href="http://decleanup.net/tokenomics"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-                  >
-                    Tokenomics
-                  </a>
-                </p>
-              </div>
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 pt-0.5">
+                    {typeof step === 'string' ? (
+                      <p>{step}</p>
+                    ) : (
+                      <>
+                        <p>{step.main}</p>
+                        <p className="mt-1 text-xs text-white/50">{step.sub}</p>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5 rounded-lg border border-brand-green/25 bg-brand-green/5 px-4 py-3 text-sm leading-relaxed text-white/70">
+              <strong className="text-white">Tip:</strong> iPhone users should avoid HEIC format. Use JPEG when
+              possible, or enable &quot;Most Compatible&quot; format in your iPhone camera settings (Settings &gt; Camera
+              &gt; Formats).
+            </div>
+          </SectionCard>
 
-              <div className="rounded-xl border border-border bg-background/40 p-4">
-                <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Hypercerts and impact portfolio</h3>
-                <p className="text-sm text-muted-foreground">
-                  Hypercerts summarize verified impact across multiple cleanups. Open the Hypercerts page to check eligibility, submit a request, and mint after verifier approval.
+          {/* Step 3: Rewards */}
+          <SectionCard>
+            <SectionHeading>Step 3 - Understand Your Rewards</SectionHeading>
+            <p className="mb-5 text-sm leading-relaxed text-white/60">
+              DCU are your on-chain participation points. You earn them through verified actions in the app. Every 50
+              DCU unlocks a $cDCU claim from your dashboard.
+            </p>
+
+            <div className="overflow-x-auto rounded-lg border border-white/[0.08]">
+              <table className="w-full min-w-[320px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.08] bg-white/[0.03]">
+                    <th className="px-4 py-3 font-heading font-semibold text-white">Action</th>
+                    <th className="px-4 py-3 font-heading font-semibold text-white whitespace-nowrap">DCU Earned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {REWARDS_ROWS.map((row) => (
+                    <tr key={row.action} className="border-b border-white/[0.06] last:border-0">
+                      <td className="px-4 py-3 text-white/60">{row.action}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-brand-green whitespace-nowrap">{row.dcu}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {TOKEN_CONCEPTS.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-lg border border-white/[0.08] bg-background/50 p-4"
+                >
+                  <h3 className="font-heading mb-1.5 text-sm font-semibold text-brand-green">{item.title}</h3>
+                  <p className="text-xs leading-relaxed text-white/60">{item.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-5 text-sm text-white/60">
+              <ExternalLink href="http://decleanup.net/litepaper">Litepaper</ExternalLink>
+              {' · '}
+              <ExternalLink href="http://decleanup.net/tokenomics">Tokenomics</ExternalLink>
+            </p>
+          </SectionCard>
+
+          {/* Hypercerts and Impact Portfolio */}
+          <SectionCard>
+            <SectionHeading>Hypercerts and Impact Portfolio</SectionHeading>
+            <div className="space-y-5 text-sm leading-relaxed text-white/60">
+              <div>
+                <h3 className="font-heading mb-2 text-base font-semibold text-white">Hypercerts</h3>
+                <p>
+                  Hypercerts summarize your verified impact across multiple cleanups into a single on-chain
+                  attestation. To mint one: open the Hypercerts page, check your eligibility, submit a request, and
+                  mint after verifier approval.
                 </p>
                 <p className="mt-2">
-                  <a
-                    href="https://hypercerts.org/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-                  >
-                    Learn more about Hypercerts →
-                  </a>
+                  <ExternalLink href="https://hypercerts.org/">Learn more about Hypercerts</ExternalLink>
                 </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  You can also update your profile with more info about your work and share your Impact Portfolio page with potential funders.
+              </div>
+              <div>
+                <h3 className="font-heading mb-2 text-base font-semibold text-white">Impact Portfolio</h3>
+                <p>
+                  Update your profile with information about your cleanup work and share your Impact Portfolio page with
+                  potential funders, grant programs, or impact investors.
                 </p>
               </div>
             </div>
-          </StepCard>
+          </SectionCard>
 
-          <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm text-muted-foreground">
-            <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Past contributor airdrop</h3>
-            <p>
-              If you were on the early supporter list, open{' '}
-              <Link href="/airdrop" className="text-brand-green underline">
+          {/* Past Contributor Airdrop */}
+          <SectionCard className="border-l-2 border-l-brand-green">
+            <SectionHeading>Past Contributor Airdrop</SectionHeading>
+            <p className="text-sm leading-relaxed text-white/60">
+              If you were on the early supporter list, go to{' '}
+              <Link href="/airdrop" className="text-brand-green underline underline-offset-2 hover:text-brand-green/90">
                 /airdrop
               </Link>
-              , paste your wallet address, and sign in with the same wallet. After a successful claim you earn a{' '}
-              <strong className="text-foreground">Past contributor</strong> badge on your dashboard and Impact
-              Portfolio.
+              , paste your wallet address, and sign in with the same wallet used during the early period. After a
+              successful claim, you will receive a <strong className="text-white">Past Contributor</strong> badge on
+              your dashboard and Impact Portfolio.
             </p>
-          </div>
+          </SectionCard>
 
-          <StepCard
-            step={3}
-            title="Need to access your embedded wallet later?"
-            activeStep={activeStep}
-            onOpen={setActiveStep}
-          >
-            <div id="embedded-wallet" className="scroll-mt-24 space-y-4">
-              <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
-                <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground" style={bebasHeadingStyle}>
-                  How your wallet is protected
-                </h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    Google sign-in only opens the app. It does not store or recover your onchain wallet.
-                  </p>
-                  <p>
-                    Your <strong className="text-foreground">wallet passkey</strong> encrypts your wallet key in this
-                    browser. DeCleanup Rewards is non-custodial — our team cannot see, reset, or recover your passkey or
-                    private key.
-                  </p>
-                  <p>
-                    Use your encrypted backup file from{' '}
-                    <Link href={EMBEDDED_WALLET_DASHBOARD_PATH} className="text-brand-green underline">
-                      Account settings
-                    </Link>{' '}
-                    (same smart account address). Without that backup, we cannot restore access — you would need a team
-                    reset and a new onchain address.
-                  </p>
-                  <p>
-                    You have two onchain addresses: a <strong className="text-foreground">smart account (Safe)</strong>{' '}
-                    that owns submissions and Impact Products, and a <strong className="text-foreground">signer address</strong>{' '}
-                    that unlocks it. Account settings shows both; your Impact Portfolio link uses the smart account.
-                  </p>
-                </div>
-              </div>
+          {/* Wallet Recovery */}
+          <SectionCard id="embedded-wallet" className="scroll-mt-24">
+            <SectionHeading>Accessing Your Embedded Wallet</SectionHeading>
 
-              <div className="rounded-xl border border-border bg-background/40 p-4">
-                <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-                  <li>
-                    <h3 className="mb-1 font-bebas text-lg tracking-wide text-foreground" style={bebasHeadingStyle}>
-                      Find your wallet
-                    </h3>
-                    <p className="mt-1">
-                      Go to{' '}
-                      <Link
-                        href={`${EMBEDDED_WALLET_DASHBOARD_PATH}${EMBEDDED_WALLET_GUIDE_HASH}`}
-                        className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-                      >
-                        Account settings
-                      </Link>{' '}
-                      and log in with the same Google account you used in DeCleanup Rewards.
-                    </p>
-                  </li>
-                  <li>
-                    <h3 className="mb-1 font-bebas text-lg tracking-wide text-foreground" style={bebasHeadingStyle}>
-                      Security setup
-                    </h3>
-                    <p className="mt-1">
-                      Create a wallet passkey, enable Face ID / Touch ID / Windows Hello for faster unlock, and download
-                      an encrypted backup stored safely offline.
-                    </p>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="rounded-xl border border-border bg-background/40 p-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedExport((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-md text-left transition-colors hover:text-foreground"
-                >
-                  <span className="font-bebas text-lg tracking-wide text-foreground" style={bebasHeadingStyle}>
-                    Exporting your wallet (advanced)
-                  </span>
-                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                    I know what I&apos;m doing →
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform duration-300 ${showAdvancedExport ? 'rotate-180 text-brand-green' : ''}`}
-                      aria-hidden
-                    />
-                  </span>
-                </button>
-
-                <div
-                  className={`overflow-hidden transition-all duration-300 ${
-                    showAdvancedExport ? 'max-h-[600px] pt-3 opacity-100' : 'max-h-0 pt-0 opacity-0'
-                  }`}
-                >
-                  <p className="text-sm text-muted-foreground">
-                    In the Recovery phrase section, you can copy or download your seed phrase. Import it into MetaMask or any compatible wallet.
-                  </p>
-                  <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
-                    Anyone with your recovery phrase controls your funds. Never share it.
-                  </div>
-                  <p className="mt-2">
-                    <a
-                      href="https://www.quicknode.com/guides/web3-fundamentals-security/security/an-introduction-to-crypto-wallets-and-how-to-keep-them-secure"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-medium text-amber-300 underline underline-offset-2 hover:text-amber-200"
-                    >
-                      Learn about key custody →
-                    </a>
-                  </p>
-                  <div className="my-3 h-px bg-border" />
-                  <p className="text-sm text-muted-foreground">
-                    Once exported, keep a small CELO balance for gas. Sponsored transactions may not always be available.
-                  </p>
-                  <p className="mt-2">
-                    <a
-                      href="https://docs.celo.org/home/gas-fees"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/90"
-                    >
-                      How to top up CELO →
-                    </a>
-                  </p>
-                </div>
-              </div>
+            <div className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-amber-100/90">
+              DeCleanup Rewards is non-custodial. Our team cannot see, reset, or recover your passkey or private key.
+              Your Google sign-in opens the app - it does not store or recover your wallet.
             </div>
-          </StepCard>
 
-          <footer className="pt-1 text-xs text-muted-foreground">
-            <span>Something not working? </span>
-            <a
-              href="https://t.me/c/DecentralizedCleanup/17"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link inline-flex items-center gap-1 normal-case no-underline hover:underline"
-            >
-              <MessageCircle className="h-3.5 w-3.5" aria-hidden />
-              Message us on Telegram
-            </a>
+            <div className="mb-5 space-y-2 text-sm leading-relaxed text-white/60">
+              <p className="font-medium text-white">You have two on-chain addresses:</p>
+              <ul className="list-disc space-y-2 pl-5">
+                <li>
+                  <strong className="text-white">Smart account (Safe):</strong> owns your submissions and Impact
+                  Products. This is the address shown on your Impact Portfolio.
+                </li>
+                <li>
+                  <strong className="text-white">Signer address:</strong> the key that unlocks your smart account. Both
+                  are visible in Account Settings.
+                </li>
+              </ul>
+            </div>
+
+            <h3 className="font-heading mb-3 text-base font-semibold text-white">Steps to secure your wallet</h3>
+            <ol className="mb-5 space-y-3">
+              {WALLET_SECURITY_STEPS.map((step, index) => (
+                <li key={index} className="flex gap-3 text-sm leading-relaxed text-white/60">
+                  <span
+                    className="font-mono flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-xs font-semibold text-white/80"
+                    aria-hidden
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 pt-0.5">
+                    {index === 0 ? (
+                      <>
+                        Go to{' '}
+                        <Link
+                          href={ACCOUNT_SETTINGS_PATH}
+                          className="text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+                        >
+                          Account Settings
+                        </Link>{' '}
+                        and sign in with the same Google account you used in DeCleanup Rewards.
+                      </>
+                    ) : (
+                      step
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mb-5 rounded-lg border border-white/[0.08] bg-background/40 px-4 py-3 text-sm text-white/60">
+              Without your backup file, access cannot be restored. You would require a team reset and a new on-chain
+              address.
+            </div>
+
+            <details className="group rounded-lg border border-white/[0.08] bg-background/30">
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-white marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="font-heading">Export seed phrase (advanced users only)</span>
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-white/50 transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="space-y-4 border-t border-white/[0.08] px-4 pb-4 pt-3 text-sm leading-relaxed text-white/60">
+                <p>
+                  In the Recovery Phrase section of Account Settings, you can copy or download your seed phrase and
+                  import it into MetaMask or any compatible wallet.
+                </p>
+                <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-100">
+                  Anyone with your recovery phrase has full control of your funds. Never share it with anyone.
+                </div>
+                <p>
+                  Once exported, keep a small CELO balance for gas. Sponsored transactions may not always be available.
+                </p>
+                <p>
+                  <ExternalLink href="https://docs.celo.org/home/gas-fees">How to top up CELO</ExternalLink>
+                </p>
+              </div>
+            </details>
+          </SectionCard>
+
+          {/* In-page footer */}
+          <footer className="space-y-4 border-t border-white/[0.08] pt-8 text-sm text-white/60">
+            <p>
+              Something not working?{' '}
+              <ExternalLink
+                href="https://t.me/c/DecentralizedCleanup/17"
+                className="inline-flex items-center gap-1.5 text-brand-green underline underline-offset-2 hover:text-brand-green/90"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden />
+                Message us on Telegram
+              </ExternalLink>
+            </p>
+            <p className="text-xs">
+              <ExternalLink href="http://decleanup.net/user-guide">Full Network Guide</ExternalLink>
+              {' · '}
+              <Link href="/terms" className="text-brand-green underline underline-offset-2 hover:text-brand-green/90">
+                Terms of Service
+              </Link>
+              {' · '}
+              <Link href="/privacy" className="text-brand-green underline underline-offset-2 hover:text-brand-green/90">
+                Privacy Policy
+              </Link>
+            </p>
           </footer>
-
-          <div className="pt-1 text-xs text-muted-foreground">
-            <a
-              href="http://decleanup.net/user-guide"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              Full Network guide
-            </a>
-            {' · '}
-            <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</Link>
-            {' · '}
-            <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy</Link>
-          </div>
-        </article>
+        </div>
       </div>
     </div>
   )

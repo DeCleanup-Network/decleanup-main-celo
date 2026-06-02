@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+const SUPPORT_EMAIL = 'decentralizedcleanup@gmail.com'
+
 export const metadata: Metadata = {
   title: 'Terms of Service | DeCleanup Network',
   description: 'Terms of Service for the DeCleanup Rewards web application.',
@@ -18,130 +20,145 @@ export default function TermsPage() {
         <h1 className="mb-2 font-bebas text-3xl tracking-wide text-brand-green sm:text-4xl">Terms of Service</h1>
         <p className="mb-8 text-sm text-muted-foreground">Effective April 23, 2026 · DeCleanup Network</p>
 
-        <div className="mb-8 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100/90">
-          <strong className="text-amber-200">Template - not legal advice.</strong> Have qualified counsel review before
-          production. Repository copy: <code className="rounded bg-black/40 px-1">docs/TERMS_OF_SERVICE.md</code>
-        </div>
-
         <article className="space-y-8 text-sm leading-relaxed text-muted-foreground sm:text-base">
           <section>
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">1. Acceptance</h2>
             <p>
-              By using this application (including connecting a wallet, submitting cleanups, or signing transactions),
-              you agree to these Terms. If you do not agree, do not use the Service.
+              By accessing or using DeCleanup Rewards - including connecting a wallet, submitting cleanup evidence, or
+              signing transactions - you agree to be bound by these Terms of Service. If you do not agree, you must not
+              use the platform.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">2. The Service</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">2. Description of Service</h2>
             <p>
-              The Service provides interfaces to interact with DeCleanup-related smart contracts on{' '}
-              <strong className="text-foreground">Celo</strong> (for example submissions, rewards, Impact Products, and
-              optional <strong className="text-foreground">$cDCU</strong> claims via ClaimVault, depending on deployment
-              configuration). Features may change, pause, or be removed.
+              DeCleanup Rewards provides interfaces for interacting with DeCleanup-related smart contracts deployed on
+              the Celo blockchain. Functionality includes cleanup submissions, reward distribution, Impact Products, and
+              optional $cDCU token claims via ClaimVault, subject to deployment configuration. Features may be modified,
+              suspended, or discontinued at any time.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">3. Eligibility (global)</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">3. Eligibility</h2>
             <p>
-              The Service is offered worldwide. You must be at least <strong className="text-foreground">18</strong> (or
-              the age of majority where you live), able to enter a binding agreement, and comply with{' '}
-              <strong className="text-foreground">all laws that apply to you</strong>. Do not use the Service where it is
-              prohibited.
+              DeCleanup Rewards is available globally. To use the platform, you must be at least 18 years of age (or the
+              age of majority in your jurisdiction), have the legal capacity to enter binding agreements, and comply
+              with all laws and regulations applicable to you. Use of the platform where prohibited by law is not
+              permitted.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">4. Wallets and onchain activity</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">4. Wallets and On-Chain Activity</h2>
             <p>
-              You control your wallet keys. <strong className="text-foreground">We cannot reverse onchain transactions</strong>{' '}
-              or recover lost keys. Gas fees apply; networks may fail or differ (testnet vs mainnet). Verify the network
-              in your wallet before signing.
+              You are solely responsible for the security of your wallet and private keys. DeCleanup Rewards cannot
+              reverse on-chain transactions or recover lost or compromised keys. Gas fees are your responsibility.
+              Network conditions and configurations (including testnet versus mainnet) may vary - always verify the
+              active network in your wallet before signing any transaction.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">5. Acceptable use</h2>
-            <p>You agree not to submit fraudulent evidence, attack the Service, bypass security controls, or break the law.</p>
-          </section>
-
-          <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">6. Your content</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">5. Acceptable Use</h2>
             <p>
-              You grant DeCleanup Network a limited license to host, process, and display your submissions{' '}
-              <strong className="text-foreground">to operate the Service</strong>, including storing media or hashes with
-              providers such as IPFS as configured for your deployment.
+              You agree not to submit fraudulent or fabricated cleanup evidence, attempt to circumvent security
+              controls, interfere with the integrity of the platform, or engage in any activity that violates
+              applicable law.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">7. Points, tokens, and risks</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">6. User Content</h2>
             <p>
-              Onchain participation metrics and tokens (including <strong className="text-foreground">DCU</strong> ledger
-              balances and <strong className="text-foreground">$cDCU</strong>) may have no monetary value, may change, and
-              are not investment advice or an offer of securities. Claim rules follow the deployed contracts and backend
-              signing configuration.
+              By submitting content to DeCleanup Rewards, you grant DeCleanup Network a limited, non-exclusive license to
+              host, process, and display that content solely for the purpose of operating the platform, including
+              storage of media or content hashes via IPFS or equivalent decentralized storage as configured for your
+              deployment.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">8. Third parties</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">
+              7. Points, Tokens, and Risk Disclosure
+            </h2>
             <p>
-              The Service relies on wallet providers, RPC endpoints, IPFS pinning, hosting, databases, and optional ML
-              services. Their terms apply to your use of those products.
+              Participation metrics, DCU ledger balances, and $cDCU tokens may carry no monetary value, are subject to
+              change, and do not constitute investment advice or an offer of securities. Claim eligibility and rules
+              are governed by the deployed smart contracts and backend signing configuration in effect at the time of
+              the claim.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">9. Disclaimers and liability</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">8. Third-Party Services</h2>
             <p>
-              The Service is provided <strong className="text-foreground">“as is”</strong> without warranties. To the
-              maximum extent permitted by law, DeCleanup Network is not liable for indirect or consequential damages arising from
-              your use of the Service or onchain networks. Some jurisdictions do not allow certain limitations; those
-              apply only to the extent permitted.
+              DeCleanup Rewards depends on third-party infrastructure including wallet providers, Celo RPC endpoints,
+              IPFS pinning services, hosting providers, database services, and optional machine learning services. Your
+              use of those services is subject to their respective terms and policies.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">10. Indemnity</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">
+              9. Disclaimers and Limitation of Liability
+            </h2>
             <p>
-              You will defend and indemnify DeCleanup Network against claims arising from your use of the Service, your content,
-              or your violation of these Terms.
+              DeCleanup Rewards is provided on an &quot;as is&quot; and &quot;as available&quot; basis without warranties
+              of any kind, express or implied. To the maximum extent permitted by applicable law, DeCleanup Network
+              shall not be liable for any indirect, incidental, special, or consequential damages arising from your use
+              of the platform or from the operation of underlying blockchain networks. Jurisdictions that do not permit
+              certain limitations will apply those limitations only to the extent allowed.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">10. Indemnification</h2>
+            <p>
+              You agree to defend, indemnify, and hold harmless DeCleanup Network from and against any claims, losses, or
+              expenses (including reasonable legal fees) arising from your use of DeCleanup Rewards, your submitted
+              content, or your breach of these Terms.
             </p>
           </section>
 
           <section>
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">11. Privacy</h2>
             <p>
-              See our{' '}
+              Your use of DeCleanup Rewards is also governed by our{' '}
               <Link href="/privacy" className="text-brand-green hover:underline">
                 Privacy Policy
-              </Link>{' '}
-              and <code className="rounded bg-muted px-1 text-foreground">docs/PRIVACY_POLICY.md</code>.
+              </Link>
+              .
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">12. Changes</h2>
-            <p>We may update these Terms by posting a new version. Continued use after changes constitutes acceptance.</p>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">12. Amendments</h2>
+            <p>
+              DeCleanup Network reserves the right to update these Terms at any time by posting a revised version.
+              Continued use of DeCleanup Rewards following the posting of changes constitutes acceptance of those
+              changes.
+            </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">13. Global users; law and disputes</h2>
+            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">13. Governing Law and Disputes</h2>
             <p>
-              DeCleanup Network is global. These Terms do not pick one country for everyone. Mandatory rights under{' '}
-              <strong className="text-foreground">your local laws</strong> still apply. Try to resolve disputes in good
-              faith via your published contact first. If that fails, courts or tribunals with{' '}
-              <strong className="text-foreground">jurisdiction under applicable law</strong> may hear claims. See{' '}
-              <code className="rounded bg-muted px-1 text-foreground">docs/TERMS_OF_SERVICE.md</code> section 14 for the
-              full wording.
+              DeCleanup Network operates as a global project without a single governing jurisdiction. Mandatory rights
+              under your local laws remain unaffected by these Terms. In the event of a dispute, the parties agree to
+              first attempt resolution in good faith through the published contact. Where that is not possible, claims
+              shall be subject to the courts or tribunals of competent jurisdiction under applicable law.
             </p>
           </section>
 
           <section>
             <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">14. Contact</h2>
-            <p>Insert your official support or legal contact for this deployment.</p>
+            <p>
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand-green hover:underline">
+                {SUPPORT_EMAIL}
+              </a>
+            </p>
           </section>
         </article>
       </div>
