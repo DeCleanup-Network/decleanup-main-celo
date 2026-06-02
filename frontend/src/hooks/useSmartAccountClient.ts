@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount, useWalletClient } from 'wagmi'
 import type { Address } from 'viem'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
@@ -52,6 +52,9 @@ export function useSmartAccountClient(): {
   const [embeddedPath, setEmbeddedPath] = useState<EmbeddedPath>(() =>
     aa && isPaymasterConfigured() ? 'yes' : !isPaymasterConfigured() || !isPrivyEnabled ? 'no' : 'unset'
   )
+  const gaslessLoadGenRef = useRef(0)
+  const getGaslessClientRef = useRef(getGaslessClient)
+  getGaslessClientRef.current = getGaslessClient
 
   const address = appAddress ?? wagmiAddress
   const isConnected = aa ? Boolean(appAddress) : wagmiConnected
@@ -69,17 +72,17 @@ export function useSmartAccountClient(): {
       return
     }
 
+    const loadGen = ++gaslessLoadGenRef.current
     let cancelled = false
     setEmbeddedPath('yes')
     setError(null)
-    setScLoading(true)
-    setClient(null)
     setSmartAccountAddress(aaSmartAddress)
+    setScLoading((prev) => prev || client === null)
 
     void (async () => {
       try {
         const gasless = await Promise.race([
-          getGaslessClient(),
+          getGaslessClientRef.current(),
           new Promise<null>((_, reject) => {
             setTimeout(
               () =>
@@ -92,27 +95,25 @@ export function useSmartAccountClient(): {
             )
           }),
         ])
-        if (!cancelled) {
-          setClient(gasless)
-          setSmartAccountAddress(aaSmartAddress)
-          if (!gasless) {
-            setError(new Error('Signing session expired. Unlock your wallet in Smart account settings.'))
-          }
+        if (cancelled || loadGen !== gaslessLoadGenRef.current) return
+        setClient(gasless)
+        if (!gasless) {
+          setError(new Error('Signing session expired. Unlock your wallet in Smart account settings.'))
         }
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e : new Error(String(e)))
-          setClient(null)
-        }
+        if (cancelled || loadGen !== gaslessLoadGenRef.current) return
+        setError(e instanceof Error ? e : new Error(String(e)))
+        setClient(null)
       } finally {
-        if (!cancelled) setScLoading(false)
+        if (!cancelled && loadGen === gaslessLoadGenRef.current) setScLoading(false)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [aa, isEmbeddedAccount, canTransact, hasActiveSigningSession, aaSmartAddress, getGaslessClient])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- client read for loading UX only; avoid reload loop on getGaslessClient identity
+  }, [aa, isEmbeddedAccount, canTransact, hasActiveSigningSession, aaSmartAddress])
 
   // Privy / RainbowKit embedded path (unchanged)
   useEffect(() => {
@@ -238,14 +239,12 @@ export function useSmartAccountClient(): {
     scLoading,
   ])
 
-  const gaslessClientLoading =
-    expectsSponsoredGas && (aa ? canTransact && hasActiveSigningSession : true) && scLoading
-
   return {
     client,
     smartAccountAddress: aa ? aaSmartAddress : smartAccountAddress,
     submissionOwnerAddress,
-    isLoading: detectingEmbedded || gaslessClientLoading,
+    /** Background gasless init — do not block UI; submit checks client when tapped. */
+    isLoading: detectingEmbedded,
     error,
     expectsSponsoredGas,
   }

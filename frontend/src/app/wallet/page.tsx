@@ -12,7 +12,8 @@ import { PendingPasswordSettings } from '@/components/aa/PendingPasswordSettings
 import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
 import { WalletRecoveryInfoCard } from '@/components/aa/WalletRecoveryInfoCard'
-import { CreateNewWalletCard } from '@/components/aa/CreateNewWalletCard'
+import { WalletLostAccessContactCard } from '@/components/aa/WalletLostAccessContactCard'
+import { WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
 import { useAaWallet } from '@/hooks/useAaWallet'
 import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
@@ -106,10 +107,9 @@ export default function SmartAccountSettingsPage() {
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {phase === 'pending-password' && <PendingPasswordSettings />}
-
       {phase === 'server-only' && (
         <div className="space-y-4">
+          <WalletRecoveryInfoCard />
           <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
             Your wallet is saved to your account but is not unlocked on this device yet. Use your wallet
             passkey, or import an encrypted backup file if you created one earlier.
@@ -117,8 +117,7 @@ export default function SmartAccountSettingsPage() {
           <Button asChild className="w-full">
             <Link href="/import-wallet">Import backup file</Link>
           </Button>
-          <WalletRecoveryInfoCard />
-          <CreateNewWalletCard visible />
+          <WalletLostAccessContactCard />
         </div>
       )}
 
@@ -129,14 +128,24 @@ export default function SmartAccountSettingsPage() {
       {showWalletDetails && (
         <>
           <WalletRecoveryInfoCard />
+
+          {phase === 'pending-password' && <PendingPasswordSettings />}
+
           <WalletStatusCard wallet={wallet} loading={loading} />
 
           {phase === 'unlocked' && <WalletSessionBar />}
           {phase === 'locked' && <UnlockSigningForm />}
 
+          {phase !== 'pending-password' && (
+            <p className="text-sm text-gray-400">
+              Set up Face ID / Touch ID below so you are not asked for your {WALLET_PASSKEY_LOWER} every time
+              you submit or claim.
+            </p>
+          )}
+
           <PasskeySettings />
           <WalletBackupSection />
-          <CreateNewWalletCard visible={phase === 'locked' || phase === 'unlocked'} />
+          <WalletLostAccessContactCard />
         </>
       )}
     </div>

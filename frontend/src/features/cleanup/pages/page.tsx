@@ -17,6 +17,7 @@ import { Camera, Upload, ArrowRight, ArrowLeft, Check, Loader2, ExternalLink, X,
 import { uploadToIPFS, uploadJSONToIPFS } from '@/lib/blockchain/ipfs'
 import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission, getUserLevel, isAtomicContractTxEnabled, type GaslessClient } from '@/lib/blockchain/contracts'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { useWallet } from '@/providers/WalletProvider'
 import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
 import { isImpactClaimOutstanding, markCleanupAsClaimed } from '@/lib/blockchain/verification'
@@ -227,9 +228,9 @@ function CleanupContent() {
     client: gaslessClient,
     submissionOwnerAddress,
     error: gaslessError,
-    isLoading: isGaslessLoading,
     expectsSponsoredGas,
   } = useSmartAccountClient()
+  const { getGaslessClient } = useWallet()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [mounted, setMounted] = useState(false)
@@ -1107,18 +1108,19 @@ function CleanupContent() {
       return
     }
 
-    if (embeddedSponsoredSubmit && isPaymasterConfigured()) {
-      if (isGaslessLoading) return
-      if (!gaslessClient) {
-        setAlertModal({
-          title: 'Gasless wallet unavailable',
-          message:
-            gaslessError?.message ||
-            'Your sponsored smart account is not ready yet. Open Smart account settings, unlock once, then retry submit.',
-          variant: 'warning',
-        })
-        return
-      }
+    let resolvedGasless = (gaslessClient as GaslessClient | null) ?? null
+    if (embeddedSponsoredSubmit && isPaymasterConfigured() && canTransact && !resolvedGasless) {
+      resolvedGasless = (await getGaslessClient()) as GaslessClient | null
+    }
+    if (embeddedSponsoredSubmit && isPaymasterConfigured() && !resolvedGasless) {
+      setAlertModal({
+        title: 'Gasless wallet unavailable',
+        message:
+          gaslessError?.message ||
+          'Unlock your wallet in Smart account settings, wait a few seconds, then try submit again.',
+        variant: 'warning',
+      })
+      return
     }
 
     setIsSubmitting(true)
@@ -1231,8 +1233,7 @@ function CleanupContent() {
       console.log('Gasless status:', {
         paymasterConfigured: isPaymasterConfigured(),
         expectsSponsoredGas,
-        hasGaslessClient: !!gaslessClient,
-        isGaslessLoading,
+        hasGaslessClient: !!resolvedGasless,
         gaslessError: gaslessError?.message || null,
       })
       console.log('Submission data:', {
@@ -1246,25 +1247,8 @@ function CleanupContent() {
 
       try {
         // Embedded (social/email) path needs SC + paymaster; MetaMask / WalletConnect in the modal pay their own gas (EOA).
-        if (expectsSponsoredGas && !gaslessClient) {
-          const detail =
-            gaslessError?.message ||
-            (isGaslessLoading
-              ? 'Smart account is still initializing. Please wait a few seconds and retry.'
-              : 'Smart account client is unavailable.')
-          setAlertModal({
-            title: 'Preparing gasless submit',
-            message: detail,
-            variant: 'warning',
-          })
-          setIsSubmitting(false)
-          return
-        }
-
         // Pass chainId from hook to avoid false chain detection issues
-        const submitOpts = gaslessClient
-          ? { gaslessClient: gaslessClient as GaslessClient }
-          : undefined
+        const submitOpts = resolvedGasless ? { gaslessClient: resolvedGasless } : undefined
         const combinedRecyclablesSubmit =
           isAtomicContractTxEnabled() && hasRecyclables && !!recyclablesPhotoHash
 
@@ -1986,37 +1970,6 @@ function CleanupContent() {
     return null
   }
 
-  const GaslessStatusBanner = () => {
-    if (!expectsSponsoredGas || !isEmbeddedAccount) return null
-    if (gaslessClient) return null
-    if (!canTransact) {
-      return (
-        <p className="mb-4 text-xs text-gray-500">
-          You can add photos now. Unlock your wallet in Smart account settings when you submit (gasless).
-        </p>
-      )
-    }
-    if (gaslessError) {
-      return (
-        <div className="mb-4 rounded-lg border border-orange-500/40 bg-orange-500/10 p-3 text-xs text-orange-100">
-          <p className="font-semibold text-orange-200">Gasless submit unavailable</p>
-          <p className="mt-1 whitespace-pre-wrap text-orange-100/95">{gaslessError.message}</p>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Photos still work. Fix Pimlico/RPC or unlock again, then submit.
-          </p>
-        </div>
-      )
-    }
-    if (isGaslessLoading) {
-      return (
-        <p className="mb-4 text-xs text-gray-500">
-          Loading gasless smart account… You can still choose photos.
-        </p>
-      )
-    }
-    return null
-  }
-
   const modalLayer = (
     <>
       {signGate && (
@@ -2067,7 +2020,6 @@ function CleanupContent() {
 
           <ReferralNotification />
           <CooldownBanner />
-          <GaslessStatusBanner />
           {aaEnabled && walletPhase === 'pending-password' && (
             <div className="mb-4">
               <AccountReadyBanner />
@@ -2298,7 +2250,6 @@ function CleanupContent() {
           </div>
 
           <CooldownBanner />
-          <GaslessStatusBanner />
           {aaEnabled && walletPhase === 'pending-password' && (
             <div className="mb-4">
               <AccountReadyBanner />
@@ -2845,7 +2796,6 @@ function CleanupContent() {
           </div>
 
           <CooldownBanner />
-          <GaslessStatusBanner />
           {aaEnabled && walletPhase === 'pending-password' && (
             <div className="mb-4">
               <AccountReadyBanner />

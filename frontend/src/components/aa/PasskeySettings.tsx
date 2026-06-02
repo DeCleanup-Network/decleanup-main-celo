@@ -94,6 +94,10 @@ export function PasskeySettings() {
         </span>
       </summary>
       <div className="space-y-4 border-t border-gray-800 px-5 pb-5 pt-3">
+        <p className="text-sm text-gray-400">
+          Optional: use Face ID / Touch ID on this device so you do not need to type your {WALLET_PASSKEY_LOWER}{' '}
+          each time you submit or claim.
+        </p>
         {open && loading ? (
           <p className="text-sm text-gray-400">Loading…</p>
         ) : open ? (
