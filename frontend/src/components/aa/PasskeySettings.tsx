@@ -95,7 +95,10 @@ export function PasskeySettings() {
       </summary>
       <div className="space-y-4 border-t border-gray-800 px-5 pb-5 pt-3">
         {!isPasskeyEnabled && (
-          <p className="text-sm text-gray-400">Optional — unlock without typing your passkey.</p>
+          <p className="text-sm text-gray-400">
+            Optional: unlock on this device without typing your wallet passkey each time. Your private key never leaves
+            this device. You still need your wallet passkey for backup restore or a new phone.
+          </p>
         )}
 
         {open && loading ? (

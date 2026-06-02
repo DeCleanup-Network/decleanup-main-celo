@@ -69,6 +69,21 @@ const describeChain = (id?: number) => {
 
 function cleanupFailureHints(errorMessage: string): string {
   const lower = errorMessage.toLowerCase()
+  const isChainId =
+    lower.includes('invalid id') ||
+    lower.includes('invalid chain') ||
+    lower.includes('chain id') ||
+    lower.includes('does not match the target chain')
+
+  if (isChainId) {
+    return (
+      `Please check:\n` +
+      `- You're on ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID})\n` +
+      `- Refresh the page, then try submit again\n` +
+      `- If using MetaMask, switch network in the wallet app`
+    )
+  }
+
   const isIpfs =
     lower.includes('ipfs') ||
     lower.includes('pinata') ||
@@ -201,8 +216,9 @@ function CleanupContent() {
     walletReady,
     walletBootstrapping,
     isEmbeddedAccount,
+    embeddedSponsoredSubmit,
   } = useAppWalletAddress()
-  const { error: walletSetupError } = useWallet()
+  const { error: walletSetupError, retryWalletBootstrap } = useWallet()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
     purpose: string
@@ -1043,7 +1059,7 @@ function CleanupContent() {
       })
       return
     }
-    if (expectsSponsoredGas && !canTransact) {
+    if (embeddedSponsoredSubmit && isPaymasterConfigured() && !canTransact) {
       pendingRecyclablesRef.current = hasRecyclables
       setSignGate({
         mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
@@ -1053,8 +1069,10 @@ function CleanupContent() {
     }
     if (!canTransact) {
       setAlertModal({
-        title: 'Connect wallet',
-        message: 'Connect your wallet before submitting a cleanup.',
+        title: aaEnabled ? 'Unlock wallet' : 'Connect wallet',
+        message: aaEnabled
+          ? 'Unlock your smart wallet (wallet passkey or Face ID) before submitting.'
+          : 'Connect your wallet before submitting a cleanup.',
         variant: 'warning',
       })
       return
@@ -1670,7 +1688,11 @@ function CleanupContent() {
   if (aaEnabled && isEmbeddedAccount && walletBootstrapping) {
     return (
       <div className="min-h-screen bg-background">
-        <AccountBootstrapPanel stage="wallet" error={walletSetupError} />
+        <AccountBootstrapPanel
+          stage="wallet"
+          error={walletSetupError}
+          onRetry={retryWalletBootstrap}
+        />
       </div>
     )
   }
@@ -1957,6 +1979,16 @@ function CleanupContent() {
 
   const GaslessStatusBanner = () => {
     if (!expectsSponsoredGas) return null
+    if (!canTransact && isEmbeddedAccount) {
+      return (
+        <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
+          <p className="font-medium text-amber-200">Unlock to submit gaslessly</p>
+          <p className="mt-1 text-amber-100/90">
+            Your smart wallet is ready. Set or enter your wallet passkey (or use Face ID) when you submit.
+          </p>
+        </div>
+      )
+    }
     if (gaslessClient) return null
     if (isGaslessLoading) {
       return (

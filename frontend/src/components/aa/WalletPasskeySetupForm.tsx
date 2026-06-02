@@ -9,10 +9,15 @@ type Props = {
   /** Settings page: expanded by default */
   defaultOpen?: boolean
   compact?: boolean
+  ctaLabel?: string
 }
 
 /** Create wallet passkey while account is in pending-password phase */
-export function WalletPasskeySetupForm({ defaultOpen = false, compact = false }: Props) {
+export function WalletPasskeySetupForm({
+  defaultOpen = false,
+  compact = false,
+  ctaLabel,
+}: Props) {
   const { setSigningPassword } = useWallet()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -53,7 +58,7 @@ export function WalletPasskeySetupForm({ defaultOpen = false, compact = false }:
         className="border-white/10 text-muted-foreground"
         onClick={() => setOpen(true)}
       >
-        {`Set ${WALLET_PASSKEY_LOWER} now`}
+        {ctaLabel ?? `Set ${WALLET_PASSKEY_LOWER} now`}
       </Button>
     )
   }

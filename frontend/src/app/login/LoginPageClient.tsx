@@ -43,10 +43,10 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
         : null
 
   useEffect(() => {
-    if (status === 'authenticated' && isEmbeddedAccount) {
+    if (status === 'authenticated') {
       router.replace(callbackUrl)
     }
-  }, [status, isEmbeddedAccount, router, callbackUrl])
+  }, [status, router, callbackUrl])
 
   if (!aaEnabled) {
     return (

@@ -175,7 +175,7 @@ export function useSmartAccountClient(): {
   }, [aa, embeddedPath, wagmiConnected, address, chainId, walletClient])
 
   const expectsSponsoredGas = aa
-    ? isPaymasterConfigured() && isEmbeddedAccount && canTransact
+    ? isPaymasterConfigured() && isEmbeddedAccount
     : embeddedPath === 'yes'
 
   const detectingEmbedded =

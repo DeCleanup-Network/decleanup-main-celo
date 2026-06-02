@@ -502,13 +502,7 @@ export async function submitCleanup(
       hash = await lockedWriteContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
     }
 
-    const receipt = await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      hash,
-      confirmations: 1,
-      pollingInterval: 2000,
-      timeout: 120000,
-    })
+    await waitForOnChainConfirmation(hash, gasless)
 
     const submissionCountAfter = await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
@@ -517,7 +511,7 @@ export async function submitCleanup(
       functionName: 'submissionCount',
     })
 
-    const submissionId = submissionCountBefore as bigint
+    const submissionId = (submissionCountAfter as bigint) - 1n
 
     if (submissionId === undefined || submissionId === null) {
       throw new Error('Failed to get submission ID from transaction')

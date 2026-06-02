@@ -410,6 +410,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await unlockWithPassword(password, sessionDuration)
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Passkey unlock failed'
+        const lower = message.toLowerCase()
+        if (
+          lower.includes('operation-specific reason') ||
+          lower.includes('notallowederror') ||
+          lower.includes('not allowed') ||
+          lower.includes('cancelled') ||
+          lower.includes('canceled')
+        ) {
+          throw new Error(
+            'Face ID / Touch ID did not complete. Try again, or unlock with your wallet passkey instead.'
+          )
+        }
         throw new Error(message)
       } finally {
         unlockKey = null

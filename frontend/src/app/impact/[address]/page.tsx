@@ -313,10 +313,16 @@ function PublicPortfolioContent() {
   const totalRewards = reward?.totalDcuBreakdown || 0
 
   const displayTitle = useMemo(() => {
+    const shortenAddress = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`
+    const normalizeHeading = (value: string) => {
+      const t = value.trim()
+      if (/^0x[a-fA-F0-9]{40}$/.test(t)) return shortenAddress(t)
+      return t
+    }
     const fromProfile = profile?.displayName?.trim()
-    if (fromProfile) return fromProfile
-    if (ensName?.trim()) return ensName.trim()
-    if (resolved) return `${resolved.slice(0, 6)}…${resolved.slice(-4)}`
+    if (fromProfile) return normalizeHeading(fromProfile)
+    if (ensName?.trim()) return normalizeHeading(ensName.trim())
+    if (resolved) return shortenAddress(resolved)
     return 'Impact portfolio'
   }, [profile?.displayName, ensName, resolved])
 
@@ -489,13 +495,18 @@ function PublicPortfolioContent() {
 
         {/* 1) Header */}
         <section className="rounded-2xl border border-border bg-card p-5 sm:p-8">
-          <div className="flex flex-col justify-between gap-5 lg:flex-row">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-brand-green/40 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-green">
-                <Stamp className="h-3.5 w-3.5" />
-                Verified Impact · ESG Disclosure
+          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-brand-green/40 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-green">
+                <Stamp className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Verified Impact · ESG Disclosure</span>
               </div>
-              <h2 className="font-bebas text-4xl leading-none tracking-wider sm:text-6xl">{displayTitle}</h2>
+              <h2
+                className="font-bebas min-w-0 max-w-full text-[clamp(1.75rem,7vw,3.25rem)] leading-[1.05] tracking-wider break-words [overflow-wrap:anywhere]"
+                title={displayTitle}
+              >
+                {displayTitle}
+              </h2>
               {(showPastContributorBadge || isPortfolioVerifier || hasMaxImpactLevel) && (
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {showPastContributorBadge ? <PastContributorBadge size="md" /> : null}
@@ -514,7 +525,7 @@ function PublicPortfolioContent() {
                 </div>
               )}
               {resolved && (
-                <div className="max-w-xl">
+                <div className="min-w-0 max-w-full">
                   <CopyableAddress address={resolved} truncate className="font-mono text-xs text-muted-foreground sm:text-sm" />
                 </div>
               )}
@@ -535,7 +546,7 @@ function PublicPortfolioContent() {
                 ))}
               </div>
             </div>
-            <div className="flex flex-wrap items-start gap-2">
+            <div className="flex w-full min-w-0 shrink-0 flex-wrap items-start gap-2 lg:max-w-[min(100%,22rem)] lg:justify-end">
               {shareUrl && (
                 <>
                   <Button

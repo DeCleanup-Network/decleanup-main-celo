@@ -16,16 +16,20 @@ export function useAppWalletAddress() {
 
   const showMainApp = aaEnabled ? isAuthenticated || wagmiConnected : wagmiConnected
 
-  let address: Address | undefined = wagmiConnected ? wagmiAddress : undefined
-  if (
+  const embeddedWalletReady =
     isEmbeddedAccount &&
-    eoaAddress &&
-    (phase === 'unlocked' || phase === 'locked' || phase === 'pending-password')
-  ) {
+    (phase === 'pending-password' || phase === 'locked' || phase === 'unlocked' || phase === 'server-only')
+
+  let address: Address | undefined = wagmiConnected ? wagmiAddress : undefined
+  if (embeddedWalletReady && eoaAddress) {
     address = eoaAddress
+  } else if (isEmbeddedAccount && smartAccountAddress && phase === 'loading') {
+    address = smartAccountAddress
   }
 
-  const isConnected = Boolean(address && (wagmiConnected || isEmbeddedAccount))
+  const isConnected =
+    Boolean(address && (wagmiConnected || isEmbeddedAccount)) ||
+    Boolean(isEmbeddedAccount && isAuthenticated && smartAccountAddress && phase !== 'no-wallet')
   const canTransact =
     (wagmiConnected && !isEmbeddedAccount) || (isEmbeddedAccount && phase === 'unlocked')
 
@@ -37,8 +41,10 @@ export function useAppWalletAddress() {
 
   const walletBootstrapping =
     isEmbeddedAccount &&
-    (phase === 'loading' || phase === 'no-wallet') &&
-    !smartAccountAddress
+    ((phase === 'loading' && !smartAccountAddress && !eoaAddress) || phase === 'no-wallet')
+
+  const embeddedSponsoredSubmit =
+    aaEnabled && isEmbeddedAccount && isAuthenticated && phase !== 'no-wallet'
 
   return {
     address,
@@ -52,6 +58,7 @@ export function useAppWalletAddress() {
     aaEnabled,
     walletReady,
     walletBootstrapping,
+    embeddedSponsoredSubmit,
     wagmiConnected,
   }
 }
