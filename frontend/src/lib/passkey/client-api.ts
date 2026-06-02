@@ -9,6 +9,7 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/browser'
 import { wrapUnlockPassword } from '@/lib/client-wallet/passkey-unlock'
+import { formatWebAuthnError } from '@/lib/passkey/errors'
 
 export async function fetchPasskeyStatus(): Promise<{
   hasPasskey: boolean
@@ -34,9 +35,14 @@ export async function registerPasskey(userId: string, unlockPassword: string): P
   const optionsJson = await optionsRes.json()
   if (!optionsRes.ok) throw new Error(optionsJson.error ?? 'Failed to start passkey registration')
 
-  const attestation = await startRegistration({
-    optionsJSON: optionsJson.options as PublicKeyCredentialCreationOptionsJSON,
-  })
+  let attestation
+  try {
+    attestation = await startRegistration({
+      optionsJSON: optionsJson.options as PublicKeyCredentialCreationOptionsJSON,
+    })
+  } catch (e) {
+    throw new Error(formatWebAuthnError(e))
+  }
 
   const verifyRes = await fetch('/api/passkey/register/verify', {
     method: 'POST',
@@ -58,9 +64,14 @@ export async function authenticatePasskey(): Promise<string> {
   const optionsJson = await optionsRes.json()
   if (!optionsRes.ok) throw new Error(optionsJson.error ?? 'Failed to start passkey authentication')
 
-  const assertion = await startAuthentication({
-    optionsJSON: optionsJson.options as PublicKeyCredentialRequestOptionsJSON,
-  })
+  let assertion
+  try {
+    assertion = await startAuthentication({
+      optionsJSON: optionsJson.options as PublicKeyCredentialRequestOptionsJSON,
+    })
+  } catch (e) {
+    throw new Error(formatWebAuthnError(e))
+  }
 
   const verifyRes = await fetch('/api/passkey/auth/verify', {
     method: 'POST',

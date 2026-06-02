@@ -18,6 +18,8 @@ import { useWallet } from '@/providers/WalletProvider'
 const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
 import { connectorLooksLikeExternalOwnedWallet } from '@/lib/blockchain/wallet-provider-kind'
 
+const GASLESS_CLIENT_LOAD_MS = 12_000
+
 type EmbeddedPath = 'unset' | 'yes' | 'no'
 
 /**
@@ -76,7 +78,20 @@ export function useSmartAccountClient(): {
 
     void (async () => {
       try {
-        const gasless = await getGaslessClient()
+        const gasless = await Promise.race([
+          getGaslessClient(),
+          new Promise<null>((_, reject) => {
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'Smart account load timed out. Unlock in Smart account settings, then refresh and try submit.'
+                  )
+                ),
+              GASLESS_CLIENT_LOAD_MS
+            )
+          }),
+        ])
         if (!cancelled) {
           setClient(gasless)
           setSmartAccountAddress(aaSmartAddress)
@@ -223,11 +238,14 @@ export function useSmartAccountClient(): {
     scLoading,
   ])
 
+  const gaslessClientLoading =
+    expectsSponsoredGas && (aa ? canTransact && hasActiveSigningSession : true) && scLoading
+
   return {
     client,
     smartAccountAddress: aa ? aaSmartAddress : smartAccountAddress,
     submissionOwnerAddress,
-    isLoading: detectingEmbedded || (expectsSponsoredGas && scLoading),
+    isLoading: detectingEmbedded || gaslessClientLoading,
     error,
     expectsSponsoredGas,
   }

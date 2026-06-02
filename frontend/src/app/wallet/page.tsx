@@ -11,7 +11,8 @@ import { WalletStatusCard } from '@/components/aa/WalletStatusCard'
 import { PendingPasswordSettings } from '@/components/aa/PendingPasswordSettings'
 import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
-import { ResetWalletAccessCard } from '@/components/aa/ResetWalletAccessCard'
+import { WalletRecoveryInfoCard } from '@/components/aa/WalletRecoveryInfoCard'
+import { CreateNewWalletCard } from '@/components/aa/CreateNewWalletCard'
 import { useAaWallet } from '@/hooks/useAaWallet'
 import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
@@ -116,7 +117,8 @@ export default function SmartAccountSettingsPage() {
           <Button asChild className="w-full">
             <Link href="/import-wallet">Import backup file</Link>
           </Button>
-          <ResetWalletAccessCard visible />
+          <WalletRecoveryInfoCard />
+          <CreateNewWalletCard visible />
         </div>
       )}
 
@@ -126,14 +128,15 @@ export default function SmartAccountSettingsPage() {
 
       {showWalletDetails && (
         <>
+          <WalletRecoveryInfoCard />
           <WalletStatusCard wallet={wallet} loading={loading} />
 
           {phase === 'unlocked' && <WalletSessionBar />}
           {phase === 'locked' && <UnlockSigningForm />}
 
           <PasskeySettings />
-          <ResetWalletAccessCard visible={phase === 'locked'} />
           <WalletBackupSection />
+          <CreateNewWalletCard visible={phase === 'locked' || phase === 'unlocked'} />
         </>
       )}
     </div>

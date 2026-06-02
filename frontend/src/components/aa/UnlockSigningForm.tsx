@@ -6,7 +6,7 @@ import { useWallet } from '@/providers/WalletProvider'
 import { isPasskeySupported } from '@/lib/passkey/config-client'
 import { getPreferredSessionDuration, type SessionDurationId } from '@/lib/client-wallet/signing-session'
 import { SigningSessionDurationField } from '@/components/aa/SigningSessionDurationField'
-import { WALLET_PASSKEY, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
+import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
 
 /** Compact unlock block for Smart account settings (not a full-page gate). */
 export function UnlockSigningForm() {
@@ -47,7 +47,7 @@ export function UnlockSigningForm() {
     <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 space-y-3">
       <h2 className="text-base font-semibold text-white">Unlock</h2>
       <p className="text-sm text-gray-400">
-        Required before submit or claim. Use your passkey or Face ID.
+        Required before submit or claim. Prefer Face ID; use your {WALLET_PASSKEY_LOWER} if biometrics fail.
       </p>
 
       {showPasskey && (

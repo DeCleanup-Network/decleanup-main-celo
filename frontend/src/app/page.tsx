@@ -94,7 +94,7 @@ function HomeContent() {
     wagmiConnected,
   } = useAppWalletAddress()
   const { isConnected: wagmiIsConnected } = useAccount()
-  const { error: walletSetupError, retryWalletBootstrap } = useWallet()
+  const { error: walletSetupError, retryWalletBootstrap, writeContractAsEoa } = useWallet()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
     purpose: string
@@ -222,6 +222,12 @@ function HomeContent() {
         })
         return
       }
+    } else if (eoaOwnsCleanupOnChain && isEmbeddedAccount && !canTransact) {
+      setSignGate({
+        mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
+        purpose: 'claim your Impact Product level',
+      })
+      return
     } else if (!wagmiIsConnected && !wagmiConnected) {
       setClaimModal({
         variant: 'error',
@@ -245,7 +251,12 @@ function HomeContent() {
       setIsClaiming(true)
 
       const claimOptions = eoaOwnsCleanupOnChain
-        ? { eoaAddress: connectedEoa }
+        ? {
+            eoaAddress: connectedEoa,
+            ...(isEmbeddedAccount && canTransact
+              ? { embeddedEoaWrite: writeContractAsEoa }
+              : {}),
+          }
         : smartAccountOwnsSubmission || expectsSponsoredGas
           ? {
               gaslessClient: gaslessClient as GaslessClient,

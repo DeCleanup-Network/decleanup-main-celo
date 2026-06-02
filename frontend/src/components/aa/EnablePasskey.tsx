@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useWallet } from '@/providers/WalletProvider'
 import { isPasskeySupported, isPlatformAuthenticatorAvailable } from '@/lib/passkey/config-client'
 import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
+import { formatWebAuthnError } from '@/lib/passkey/errors'
 
 type Props = {
   /** Required when wallet is locked — confirms the user knows their unlock password. */
@@ -12,12 +13,15 @@ type Props = {
   /** Use immediately after wallet setup (password already verified). */
   presetPassword?: string
   onEnabled?: () => void
+  /** Hide intro paragraph when parent already shows it. */
+  hideIntro?: boolean
 }
 
 export function EnablePasskey({
   requirePassword = true,
   presetPassword,
   onEnabled,
+  hideIntro = false,
 }: Props) {
   const { registerPasskey, isPasskeyEnabled, passkeyLoading } = useWallet()
   const [password, setPassword] = useState('')
@@ -57,7 +61,7 @@ export function EnablePasskey({
       setPassword('')
       onEnabled?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to enable biometrics')
+      setError(formatWebAuthnError(err))
     } finally {
       setPending(false)
     }
@@ -65,10 +69,12 @@ export function EnablePasskey({
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <p className="text-sm text-gray-400">
-        Optional: unlock on this device without typing your {WALLET_PASSKEY_LOWER} each time. Your private key never
-        leaves this device. You still need your {WALLET_PASSKEY_LOWER} for backup restore or a new phone.
-      </p>
+      {!hideIntro && (
+        <p className="text-sm text-gray-400">
+          Optional: unlock on this device without typing your {WALLET_PASSKEY_LOWER} each time. Your private key never
+          leaves this device. You still need your {WALLET_PASSKEY_LOWER} for backup restore or a new phone.
+        </p>
+      )}
 
       {requirePassword && !presetPassword && (
         <label className="block space-y-1">

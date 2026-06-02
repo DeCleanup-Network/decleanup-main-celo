@@ -25,6 +25,9 @@ NEXT_PUBLIC_HYPERCERTS_NETWORK=celo
 NEXT_PUBLIC_WEB_APP_URL=https://dapp.decleanup.net
 NEXT_PUBLIC_SITE_URL=https://dapp.decleanup.net
 NEXT_PUBLIC_APP_URL=https://dapp.decleanup.net
+# Face ID / Touch ID (optional; derived from APP_URL if unset)
+# NEXT_PUBLIC_WEBAUTHN_RP_ID=dapp.decleanup.net
+# NEXT_PUBLIC_WEBAUTHN_ORIGIN=https://dapp.decleanup.net
 
 # Auth.js embedded wallets (recommended)
 NEXT_PUBLIC_AA_AUTH_ENABLED=true
@@ -91,9 +94,14 @@ DIRECT_URL=postgresql://...@...supabase.com:5432/postgres?sslmode=require
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 # Magic link email (optional — if unset, login page hides "Continue with Email")
-# Resend example:
+# Preferred: Resend HTTP API (create key at https://resend.com/api-keys)
+RESEND_API_KEY=re_YOUR_API_KEY
+EMAIL_FROM=DeCleanup <onboarding@resend.dev>
+# Production: verify domain in Resend, then e.g. EMAIL_FROM=DeCleanup <noreply@dapp.decleanup.net>
+# AUTH_URL must match your public site (Vercel Production):
+# AUTH_URL=https://dapp.decleanup.net
+# Legacy SMTP (only if you do not use RESEND_API_KEY):
 # EMAIL_SERVER=smtp://resend:re_YOUR_API_KEY@smtp.resend.com:587
-# EMAIL_FROM=DeCleanup <onboarding@resend.dev>
 # NEXT_PUBLIC_PIMLICO_API_KEY=
 
 # ============================================

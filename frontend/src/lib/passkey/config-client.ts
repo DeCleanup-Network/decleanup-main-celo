@@ -5,7 +5,9 @@ export function getClientWebAuthnRpId(): string {
   if (process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID?.trim()) {
     return process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID.trim()
   }
-  return window.location.hostname
+  const host = window.location.hostname
+  if (host) return host
+  return 'localhost'
 }
 
 export function isPasskeySupported(): boolean {

@@ -102,9 +102,20 @@ async function prepareMobileWalletWrite(config: Config): Promise<void> {
   if (!needsPrep) return
 
   await prepareWalletConnectSession(config)
-  await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
-  const fresh = getAccount(config)
+  let ready = await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+  let fresh = getAccount(config)
   if (fresh.chainId != null && fresh.chainId !== REQUIRED_CHAIN_ID) {
+    const switched = await switchToRequiredChain(config)
+    if (switched) {
+      ready = await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+      fresh = getAccount(config)
+    }
+  }
+  if (
+    !ready &&
+    fresh.chainId != null &&
+    fresh.chainId !== REQUIRED_CHAIN_ID
+  ) {
     throw new Error(
       'Wallet is not on Celo yet. Switch in your wallet app, return to the browser, then try again.'
     )

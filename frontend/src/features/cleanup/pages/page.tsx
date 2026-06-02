@@ -1632,22 +1632,21 @@ function CleanupContent() {
   const hasPendingCleanup = pendingCleanup !== null && pendingCleanup !== undefined
   const canClaimPendingLevel =
     hasPendingCleanup && !!pendingCleanup?.verified && !pendingCleanup?.claimed
-  const isGaslessInitBlocking =
-    embeddedSponsoredSubmit && isPaymasterConfigured() && isGaslessLoading
-  const isSubmissionDisabled =
+  /** Blocks starting a new onchain submission — not photo pickers (IPFS upload is off-chain). */
+  const isNewSubmissionBlocked =
     !walletReady ||
     (hasPendingCleanup && !pendingCleanup.verified) ||
-    canClaimPendingLevel ||
-    isWrongNetwork ||
-    isSwitchingChain ||
-    isGaslessInitBlocking
+    canClaimPendingLevel
+
+  const isSubmitFlowDisabled =
+    isNewSubmissionBlocked || isWrongNetwork || isSwitchingChain
+
+  const isPhotoUploadDisabled = !walletReady && walletBootstrapping
 
   const claimLevelButtonClasses =
     'w-full gap-2 bg-brand-yellow py-4 font-bebas text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
   const uploadDisabledHint = !walletReady
     ? 'Your account is still setting up'
-    : isGaslessInitBlocking
-      ? 'Preparing gasless submit…'
     : canClaimPendingLevel
       ? 'Verified: claim your level below'
       : isWrongNetwork
@@ -1661,7 +1660,7 @@ function CleanupContent() {
       pendingCleanupId: pendingCleanup.id.toString(),
       verified: pendingCleanup.verified,
       canClaimPendingLevel,
-      isSubmissionDisabled,
+      isSubmitFlowDisabled,
     })
   }
 
@@ -1988,45 +1987,34 @@ function CleanupContent() {
   }
 
   const GaslessStatusBanner = () => {
-    if (!expectsSponsoredGas) return null
-    if (!canTransact && isEmbeddedAccount) {
-      return (
-        <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
-          <p className="font-medium text-amber-200">Unlock to submit gaslessly</p>
-          <p className="mt-1 text-amber-100/90">
-            Your smart wallet is ready. Set or enter your wallet passkey (or use Face ID) when you submit.
-          </p>
-        </div>
-      )
-    }
+    if (!expectsSponsoredGas || !isEmbeddedAccount) return null
     if (gaslessClient) return null
-    if (isGaslessLoading) {
+    if (!canTransact) {
       return (
-        <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
-          <p className="font-medium text-amber-200">Preparing gasless submit…</p>
-          <p className="mt-1 text-amber-100/90">
-            Loading sponsored smart account. Wait a few seconds after login, then retry if submit stays disabled.
-          </p>
-        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          You can add photos now. Unlock your wallet in Smart account settings when you submit (gasless).
+        </p>
       )
     }
     if (gaslessError) {
       return (
         <div className="mb-4 rounded-lg border border-orange-500/40 bg-orange-500/10 p-3 text-xs text-orange-100">
-          <p className="font-semibold text-orange-200">Gasless wallet unavailable</p>
+          <p className="font-semibold text-orange-200">Gasless submit unavailable</p>
           <p className="mt-1 whitespace-pre-wrap text-orange-100/95">{gaslessError.message}</p>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Sponsored submit stays off until this works. Check Pimlico key and Celo RPC, then refresh. External wallets
-            use their own CELO gas.
+            Photos still work. Fix Pimlico/RPC or unlock again, then submit.
           </p>
         </div>
       )
     }
-    return (
-      <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        Gasless submit activates when the smart account finishes loading.
-      </div>
-    )
+    if (isGaslessLoading) {
+      return (
+        <p className="mb-4 text-xs text-gray-500">
+          Loading gasless smart account… You can still choose photos.
+        </p>
+      )
+    }
+    return null
   }
 
   const modalLayer = (
@@ -2110,7 +2098,7 @@ function CleanupContent() {
                   />
                   <button
                     onClick={() => setBeforePhoto(null)}
-                    disabled={isSubmissionDisabled}
+                    disabled={isPhotoUploadDisabled}
                     className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <X className="h-4 w-4" />
@@ -2118,13 +2106,14 @@ function CleanupContent() {
                 </div>
               ) : (
                 <button
+                  type="button"
                   onClick={() => handlePhotoSelect('before')}
-                  disabled={isSubmissionDisabled}
+                  disabled={isPhotoUploadDisabled}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed hover:border-gray-600"
                 >
-                  <Upload className={`mb-2 h-10 w-10 ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
-                  <p className={`text-sm ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {isSubmissionDisabled ? uploadDisabledHint : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
+                  <Upload className={`mb-2 h-10 w-10 ${isPhotoUploadDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
+                  <p className={`text-sm ${isPhotoUploadDisabled ? 'text-gray-600' : 'text-gray-400'}`}>
+                    {isPhotoUploadDisabled ? uploadDisabledHint : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
                   </p>
                   {isMobile && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
@@ -2159,7 +2148,7 @@ function CleanupContent() {
                   />
                   <button
                     onClick={() => setAfterPhoto(null)}
-                    disabled={isSubmissionDisabled}
+                    disabled={isPhotoUploadDisabled}
                     className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <X className="h-4 w-4" />
@@ -2167,13 +2156,14 @@ function CleanupContent() {
                 </div>
               ) : (
                 <button
+                  type="button"
                   onClick={() => handlePhotoSelect('after')}
-                  disabled={isSubmissionDisabled}
+                  disabled={isPhotoUploadDisabled}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed hover:border-gray-600"
                 >
-                  <Upload className={`mb-2 h-10 w-10 ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
-                  <p className={`text-sm ${isSubmissionDisabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {isSubmissionDisabled ? uploadDisabledHint : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
+                  <Upload className={`mb-2 h-10 w-10 ${isPhotoUploadDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
+                  <p className={`text-sm ${isPhotoUploadDisabled ? 'text-gray-600' : 'text-gray-400'}`}>
+                    {isPhotoUploadDisabled ? uploadDisabledHint : isMobile ? 'Tap to take photo or choose from gallery' : 'Click to upload photo'}
                   </p>
                   {isMobile && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
@@ -2270,7 +2260,7 @@ function CleanupContent() {
           ) : (
             <Button
               onClick={handlePhotosNext}
-              disabled={!beforePhoto || !afterPhoto || !location || isSubmitting || isGettingLocation || isSubmissionDisabled}
+              disabled={!beforePhoto || !afterPhoto || !location || isSubmitting || isGettingLocation || isSubmitFlowDisabled}
               className="w-full gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
             >
               {isSubmitting ? (
@@ -2889,14 +2879,14 @@ function CleanupContent() {
                   value={recyclablesAmount}
                   onChange={(e) => setRecyclablesAmount(sanitizeDecimalInput(e.target.value))}
                   placeholder="e.g. 2.5"
-                  disabled={isSubmitting || isSubmissionDisabled}
+                  disabled={isSubmitting || isSubmitFlowDisabled}
                   className="h-10 flex-1 rounded-md border border-gray-700 bg-black px-3 text-sm text-white placeholder:text-gray-500 focus:border-brand-green focus:outline-none disabled:opacity-50"
                   aria-label="Recyclables amount"
                 />
                 <select
                   value={recyclablesUnit}
                   onChange={(e) => setRecyclablesUnit(e.target.value as 'kg' | 'g' | 'lb' | 'bag')}
-                  disabled={isSubmitting || isSubmissionDisabled}
+                  disabled={isSubmitting || isSubmitFlowDisabled}
                   className="h-10 rounded-md border border-gray-700 bg-black px-3 text-sm text-white focus:border-brand-green focus:outline-none disabled:opacity-50"
                   aria-label="Recyclables unit"
                 >
@@ -2930,7 +2920,7 @@ function CleanupContent() {
                   />
                   <button
                     onClick={() => setRecyclablesPhoto(null)}
-                    disabled={isSubmitting || isSubmissionDisabled}
+                    disabled={isSubmitting || isSubmitFlowDisabled}
                     className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50"
                   >
                     <X className="h-4 w-4" />
@@ -2939,7 +2929,7 @@ function CleanupContent() {
               ) : (
                 <button
                   onClick={() => handlePhotoSelect('recyclables')}
-                  disabled={isSubmitting || isSubmissionDisabled}
+                  disabled={isSubmitting || isSubmitFlowDisabled}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 hover:border-gray-600"
                 >
                   <Upload className="mb-2 h-10 w-10 text-gray-500" />
@@ -2967,7 +2957,7 @@ function CleanupContent() {
                   />
                   <button
                     onClick={() => setRecyclablesReceipt(null)}
-                    disabled={isSubmitting || isSubmissionDisabled}
+                    disabled={isSubmitting || isSubmitFlowDisabled}
                     className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50"
                   >
                     <X className="h-4 w-4" />
@@ -2976,7 +2966,7 @@ function CleanupContent() {
               ) : (
                 <button
                   onClick={() => handlePhotoSelect('recyclablesReceipt')}
-                  disabled={isSubmitting || isSubmissionDisabled}
+                  disabled={isSubmitting || isSubmitFlowDisabled}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 hover:border-gray-600"
                 >
                   <Upload className="mb-2 h-10 w-10 text-gray-500" />
@@ -3012,7 +3002,7 @@ function CleanupContent() {
               <Button
                 variant="outline"
                 onClick={handleSkipRecyclables}
-                disabled={isSubmitting || isSubmissionDisabled}
+                disabled={isSubmitting || isSubmitFlowDisabled}
                 className="flex-1 border-2 border-gray-700 bg-black text-white hover:bg-white/[0.06]"
               >
                 Skip
@@ -3021,7 +3011,7 @@ function CleanupContent() {
                 onClick={handleSubmitRecyclables}
                 disabled={
                   isSubmitting ||
-                  isSubmissionDisabled ||
+                  isSubmitFlowDisabled ||
                   !recyclablesPhoto ||
                   !recyclablesAmount ||
                   Number.isNaN(Number(recyclablesAmount)) ||

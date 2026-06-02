@@ -23,10 +23,67 @@ export type GaslessClient = {
 }
 
 /** Gasless / AA claim path — pass smart account + EOA when wagmi is not connected. */
+export type EmbeddedEoaWriteFn = (params: {
+  address: Address
+  abi: readonly unknown[]
+  functionName: string
+  args: readonly unknown[]
+  value?: bigint
+}) => Promise<`0x${string}`>
+
+/** Gasless / AA claim path — pass smart account + EOA when wagmi is not connected. */
 export type GaslessClaimOptions = {
   gaslessClient?: GaslessClient
   smartAccountAddress?: Address
   eoaAddress?: Address
+  /** Google/email embedded EOA — bypasses wagmi when cleanup owner is the embedded signer. */
+  embeddedEoaWrite?: EmbeddedEoaWriteFn
+}
+
+async function writeClaimContract(
+  params: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args: readonly unknown[]
+    value?: bigint
+    account?: Address
+  },
+  options?: GaslessClaimOptions
+): Promise<`0x${string}`> {
+  if (options?.gaslessClient) {
+    const data = encodeFunctionData({
+      abi: params.abi,
+      functionName: params.functionName,
+      args: params.args,
+    })
+    return options.gaslessClient.sendTransaction({
+      to: params.address,
+      data,
+      value: params.value ?? 0n,
+    })
+  }
+  if (options?.embeddedEoaWrite) {
+    return options.embeddedEoaWrite({
+      address: params.address,
+      abi: params.abi,
+      functionName: params.functionName,
+      args: params.args,
+      value: params.value,
+    })
+  }
+  if (!params.account) {
+    throw new Error('Wallet not connected')
+  }
+  return lockedWriteContract(getConfig(), {
+    chainId: REQUIRED_CHAIN_ID,
+    address: params.address,
+    abi: params.abi,
+    functionName: params.functionName,
+    args: params.args,
+    account: params.account,
+    ...(params.value != null && params.value > 0n ? { value: params.value } : {}),
+  })
 }
 
 function resolveClaimIdentity(options?: GaslessClaimOptions): {
@@ -1614,8 +1671,10 @@ export async function claimImpactProductFromVerification(
       if (needsMint) {
         console.log('Minting Impact Product NFT')
         const useAtomicClaim = isAtomicContractTxEnabled() && isSubmissionBonusClaimEnabled()
+        const mintOpts =
+          useGasless || options?.embeddedEoaWrite ? options : undefined
         nftTxHash = await mintImpactProductNFT(
-          useGasless ? options : undefined,
+          mintOpts,
           useAtomicClaim ? cleanupId : undefined
         )
         hash = nftTxHash
@@ -1623,9 +1682,11 @@ export async function claimImpactProductFromVerification(
       } else if (needsUpgrade) {
         console.log(`Upgrading Impact Product NFT: level ${currentLevel} → ${currentLevel + 1}`)
         const useAtomicClaim = isAtomicContractTxEnabled() && isSubmissionBonusClaimEnabled()
+        const upgradeOpts =
+          useGasless || options?.embeddedEoaWrite ? options : undefined
         nftTxHash = await upgradeImpactProductNFT(
           currentTokenId,
-          useGasless ? options : undefined,
+          upgradeOpts,
           useAtomicClaim ? cleanupId : undefined
         )
         hash = nftTxHash
@@ -1683,14 +1744,16 @@ export async function claimImpactProductFromVerification(
             value: 0n,
           })
         } else {
-          bonusHash = await lockedWriteContract(getConfig(), {
-            chainId: REQUIRED_CHAIN_ID,
-            address: SUBMISSION_ADDRESS,
-            abi: SUBMISSION_BONUS_ABI,
-            functionName: 'claimSubmissionBonusRewards',
-            args: [cleanupId],
-            account: eoaAddress!,
-          })
+          bonusHash = await writeClaimContract(
+            {
+              address: SUBMISSION_ADDRESS,
+              abi: SUBMISSION_BONUS_ABI,
+              functionName: 'claimSubmissionBonusRewards',
+              args: [cleanupId],
+              account: eoaAddress!,
+            },
+            options
+          )
         }
 
         await waitForOnChainConfirmation(bonusHash, useGasless, { gaslessTimeoutMs: 300_000 })
@@ -1925,8 +1988,9 @@ export async function mintImpactProductNFT(
   }
 
   const gasless = !!options?.gaslessClient
-  const account = gasless ? null : getAccount(getConfig())
-  if (!gasless && !account?.address) {
+  const embeddedWrite = !!options?.embeddedEoaWrite
+  const account = gasless || embeddedWrite ? null : getAccount(getConfig())
+  if (!gasless && !embeddedWrite && !account?.address) {
     throw new Error('Wallet not connected')
   }
 
@@ -1953,29 +2017,17 @@ export async function mintImpactProductNFT(
   ] as const
 
   try {
-    let hash: `0x${string}`
-    if (gasless) {
-      const data = encodeFunctionData({
-        abi: IMPACT_PRODUCT_ABI,
-        functionName: useBonus ? 'safeMintWithBonus' : 'safeMint',
-        args: useBonus ? [bonusSubmissionId] : [],
-      })
-      hash = await options!.gaslessClient!.sendTransaction({
-        to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-        data,
-        value,
-      })
-    } else {
-      hash = await lockedWriteContract(getConfig(), {
-        chainId: REQUIRED_CHAIN_ID,
+    const hash = await writeClaimContract(
+      {
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: useBonus ? 'safeMintWithBonus' : 'safeMint',
         args: useBonus ? [bonusSubmissionId] : [],
-        account: account!.address,
         value,
-      })
-    }
+        account: account?.address,
+      },
+      options
+    )
 
     await waitForOnChainConfirmation(hash, gasless, { gaslessTimeoutMs: 300_000 })
 
@@ -2004,8 +2056,9 @@ export async function upgradeImpactProductNFT(
   }
 
   const gasless = !!options?.gaslessClient
-  const account = gasless ? null : getAccount(getConfig())
-  if (!gasless && !account?.address) {
+  const embeddedWrite = !!options?.embeddedEoaWrite
+  const account = gasless || embeddedWrite ? null : getAccount(getConfig())
+  if (!gasless && !embeddedWrite && !account?.address) {
     throw new Error('Wallet not connected')
   }
 
@@ -2035,29 +2088,17 @@ export async function upgradeImpactProductNFT(
   ] as const
 
   try {
-    let hash: `0x${string}`
-    if (gasless) {
-      const data = encodeFunctionData({
-        abi: IMPACT_PRODUCT_ABI,
-        functionName: useBonus ? 'upgradeNFTWithBonus' : 'upgradeNFT',
-        args: useBonus ? [tokenId, bonusSubmissionId] : [tokenId],
-      })
-      hash = await options!.gaslessClient!.sendTransaction({
-        to: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
-        data,
-        value,
-      })
-    } else {
-      hash = await lockedWriteContract(getConfig(), {
-        chainId: REQUIRED_CHAIN_ID,
+    const hash = await writeClaimContract(
+      {
         address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: useBonus ? 'upgradeNFTWithBonus' : 'upgradeNFT',
         args: useBonus ? [tokenId, bonusSubmissionId] : [tokenId],
-        account: account!.address,
         value,
-      })
-    }
+        account: account?.address,
+      },
+      options
+    )
 
     await waitForOnChainConfirmation(hash, gasless, { gaslessTimeoutMs: 300_000 })
 

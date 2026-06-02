@@ -3,7 +3,15 @@ import Google from 'next-auth/providers/google'
 import Email from 'next-auth/providers/email'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/db/prisma'
+import { sendResendMagicLink } from '@/lib/auth/resend-magic-link'
+
 const providers: NextAuthConfig['providers'] = []
+
+const defaultEmailFrom = 'DeCleanup <onboarding@resend.dev>'
+
+function getEmailFrom(): string {
+  return process.env.EMAIL_FROM?.trim() || defaultEmailFrom
+}
 
 if (process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()) {
   providers.push(
@@ -14,17 +22,41 @@ if (process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.tr
   )
 }
 
-if (process.env.EMAIL_SERVER?.trim()) {
+const resendApiKey = process.env.RESEND_API_KEY?.trim()
+const emailServer = process.env.EMAIL_SERVER?.trim()
+
+if (resendApiKey) {
+  const from = getEmailFrom()
   providers.push(
     Email({
-      server: process.env.EMAIL_SERVER,
-      from: process.env.EMAIL_FROM?.trim() || 'noreply@decleanup.net',
+      from,
+      async sendVerificationRequest({ identifier: email, url, provider }) {
+        await sendResendMagicLink({
+          apiKey: resendApiKey,
+          from: provider.from ?? from,
+          to: email,
+          url,
+        })
+      },
+    })
+  )
+} else if (emailServer) {
+  providers.push(
+    Email({
+      server: emailServer,
+      from: getEmailFrom(),
     })
   )
 }
 
 export function isEmailLoginEnabled(): boolean {
-  return Boolean(process.env.EMAIL_SERVER?.trim())
+  return Boolean(resendApiKey || emailServer)
+}
+
+export function getEmailLoginMode(): 'resend-api' | 'smtp' | 'off' {
+  if (resendApiKey) return 'resend-api'
+  if (emailServer) return 'smtp'
+  return 'off'
 }
 
 export const authConfig = {

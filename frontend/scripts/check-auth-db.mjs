@@ -112,10 +112,17 @@ try {
     console.warn('\nWARN: UserWallet missing (Google login works; run full prisma/supabase-full-schema.sql for wallets)')
   }
 
-  if (process.env.EMAIL_SERVER?.trim()) {
-    console.log('OK: EMAIL_SERVER is set (magic link email enabled)')
+  if (process.env.RESEND_API_KEY?.trim()) {
+    console.log('OK: RESEND_API_KEY is set (magic link via Resend HTTP API)')
+    if (process.env.EMAIL_FROM?.trim()) {
+      console.log('OK: EMAIL_FROM =', process.env.EMAIL_FROM.trim())
+    } else {
+      console.warn('WARN: EMAIL_FROM not set — using default DeCleanup <onboarding@resend.dev>')
+    }
+  } else if (process.env.EMAIL_SERVER?.trim()) {
+    console.log('OK: EMAIL_SERVER is set (magic link via SMTP)')
   } else {
-    console.warn('WARN: EMAIL_SERVER not set — email login disabled on this machine')
+    console.warn('WARN: RESEND_API_KEY / EMAIL_SERVER not set — email login disabled on this machine')
   }
 
   const users = await client.query('SELECT COUNT(*)::int AS n FROM "User"')

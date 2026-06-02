@@ -10,7 +10,8 @@ export function PendingPasswordSettings() {
       <div>
         <h2 className="text-base font-semibold text-white">{WALLET_PASSKEY}</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Required before your first onchain submit or claim. You can also set it when prompted from the dashboard.
+          Required before your first onchain submit or claim. This is separate from Google sign-in — we cannot
+          recover it for you. Consider downloading a backup in the section below once set.
         </p>
       </div>
       <WalletPasskeySetupForm defaultOpen compact />

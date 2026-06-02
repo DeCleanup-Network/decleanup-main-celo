@@ -93,6 +93,14 @@ type WalletContextValue = {
   sendTransaction: (params: { to: Address; value?: bigint; data?: Hex }) => Promise<Hex>
   /** Pimlico smart-account client for contract writes when signing session is active. */
   getGaslessClient: () => Promise<GaslessClient | null>
+  /** Pay-gas contract write from embedded EOA (e.g. Impact Product claim when submission owner is EOA). */
+  writeContractAsEoa: (params: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args: readonly unknown[]
+    value?: bigint
+  }) => Promise<Hex>
   getReceipt: (userOpHash: Hex) => ReturnType<typeof getClientUserOperationReceipt>
   exportEncryptedBackup: () => EncryptedWalletBlob | null
   downloadEncryptedBackup: (unlockPassword: string) => Promise<void>
@@ -109,7 +117,7 @@ type WalletContextValue = {
   passkeyLoading: boolean
   refreshPasskeyStatus: () => Promise<void>
   registerPasskey: (unlockPassword: string) => Promise<void>
-  /** Destructive recovery for forgotten wallet passkey: deletes current wallet and creates a new one. */
+  /** Last resort: delete wallet metadata and bootstrap a new address (not a passkey reset). */
   resetWalletAccess: () => Promise<void>
   /** Re-run wallet hydrate (e.g. stuck setup screen). */
   retryWalletBootstrap: () => void
@@ -411,20 +419,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         password = await unwrapUnlockPassword(userId, unlockKey)
         await unlockWithPassword(password, sessionDuration)
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Passkey unlock failed'
-        const lower = message.toLowerCase()
-        if (
-          lower.includes('operation-specific reason') ||
-          lower.includes('notallowederror') ||
-          lower.includes('not allowed') ||
-          lower.includes('cancelled') ||
-          lower.includes('canceled')
-        ) {
-          throw new Error(
-            'Face ID / Touch ID did not complete. Try again, or unlock with your wallet passkey instead.'
-          )
-        }
-        throw new Error(message)
+        const { formatWebAuthnError } = await import('@/lib/passkey/errors')
+        throw new Error(formatWebAuthnError(e))
       } finally {
         unlockKey = null
         password = null
@@ -464,6 +460,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }),
     }
   }, [signingSession])
+
+  const writeContractAsEoa = useCallback(
+    async (params: {
+      address: Address
+      abi: readonly unknown[]
+      functionName: string
+      args: readonly unknown[]
+      value?: bigint
+    }) => {
+      const key = privateKeyRef.current
+      if (!key || !isSigningSessionActive(signingSession)) {
+        throw new Error('Unlock your wallet in Smart account settings to continue.')
+      }
+      extendSigningSession()
+      const { writeContractWithEmbeddedEoa } = await import('@/lib/aa/embedded-eoa-write')
+      return writeContractWithEmbeddedEoa(key, params)
+    },
+    [signingSession, extendSigningSession]
+  )
 
   const getReceipt = useCallback((userOpHash: Hex) => {
     return getClientUserOperationReceipt(userOpHash)
@@ -759,6 +774,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       refreshBalance,
       sendTransaction,
       getGaslessClient,
+      writeContractAsEoa,
       getReceipt,
       exportEncryptedBackup,
       downloadEncryptedBackup,
@@ -796,6 +812,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       refreshBalance,
       sendTransaction,
       getGaslessClient,
+      writeContractAsEoa,
       getReceipt,
       exportEncryptedBackup,
       downloadEncryptedBackup,

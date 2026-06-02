@@ -39,6 +39,7 @@ import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } f
 import { useChainId } from 'wagmi'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+import { useWallet } from '@/providers/WalletProvider'
 import { DashboardReferralLinkCard } from '@/components/dashboard/DashboardReferralLinkCard'
 import { DashboardPersonalStats } from '@/components/dashboard/DashboardPersonalStats'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
@@ -84,8 +85,16 @@ function extractImpactStats(metadata: ImpactMetadata | null) {
 }
 
 export default function ProfilePage() {
-  const { address, isConnected } = useAccount()
-  const { canTransact } = useAppWalletAddress()
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
+  const {
+    address: appAddress,
+    isConnected: appConnected,
+    canTransact,
+    isEmbeddedAccount,
+  } = useAppWalletAddress()
+  const { writeContractAsEoa } = useWallet()
+  const address = appAddress ?? wagmiAddress
+  const isConnected = appConnected || wagmiConnected
   const { submissionOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
     useSmartAccountClient()
   const chainId = useChainId()
@@ -623,6 +632,14 @@ useEffect(() => {
                 })
                 return
               }
+              if (eoaOwnsCleanupOnChain && isEmbeddedAccount && !canTransact) {
+                setClaimModal({
+                  variant: 'error',
+                  message:
+                    'Unlock your wallet in Smart account settings, then try claiming again.',
+                })
+                return
+              }
               if (eoaOwnsCleanupOnChain && !isConnected) {
                 setClaimModal({
                   variant: 'error',
@@ -636,7 +653,12 @@ useEffect(() => {
                 setIsClaiming(true)
 
                 const claimOptions = eoaOwnsCleanupOnChain
-                  ? { eoaAddress: address as Address }
+                  ? {
+                      eoaAddress: address as Address,
+                      ...(isEmbeddedAccount && canTransact
+                        ? { embeddedEoaWrite: writeContractAsEoa }
+                        : {}),
+                    }
                   : smartAccountOwnsSubmission || expectsSponsoredGas
                     ? {
                         gaslessClient: gaslessClient as GaslessClient,

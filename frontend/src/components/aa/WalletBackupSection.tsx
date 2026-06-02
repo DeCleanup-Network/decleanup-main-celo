@@ -10,8 +10,7 @@ import { useWallet } from '@/providers/WalletProvider'
 import { WALLET_PASSKEY, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
 
 /**
- * Optional backup / restore — collapsed by default. Same Google or email sign-in
- * already syncs the smart account; backup is for extra device recovery.
+ * Backup download + restore — the real "forgot wallet passkey" path (same onchain address).
  */
 export function WalletBackupSection() {
   const [open, setOpen] = useState(false)
@@ -65,9 +64,9 @@ export function WalletBackupSection() {
         aria-expanded={open}
       >
         <div>
-          <h2 className="text-base font-semibold text-white">Back up</h2>
+          <h2 className="text-base font-semibold text-white">Backup &amp; restore</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Additional steps to load your account on other devices
+            Forgot your {WALLET_PASSKEY_LOWER}? Import your backup here — same smart account address.
           </p>
         </div>
         {open ? (
@@ -81,8 +80,8 @@ export function WalletBackupSection() {
         <div className="space-y-6 border-t border-gray-800 px-4 pb-4 pt-4">
           <div className="space-y-3">
             <p className="text-sm text-gray-400">
-              Download a backup file to always get access to the same smart account address on any
-              device you use.
+              Download an encrypted backup while you still know your {WALLET_PASSKEY_POSSESSIVE}. Store it
+              safely offline. Google sign-in alone cannot restore this wallet.
             </p>
             {smartAccountAddress ? (
               <CopyableAddress address={smartAccountAddress} className="text-sm text-gray-200" />
@@ -112,10 +111,10 @@ export function WalletBackupSection() {
           </div>
 
           <div className="space-y-3 border-t border-gray-800 pt-4">
-            <h3 className="text-sm font-semibold text-white">Restore smart account</h3>
+            <h3 className="text-sm font-semibold text-white">Forgot {WALLET_PASSKEY_LOWER}? Restore here</h3>
             <p className="text-sm text-gray-400">
-              Recover on a new device or browser. Sign in with Google or email first, then upload
-              your encrypted backup.
+              Sign in with Google or email, then upload your backup file and enter the{' '}
+              {WALLET_PASSKEY_LOWER} from when you created the backup. This keeps your same onchain address.
             </p>
             <ImportBackupForm redirectTo="/wallet" compact />
           </div>

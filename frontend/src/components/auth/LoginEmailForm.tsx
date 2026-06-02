@@ -35,10 +35,10 @@ export function LoginEmailForm({ callbackUrl }: Props) {
       if (result?.error) {
         const hint =
           result.error === 'Configuration'
-            ? 'Email sign-in is not set up on this server. Use Continue with Google, or ask the team to add EMAIL_SERVER on Vercel.'
+            ? 'Server misconfiguration (database or auth env). On Vercel set AUTH_SECRET, DATABASE_URL, DIRECT_URL, AUTH_URL, and RESEND_API_KEY — then redeploy.'
             : result.error === 'EmailSignin'
-              ? 'Could not send email. Use your Resend account email while testing onboarding@resend.dev.'
-              : `Could not send sign-in link (${result.error}). Check EMAIL_SERVER in .env.local.`
+              ? 'Could not send email. With Resend test sender onboarding@resend.dev, use the same email as your Resend account. Check RESEND_API_KEY and EMAIL_FROM on Vercel.'
+              : `Could not send sign-in link (${result.error}). Check RESEND_API_KEY (or EMAIL_SERVER) in env.`
         setError(hint)
         return
       }
