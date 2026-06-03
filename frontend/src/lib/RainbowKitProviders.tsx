@@ -37,7 +37,7 @@ export function RainbowKitProviders({
   )
 
   const customTheme = darkTheme({
-    accentColor: '#4ADE80',
+    accentColor: '#58b12f',
     accentColorForeground: 'black',
     borderRadius: 'medium',
     fontStack: 'system',

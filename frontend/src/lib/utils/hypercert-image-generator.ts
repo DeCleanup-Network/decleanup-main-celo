@@ -172,7 +172,7 @@ export async function generateHypercertBanner(
 
   stats.forEach((stat, index) => {
     const x = (index + 0.5) * statWidth
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#58b12f'
     ctx.fillText(stat.value, x, 200)
     ctx.fillStyle = '#ffffff'
     ctx.font = '24px Arial'
@@ -224,7 +224,7 @@ export async function generateHypercertLogo(
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, 400, 400)
 
-  ctx.fillStyle = '#4ade80'
+  ctx.fillStyle = '#58b12f'
   ctx.beginPath()
   ctx.ellipse(200, 180, 80, 100, -0.3, 0, Math.PI * 2)
   ctx.fill()

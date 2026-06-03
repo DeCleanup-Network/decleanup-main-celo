@@ -544,7 +544,7 @@ function HomeContent() {
                   afterRewards={
                     <div className="mt-3 flex gap-2">
                       <Link href="/cleanup">
-                        <Button className="bg-brand-green text-black hover:bg-[#4a9a26]">Submit Your First Cleanup</Button>
+                        <Button className="bg-brand-green text-black hover:bg-brand-green/90">Submit Your First Cleanup</Button>
                       </Link>
                     </div>
                   }

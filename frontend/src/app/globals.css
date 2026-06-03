@@ -12,8 +12,8 @@
   --font-heading: var(--font-space-grotesk);
   /* Legacy class name used across the app — now maps to Space Grotesk. */
   --font-bebas: var(--font-space-grotesk);
-  --color-brand-green: #4ADE80;
-  --color-brand-yellow: #FAFF00;
+  --color-brand-green: #58b12f;
+  --color-brand-yellow: #faff00;
   --color-elevated: #141414;
   --color-elevated-2: #1b1b1b;
   --color-ink-dim: #8b8b89;
@@ -58,11 +58,11 @@
   --background: #0a0a0a;
   --foreground: #ffffff;
   --yellow: #faff00;
-  --green: #4ade80;
-  --green-hover: color-mix(in oklch, #4ade80 88%, white);
-  --green-soft: color-mix(in oklch, #4ade80 18%, transparent);
-  --yellow-soft: color-mix(in oklch, #faff00 22%, transparent);
-  --grad-heading: linear-gradient(92deg, #4ade80 0%, #a8f050 55%, #faff00 100%);
+  --green: #58b12f;
+  --green-hover: #4a9626;
+  --green-soft: color-mix(in srgb, #58b12f 18%, transparent);
+  --yellow-soft: color-mix(in srgb, #faff00 22%, transparent);
+  --grad-heading: linear-gradient(92deg, #58b12f 0%, #8fd04a 55%, #faff00 100%);
   --line: rgba(255, 255, 255, 0.1);
   --line-soft: rgba(255, 255, 255, 0.06);
   --bg-elev: #141414;
@@ -117,7 +117,7 @@
   --card-foreground: #ffffff;
   --popover: #1b1b1b;
   --popover-foreground: #ffffff;
-  --primary: #4ade80;
+  --primary: #58b12f;
   --primary-foreground: #0a0a0a;
   --secondary: #1b1b1b;
   --secondary-foreground: #ffffff;
@@ -128,7 +128,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.12);
-  --ring: #4ade80;
+  --ring: #58b12f;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);

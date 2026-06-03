@@ -2159,7 +2159,7 @@ function CleanupContent() {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <button
                       onClick={getLocation}
-                      className="text-sm text-brand-green hover:text-[#4a9a26]"
+                      className="text-sm text-brand-green hover:text-brand-green/90"
                     >
                       Get Location
                     </button>
@@ -2194,7 +2194,7 @@ function CleanupContent() {
                     type="button"
                     size="sm"
                     onClick={handleManualLocationApply}
-                    className="w-full bg-brand-green text-black hover:bg-[#4a9a26]"
+                    className="w-full bg-brand-green text-black hover:bg-brand-green/90"
                   >
                     Save Manual Location
                   </Button>
@@ -2214,7 +2214,7 @@ function CleanupContent() {
             <Button
               onClick={handlePhotosNext}
               disabled={!beforePhoto || !afterPhoto || !location || isSubmitting || isGettingLocation || isSubmitFlowDisabled}
-              className="w-full gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
+              className="w-full gap-2 bg-brand-green text-black hover:bg-brand-green/90"
             >
               {isSubmitting ? (
                 <>
@@ -2968,7 +2968,7 @@ function CleanupContent() {
                   Number.isNaN(Number(recyclablesAmount)) ||
                   Number(recyclablesAmount) <= 0
                 }
-                className="flex-1 gap-2 bg-brand-green text-black hover:bg-[#4a9a26]"
+                className="flex-1 gap-2 bg-brand-green text-black hover:bg-brand-green/90"
               >
                 {isSubmitting ? (
                   <>
@@ -3119,7 +3119,7 @@ function CleanupContent() {
           <Button
             onClick={() => router.push('/')}
             size="sm"
-            className="w-full gap-1.5 bg-brand-green text-black hover:bg-[#4a9a26]"
+            className="w-full gap-1.5 bg-brand-green text-black hover:bg-brand-green/90"
           >
             Go to Home
             <ArrowRight className="h-3.5 w-3.5" />
