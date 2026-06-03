@@ -20,6 +20,8 @@ Read-only JSON endpoints for the marketing / landing site. Data comes from **ver
 
 Both endpoints trigger a background refresh when cached feed data is older than ~60 minutes. No action is required from the landing site.
 
+**Location on the cleanups feed:** GPS comes from the on-chain submission. During indexing, the dapp reverse-geocodes coordinates to a place name (e.g. `"Tokyo, Japan"`) via [OpenStreetMap Nominatim](https://nominatim.org/). Public responses expose `placeName`, rounded `coordinates`, and full-precision `latitude` / `longitude`. Site categories such as beach or park are **not** included in `location` (use `impact.wasteTypes` for waste type).
+
 ---
 
 ## 1. Global stats
@@ -223,8 +225,44 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 - **`submitter`** — Public wallet address. Truncate for display (e.g. `0xabc1…4567`). Not personal data unless you choose to treat it as such.
 - **Photos** — URLs point at the dapp IPFS proxy (`/api/ipfs/fetch?url=…`). On production they are usually absolute (`https://dapp.decleanup.net/...`). If you receive a path starting with `/`, prefix with the base URL.
 - **Map pins** — Use `location.latitude` / `location.longitude` when both are non-null; skip items with missing coordinates.
-- **Recent Verifications table** — Use `location.label` for one column, or split: `location.placeName` (e.g. Tokyo, Japan) + `location.coordinates` (e.g. 35.7°, 139.7°). `latitude` / `longitude` are for maps only.
 - **Pagination** — Increment `offset` by `limit` until `offset >= total`.
+
+### Recent Verifications table (decleanup.net)
+
+Map API fields to your three columns as follows.
+
+| UI column | API field | Example |
+|-----------|-----------|---------|
+| **Location** | `location.label` (or `placeName` + `coordinates` separately) | `Tokyo, Japan · 35.7°, 139.7°` |
+| **Type** | First entry of `impact.wasteTypes`, or join with `", "` | `Plastic`, `Glass` |
+| **Date** | `verifiedAt` (fallback `submittedAt`), format client-side | `2026-06-02` |
+
+```javascript
+function formatVerificationRow(item) {
+  const location =
+    item.location.label ||
+    [item.location.placeName, item.location.coordinates].filter(Boolean).join(' · ') ||
+    'Verified cleanup';
+
+  const type =
+    item.impact.wasteTypes?.length > 0
+      ? item.impact.wasteTypes.join(', ')
+      : '—';
+
+  const dateSource = item.verifiedAt || item.submittedAt;
+  const date = dateSource
+    ? new Date(dateSource).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : '—';
+
+  return { location, type, date };
+}
+```
+
+**Removed field:** `location.type` (beach/park/site category) is **not** returned on the public feed. Do not use it on the landing site.
 
 ### Photos (optional for landing UI)
 
@@ -238,8 +276,11 @@ Numbers and location always appear. **Photos are optional** — use them only if
 | Numbers-only UI | Ignore `media` and `recyclables.photoUrl` entirely; use `summary`, `impact`, and `location` |
 
 ```javascript
+// Location column
+const { placeName, coordinates, label } = item.location;
+
 // Numbers-only card (no images)
-const { summary, impact, location } = item;
+const { summary, impact } = item;
 
 // With optional thumbnail
 const thumb = item.media.afterPhotoUrl ?? item.media.beforePhotoUrl;
@@ -313,10 +354,12 @@ As of deployment, the feed may show **zero cleanups** until new submissions are 
 
 Data appears automatically after:
 
-1. A cleanup is submitted and verified on Celo mainnet.
-2. The dapp indexes it into the cleanup feed (happens on the next API read if data is stale).
+1. A cleanup is submitted and verified on Celo mainnet (with GPS stored on chain when the user allows location).
+2. The dapp indexes it into the cleanup feed (happens on the next API read if data is stale, or when ops run sync).
 
 No setup or API keys are required on the landing site side.
+
+**Place names:** After a backend deploy that adds `location_place_name`, run Supabase migration `frontend/supabase/migrations/20260603_cleanup_feed_place_name.sql`, then trigger `POST /api/impact/sync` (internal) so existing rows get geocoded labels. Until then, `placeName` may be `null` and `label` may show coordinates only.
 
 ---
 
@@ -338,7 +381,7 @@ Do **not** use these from the public landing site:
 
 | Endpoint | Reason |
 |----------|--------|
-| `POST /api/impact/sync` | Internal ops only — requires `x-impact-sync-secret` (`IMPACT_SYNC_SECRET` on Vercel). Rebuilds the feed from chain; landing site must not call this. |
+| `POST /api/impact/sync` | Internal ops only — requires `x-impact-sync-secret` (`IMPACT_SYNC_SECRET` on Vercel). Rebuilds the feed from chain + reverse geocoding (~1 Nominatim request per second per new coordinate). Landing site must not call this. |
 | `POST /api/impact/cleanup-meta` | Dapp-only — stores recyclables amount after submit |
 | `/api/impact/profile`, `/api/impact/export`, etc. | Authenticated or user-specific flows |
 
