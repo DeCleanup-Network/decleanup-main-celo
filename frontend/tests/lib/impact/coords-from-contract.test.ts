@@ -31,11 +31,21 @@ describe('parseCoordsFromDegrees', () => {
 })
 
 describe('formatLocationLabel', () => {
-  it('shows type and coords when degrees are valid', () => {
-    expect(formatLocationLabel('beach', 38.7, -9.4)).toMatch(/Beach · 38\.7°/)
+  it('shows coords only when no place name', () => {
+    expect(formatLocationLabel(38.7, -9.4)).toBe('38.7°, -9.4°')
+  })
+
+  it('shows place name and coords when provided', () => {
+    expect(formatLocationLabel(35.68, 139.69, { placeName: 'Tokyo, Japan' })).toBe(
+      'Tokyo, Japan · 35.7°, 139.7°'
+    )
+  })
+
+  it('shows place name only when coords are missing', () => {
+    expect(formatLocationLabel(0, 0, { placeName: 'Tokyo, Japan' })).toBe('Tokyo, Japan')
   })
 
   it('omits 0.0° coords from double-scaled noise', () => {
-    expect(formatLocationLabel('park', 0.00001, 0.0001)).toBe('Park')
+    expect(formatLocationLabel(0.00001, 0.0001)).toBe('Verified cleanup')
   })
 })

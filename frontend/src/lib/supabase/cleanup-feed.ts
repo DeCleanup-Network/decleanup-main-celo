@@ -11,6 +11,7 @@ export type CleanupFeedRow = {
   latitude: number | null
   longitude: number | null
   location_type: string
+  location_place_name: string | null
   location_label: string
   area_sqm: number
   weight_kg: number
@@ -80,6 +81,7 @@ function rowFromDb(data: DbRow): CleanupFeedRow {
     latitude: data.latitude,
     longitude: data.longitude,
     location_type: data.location_type,
+    location_place_name: data.location_place_name ?? null,
     location_label: data.location_label,
     area_sqm: data.area_sqm ?? 0,
     weight_kg: data.weight_kg ?? 0,
@@ -112,6 +114,7 @@ function rowToInsert(row: Omit<CleanupFeedRow, 'created_at'>): DbInsert {
     latitude: row.latitude,
     longitude: row.longitude,
     location_type: row.location_type,
+    location_place_name: row.location_place_name,
     location_label: row.location_label,
     area_sqm: row.area_sqm,
     weight_kg: row.weight_kg,

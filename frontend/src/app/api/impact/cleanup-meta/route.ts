@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       latitude: null,
       longitude: null,
       location_type: '',
+      location_place_name: null,
       location_label: '',
       area_sqm: 0,
       weight_kg: 0,

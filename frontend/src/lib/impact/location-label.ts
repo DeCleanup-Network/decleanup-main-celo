@@ -1,23 +1,3 @@
-const LOCATION_TYPE_LABELS: Record<string, string> = {
-  beach: 'Beach',
-  park: 'Park',
-  waterway: 'Waterway',
-  river: 'River',
-  lake: 'Lake',
-  forest: 'Forest',
-  urban: 'Urban area',
-  street: 'Street',
-  other: 'Outdoor site',
-}
-
-function titleCase(s: string): string {
-  return s
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ')
-}
-
 function hasMeaningfulCoords(lat: number, lng: number): boolean {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return false
   // Ignore sub-0.05° noise (e.g. feed double-scaled microdegrees stored as degrees).
@@ -30,22 +10,25 @@ export function formatApproxCoords(lat: number, lng: number): string {
   return `${lat.toFixed(1)}°, ${lng.toFixed(1)}°`
 }
 
-export function formatLocationLabel(
-  locationType: string,
-  lat: number,
-  lng: number
-): string {
-  const key = locationType.trim().toLowerCase()
-  const named =
-    LOCATION_TYPE_LABELS[key] || (key ? titleCase(key) : '')
+export type LocationLabelOptions = {
+  /** Reverse-geocoded place, e.g. "Tokyo, Japan". */
+  placeName?: string | null
+}
 
-  if (named && hasMeaningfulCoords(lat, lng)) {
-    return `${named} · ${formatApproxCoords(lat, lng)}`
-  }
-  if (named) return named
-  if (hasMeaningfulCoords(lat, lng)) {
-    return formatApproxCoords(lat, lng)
-  }
+/** Public feed / landing label: place name + coordinates only (no beach/park category). */
+export function formatLocationLabel(
+  lat: number,
+  lng: number,
+  options?: LocationLabelOptions
+): string {
+  const placeName = options?.placeName?.trim() || ''
+  const coordsSuffix = hasMeaningfulCoords(lat, lng) ? formatApproxCoords(lat, lng) : ''
+
+  const segments: string[] = []
+  if (placeName) segments.push(placeName)
+  if (coordsSuffix) segments.push(coordsSuffix)
+
+  if (segments.length > 0) return segments.join(' · ')
   return 'Verified cleanup'
 }
 

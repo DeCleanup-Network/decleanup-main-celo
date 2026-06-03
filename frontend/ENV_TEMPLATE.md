@@ -119,7 +119,11 @@ CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
 # Impact feed (landing page API)
 # ============================================
 # Apply: frontend/supabase/migrations/20260530_create_cleanup_feed.sql
+#         frontend/supabase/migrations/20260603_cleanup_feed_place_name.sql
 IMPACT_SYNC_SECRET=
+# Reverse geocoding for feed (OpenStreetMap Nominatim, ~1 req/s during sync). Default on.
+# IMPACT_REVERSE_GEOCODING_ENABLED=false
+# NOMINATIM_USER_AGENT=DeCleanupRewards/1.0 (https://dapp.decleanup.net; contact: you@example.com)
 # Do not set unless backfilling old contract submissions:
 # IMPACT_FEED_LEGACY_SUBMISSION_CONTRACT=
 

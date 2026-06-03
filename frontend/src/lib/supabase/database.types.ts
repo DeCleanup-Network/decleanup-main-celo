@@ -131,6 +131,7 @@ export interface Database {
           latitude: number | null
           longitude: number | null
           location_type: string
+          location_place_name: string | null
           location_label: string
           area_sqm: number
           weight_kg: number
@@ -160,6 +161,7 @@ export interface Database {
           latitude?: number | null
           longitude?: number | null
           location_type?: string
+          location_place_name?: string | null
           location_label?: string
           area_sqm?: number
           weight_kg?: number
@@ -186,6 +188,7 @@ export interface Database {
           latitude?: number | null
           longitude?: number | null
           location_type?: string
+          location_place_name?: string | null
           location_label?: string
           area_sqm?: number
           weight_kg?: number

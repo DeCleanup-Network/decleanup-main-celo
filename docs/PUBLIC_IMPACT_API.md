@@ -141,8 +141,9 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
       "submittedAt": "2026-03-15T10:00:00.000Z",
       "verifiedAt": "2026-03-16T14:30:00.000Z",
       "location": {
-        "type": "Beach",
-        "label": "Beach · 38.7°, -9.4°",
+        "label": "Lisbon, Portugal · 38.7°, -9.4°",
+        "placeName": "Lisbon, Portugal",
+        "coordinates": "38.7°, -9.4°",
         "latitude": 38.697,
         "longitude": -9.421
       },
@@ -166,7 +167,7 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
         "beforePhotoUrl": "https://dapp.decleanup.net/api/ipfs/fetch?url=...",
         "afterPhotoUrl": "https://dapp.decleanup.net/api/ipfs/fetch?url=..."
       },
-      "summary": "Removed 12.5 kg of waste · at Beach · 38.7°, -9.4° · recycled 3.2 kg · 200 m² cleared · 8 bags collected",
+      "summary": "Removed 12.5 kg of waste · at Lisbon, Portugal · 38.7°, -9.4° · recycled 3.2 kg · 200 m² cleared · 8 bags collected",
       "syncedAt": "2026-05-30T13:05:15.496Z"
     }
   ]
@@ -193,8 +194,9 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 | `submitter` | string | Lowercase `0x` wallet address |
 | `submittedAt` | string \| null | ISO 8601 |
 | `verifiedAt` | string \| null | ISO 8601 |
-| `location.type` | string | Location category from the impact form (e.g. `"Beach"`, `"Park"`, `"Mixed"`) |
-| `location.label` | string | Display string for tables/cards: usually `"<Type> · <lat>°, <lng>°"` with coords rounded to **1 decimal** (~11 km). If GPS was not stored on chain, label may be type only (e.g. `"Park"`) or `"Verified cleanup"`. Prefer `label` for the Recent Verifications table. |
+| `location.label` | string | Full display line for tables: `"<placeName> · <coordinates>"` when GPS and geocoding succeed (e.g. `"Tokyo, Japan · 35.7°, 139.7°"`). Coords-only or `"Verified cleanup"` when data is missing. |
+| `location.placeName` | string \| null | Reverse-geocoded locality (e.g. `"Tokyo, Japan"`). Filled during feed sync from OpenStreetMap Nominatim. `null` if GPS missing or lookup failed. |
+| `location.coordinates` | string \| null | Rounded degree string for UI (1 decimal), e.g. `"35.7°, 139.7°"`. `null` if no GPS. |
 | `location.latitude` | number \| null | Decimal degrees (WGS84) from on-chain submission GPS; `null` if missing or zero |
 | `location.longitude` | number \| null | Decimal degrees (WGS84); `null` if missing or zero |
 | `impact.weightKg` | number | Waste removed |
@@ -221,7 +223,7 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 - **`submitter`** — Public wallet address. Truncate for display (e.g. `0xabc1…4567`). Not personal data unless you choose to treat it as such.
 - **Photos** — URLs point at the dapp IPFS proxy (`/api/ipfs/fetch?url=…`). On production they are usually absolute (`https://dapp.decleanup.net/...`). If you receive a path starting with `/`, prefix with the base URL.
 - **Map pins** — Use `location.latitude` / `location.longitude` when both are non-null; skip items with missing coordinates.
-- **Recent Verifications table** — Show `location.label` in the location column (not raw `latitude`/`longitude` unless you build your own copy). Example: `Beach · 38.7°, -9.4°`.
+- **Recent Verifications table** — Use `location.label` for one column, or split: `location.placeName` (e.g. Tokyo, Japan) + `location.coordinates` (e.g. 35.7°, 139.7°). `latitude` / `longitude` are for maps only.
 - **Pagination** — Increment `offset` by `limit` until `offset >= total`.
 
 ### Photos (optional for landing UI)

@@ -1,4 +1,5 @@
 import type { CleanupFeedRow } from '@/lib/supabase/cleanup-feed'
+import { formatApproxCoords } from '@/lib/impact/location-label'
 import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-data'
 
 function fmtNum(n: number, digits = 1): string {
@@ -58,8 +59,12 @@ export type PublicCleanupFeedItem = {
   submittedAt: string | null
   verifiedAt: string | null
   location: {
-    type: string
+    /** Full display line: place + coords when available (no beach/park category). */
     label: string
+    /** Reverse-geocoded place, e.g. "Tokyo, Japan". Null if unknown. */
+    placeName: string | null
+    /** Rounded coords for display, e.g. "35.7°, 139.7°". Null if no GPS. */
+    coordinates: string | null
     latitude: number | null
     longitude: number | null
   }
@@ -108,8 +113,12 @@ export function rowToPublicFeedItem(row: CleanupFeedRow): PublicCleanupFeedItem 
     submittedAt: row.submitted_at,
     verifiedAt: row.verified_at,
     location: {
-      type: row.location_type,
       label: row.location_label,
+      placeName: row.location_place_name,
+      coordinates:
+        row.latitude != null && row.longitude != null
+          ? formatApproxCoords(row.latitude, row.longitude)
+          : null,
       latitude: row.latitude,
       longitude: row.longitude,
     },

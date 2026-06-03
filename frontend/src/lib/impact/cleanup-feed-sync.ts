@@ -12,6 +12,7 @@ import type { ImpactEntry } from '@/lib/impact/types'
 import { isAddress, type Address } from 'viem'
 import { parseCoordsFromContractRaw } from '@/lib/impact/coords-from-contract'
 import { formatLocationLabel } from '@/lib/impact/location-label'
+import { reverseGeocodePlaceName } from '@/lib/impact/reverse-geocode'
 import { buildCleanupSummary } from '@/lib/impact/cleanup-feed-format'
 import {
   applyPublicFeedPhotoCids,
@@ -65,7 +66,24 @@ async function mapEntryToFeedRow(
     : await getCleanupDetailsFresh(onChainId)
   // Use on-chain microdegrees from contract — entry.latitude/longitude are already degrees from indexer.
   const { lat, lng } = parseCoordsFromContractRaw(details.latitude, details.longitude)
-  const locationLabel = formatLocationLabel(entry.locationType, lat ?? 0, lng ?? 0)
+
+  let locationPlaceName: string | null = existing?.location_place_name ?? null
+  if (lat != null && lng != null) {
+    const coordsUnchanged =
+      existing?.latitude != null &&
+      existing?.longitude != null &&
+      Math.abs(existing.latitude - lat) < 1e-6 &&
+      Math.abs(existing.longitude - lng) < 1e-6
+    if (!coordsUnchanged || !locationPlaceName) {
+      locationPlaceName = await reverseGeocodePlaceName(lat, lng)
+    }
+  } else {
+    locationPlaceName = null
+  }
+
+  const locationLabel = formatLocationLabel(lat ?? 0, lng ?? 0, {
+    placeName: locationPlaceName,
+  })
   const nowIso = new Date().toISOString()
 
   const row: Omit<CleanupFeedRow, 'created_at'> = {
@@ -79,6 +97,7 @@ async function mapEntryToFeedRow(
     latitude: lat,
     longitude: lng,
     location_type: entry.locationType || '',
+    location_place_name: locationPlaceName,
     location_label: locationLabel,
     area_sqm: entry.areaSqm,
     weight_kg: entry.weightKg,
