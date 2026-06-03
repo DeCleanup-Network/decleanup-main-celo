@@ -20,7 +20,7 @@ Read-only JSON endpoints for the marketing / landing site. Data comes from **ver
 
 Both endpoints trigger a background refresh when cached feed data is older than ~60 minutes. No action is required from the landing site.
 
-**Location on the cleanups feed:** GPS comes from the on-chain submission. During indexing, the dapp reverse-geocodes coordinates to a place name (e.g. `"Tokyo, Japan"`) via [OpenStreetMap Nominatim](https://nominatim.org/). Public responses expose `placeName`, rounded `coordinates`, and full-precision `latitude` / `longitude`. Site categories such as beach or park are **not** included in `location` (use `impact.wasteTypes` for waste type).
+**Location on the cleanups feed:** GPS comes from the on-chain submission. During indexing, the dapp reverse-geocodes coordinates to a place name (e.g. `"Ko Pha-ngan, Thailand"`) via [OpenStreetMap Nominatim](https://nominatim.org/) with **`accept-language=en`** so labels are in English when OSM has them. Public responses expose `placeName`, rounded `coordinates`, and full-precision `latitude` / `longitude`. Site categories such as beach or park are **not** included in `location` (use `impact.wasteTypes` for waste type).
 
 ---
 
@@ -197,7 +197,7 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 | `submittedAt` | string \| null | ISO 8601 |
 | `verifiedAt` | string \| null | ISO 8601 |
 | `location.label` | string | Full display line for tables: `"<placeName> · <coordinates>"` when GPS and geocoding succeed (e.g. `"Tokyo, Japan · 35.7°, 139.7°"`). Coords-only or `"Verified cleanup"` when data is missing. |
-| `location.placeName` | string \| null | Reverse-geocoded locality (e.g. `"Tokyo, Japan"`). Filled during feed sync from OpenStreetMap Nominatim. `null` if GPS missing or lookup failed. |
+| `location.placeName` | string \| null | Reverse-geocoded locality in English when available (e.g. `"Ko Pha-ngan, Thailand"`). Filled during feed sync from Nominatim (`accept-language=en`). `null` if GPS missing or lookup failed. |
 | `location.coordinates` | string \| null | Rounded degree string for UI (1 decimal), e.g. `"35.7°, 139.7°"`. `null` if no GPS. |
 | `location.latitude` | number \| null | Decimal degrees (WGS84) from on-chain submission GPS; `null` if missing or zero |
 | `location.longitude` | number \| null | Decimal degrees (WGS84); `null` if missing or zero |

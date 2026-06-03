@@ -17,4 +17,15 @@ describe('formatPlaceFromNominatimAddress', () => {
       formatPlaceFromNominatimAddress({ town: 'Koh Phangan', country: 'Thailand' })
     ).toBe('Koh Phangan, Thailand')
   })
+
+  it('prefers short place and country without admin subdivisions', () => {
+    expect(
+      formatPlaceFromNominatimAddress({
+        city: 'Ko Pha-ngan',
+        county: 'Ko Pha-ngan District',
+        state: 'Surat Thani',
+        country: 'Thailand',
+      })
+    ).toBe('Ko Pha-ngan, Thailand')
+  })
 })

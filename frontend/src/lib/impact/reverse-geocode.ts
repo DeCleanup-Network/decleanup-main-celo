@@ -17,9 +17,13 @@ type NominatimReverseResponse = {
 const placeCache = new Map<string, string | null>()
 let lastRequestAt = 0
 
+function nominatimLanguage(): string {
+  return process.env.NOMINATIM_ACCEPT_LANGUAGE?.trim() || 'en'
+}
+
 function cacheKey(lat: number, lng: number): string {
   const f = 10 ** CACHE_ROUND_DECIMALS
-  return `${Math.round(lat * f) / f},${Math.round(lng * f) / f}`
+  return `${nominatimLanguage()}:${Math.round(lat * f) / f},${Math.round(lng * f) / f}`
 }
 
 function sleep(ms: number): Promise<void> {
@@ -50,18 +54,17 @@ export function formatPlaceFromNominatimAddress(
     address.town ||
     address.village ||
     address.municipality ||
+    address.island ||
     address.hamlet ||
     address.suburb
 
-  const region = address.state || address.region || address.county
   const country = address.country
 
+  // Prefer short "Place, Country" for landing (avoid long admin chains in local script).
   if (locality && country) {
-    if (region && locality !== region && !country.includes(locality)) {
-      return `${locality}, ${region}, ${country}`
-    }
     return `${locality}, ${country}`
   }
+  const region = address.state || address.region || address.county
   if (region && country) return `${region}, ${country}`
   if (country) return country
   return null
@@ -94,10 +97,13 @@ export async function reverseGeocodePlaceName(
     url.searchParams.set('lon', String(lng))
     url.searchParams.set('zoom', '10')
     url.searchParams.set('addressdetails', '1')
+    const lang = nominatimLanguage()
+    url.searchParams.set('accept-language', lang)
 
     const response = await fetch(url.toString(), {
       headers: {
         Accept: 'application/json',
+        'Accept-Language': lang,
         'User-Agent': nominatimUserAgent(),
       },
       signal: AbortSignal.timeout(12_000),

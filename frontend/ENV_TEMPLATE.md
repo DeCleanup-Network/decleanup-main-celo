@@ -124,6 +124,7 @@ IMPACT_SYNC_SECRET=
 # Reverse geocoding for feed (OpenStreetMap Nominatim, ~1 req/s during sync). Default on.
 # IMPACT_REVERSE_GEOCODING_ENABLED=false
 # NOMINATIM_USER_AGENT=DeCleanupRewards/1.0 (https://dapp.decleanup.net; contact: you@example.com)
+# NOMINATIM_ACCEPT_LANGUAGE=en
 # Do not set unless backfilling old contract submissions:
 # IMPACT_FEED_LEGACY_SUBMISSION_CONTRACT=
 
