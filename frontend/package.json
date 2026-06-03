@@ -16,6 +16,7 @@
     "test:ci": "jest --ci --coverage --maxWorkers=2 --passWithNoTests",
     "generate:metadata": "node scripts/generateImpactMetadata.js",
     "check:claimvault-signer": "node scripts/check-claimvault-signer.mjs",
+    "airdrop:sync-giveth-donors": "node scripts/sync-giveth-donor-allocations.mjs",
     "postinstall": "prisma generate",
     "db:push": "node scripts/with-env-local.mjs prisma db push",
     "db:apply-schema": "node scripts/apply-schema-pg.mjs",

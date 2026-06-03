@@ -1,6 +1,10 @@
 import type { Address } from 'viem'
 
-/** Giveth donors — 250 cDCU each. */
+/**
+ * Giveth donors — 250 cDCU each (see manual-allocations.ts).
+ * Static list used at claim time; not fetched live from Giveth.
+ * Regenerate / merge from API: `npm run airdrop:sync-giveth-donors` (frontend/).
+ */
 export const GIVETH_DONOR_WALLET_ADDRESSES: readonly Address[] = [
   '0x0082Fc3054263db71efdc2e9a3533636b88Cda3A',
   '0x04f344269a9e349F9b9C123570BB78eD28a73E61',
@@ -34,6 +38,7 @@ export const GIVETH_DONOR_WALLET_ADDRESSES: readonly Address[] = [
   '0x5d96BfbFB46A19B5295018BCE78304f11447De23',
   '0x5df28e86D80B92dBE31A81BE15A5afafeBA3eF6e',
   '0x6058DeEFB60B2f5d25F949EaFF69aBbC1F97F3dA',
+  '0x6166E1964447E0959bC7c8d543DB3ab82dB65044',
   '0x66210015D8C8F8354b0cA771F164bda86747783f',
   '0x6e8873085530406995170Da467010565968C7C62',
   '0x70c82896F16fCa8276E4640756AED71CBF636909',
