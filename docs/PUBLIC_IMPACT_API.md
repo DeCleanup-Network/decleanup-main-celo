@@ -359,7 +359,7 @@ Data appears automatically after:
 
 No setup or API keys are required on the landing site side.
 
-**Place names:** After a backend deploy that adds `location_place_name`, run Supabase migration `frontend/supabase/migrations/20260603_cleanup_feed_place_name.sql`, then trigger `POST /api/impact/sync` (internal) so existing rows get geocoded labels. Until then, `placeName` may be `null` and `label` may show coordinates only.
+**Place names:** After deploy, run migration `20260603_cleanup_feed_place_name.sql`, then **`POST /api/impact/sync`** (internal). Sync re-geocodes rows when `placeName`/`label` are missing or still in a non-Latin script (e.g. old Thai labels). Landing CDN cache on `/api/impact/cleanups` is ~5 minutes.
 
 ---
 

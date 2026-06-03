@@ -12,7 +12,7 @@ import type { ImpactEntry } from '@/lib/impact/types'
 import { isAddress, type Address } from 'viem'
 import { parseCoordsFromContractRaw } from '@/lib/impact/coords-from-contract'
 import { formatLocationLabel } from '@/lib/impact/location-label'
-import { reverseGeocodePlaceName } from '@/lib/impact/reverse-geocode'
+import { reverseGeocodePlaceName, usesLatinScript } from '@/lib/impact/reverse-geocode'
 import { buildCleanupSummary } from '@/lib/impact/cleanup-feed-format'
 import {
   applyPublicFeedPhotoCids,
@@ -74,7 +74,11 @@ async function mapEntryToFeedRow(
       existing?.longitude != null &&
       Math.abs(existing.latitude - lat) < 1e-6 &&
       Math.abs(existing.longitude - lng) < 1e-6
-    if (!coordsUnchanged || !locationPlaceName) {
+    const placeNameNeedsRefresh =
+      !locationPlaceName ||
+      !usesLatinScript(locationPlaceName) ||
+      !usesLatinScript(existing?.location_label ?? '')
+    if (!coordsUnchanged || placeNameNeedsRefresh) {
       locationPlaceName = await reverseGeocodePlaceName(lat, lng)
     }
   } else {
