@@ -362,15 +362,15 @@ function HomeContent() {
         <main className="container mx-auto flex flex-1 min-h-0 flex-col items-center justify-center px-4 py-2 sm:py-4">
           <div className="w-full max-w-3xl space-y-4 sm:space-y-5 text-center">
             {/* Hero Heading: less space above/below */}
-            <div className="space-y-2 animate-fade-in-up">
+            <div className="space-y-2">
               <h1
-                className="font-plakat text-4xl sm:text-5xl md:text-6xl lg:text-7xl"
+                className="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl"
                 style={decleanupRewardsTitleStyle}
               >
                 <span className="gradient-text">DECLEANUP</span>{' '}
                 <span className="text-foreground">REWARDS</span>
               </h1>
-              <p className="text-landing-lede mx-auto max-w-2xl normal-case">
+              <p className="text-landing-lede mx-auto max-w-2xl normal-case animate-fade-in-up">
                 Log cleanups. Build a verified record. Earn your voice in the network.
               </p>
             </div>
@@ -431,7 +431,7 @@ function HomeContent() {
 
   /** Hero primary CTA: full-width on mobile; centered fixed span from sm up */
   const heroCtaClass =
-    'h-auto min-h-0 w-full gap-2 px-8 py-[14px] font-bebas text-lg tracking-wider sm:mx-auto sm:w-auto sm:min-w-[260px] sm:max-w-[360px] sm:text-xl'
+    'h-auto min-h-0 w-full gap-2 px-8 py-[14px] font-heading text-lg tracking-wider sm:mx-auto sm:w-auto sm:min-w-[260px] sm:max-w-[360px] sm:text-xl'
 
   // Main DeCleanup app (submissions, rewards, hypercerts)
   return (
@@ -461,7 +461,7 @@ function HomeContent() {
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
             <h1
-              className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
+              className="font-heading text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
               style={decleanupRewardsTitleStyle}
             >
               <span className="gradient-text">DECLEANUP</span>{' '}
@@ -471,7 +471,7 @@ function HomeContent() {
           <div className="flex w-full flex-col items-center gap-3">
             {showHeroSubmitSlot && !heroMaxLevelLocked && (
               canHeroSubmit ? (
-                <Button asChild className={`${heroCtaClass} font-plakat`}>
+                <Button asChild className={heroCtaClass}>
                   <Link href="/cleanup" className="inline-flex items-center justify-center">
                     <Leaf className="h-5 w-5 shrink-0" />
                     SUBMIT CLEANUP
@@ -499,7 +499,7 @@ function HomeContent() {
                 variant="brandYellow"
                 onClick={() => void handleClaimImpactLevel()}
                 disabled={isClaiming}
-                className={`${heroCtaClass} font-plakat disabled:opacity-70`}
+                className={`${heroCtaClass} disabled:opacity-70`}
               >
                 {isClaiming ? (
                   <>
@@ -598,7 +598,7 @@ function HomeContent() {
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
                   <Award className="mx-auto h-16 w-16 text-brand-yellow sm:h-20 sm:w-20" />
                 </div>
-                <h3 className="mb-2 font-bebas text-2xl tracking-wider text-foreground sm:text-3xl">Ready to claim</h3>
+                <h3 className="mb-2 font-heading text-2xl tracking-wider text-foreground sm:text-3xl">Ready to claim</h3>
               </div>
             </div>
           ) : (
@@ -610,7 +610,7 @@ function HomeContent() {
                 <div className="mb-4 rounded-[10px] border border-white/10 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
                   <Award className="mx-auto h-16 w-16 text-muted-foreground/50 sm:h-20 sm:w-20" />
                 </div>
-                <h3 className="mb-2 font-bebas text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
+                <h3 className="mb-2 font-heading text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
                 <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
                   Submit your first cleanup to mint your Impact Product. Use <span className="text-foreground">Submit cleanup</span>{' '}
                   at the top of the page to begin.
@@ -656,7 +656,7 @@ function HomeContent() {
                         <HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
                       </button>
                     </div>
-                    <p className="font-bebas text-2xl leading-none text-brand-green sm:text-3xl">
+                    <p className="font-heading text-2xl leading-none text-brand-green sm:text-3xl">
                       {!hasLoadedDashboardOnce ? (
                         <Loader2 className="h-7 w-7 animate-spin text-brand-green/80" aria-hidden />
                       ) : (
@@ -688,7 +688,7 @@ function HomeContent() {
                 {showBreakdown ? (
                   <div className="mt-3 space-y-4 border-t border-border/50 pt-3">
               <div className="mb-4 rounded-xl border border-border/80 bg-background/40 p-3 sm:p-4">
-                <h3 className="font-bebas text-lg tracking-wider text-foreground sm:text-xl">Impact Product level</h3>
+                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">Impact Product level</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Level {hasLoadedDashboardOnce ? rewardStats.userLevel : '-'} of {MAX_IMPACT_PRODUCT_LEVEL}
                 </p>
@@ -759,7 +759,7 @@ function HomeContent() {
                         {stat.label}
                       </span>
                     </div>
-                    <p className="font-bebas text-xl leading-none text-foreground sm:text-2xl">
+                    <p className="font-heading text-xl leading-none text-foreground sm:text-2xl">
                       {!hasLoadedDashboardOnce ? (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
                       ) : (
@@ -798,7 +798,7 @@ function HomeContent() {
         {hypercertEligibility?.isEligible && (
           <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
             <Heart className="mb-2 h-5 w-5 text-brand-yellow" aria-hidden />
-            <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">
+            <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">
               Hypercert
               {hypercertEligibility.testingOverride && (
                 <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Test mode)</span>
@@ -820,7 +820,7 @@ function HomeContent() {
           <Link href="/leaderboard" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
               <Trophy className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
-              <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">LEADERBOARD</h3>
+              <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">LEADERBOARD</h3>
               <p className="text-xs text-muted-foreground">Top contributors</p>
             </div>
           </Link>
@@ -828,7 +828,7 @@ function HomeContent() {
             <Link href="/verifier" className="block min-h-[88px]">
               <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
                 <CheckSquare className="mb-2 h-5 w-5 shrink-0 text-brand-green" aria-hidden />
-                <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">VERIFIER CABINET</h3>
+                <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">VERIFIER CABINET</h3>
                 <p className="text-xs text-muted-foreground">Verify cleanups</p>
               </div>
             </Link>
@@ -836,7 +836,7 @@ function HomeContent() {
           <Link href="/hypercerts" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
               <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
-              <h3 className="mb-1 font-bebas text-sm tracking-wider text-foreground">HYPERCERTS</h3>
+              <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">HYPERCERTS</h3>
               <p className="text-xs text-muted-foreground">Impact certification</p>
             </div>
           </Link>
@@ -898,7 +898,7 @@ function HomeContent() {
             aria-labelledby="verifier-rules-title"
           >
             <div className="mb-4 flex items-start justify-between gap-3">
-              <h2 id="verifier-rules-title" className="font-bebas text-2xl tracking-wider text-foreground">
+              <h2 id="verifier-rules-title" className="font-heading text-2xl tracking-wider text-foreground">
                 Verifier guidelines
               </h2>
               <button
@@ -950,13 +950,13 @@ function HomeContent() {
               </li>
             </ul>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" asChild className="font-bebas tracking-wide">
+              <Button variant="outline" asChild className="font-heading tracking-wide">
                 <Link href="/verifier">Open verifier tools</Link>
               </Button>
               <Button
                 type="button"
                 onClick={() => setShowVerifierRulesModal(false)}
-                className="bg-brand-green font-bebas uppercase tracking-wide text-black hover:bg-brand-green/90"
+                className="bg-brand-green font-heading uppercase tracking-wide text-black hover:bg-brand-green/90"
               >
                 Close
               </Button>
@@ -969,7 +969,7 @@ function HomeContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6">
             <div className="mb-6 flex items-center justify-between gap-3">
-              <h2 className="font-bebas text-2xl tracking-wider text-foreground uppercase">
+              <h2 className="font-heading text-2xl tracking-wider text-foreground uppercase">
                 DCU points &amp; how to earn more
               </h2>
               <button
@@ -1003,7 +1003,7 @@ function HomeContent() {
 
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">1. Impact Products</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">1. Impact Products</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">10 DCU</strong> per level by submitting before-and-after cleanup
                   photos and passing verification. Ten levels are live today; more may follow.
@@ -1011,7 +1011,7 @@ function HomeContent() {
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">2. Referrals</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">2. Referrals</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">3 DCU</strong> when someone joins through your link and completes a
                   verified cleanup.
@@ -1019,7 +1019,7 @@ function HomeContent() {
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">3. Streaks</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">3. Streaks</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">3 DCU</strong> per streak level by submitting at least one cleanup
                   each calendar week.
@@ -1027,7 +1027,7 @@ function HomeContent() {
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">4. Reports &amp; recyclables</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">4. Reports &amp; recyclables</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">5 DCU</strong> for each verified impact report or recyclables
                   submission tied to a cleanup.
@@ -1035,7 +1035,7 @@ function HomeContent() {
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">5. Verifier work</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">5. Verifier work</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">1 DCU</strong> per submission you review (approved or rejected
                   with a clear reason) once you are an active verifier.
@@ -1043,7 +1043,7 @@ function HomeContent() {
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-bebas text-lg text-brand-green">6. Impact certificates (Hypercerts)</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">6. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">10 DCU</strong> for every ten verified cleanups when you create a
                   Hypercert (impact certificate).

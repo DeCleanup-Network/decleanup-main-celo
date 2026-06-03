@@ -554,7 +554,7 @@ function PublicPortfolioContent() {
                 <span className="truncate">Verified Impact · ESG Disclosure</span>
               </div>
               <h2
-                className="font-bebas min-w-0 max-w-full text-[clamp(1.75rem,7vw,3.25rem)] leading-[1.05] tracking-wider break-words [overflow-wrap:anywhere]"
+                className="font-heading min-w-0 max-w-full text-[clamp(1.75rem,7vw,3.25rem)] leading-[1.05] tracking-wider break-words [overflow-wrap:anywhere]"
                 title={displayTitle}
               >
                 {displayTitle}
@@ -630,7 +630,7 @@ function PublicPortfolioContent() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted"
+                    className="border-border bg-card font-heading tracking-wider text-foreground hover:bg-muted"
                     onClick={shareOnX}
                   >
                     Share on X
@@ -639,7 +639,7 @@ function PublicPortfolioContent() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted"
+                    className="border-border bg-card font-heading tracking-wider text-foreground hover:bg-muted"
                     onClick={shareOnFarcaster}
                   >
                     Share on Farcaster
@@ -665,7 +665,7 @@ function PublicPortfolioContent() {
         {canEditProfile && showEditor && draftProfile && (
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bebas text-xl tracking-wider">Edit Portfolio Profile</h2>
+              <h2 className="font-heading text-xl tracking-wider">Edit Portfolio Profile</h2>
               <span className="text-xs text-muted-foreground">Saved locally for this profile address</span>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -837,7 +837,7 @@ function PublicPortfolioContent() {
               ].map((k) => (
                 <div key={k.label} className="rounded-xl border border-border bg-card p-4">
                   <k.icon className="mb-2 h-4 w-4 text-brand-green" aria-hidden />
-                  <p className="font-bebas text-2xl leading-none">{typeof k.value === 'number' ? formatNum(k.value, 0) : k.value}</p>
+                  <p className="font-heading text-2xl leading-none">{typeof k.value === 'number' ? formatNum(k.value, 0) : k.value}</p>
                   <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">{k.label}</p>
                 </div>
               ))}
@@ -846,7 +846,7 @@ function PublicPortfolioContent() {
             {/* 3) Framework alignment */}
             <section className="grid gap-4 lg:grid-cols-3">
               <div className="rounded-xl border border-border bg-card p-4">
-                <h2 className="mb-3 font-bebas text-xl tracking-wider">Framework Alignment</h2>
+                <h2 className="mb-3 font-heading text-xl tracking-wider">Framework Alignment</h2>
                 <div className="grid grid-cols-1 gap-2">
                   {[
                     { code: 'SDG 11', title: 'Sustainable Cities', color: '#FD9D24' },
@@ -867,8 +867,8 @@ function PublicPortfolioContent() {
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-card p-4">
-                <h3 className="font-bebas text-lg tracking-wider">GHG Equivalency</h3>
-                <p className="mt-2 text-2xl font-bebas text-brand-green">
+                <h3 className="font-heading text-lg tracking-wider">GHG Equivalency</h3>
+                <p className="mt-2 text-2xl font-heading text-brand-green">
                   ≈ {formatNum(co2eEstimate, 1)} kg CO₂e avoided
                 </p>
                 <p
@@ -880,7 +880,7 @@ function PublicPortfolioContent() {
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-card p-4">
-                <h3 className="font-bebas text-lg tracking-wider">Location</h3>
+                <h3 className="font-heading text-lg tracking-wider">Location</h3>
                 <p className="mt-2 text-sm text-foreground">{profile?.locationLabel || '—'}</p>
                 {profile?.showPreciseLocation ? (
                   <div className="mt-3 rounded-md border border-border/60 bg-background/40 p-3 text-xs text-muted-foreground">
@@ -899,7 +899,7 @@ function PublicPortfolioContent() {
             {/* 4) Rewards segmented bar */}
             <section className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="font-bebas text-xl tracking-wider">Rewards Breakdown</h2>
+                <h2 className="font-heading text-xl tracking-wider">Rewards Breakdown</h2>
                 <span className="font-mono text-xs text-muted-foreground">Total {formatNum(totalRewards, 0)} DCU</span>
               </div>
               <div className="mt-4 flex h-5 overflow-hidden rounded-full border border-border bg-muted">
@@ -919,7 +919,7 @@ function PublicPortfolioContent() {
                 {rewardSegments.map((seg) => (
                   <div key={seg.label} className="rounded-md border border-border/60 px-2 py-1.5 text-xs">
                     <p className="text-muted-foreground">{seg.label}</p>
-                    <p className="font-bebas text-lg leading-none">{formatNum(seg.value, 0)}</p>
+                    <p className="font-heading text-lg leading-none">{formatNum(seg.value, 0)}</p>
                   </div>
                 ))}
               </div>
@@ -928,7 +928,7 @@ function PublicPortfolioContent() {
             {/* Hypercerts */}
             <section className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="font-bebas text-xl tracking-wider">Hypercerts</h2>
+                <h2 className="font-heading text-xl tracking-wider">Hypercerts</h2>
                 <a href="/hypercerts" className="text-xs text-brand-green underline">
                   Open Hypercerts
                 </a>
@@ -936,11 +936,11 @@ function PublicPortfolioContent() {
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div className="rounded-md border border-border/60 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Hypercert DCU</p>
-                  <p className="font-bebas text-2xl leading-none">{formatNum(reward.hypercertsDCU, 0)}</p>
+                  <p className="font-heading text-2xl leading-none">{formatNum(reward.hypercertsDCU, 0)}</p>
                 </div>
                 <div className="rounded-md border border-border/60 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Estimated Count</p>
-                  <p className="font-bebas text-2xl leading-none">{formatNum(reward.hypercertsDCU / 10, 0)}</p>
+                  <p className="font-heading text-2xl leading-none">{formatNum(reward.hypercertsDCU / 10, 0)}</p>
                 </div>
                 <div className="rounded-md border border-border/60 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Timeframe Start</p>
@@ -959,7 +959,7 @@ function PublicPortfolioContent() {
 
             {/* 5) Environmental impact + trend */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <h2 className="font-bebas text-xl tracking-wider">Environmental Impact</h2>
+              <h2 className="font-heading text-xl tracking-wider">Environmental Impact</h2>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { label: 'Area', value: `${formatNum(data.cumulative.areaSqm, 1)} m²`, icon: Ruler },
@@ -969,7 +969,7 @@ function PublicPortfolioContent() {
                 ].map((m) => (
                   <div key={m.label} className="rounded-md border border-border/60 p-3">
                     <m.icon className="mb-1 h-4 w-4 text-brand-green" aria-hidden />
-                    <p className="font-bebas text-xl leading-none">{m.value}</p>
+                    <p className="font-heading text-xl leading-none">{m.value}</p>
                     <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">{m.label}</p>
                   </div>
                 ))}
@@ -1003,7 +1003,7 @@ function PublicPortfolioContent() {
 
             {/* 6) Methodology */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <h2 className="font-bebas text-xl tracking-wider">Methodology · Verification Pipeline</h2>
+              <h2 className="font-heading text-xl tracking-wider">Methodology · Verification Pipeline</h2>
               <div className="mt-4 grid gap-2 md:grid-cols-4">
                 {[
                   { step: 'Photo upload', desc: 'Before/after evidence submitted by cleanup leader.' },
@@ -1048,7 +1048,7 @@ function PublicPortfolioContent() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
                 <div>
-                  <h2 className="font-bebas text-2xl tracking-wider">Impact Reports</h2>
+                  <h2 className="font-heading text-2xl tracking-wider">Impact Reports</h2>
                   <p className="text-xs text-muted-foreground">{data.enriched.length} records</p>
                 </div>
                 <button
@@ -1086,7 +1086,7 @@ function PublicPortfolioContent() {
                     return (
                       <article key={e.submissionId} className="overflow-hidden rounded-xl border border-border bg-card">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-                          <p className="font-bebas text-xl">Cleanup #{e.submissionId}</p>
+                          <p className="font-heading text-xl">Cleanup #{e.submissionId}</p>
                           <span
                             className="inline-flex items-center gap-1 rounded-full border border-brand-green/40 bg-brand-green/10 px-2.5 py-0.5 text-[11px] text-brand-green"
                             aria-label={badgeLabel}
@@ -1189,7 +1189,7 @@ function PublicPortfolioContent() {
             <section className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <h2 className="font-bebas text-xl tracking-wider">Hypercerts</h2>
+                  <h2 className="font-heading text-xl tracking-wider">Hypercerts</h2>
                   <p className="text-xs text-muted-foreground">Impact credential rewards and minting status</p>
                 </div>
                 <a href="/hypercerts" className="text-xs text-brand-green underline">
@@ -1199,22 +1199,22 @@ function PublicPortfolioContent() {
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <div className="rounded-md border border-border/60 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Hypercert rewards</p>
-                  <p className="mt-1 font-bebas text-2xl leading-none">{formatNum(data.rewards.hypercertsDCU, 0)} points</p>
+                  <p className="mt-1 font-heading text-2xl leading-none">{formatNum(data.rewards.hypercertsDCU, 0)} points</p>
                 </div>
                 <div className="rounded-md border border-border/60 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Verified cleanups</p>
-                  <p className="mt-1 font-bebas text-2xl leading-none">{formatNum(data.verifiedCleanups, 0)}</p>
+                  <p className="mt-1 font-heading text-2xl leading-none">{formatNum(data.verifiedCleanups, 0)}</p>
                 </div>
                 <div className="rounded-md border border-border/60 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Verified reports</p>
-                  <p className="mt-1 font-bebas text-2xl leading-none">{formatNum(data.verifiedWithReport, 0)}</p>
+                  <p className="mt-1 font-heading text-2xl leading-none">{formatNum(data.verifiedWithReport, 0)}</p>
                 </div>
               </div>
             </section>
 
             {/* 9) Impact Product */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <h2 className="font-bebas text-xl tracking-wider">Impact Product Level</h2>
+              <h2 className="font-heading text-xl tracking-wider">Impact Product Level</h2>
               <p className="text-xs text-muted-foreground">Cleanup Progression Credential · ERC-1155</p>
               <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
                 <div className="overflow-hidden rounded-lg border border-border bg-black/40">
@@ -1228,7 +1228,7 @@ function PublicPortfolioContent() {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <p className="font-bebas text-3xl leading-none">Level {data.level || 0}</p>
+                  <p className="font-heading text-3xl leading-none">Level {data.level || 0}</p>
                   <div className="rounded-md border border-border/60 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Contract</p>
                     {CONTRACT_ADDRESSES.IMPACT_PRODUCT ? (
@@ -1255,7 +1255,7 @@ function PublicPortfolioContent() {
 
             {/* 10) Creator portfolio footer */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <h2 className="font-bebas text-xl tracking-wider">Creator Portfolio</h2>
+              <h2 className="font-heading text-xl tracking-wider">Creator Portfolio</h2>
               <p className="mt-2 text-sm text-foreground">{profile?.creatorName || ''}</p>
               <p className="text-xs text-muted-foreground">{profile?.creatorRole || ''}</p>
               <div className="mt-4 grid gap-2 md:grid-cols-2">

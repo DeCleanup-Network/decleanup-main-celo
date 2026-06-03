@@ -813,11 +813,11 @@ export default function VerifierPage() {
                             className="mb-6 gap-2 text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="h-4 w-4" />
-                            <span className="font-bebas text-sm tracking-wider">BACK</span>
+                            <span className="font-heading text-sm tracking-wider">BACK</span>
                         </Button>
                     </Link>
                     <div className="rounded-lg border border-border bg-card p-6 text-center">
-                        <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                        <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                             Verifier Login
                         </h2>
                         <p className="mb-6 text-sm text-muted-foreground">
@@ -852,12 +852,12 @@ export default function VerifierPage() {
                             className="mb-6 gap-2 text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="h-4 w-4" />
-                            <span className="font-bebas text-sm tracking-wider">BACK</span>
+                            <span className="font-heading text-sm tracking-wider">BACK</span>
                         </Button>
                     </Link>
                     <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-6 text-center">
                         <Shield className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
-                        <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                        <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                             Sign in to verify
                         </h2>
                         <p className="mb-4 text-sm text-muted-foreground">
@@ -907,12 +907,12 @@ export default function VerifierPage() {
                             className="mb-6 gap-2 text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="h-4 w-4" />
-                            <span className="font-bebas text-sm tracking-wider">BACK</span>
+                            <span className="font-heading text-sm tracking-wider">BACK</span>
                         </Button>
                     </Link>
                     <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-6 text-center">
                         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
-                        <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                        <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                             Verifier access only
                         </h2>
                         <p className="mb-4 text-sm text-muted-foreground">
@@ -963,7 +963,7 @@ export default function VerifierPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2 border-border bg-card font-bebas tracking-wider text-foreground hover:bg-muted"
+                                className="gap-2 border-border bg-card font-heading tracking-wider text-foreground hover:bg-muted"
                             >
                                 <ArrowLeft className="h-4 w-4" />
                                 Home
@@ -976,23 +976,23 @@ export default function VerifierPage() {
                 <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     <div className="rounded-lg border border-border bg-card p-4">
                         <div className="text-sm text-muted-foreground">Total Cleanups</div>
-                        <div className="mt-1 font-bebas text-2xl text-foreground">{cleanups.length}</div>
+                        <div className="mt-1 font-heading text-2xl text-foreground">{cleanups.length}</div>
                     </div>
                     <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
                         <div className="text-sm text-gray-400">Pending Cleanups</div>
-                        <div className="mt-1 font-bebas text-2xl text-yellow-400">{pendingCleanups.length}</div>
+                        <div className="mt-1 font-heading text-2xl text-yellow-400">{pendingCleanups.length}</div>
                     </div>
                     <div className="rounded-lg border border-green-500/50 bg-green-500/10 p-4">
                         <div className="text-sm text-gray-400">Verified Cleanups</div>
-                        <div className="mt-1 font-bebas text-2xl text-green-400">{verifiedCleanups.length}</div>
+                        <div className="mt-1 font-heading text-2xl text-green-400">{verifiedCleanups.length}</div>
                     </div>
                     <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
                         <div className="text-sm text-gray-400">Rejected Cleanups</div>
-                        <div className="mt-1 font-bebas text-2xl text-red-400">{rejectedCleanups.length}</div>
+                        <div className="mt-1 font-heading text-2xl text-red-400">{rejectedCleanups.length}</div>
                     </div>
                     <div className="rounded-lg border border-brand-green/50 bg-brand-green/10 p-4">
                         <div className="text-sm text-gray-400">Your Earnings</div>
-                        <div className="mt-1 font-bebas text-2xl text-brand-green">
+                        <div className="mt-1 font-heading text-2xl text-brand-green">
                             {address ? (
                                 verifiedCleanups.filter(c => c.approver?.toLowerCase() === address.toLowerCase()).length
                             ) : 0} DCU
@@ -1003,7 +1003,7 @@ export default function VerifierPage() {
 
                 {isAdminUser ? (
                   <div className="mb-8">
-                      <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                      <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                           Verifier Applications
                       </h2>
                       {loadingVerifierApplications ? (
@@ -1116,7 +1116,7 @@ export default function VerifierPage() {
                 {isAdminUser && verifierContext && (
                   <div className="mb-6 rounded-xl border border-brand-green/20 bg-card p-6">
                     <div className="mb-4">
-                      <h3 className="font-bebas text-xl uppercase tracking-wide text-foreground">
+                      <h3 className="font-heading text-xl uppercase tracking-wide text-foreground">
                         Hypercert Impact Context
                       </h3>
                       <p className="text-xs text-muted-foreground">
@@ -1126,19 +1126,19 @@ export default function VerifierPage() {
                     <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                       <div className="rounded-lg border border-border bg-background/60 p-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Requests</p>
-                        <p className="mt-1 font-bebas text-2xl text-foreground">{verifierContext.totalRequests}</p>
+                        <p className="mt-1 font-heading text-2xl text-foreground">{verifierContext.totalRequests}</p>
                       </div>
                       <div className="rounded-lg border border-border bg-background/60 p-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Cleanups</p>
-                        <p className="mt-1 font-bebas text-2xl text-brand-green">{verifierContext.totalCleanups}</p>
+                        <p className="mt-1 font-heading text-2xl text-brand-green">{verifierContext.totalCleanups}</p>
                       </div>
                       <div className="rounded-lg border border-border bg-background/60 p-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Reports</p>
-                        <p className="mt-1 font-bebas text-2xl text-brand-yellow">{verifierContext.totalReports}</p>
+                        <p className="mt-1 font-heading text-2xl text-brand-yellow">{verifierContext.totalReports}</p>
                       </div>
                       <div className="rounded-lg border border-border bg-background/60 p-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending / Approved</p>
-                        <p className="mt-1 font-bebas text-2xl text-foreground">
+                        <p className="mt-1 font-heading text-2xl text-foreground">
                           {verifierContext.status.PENDING}/{verifierContext.status.APPROVED}
                         </p>
                       </div>
@@ -1148,7 +1148,7 @@ export default function VerifierPage() {
 
                 {isAdminUser && (
                 <div className="mb-8">
-                    <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                    <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Pending Hypercert Requests
                     </h2>
                     {hypercertRequests.length === 0 ? (
@@ -1161,7 +1161,7 @@ export default function VerifierPage() {
                                 <div key={request.id} className="rounded-lg border border-border bg-card overflow-hidden">
                                     <div className="bg-gray-900 p-4">
                                         <div className="mb-2 flex items-center justify-between">
-                                            <span className="font-bebas text-lg text-foreground">HYPERCERT REQUEST</span>
+                                            <span className="font-heading text-lg text-foreground">HYPERCERT REQUEST</span>
                                             <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs text-yellow-500">
                                                 Pending
                                             </span>
@@ -1244,7 +1244,7 @@ export default function VerifierPage() {
 
                 {/* Pending Cleanups */}
                 <div className="mb-8">
-                    <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                    <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Pending Verification
                     </h2>
                     {pendingCleanups.length === 0 ? (
@@ -1354,7 +1354,7 @@ export default function VerifierPage() {
 
                 {/* Verified Cleanups */}
                 <div className="mb-8">
-                    <h2 className="mb-4 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                    <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Verified Cleanups
                     </h2>
                     {verifiedCleanups.length === 0 ? (

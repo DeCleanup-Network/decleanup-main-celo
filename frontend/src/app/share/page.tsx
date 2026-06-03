@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { ShareRedirect } from '@/components/share/ShareRedirect'
+import { getSiteUrl } from '@/lib/site'
 
 // Preview image for sharing (used for both referral and claim)
 const SHARE_IMAGE_URL =
     'https://gateway.pinata.cloud/ipfs/bafybeic5xwp2kpoqvc24uvl5upren5t5h473upqxyuu2ui3jedtvruzhru?filename=social.png'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://decleanup-celo.vercel.app'
+
+const SITE_URL = getSiteUrl()
 
 function buildQueryString(params: Record<string, string | undefined>) {
     const query = new URLSearchParams()

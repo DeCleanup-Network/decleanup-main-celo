@@ -1,6 +1,15 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Sign in',
+  description: 'Sign in to DeCleanup Rewards with email, Google, or an external wallet.',
+  path: '/login',
+  noIndex: true,
+})
 
 /** Uses root MinimalWagmiProviders — do not nest a second Wagmi/RainbowKit tree here. */
 export default function LoginLayout({ children }: { children: React.ReactNode }) {

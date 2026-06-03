@@ -21,7 +21,7 @@ export function ShareRedirect({ redirectUrl }: ShareRedirectProps) {
         <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
             <div className="text-center">
                 <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-brand-green" />
-                <h1 className="mb-2 font-bebas text-2xl uppercase tracking-wide text-foreground">
+                <h1 className="mb-2 font-heading text-2xl uppercase tracking-wide text-foreground">
                     Redirecting...
                 </h1>
                 <p className="text-sm text-muted-foreground">

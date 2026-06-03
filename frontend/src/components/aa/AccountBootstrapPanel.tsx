@@ -35,7 +35,7 @@ export function AccountBootstrapPanel({ stage = 'wallet', error, onRetry }: Acco
         {!error ? (
           <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-brand-green" aria-hidden />
         ) : null}
-        <h1 className="font-bebas text-2xl tracking-wider text-foreground">{title}</h1>
+        <h1 className="font-heading text-2xl tracking-wider text-foreground">{title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{error ?? detail}</p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           {onRetry ? (

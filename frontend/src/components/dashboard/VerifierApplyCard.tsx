@@ -365,7 +365,7 @@ export function VerifierApplyCard() {
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-border/60 bg-background/50 p-3">
-              <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Level</p>
+              <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Level</p>
               <div className="h-2 overflow-hidden rounded bg-muted">
                 <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${levelProgress}%` }} />
               </div>
@@ -374,7 +374,7 @@ export function VerifierApplyCard() {
               </p>
             </div>
             <div className="rounded-lg border border-border/60 bg-background/50 p-3">
-              <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">DCU</p>
+              <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">DCU</p>
               <div className="h-2 overflow-hidden rounded bg-muted">
                 <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${dcuProgress}%` }} />
               </div>
@@ -383,7 +383,7 @@ export function VerifierApplyCard() {
               </p>
             </div>
             <div className="rounded-lg border border-border/60 bg-background/50 p-3">
-              <p className="mb-1.5 text-[10px] font-bebas uppercase tracking-wider text-muted-foreground">Cleanups</p>
+              <p className="mb-1.5 text-[10px] font-heading uppercase tracking-wider text-muted-foreground">Cleanups</p>
               <div className="h-2 overflow-hidden rounded bg-muted">
                 <div className="h-2 rounded bg-brand-green transition-all" style={{ width: `${cleanupProgress}%` }} />
               </div>

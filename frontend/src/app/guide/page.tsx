@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ChevronDown, Mail, MessageCircle, Wallet } from 'lucide-react'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: 'User Guide | DeCleanup Rewards',
+export const metadata: Metadata = buildPageMetadata({
+  title: 'User Guide',
   description:
     'How to sign in, submit cleanups, earn DCU, claim $cDCU, and secure your embedded wallet on DeCleanup Rewards.',
-}
+  path: '/guide',
+})
 
 const ACCOUNT_SETTINGS_PATH = '/wallet'
 

@@ -3,15 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Typography: decleanup-landing-standalone — Space Grotesk display, Inter body, Space Mono data. */
+/* Typography: Space Grotesk (display, buttons, links) + Inter (body, addresses). */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-space-mono);
+  --font-mono: var(--font-inter);
   --font-heading: var(--font-space-grotesk);
-  /* Legacy class name used across the app — now maps to Space Grotesk. */
-  --font-bebas: var(--font-space-grotesk);
   --color-brand-green: #58b12f;
   --color-brand-yellow: #faff00;
   --color-elevated: #141414;
@@ -175,9 +173,9 @@
     z-index: 1;
   }
 
-  /* Landing .plakat — display headings */
+  /* Display headings — Space Grotesk (font-heading) */
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
+    font-family: var(--font-heading), var(--font-inter), sans-serif;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: -0.02em;
@@ -187,21 +185,18 @@
   h2 { font-size: clamp(2rem, 5vw, 3rem); }
   h3 { font-size: clamp(1.5rem, 3vw, 1.875rem); }
 
-  /* Landing .meta — mono labels (stats, eyebrows) */
+  /* Compact UI labels (e.g. “Built on”) */
   .font-meta {
-    font-family: var(--font-space-mono), ui-monospace, monospace;
+    font-family: var(--font-heading), var(--font-inter), sans-serif;
     font-size: 0.6875rem;
-    letter-spacing: 0.12em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-feature-settings: "tnum";
   }
 
-  .font-plakat {
-    font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 0.92;
-    text-transform: uppercase;
+  /* Buttons, section titles, nav — use with font-semibold / font-bold as needed */
+  .font-heading {
+    font-family: var(--font-heading), var(--font-inter), sans-serif;
   }
 
   /* Landing body copy (Inter) — hero subhead, hints */
@@ -221,15 +216,15 @@
     line-height: 1.5;
   }
 
-  /* Secondary CTA — matches Button brandGhost / font-plakat */
+  /* Secondary CTA — matches Button brandGhost */
   .landing-ghost-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-height: 48px;
     padding: 0 22px;
-    font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
-    font-weight: 700;
+    font-family: var(--font-heading), var(--font-inter), sans-serif;
+    font-weight: 600;
     font-size: 14px;
     letter-spacing: -0.02em;
     text-transform: uppercase;
@@ -249,11 +244,11 @@
     background: rgba(255, 255, 255, 0.04);
   }
 
-  /* Landing footer links — Space Mono uppercase (compact) */
+  /* Footer / nav links — Space Grotesk, compact uppercase */
   .footer-link {
-    font-family: var(--font-space-mono), ui-monospace, monospace;
+    font-family: var(--font-heading), var(--font-inter), sans-serif;
     font-size: 10px;
-    font-weight: 400;
+    font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.72);
@@ -303,12 +298,41 @@
     background-color: var(--bg-elev-2);
   }
 
+  /* Tabular figures for addresses / IDs (Inter, not a third font) */
+  .font-mono {
+    font-family: var(--font-sans), sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Brand mark — animated gradient; solid fallback avoids flash before clip paints */
   .gradient-text {
-    background: var(--grad-heading);
+    display: inline-block;
+    background: linear-gradient(
+      100deg,
+      #58b12f 0%,
+      #7bc93a 22%,
+      #faff00 48%,
+      #8fd04a 72%,
+      #58b12f 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    color: transparent;
+    color: #58b12f;
+    animation: gradient-text-flow 7s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gradient-text {
+      animation: none;
+      background: var(--grad-heading);
+      background-size: 100% 100%;
+      background-position: 50% 50%;
+      -webkit-text-fill-color: transparent;
+    }
   }
 
   .dcu-card {
@@ -368,6 +392,16 @@
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
+}
+
+@keyframes gradient-text-flow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 @keyframes cta-particle {

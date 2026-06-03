@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const PRIVACY_EMAIL = 'decentralizedcleanup@gmail.com'
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy | DeCleanup Network',
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Privacy Policy',
   description: 'Privacy Policy for the DeCleanup Rewards web application.',
-}
+  path: '/privacy',
+})
 
 export default function PrivacyPage() {
   return (
@@ -17,12 +19,12 @@ export default function PrivacyPage() {
             ← Home
           </Link>
         </p>
-        <h1 className="mb-2 font-bebas text-3xl tracking-wide text-brand-green sm:text-4xl">Privacy Policy</h1>
+        <h1 className="mb-2 font-heading text-3xl tracking-wide text-brand-green sm:text-4xl">Privacy Policy</h1>
         <p className="mb-8 text-sm text-muted-foreground">Effective April 23, 2026 · DeCleanup Network</p>
 
         <article className="space-y-8 text-sm leading-relaxed text-muted-foreground sm:text-base">
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">1. Information We Collect</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">1. Information We Collect</h2>
             <p className="mb-3">When you use DeCleanup Rewards, we may collect the following:</p>
             <ul className="list-disc space-y-2 pl-5">
               <li>
@@ -50,7 +52,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">2. How We Use Your Information</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">2. How We Use Your Information</h2>
             <p>
               We use collected data to operate and secure DeCleanup Rewards, process cleanup submissions, prevent
               fraudulent or abusive activity, and fulfill legal obligations.
@@ -58,7 +60,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">3. Disclosure and Sharing</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">3. Disclosure and Sharing</h2>
             <p>
               We engage subprocessors to support platform operations, including hosting providers, Celo RPC services,
               IPFS pinning services, and database providers. We may disclose personal information when required to do so
@@ -69,7 +71,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">4. Retention and Security</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">4. Retention and Security</h2>
             <p>
               We retain personal data for as long as necessary to support platform operations and satisfy legal
               obligations. Data is deleted or anonymized when retention is no longer required. Please be aware that
@@ -79,7 +81,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">5. Your Rights</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">5. Your Rights</h2>
             <p>
               Depending on your jurisdiction, you may have rights to access, correct, delete, restrict the processing
               of, or receive a portable copy of your personal data. To exercise any of these rights, contact us using
@@ -89,7 +91,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">6. Children</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">6. Children</h2>
             <p>
               DeCleanup Rewards is not directed at children under the age of 13. We do not knowingly collect personal
               data from children.
@@ -97,7 +99,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">7. International Data Transfers</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">7. International Data Transfers</h2>
             <p>
               Your data may be processed in jurisdictions outside your country of residence. Where legally required, we
               apply appropriate transfer mechanisms to ensure adequate protection of personal data.
@@ -105,7 +107,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">8. Policy Updates</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. Policy Updates</h2>
             <p>
               We may update this Privacy Policy from time to time. The revised effective date will be reflected at the
               top of this page.
@@ -113,7 +115,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">9. Contact</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">9. Contact</h2>
             <p>
               <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-green hover:underline">
                 {PRIVACY_EMAIL}

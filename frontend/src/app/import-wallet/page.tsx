@@ -48,7 +48,7 @@ export default function ImportWalletPage() {
     <div className="mx-auto max-w-lg space-y-6 px-4 py-12">
       <div>
         <BackToDeCleanupLink />
-        <h1 className="mt-2 font-bebas text-2xl tracking-wider text-white sm:text-3xl">Restore wallet</h1>
+        <h1 className="mt-2 font-heading text-2xl tracking-wider text-white sm:text-3xl">Restore wallet</h1>
         <p className="mt-2 text-sm text-gray-400">
           Recover on a new device or browser. Sign in with Google or email first, then upload your
           encrypted backup file.

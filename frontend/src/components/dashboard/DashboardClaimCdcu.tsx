@@ -371,7 +371,7 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
           aria-labelledby="cdcu-info-title"
         >
           <div className="mb-4 flex items-start justify-between gap-3">
-            <h2 id="cdcu-info-title" className="font-bebas text-2xl tracking-wider text-foreground">
+            <h2 id="cdcu-info-title" className="font-heading text-2xl tracking-wider text-foreground">
               About $cDCU
             </h2>
             <button
@@ -428,7 +428,7 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
             )}
 
             <div className="rounded-lg border border-border bg-background/80 p-4">
-              <h3 className="mb-2 font-bebas text-lg tracking-wide text-foreground">Import $cDCU in your wallet</h3>
+              <h3 className="mb-2 font-heading text-lg tracking-wide text-foreground">Import $cDCU in your wallet</h3>
               <ol className="list-decimal space-y-2 pl-4 text-xs sm:text-sm">
                 <li>Open your wallet’s “Import token” / “Add token” flow.</li>
                 <li>

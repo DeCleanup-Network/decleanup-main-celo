@@ -1628,7 +1628,7 @@ function CleanupContent() {
   const isPhotoUploadDisabled = !walletReady && walletBootstrapping
 
   const claimLevelButtonClasses =
-    'w-full gap-2 bg-brand-yellow py-4 font-bebas text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
+    'w-full gap-2 bg-brand-yellow py-4 font-heading text-lg tracking-wider text-black hover:bg-[#e6e600] sm:py-5 sm:text-xl'
   const uploadDisabledHint = !walletReady
     ? 'Your account is still setting up'
     : canClaimPendingLevel
@@ -1743,7 +1743,7 @@ function CleanupContent() {
         <div className="mx-auto max-w-md space-y-6">
           <BackButton href="/" label="Go Back" />
           <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-6 space-y-3">
-            <h2 className="text-xl font-bebas tracking-wide text-foreground">SUBMISSION CLOSED</h2>
+            <h2 className="text-xl font-heading tracking-wide text-foreground">SUBMISSION CLOSED</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
               <Link
@@ -3032,7 +3032,7 @@ function CleanupContent() {
           className="mx-auto max-w-sm scroll-mt-[5.5rem] sm:scroll-mt-[6.5rem] text-center"
         >
           <CheckCircle className="mx-auto mb-2 h-10 w-10 text-brand-green" aria-hidden />
-          <h1 className="mb-1 font-bebas text-2xl uppercase tracking-wide text-white sm:text-3xl">
+          <h1 className="mb-1 font-heading text-2xl uppercase tracking-wide text-white sm:text-3xl">
             Submission successful!
           </h1>
           {cleanupId && (

@@ -90,7 +90,7 @@ export default function ExternalWalletSettingsPage() {
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <div>
         <BackToDeCleanupLink />
-        <h1 className="mt-2 font-bebas text-2xl tracking-wider text-white sm:text-3xl">Wallet settings</h1>
+        <h1 className="mt-2 font-heading text-2xl tracking-wider text-white sm:text-3xl">Wallet settings</h1>
         <p className="mt-1 text-base text-gray-400">External wallet</p>
       </div>
 
@@ -102,7 +102,7 @@ export default function ExternalWalletSettingsPage() {
           {ensLoading ? (
             <p className="text-gray-400">Looking up…</p>
           ) : ensName ? (
-            <p className="font-bebas text-xl tracking-wide text-brand-green">{ensName}</p>
+            <p className="font-heading text-xl tracking-wide text-brand-green">{ensName}</p>
           ) : lookupFailed ? (
             <p className="text-gray-400">
               Could not look up ENS right now. Your address above is still valid.

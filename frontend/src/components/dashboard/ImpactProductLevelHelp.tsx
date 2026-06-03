@@ -44,7 +44,7 @@ export function ImpactProductLevelHelp({ className }: ImpactProductLevelHelpProp
             aria-labelledby="impact-product-help-title"
           >
             <div className="mb-4 flex items-start justify-between gap-3">
-              <h2 id="impact-product-help-title" className="font-bebas text-2xl tracking-wider text-foreground">
+              <h2 id="impact-product-help-title" className="font-heading text-2xl tracking-wider text-foreground">
                 Impact Product
               </h2>
               <button

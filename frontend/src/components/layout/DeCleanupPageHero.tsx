@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 export const decleanupRewardsTitleStyle = {
-  fontFamily: 'var(--font-space-grotesk), var(--font-inter), sans-serif',
+  fontFamily: 'var(--font-heading), var(--font-inter), sans-serif',
   fontWeight: 700,
   letterSpacing: '-0.02em',
   lineHeight: 0.92,
@@ -43,7 +43,7 @@ export function DeCleanupPageHero({
       >
         <div className={cn('max-w-3xl space-y-3', textBlock)}>
           <h1
-            className="font-bebas text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
+            className="font-heading text-4xl leading-none tracking-wider sm:text-5xl md:text-6xl"
             style={decleanupRewardsTitleStyle}
           >
             <span className="gradient-text">DECLEANUP</span>{' '}

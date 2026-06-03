@@ -66,7 +66,7 @@ export default function LeaderboardPage() {
           description="Top contributors by total DCU earned on the network."
           trailing={
             <Link href="/">
-              <Button variant="outline" size="sm" className="gap-2 border-border bg-card font-bebas tracking-wider">
+              <Button variant="outline" size="sm" className="gap-2 border-border bg-card font-heading tracking-wider">
                 <ArrowLeft className="h-4 w-4" />
                 Home
               </Button>
@@ -80,7 +80,7 @@ export default function LeaderboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">YOUR RANK</p>
-                <p className="font-bebas text-2xl text-brand-green">
+                <p className="font-heading text-2xl text-brand-green">
                   #{userRank}
                 </p>
               </div>
@@ -97,7 +97,7 @@ export default function LeaderboardPage() {
         ) : leaderboard.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card p-8 text-center">
             <Trophy className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mb-2 font-bebas text-2xl tracking-wider text-foreground">
+            <h3 className="mb-2 font-heading text-2xl tracking-wider text-foreground">
               NO RANKINGS YET
             </h3>
             <p className="text-sm text-muted-foreground">
@@ -119,16 +119,16 @@ export default function LeaderboardPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`font-bebas text-2xl ${getRankColor(user.rank)}`}>
+                      <div className={`font-heading text-2xl ${getRankColor(user.rank)}`}>
                         {getRankIcon(user.rank)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-bebas text-lg text-foreground">
+                          <p className="font-heading text-lg text-foreground">
                             {user.address.slice(0, 6)}...{user.address.slice(-4)}
                           </p>
                           {isCurrentUser && (
-                            <span className="rounded-full bg-brand-green/20 px-2 py-0.5 text-xs font-bebas text-brand-green">
+                            <span className="rounded-full bg-brand-green/20 px-2 py-0.5 text-xs font-heading text-brand-green">
                               YOU
                             </span>
                           )}
@@ -145,7 +145,7 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bebas text-2xl text-brand-green">
+                      <p className="font-heading text-2xl text-brand-green">
                         {user.totalDCU.toFixed(2)} DCU
                       </p>
                     </div>
@@ -162,7 +162,7 @@ export default function LeaderboardPage() {
             onClick={loadLeaderboard}
             disabled={loading}
             variant="outline"
-            className="gap-2 border-brand-green/30 font-bebas tracking-wider text-brand-green hover:bg-brand-green/10"
+            className="gap-2 border-brand-green/30 font-heading tracking-wider text-brand-green hover:bg-brand-green/10"
           >
             {loading ? (
               <>

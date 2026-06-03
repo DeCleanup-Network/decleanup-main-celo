@@ -1032,7 +1032,7 @@ export default function VerifierPage() {
           {/* Hypercert Impact Context */}
           {verifierContext && (
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
-              <h3 className="mb-4 font-bebas text-xl uppercase tracking-wide text-foreground">
+              <h3 className="mb-4 font-heading text-xl uppercase tracking-wide text-foreground">
                 Hypercert Impact Context
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">

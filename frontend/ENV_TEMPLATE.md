@@ -25,6 +25,9 @@ NEXT_PUBLIC_HYPERCERTS_NETWORK=celo
 NEXT_PUBLIC_WEB_APP_URL=https://dapp.decleanup.net
 NEXT_PUBLIC_SITE_URL=https://dapp.decleanup.net
 NEXT_PUBLIC_APP_URL=https://dapp.decleanup.net
+
+# Google Search Console (HTML tag verification). Set in Vercel only; redeploy after adding.
+# GOOGLE_SITE_VERIFICATION=your_google_verification_token
 # Face ID / Touch ID (optional; derived from APP_URL if unset)
 # NEXT_PUBLIC_WEBAUTHN_RP_ID=dapp.decleanup.net
 # NEXT_PUBLIC_WEBAUTHN_ORIGIN=https://dapp.decleanup.net

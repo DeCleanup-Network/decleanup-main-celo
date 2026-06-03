@@ -20,7 +20,7 @@ export function SectionHeading({ icon: Icon, children, aside, className }: Secti
   const title = (
     <>
       <IconAccent icon={Icon} tone="yellow" size="sm" />
-      <h2 className="font-plakat text-xl text-foreground sm:text-2xl">{children}</h2>
+      <h2 className="font-heading text-xl text-foreground sm:text-2xl">{children}</h2>
     </>
   )
 

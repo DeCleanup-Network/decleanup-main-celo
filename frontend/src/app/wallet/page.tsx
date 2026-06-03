@@ -77,7 +77,7 @@ export default function AccountSettingsPage() {
       <header className="space-y-3 border-b border-gray-800 pb-5">
         <BackToDeCleanupLink />
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="font-bebas text-2xl tracking-wider text-white sm:text-3xl">Account settings</h1>
+          <h1 className="font-heading text-2xl tracking-wider text-white sm:text-3xl">Account settings</h1>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm" className="border-white/10 text-muted-foreground">
               <Link href="/guide#embedded-wallet">How it works</Link>

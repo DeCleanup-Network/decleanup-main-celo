@@ -39,7 +39,7 @@ export function EmbeddedWalletConnect() {
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center gap-2">
-        <Button onClick={() => login()} className="min-w-[8.75rem] font-plakat tracking-normal">
+        <Button onClick={() => login()} className="min-w-[8.75rem] font-heading tracking-normal">
           Log In
         </Button>
       </div>

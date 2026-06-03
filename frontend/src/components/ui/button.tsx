@@ -11,24 +11,24 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "font-plakat tracking-normal bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
+          "font-heading font-semibold uppercase tracking-wide bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
         brand:
-          "font-plakat tracking-normal bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
+          "font-heading font-semibold uppercase tracking-wide bg-brand-green text-[#0a0a0a] border border-brand-green shadow-btn-brand hover:shadow-btn-brand-hover hover:-translate-y-px active:translate-y-0.5 active:scale-[0.985]",
         brandYellow:
-          "font-plakat tracking-normal bg-brand-yellow text-[#0a0a0a] border border-brand-yellow shadow-[0_2px_8px_rgba(250,255,0,0.15)] hover:shadow-[0_0_0_4px_rgba(250,255,0,0.12),0_6px_20px_rgba(250,255,0,0.2)] hover:-translate-y-px active:translate-y-0.5",
+          "font-heading font-semibold uppercase tracking-wide bg-brand-yellow text-[#0a0a0a] border border-brand-yellow shadow-[0_2px_8px_rgba(250,255,0,0.15)] hover:shadow-[0_0_0_4px_rgba(250,255,0,0.12),0_6px_20px_rgba(250,255,0,0.2)] hover:-translate-y-px active:translate-y-0.5",
         brandGhost:
-          "font-plakat tracking-normal border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04]",
+          "font-heading font-semibold uppercase tracking-wide border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04]",
         brandMono:
-          "font-mono text-xs uppercase tracking-[0.12em] font-medium border border-white/10 bg-elevated/60 text-muted-foreground hover:border-white/25 hover:text-foreground",
+          "font-heading text-xs font-medium uppercase tracking-[0.12em] border border-white/10 bg-elevated/60 text-muted-foreground hover:border-white/25 hover:text-foreground",
         destructive:
-          "font-plakat tracking-normal bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "font-heading font-semibold uppercase tracking-wide bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "font-plakat tracking-normal border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04] hover:text-foreground",
+          "font-heading font-semibold uppercase tracking-wide border border-white/10 bg-transparent text-foreground hover:border-white/30 hover:bg-white/[0.04] hover:text-foreground",
         secondary:
-          "font-plakat tracking-normal bg-elevated text-foreground border border-white/10 hover:border-white/20 hover:bg-elevated-2",
+          "font-heading font-semibold uppercase tracking-wide bg-elevated text-foreground border border-white/10 hover:border-white/20 hover:bg-elevated-2",
         ghost:
-          "font-plakat tracking-normal border border-transparent text-foreground hover:bg-white/[0.06] hover:text-foreground",
-        link: "text-brand-green underline-offset-4 hover:underline",
+          "font-heading font-medium border border-transparent text-foreground hover:bg-white/[0.06] hover:text-foreground",
+        link: "font-heading font-medium text-brand-green underline-offset-4 hover:underline",
       },
       size: {
         default: "min-h-[48px] px-5 py-2.5 has-[>svg]:px-4",

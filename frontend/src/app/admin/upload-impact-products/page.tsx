@@ -56,7 +56,7 @@ export default function UploadImpactProductsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-bebas text-4xl tracking-wider text-foreground">
+            <h1 className="font-heading text-4xl tracking-wider text-foreground">
               UPLOAD IMPACT PRODUCTS
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -72,7 +72,7 @@ export default function UploadImpactProductsPage() {
 
         {/* Instructions */}
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="mb-4 font-bebas text-xl tracking-wider text-foreground">
+          <h2 className="mb-4 font-heading text-xl tracking-wider text-foreground">
             INSTRUCTIONS
           </h2>
           <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
@@ -87,7 +87,7 @@ export default function UploadImpactProductsPage() {
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block font-bebas text-lg tracking-wider text-foreground">
+              <label className="mb-2 block font-heading text-lg tracking-wider text-foreground">
                 Impact Product Images (10 PNG files)
               </label>
               <input
@@ -106,7 +106,7 @@ export default function UploadImpactProductsPage() {
             </div>
 
             <div>
-              <label className="mb-2 block font-bebas text-lg tracking-wider text-foreground">
+              <label className="mb-2 block font-heading text-lg tracking-wider text-foreground">
                 Level 10 Animation (Optional GIF file)
               </label>
               <input
@@ -126,7 +126,7 @@ export default function UploadImpactProductsPage() {
             <Button
               onClick={handleUpload}
               disabled={uploading || images.length !== 10}
-              className="w-full gap-2 bg-brand-green font-bebas text-lg tracking-wider text-black hover:bg-brand-green/90"
+              className="w-full gap-2 bg-brand-green font-heading text-lg tracking-wider text-black hover:bg-brand-green/90"
             >
               {uploading ? (
                 <>
@@ -159,7 +159,7 @@ export default function UploadImpactProductsPage() {
             <div className="rounded-2xl border border-brand-green/50 bg-brand-green/10 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <CheckCircle className="h-6 w-6 text-brand-green" />
-                <h2 className="font-bebas text-2xl tracking-wider text-brand-green">
+                <h2 className="font-heading text-2xl tracking-wider text-brand-green">
                   UPLOAD SUCCESSFUL!
                 </h2>
               </div>
@@ -169,7 +169,7 @@ export default function UploadImpactProductsPage() {
               <div className="space-y-3">
                 {Array.from(results.entries()).map(([level, data]) => (
                   <div key={level} className="rounded-lg border border-border bg-background p-4">
-                    <h3 className="mb-2 font-bebas text-lg text-foreground">
+                    <h3 className="mb-2 font-heading text-lg text-foreground">
                       Level {level}
                     </h3>
                     <div className="space-y-2 text-xs">

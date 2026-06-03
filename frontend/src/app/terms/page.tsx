@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const SUPPORT_EMAIL = 'decentralizedcleanup@gmail.com'
 
-export const metadata: Metadata = {
-  title: 'Terms of Service | DeCleanup Network',
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Terms of Service',
   description: 'Terms of Service for the DeCleanup Rewards web application.',
-}
+  path: '/terms',
+})
 
 export default function TermsPage() {
   return (
@@ -17,12 +19,12 @@ export default function TermsPage() {
             ← Home
           </Link>
         </p>
-        <h1 className="mb-2 font-bebas text-3xl tracking-wide text-brand-green sm:text-4xl">Terms of Service</h1>
+        <h1 className="mb-2 font-heading text-3xl tracking-wide text-brand-green sm:text-4xl">Terms of Service</h1>
         <p className="mb-8 text-sm text-muted-foreground">Effective April 23, 2026 · DeCleanup Network</p>
 
         <article className="space-y-8 text-sm leading-relaxed text-muted-foreground sm:text-base">
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">1. Acceptance</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">1. Acceptance</h2>
             <p>
               By accessing or using DeCleanup Rewards - including connecting a wallet, submitting cleanup evidence, or
               signing transactions - you agree to be bound by these Terms of Service. If you do not agree, you must not
@@ -31,7 +33,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">2. Description of Service</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">2. Description of Service</h2>
             <p>
               DeCleanup Rewards provides interfaces for interacting with DeCleanup-related smart contracts deployed on
               the Celo blockchain. Functionality includes cleanup submissions, reward distribution, Impact Products, and
@@ -41,7 +43,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">3. Eligibility</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">3. Eligibility</h2>
             <p>
               DeCleanup Rewards is available globally. To use the platform, you must be at least 18 years of age (or the
               age of majority in your jurisdiction), have the legal capacity to enter binding agreements, and comply
@@ -51,7 +53,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">4. Wallets and On-Chain Activity</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">4. Wallets and On-Chain Activity</h2>
             <p>
               You are solely responsible for the security of your wallet and private keys. DeCleanup Rewards cannot
               reverse on-chain transactions or recover lost or compromised keys. Gas fees are your responsibility.
@@ -61,7 +63,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">5. Acceptable Use</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">5. Acceptable Use</h2>
             <p>
               You agree not to submit fraudulent or fabricated cleanup evidence, attempt to circumvent security
               controls, interfere with the integrity of the platform, or engage in any activity that violates
@@ -70,7 +72,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">6. User Content</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">6. User Content</h2>
             <p>
               By submitting content to DeCleanup Rewards, you grant DeCleanup Network a limited, non-exclusive license to
               host, process, and display that content solely for the purpose of operating the platform, including
@@ -80,7 +82,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">
               7. Points, Tokens, and Risk Disclosure
             </h2>
             <p>
@@ -92,7 +94,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">8. Third-Party Services</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. Third-Party Services</h2>
             <p>
               DeCleanup Rewards depends on third-party infrastructure including wallet providers, Celo RPC endpoints,
               IPFS pinning services, hosting providers, database services, and optional machine learning services. Your
@@ -101,7 +103,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">
               9. Disclaimers and Limitation of Liability
             </h2>
             <p>
@@ -114,7 +116,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">10. Indemnification</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">10. Indemnification</h2>
             <p>
               You agree to defend, indemnify, and hold harmless DeCleanup Network from and against any claims, losses, or
               expenses (including reasonable legal fees) arising from your use of DeCleanup Rewards, your submitted
@@ -123,7 +125,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">11. Privacy</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">11. Privacy</h2>
             <p>
               Your use of DeCleanup Rewards is also governed by our{' '}
               <Link href="/privacy" className="text-brand-green hover:underline">
@@ -134,7 +136,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">12. Amendments</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">12. Amendments</h2>
             <p>
               DeCleanup Network reserves the right to update these Terms at any time by posting a revised version.
               Continued use of DeCleanup Rewards following the posting of changes constitutes acceptance of those
@@ -143,7 +145,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">13. Governing Law and Disputes</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">13. Governing Law and Disputes</h2>
             <p>
               DeCleanup Network operates as a global project without a single governing jurisdiction. Mandatory rights
               under your local laws remain unaffected by these Terms. In the event of a dispute, the parties agree to
@@ -153,7 +155,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-bebas text-xl tracking-wide text-foreground">14. Contact</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">14. Contact</h2>
             <p>
               <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand-green hover:underline">
                 {SUPPORT_EMAIL}

@@ -26,7 +26,7 @@ export function WalletLostAccessContactCard({ visible = true }: Props) {
         className="flex w-full items-center justify-between gap-3 p-4 text-left"
         aria-expanded={open}
       >
-        <h2 className="font-bebas text-lg tracking-wide text-gray-200">LOST ACCESS / NEW WALLET</h2>
+        <h2 className="font-heading text-lg tracking-wide text-gray-200">LOST ACCESS / NEW WALLET</h2>
         {open ? (
           <ChevronUp className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
         ) : (

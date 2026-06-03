@@ -10,7 +10,7 @@ export function Footer() {
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
                     {/* About */}
                     <div>
-                        <h3 className="font-bebas text-lg font-bold text-brand-green mb-3">
+                        <h3 className="font-heading text-lg font-bold text-brand-green mb-3">
                             DeCleanup Network
                         </h3>
                         <p className="text-sm text-muted-foreground">

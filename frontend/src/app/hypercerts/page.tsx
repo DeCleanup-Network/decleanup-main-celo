@@ -263,7 +263,7 @@ export default function HypercertsCertificationPage() {
             trailing={
               <div className="flex w-full max-w-md flex-col items-stretch gap-3 sm:max-w-none sm:flex-row sm:justify-center">
                 <WalletConnect />
-                <Button variant="outline" asChild className="border-border bg-card font-bebas tracking-wider">
+                <Button variant="outline" asChild className="border-border bg-card font-heading tracking-wider">
                   <Link href="https://decleanup.net/litepaper" target="_blank" rel="noopener noreferrer">
                     Learn more
                   </Link>
@@ -275,17 +275,17 @@ export default function HypercertsCertificationPage() {
           <div className="grid grid-cols-1 gap-4 pt-10 text-left md:grid-cols-3 md:gap-6">
             <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-6">
               <div className="font-mono text-xs text-brand-green">-- 01 --</div>
-              <div className="font-bebas text-xl uppercase tracking-wider">Clean &amp; log</div>
+              <div className="font-heading text-xl uppercase tracking-wider">Clean &amp; log</div>
               <p className="text-sm text-muted-foreground">Submit cleanup photos and reports through the app.</p>
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-6">
               <div className="font-mono text-xs text-brand-yellow">-- 02 --</div>
-              <div className="font-bebas text-xl uppercase tracking-wider">Verification</div>
+              <div className="font-heading text-xl uppercase tracking-wider">Verification</div>
               <p className="text-sm text-muted-foreground">Decentralized verifiers confirm your environmental impact.</p>
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-6">
               <div className="font-mono text-xs text-brand-green">-- 03 --</div>
-              <div className="font-bebas text-xl uppercase tracking-wider">Certification</div>
+              <div className="font-heading text-xl uppercase tracking-wider">Certification</div>
               <p className="text-sm text-muted-foreground">Mint a permanent Hypercert representing your total work.</p>
             </div>
           </div>
@@ -315,7 +315,7 @@ export default function HypercertsCertificationPage() {
             </>
           }
           trailing={
-            <Button variant="outline" asChild size="sm" className="border-border bg-card font-bebas tracking-wider">
+            <Button variant="outline" asChild size="sm" className="border-border bg-card font-heading tracking-wider">
               <Link href="/">Home</Link>
             </Button>
           }
@@ -358,7 +358,7 @@ export default function HypercertsCertificationPage() {
               className={`group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all hover:bg-muted/30 ${s.active ? 'border-l-2 border-l-brand-green' : ''}`}
             >
               <div className={`${s.color} font-mono text-[10px] tracking-widest`}>-- {s.step} --</div>
-              <div className="font-bebas text-lg uppercase tracking-wider text-foreground">{s.title}</div>
+              <div className="font-heading text-lg uppercase tracking-wider text-foreground">{s.title}</div>
               <div className="text-[11px] leading-tight text-muted-foreground">{s.desc}</div>
               {i < 3 && (
                 <div className="absolute right-[-10px] top-1/2 hidden -translate-y-1/2 text-4xl text-muted/30 md:block">
@@ -380,7 +380,7 @@ export default function HypercertsCertificationPage() {
             >
               <div className="flex flex-col md:flex-row justify-between items-start gap-8">
                 <div className="space-y-4">
-                  <div className="font-bebas text-3xl uppercase tracking-wider text-foreground">Certification Status</div>
+                  <div className="font-heading text-3xl uppercase tracking-wider text-foreground">Certification Status</div>
                   {loading ? (
                     <div className="flex animate-pulse items-center gap-3 text-muted-foreground">
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -390,11 +390,11 @@ export default function HypercertsCertificationPage() {
                     <div className="space-y-6">
                       <div className="flex flex-wrap gap-4">
                         <div className="rounded-2xl border border-border bg-muted/40 px-10 py-4 text-center">
-                          <div className="font-bebas text-5xl leading-none text-brand-green">{eligibility.cleanupsCount}</div>
+                          <div className="font-heading text-5xl leading-none text-brand-green">{eligibility.cleanupsCount}</div>
                           <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">Verified Cleanups</div>
                         </div>
                         <div className="rounded-2xl border border-border bg-muted/40 px-10 py-4 text-center">
-                          <div className="font-bebas text-5xl leading-none text-brand-yellow">{eligibility.reportsCount}</div>
+                          <div className="font-heading text-5xl leading-none text-brand-yellow">{eligibility.reportsCount}</div>
                           <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">Impact Reports</div>
                         </div>
                       </div>
@@ -424,7 +424,7 @@ export default function HypercertsCertificationPage() {
                   <button
                     onClick={handleSubmitRequest}
                     disabled={!eligibility?.eligible || loading || workflowBlocked}
-                    className="w-full md:w-64 py-4 rounded-full font-bebas text-xl uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed
+                    className="w-full md:w-64 py-4 rounded-full font-heading text-xl uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed
                             bg-brand-yellow text-black hover:bg-white border-2 border-brand-yellow hover:border-white shadow-[0_0_30px_rgba(250,255,0,0.15)] active:scale-95 flex items-center justify-center gap-2"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>Request Hypercert</span>}
@@ -440,7 +440,7 @@ export default function HypercertsCertificationPage() {
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-2">
                 <div className="h-4 w-4 rounded-full bg-muted-foreground"></div>
-                <h3 className="font-bebas text-sm tracking-wider text-muted-foreground">
+                <h3 className="font-heading text-sm tracking-wider text-muted-foreground">
                   LEVELS vs HYPERCERTS
                 </h3>
               </div>
@@ -455,7 +455,7 @@ export default function HypercertsCertificationPage() {
               <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="h-5 w-5 rounded-full bg-brand-blue"></div>
-                  <h2 className="font-bebas text-lg sm:text-xl tracking-wider text-foreground">
+                  <h2 className="font-heading text-lg sm:text-xl tracking-wider text-foreground">
                     YOUR REQUESTS
                   </h2>
                 </div>
@@ -489,7 +489,7 @@ export default function HypercertsCertificationPage() {
                       {request.status === 'APPROVED' && !request.hypercertId && request.status !== 'MINTED' && (
                         <button
                           onClick={() => handleMintApprovedRequest(request.id)}
-                          className="mt-2 w-full gap-2 bg-brand-green py-2 font-bebas text-sm tracking-wider text-black hover:bg-brand-green/80 rounded-md transition-all flex items-center justify-center"
+                          className="mt-2 w-full gap-2 bg-brand-green py-2 font-heading text-sm tracking-wider text-black hover:bg-brand-green/80 rounded-md transition-all flex items-center justify-center"
                         >
                           🪙 MINT HYPERCERT
                         </button>
@@ -508,7 +508,7 @@ export default function HypercertsCertificationPage() {
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-5 w-5 rounded-full bg-brand-yellow"></div>
-                <h2 className="font-bebas text-lg sm:text-xl tracking-wider text-foreground">
+                <h2 className="font-heading text-lg sm:text-xl tracking-wider text-foreground">
                   SUBMIT FOR REVIEW
                 </h2>
               </div>
@@ -516,7 +516,7 @@ export default function HypercertsCertificationPage() {
                 <button
                   onClick={handleSubmitRequest}
                   disabled={!eligibility?.eligible || workflowBlocked}
-                  className="w-full gap-2 bg-brand-yellow py-3 sm:py-4 font-bebas text-sm sm:text-base tracking-wider text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-all flex items-center justify-center"
+                  className="w-full gap-2 bg-brand-yellow py-3 sm:py-4 font-heading text-sm sm:text-base tracking-wider text-black hover:bg-[#e6e600] disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-all flex items-center justify-center"
                 >
                   SUBMIT HYPERCERT FOR REVIEW
                 </button>
@@ -537,7 +537,7 @@ export default function HypercertsCertificationPage() {
             {/* Branding Panel */}
             <div className="space-y-6 rounded-3xl border border-border bg-card p-8">
               <div className="space-y-1">
-                <div className="font-bebas text-2xl uppercase tracking-widest text-foreground">Metadata Config</div>
+                <div className="font-heading text-2xl uppercase tracking-widest text-foreground">Metadata Config</div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Customize your certificate</p>
               </div>
 
@@ -613,7 +613,7 @@ export default function HypercertsCertificationPage() {
             {/* Impact Summary / Preview */}
             <div className="p-8 rounded-3xl bg-brand-green text-black space-y-6">
               <div className="space-y-1">
-                <div className="font-bebas text-2xl uppercase tracking-widest">Cumulative Impact</div>
+                <div className="font-heading text-2xl uppercase tracking-widest">Cumulative Impact</div>
                 <p className="text-[10px] uppercase tracking-widest font-mono opacity-60">Calculated verified contributions</p>
                 {displayAddress && (
                   <Link
@@ -634,11 +634,11 @@ export default function HypercertsCertificationPage() {
                 <div className="space-y-8">
                   <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-1">
-                      <div className="font-bebas text-5xl leading-none">{aggregatedData.totalCleanups}</div>
+                      <div className="font-heading text-5xl leading-none">{aggregatedData.totalCleanups}</div>
                       <div className="text-[10px] uppercase tracking-widest font-bold opacity-40">Cleanups Finalized</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="font-bebas text-5xl leading-none">{aggregatedData.totalReports}</div>
+                      <div className="font-heading text-5xl leading-none">{aggregatedData.totalReports}</div>
                       <div className="text-[10px] uppercase tracking-widest font-bold opacity-40">Impact Reports Filed</div>
                     </div>
                   </div>
@@ -658,7 +658,7 @@ export default function HypercertsCertificationPage() {
             {/* Metadata Preview Small */}
             <div className="space-y-4 rounded-3xl border border-border bg-card p-6">
               <div className="flex items-center justify-between">
-                <div className="font-bebas text-sm uppercase tracking-widest text-muted-foreground">Metadata Raw</div>
+                <div className="font-heading text-sm uppercase tracking-widest text-muted-foreground">Metadata Raw</div>
                 <div className="h-2 w-2 rounded-full bg-brand-yellow" />
               </div>
               {metadata ? (

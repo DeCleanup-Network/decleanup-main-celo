@@ -234,7 +234,7 @@ export function DashboardImpactProduct({
           <div className="mb-6 rounded-full border-4 border-brand-green/30 bg-brand-green/10 p-8 sm:p-10">
             <Award className="h-16 w-16 text-brand-green/50 sm:h-20 sm:w-20" />
           </div>
-          <h3 className="mb-3 font-bebas text-2xl tracking-wider text-muted-foreground sm:text-3xl">NOT YET MINTED</h3>
+          <h3 className="mb-3 font-heading text-2xl tracking-wider text-muted-foreground sm:text-3xl">NOT YET MINTED</h3>
           <p className="max-w-xs text-sm text-muted-foreground sm:text-base">Submit your first cleanup to claim Level 1</p>
         </div>
       )}
@@ -249,7 +249,7 @@ export function DashboardImpactProduct({
           <button type="button" className="absolute inset-0 bg-black/80" aria-label="Close" onClick={closeDetails} />
           <div className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-              <h2 id="impact-product-details-title" className="font-bebas text-xl tracking-wider text-foreground">
+              <h2 id="impact-product-details-title" className="font-heading text-xl tracking-wider text-foreground">
                 Impact Product details
               </h2>
               <button
@@ -269,7 +269,7 @@ export function DashboardImpactProduct({
               </p>
 
               <div className="rounded-lg border border-brand-green/25 bg-brand-green/5 px-3 py-3">
-                <p className="font-bebas text-sm tracking-wide text-brand-green">Your impact at this level</p>
+                <p className="font-heading text-sm tracking-wide text-brand-green">Your impact at this level</p>
                 <p className="mt-1 text-sm text-foreground">
                   {cleanupMilestone != null ? (
                     <>
@@ -287,7 +287,7 @@ export function DashboardImpactProduct({
               </div>
 
               <div>
-                <h3 className="mb-2 font-bebas text-sm tracking-wider text-brand-green">Asset Info</h3>
+                <h3 className="mb-2 font-heading text-sm tracking-wider text-brand-green">Asset Info</h3>
                 <p className="mb-2 text-xs text-muted-foreground">
                   Inspect the collection contract on explorer.
                 </p>
@@ -312,7 +312,7 @@ export function DashboardImpactProduct({
               </div>
 
               <div className="space-y-2 border-t border-border/60 pt-4">
-                <h3 className="font-bebas text-sm tracking-wider text-brand-green">Metadata</h3>
+                <h3 className="font-heading text-sm tracking-wider text-brand-green">Metadata</h3>
                 {metadataName ? (
                   <p className="text-sm text-foreground">
                     <span className="text-muted-foreground">Name:</span> {stripLongDashes(metadataName)}
@@ -359,7 +359,7 @@ export function DashboardImpactProduct({
               </div>
 
               <div className="space-y-3 border-t border-border/60 pt-4">
-                <h3 className="font-bebas text-sm tracking-wider text-brand-green">Add to your wallet</h3>
+                <h3 className="font-heading text-sm tracking-wider text-brand-green">Add to your wallet</h3>
 
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -394,7 +394,7 @@ export function DashboardImpactProduct({
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-7 shrink-0 px-2 py-0 text-[10px] font-bebas uppercase text-brand-green hover:bg-brand-green/10"
+                          className="h-7 shrink-0 px-2 py-0 text-[10px] font-heading uppercase text-brand-green hover:bg-brand-green/10"
                           onClick={() => void copyToClipboard(contractAddress, 'contract')}
                         >
                           {copiedField === 'contract' ? 'Copied' : 'Copy'}
@@ -410,7 +410,7 @@ export function DashboardImpactProduct({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 shrink-0 px-2 py-0 text-[10px] font-bebas uppercase text-brand-green hover:bg-brand-green/10"
+                            className="h-7 shrink-0 px-2 py-0 text-[10px] font-heading uppercase text-brand-green hover:bg-brand-green/10"
                             onClick={() => void copyToClipboard(tokenId.toString(), 'token')}
                           >
                             {copiedField === 'token' ? 'Copied' : 'Copy'}
@@ -448,7 +448,7 @@ export function DashboardImpactProduct({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="w-full border-brand-green/40 font-bebas text-xs tracking-wider text-brand-green hover:bg-brand-green/10"
+                  className="w-full border-brand-green/40 font-heading text-xs tracking-wider text-brand-green hover:bg-brand-green/10"
                   onClick={() => void handleAddNftToWallet()}
                   disabled={!contractAddress || tokenId == null}
                 >
@@ -462,7 +462,7 @@ export function DashboardImpactProduct({
               <Button
                 type="button"
                 onClick={closeDetails}
-                className="w-full bg-brand-green font-bebas uppercase tracking-wider text-black hover:bg-brand-green/90"
+                className="w-full bg-brand-green font-heading uppercase tracking-wider text-black hover:bg-brand-green/90"
               >
                 Close
               </Button>

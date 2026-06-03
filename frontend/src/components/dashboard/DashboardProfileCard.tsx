@@ -66,7 +66,7 @@ export function DashboardProfileCard({
       >
         Complete cleanups, build your rank and reputation, create impact profile
       </p>
-      <Button variant="outline" asChild className="w-full border-border font-bebas tracking-wide sm:w-auto">
+      <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
         <Link href={impactHref} className="inline-flex items-center justify-center gap-2">
           <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
           Impact portfolio

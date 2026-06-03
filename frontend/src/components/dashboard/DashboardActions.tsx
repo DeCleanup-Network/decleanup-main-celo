@@ -29,7 +29,7 @@ interface DashboardActionsProps {
 
 function stepClass(active: boolean, done?: boolean) {
     const base =
-        'inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-center font-bebas text-[11px] uppercase tracking-wide transition-colors sm:text-xs'
+        'inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-center font-heading text-[11px] uppercase tracking-wide transition-colors sm:text-xs'
     if (done) {
         return `${base} border-brand-green/40 bg-brand-green/10 text-brand-green`
     }
@@ -171,27 +171,27 @@ export function DashboardActions({
             <div className="mx-auto mt-4 w-full max-w-2xl border-t border-border/50 pt-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
                     <div className="relative w-full">
-                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-bebas text-muted-foreground shadow-sm">
+                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-heading text-muted-foreground shadow-sm">
                             SOON
                         </span>
                         <Button
                             type="button"
                             disabled
                             variant="outline"
-                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-bebas text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
+                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-heading text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
                         >
                             Create Impact Circle
                         </Button>
                     </div>
                     <div className="relative w-full">
-                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-bebas text-muted-foreground shadow-sm">
+                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-heading text-muted-foreground shadow-sm">
                             SOON
                         </span>
                         <Button
                             type="button"
                             disabled
                             variant="outline"
-                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-bebas text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
+                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-heading text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
                         >
                             Join Impact Circle
                         </Button>
