@@ -20,8 +20,6 @@ Read-only JSON endpoints for the marketing / landing site. Data comes from **ver
 
 Both endpoints trigger a background refresh when cached feed data is older than ~60 minutes. No action is required from the landing site.
 
-After deploys that fix feed location data, trigger a one-time resync: `POST https://dapp.decleanup.net/api/impact/sync` with header `x-impact-sync-secret` (see `IMPACT_SYNC_SECRET` in Vercel).
-
 ---
 
 ## 1. Global stats
@@ -144,7 +142,7 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
       "verifiedAt": "2026-03-16T14:30:00.000Z",
       "location": {
         "type": "Beach",
-        "label": "Cascais, Portugal",
+        "label": "Beach · 38.7°, -9.4°",
         "latitude": 38.697,
         "longitude": -9.421
       },
@@ -168,7 +166,7 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
         "beforePhotoUrl": "https://dapp.decleanup.net/api/ipfs/fetch?url=...",
         "afterPhotoUrl": "https://dapp.decleanup.net/api/ipfs/fetch?url=..."
       },
-      "summary": "Removed 12.5 kg of waste · at Cascais, Portugal · recycled 3.2 kg · 200 m² cleared · 8 bags collected",
+      "summary": "Removed 12.5 kg of waste · at Beach · 38.7°, -9.4° · recycled 3.2 kg · 200 m² cleared · 8 bags collected",
       "syncedAt": "2026-05-30T13:05:15.496Z"
     }
   ]
@@ -195,10 +193,10 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 | `submitter` | string | Lowercase `0x` wallet address |
 | `submittedAt` | string \| null | ISO 8601 |
 | `verifiedAt` | string \| null | ISO 8601 |
-| `location.type` | string | Location category (e.g. `"Beach"`, `"River"`) |
-| `location.label` | string | Human-readable place name |
-| `location.latitude` | number \| null | Decimal degrees; `null` if unavailable |
-| `location.longitude` | number \| null | Decimal degrees; `null` if unavailable |
+| `location.type` | string | Location category from the impact form (e.g. `"Beach"`, `"Park"`, `"Mixed"`) |
+| `location.label` | string | Display string for tables/cards: usually `"<Type> · <lat>°, <lng>°"` with coords rounded to **1 decimal** (~11 km). If GPS was not stored on chain, label may be type only (e.g. `"Park"`) or `"Verified cleanup"`. Prefer `label` for the Recent Verifications table. |
+| `location.latitude` | number \| null | Decimal degrees (WGS84) from on-chain submission GPS; `null` if missing or zero |
+| `location.longitude` | number \| null | Decimal degrees (WGS84); `null` if missing or zero |
 | `impact.weightKg` | number | Waste removed |
 | `impact.areaSqm` | number | Area cleared |
 | `impact.bags` | number | Bags collected |
@@ -223,6 +221,7 @@ GET https://dapp.decleanup.net/api/impact/cleanups?limit=20&offset=0
 - **`submitter`** — Public wallet address. Truncate for display (e.g. `0xabc1…4567`). Not personal data unless you choose to treat it as such.
 - **Photos** — URLs point at the dapp IPFS proxy (`/api/ipfs/fetch?url=…`). On production they are usually absolute (`https://dapp.decleanup.net/...`). If you receive a path starting with `/`, prefix with the base URL.
 - **Map pins** — Use `location.latitude` / `location.longitude` when both are non-null; skip items with missing coordinates.
+- **Recent Verifications table** — Show `location.label` in the location column (not raw `latitude`/`longitude` unless you build your own copy). Example: `Beach · 38.7°, -9.4°`.
 - **Pagination** — Increment `offset` by `limit` until `offset >= total`.
 
 ### Photos (optional for landing UI)
@@ -337,7 +336,7 @@ Do **not** use these from the public landing site:
 
 | Endpoint | Reason |
 |----------|--------|
-| `POST /api/impact/sync` | Internal ops — requires secret header |
+| `POST /api/impact/sync` | Internal ops only — requires `x-impact-sync-secret` (`IMPACT_SYNC_SECRET` on Vercel). Rebuilds the feed from chain; landing site must not call this. |
 | `POST /api/impact/cleanup-meta` | Dapp-only — stores recyclables amount after submit |
 | `/api/impact/profile`, `/api/impact/export`, etc. | Authenticated or user-specific flows |
 
