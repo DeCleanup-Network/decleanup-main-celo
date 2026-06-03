@@ -1,4 +1,5 @@
 import {
+  formatPlaceFromDisplayName,
   formatPlaceFromNominatimAddress,
   clearReverseGeocodeCache,
 } from '@/lib/impact/reverse-geocode'
@@ -18,14 +19,25 @@ describe('formatPlaceFromNominatimAddress', () => {
     ).toBe('Koh Phangan, Thailand')
   })
 
-  it('prefers short place and country without admin subdivisions', () => {
+  it('skips Thai city and uses English county (Koh Phangan)', () => {
     expect(
       formatPlaceFromNominatimAddress({
-        city: 'Ko Pha-ngan',
+        city: 'ตำบลเกาะพะงัน',
+        municipality: 'Phet Pha-ngan Subdistrict Municipality',
         county: 'Ko Pha-ngan District',
-        state: 'Surat Thani',
+        province: 'Surat Thani Province',
         country: 'Thailand',
       })
+    ).toBe('Ko Pha-ngan, Thailand')
+  })
+})
+
+describe('formatPlaceFromDisplayName', () => {
+  it('skips Thai segments in display_name', () => {
+    expect(
+      formatPlaceFromDisplayName(
+        'ตำบลเกาะพะงัน, Phet Pha-ngan Subdistrict Municipality, Ko Pha-ngan District, Surat Thani Province, Thailand'
+      )
     ).toBe('Ko Pha-ngan, Thailand')
   })
 })

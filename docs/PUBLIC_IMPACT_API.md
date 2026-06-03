@@ -20,7 +20,7 @@ Read-only JSON endpoints for the marketing / landing site. Data comes from **ver
 
 Both endpoints trigger a background refresh when cached feed data is older than ~60 minutes. No action is required from the landing site.
 
-**Location on the cleanups feed:** GPS comes from the on-chain submission. During indexing, the dapp reverse-geocodes coordinates to a place name (e.g. `"Ko Pha-ngan, Thailand"`) via [OpenStreetMap Nominatim](https://nominatim.org/) with **`accept-language=en`** so labels are in English when OSM has them. Public responses expose `placeName`, rounded `coordinates`, and full-precision `latitude` / `longitude`. Site categories such as beach or park are **not** included in `location` (use `impact.wasteTypes` for waste type).
+**Location on the cleanups feed:** GPS comes from the on-chain submission. During indexing, the dapp reverse-geocodes coordinates to a place name (e.g. `"Ko Pha-ngan, Thailand"`) via [OpenStreetMap Nominatim](https://nominatim.org/) with **`accept-language=en`**, then picks the first **Latin-script** admin field (many regions keep `city` in Thai but `county` in English, e.g. `Ko Pha-ngan District`). Public responses expose `placeName`, rounded `coordinates`, and full-precision `latitude` / `longitude`. Site categories such as beach or park are **not** included in `location` (use `impact.wasteTypes` for waste type).
 
 ---
 

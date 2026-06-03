@@ -8,6 +8,25 @@ import 'server-only'
 const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse'
 const MIN_INTERVAL_MS = 1_100
 const CACHE_ROUND_DECIMALS = 2
+const CACHE_VERSION = 'latin-v1'
+
+/** Scripts we skip when building English-facing labels (Thai, CJK, Arabic, etc.). */
+const NON_LATIN_SCRIPT =
+  /[\u0E00-\u0E7F\u0600-\u06FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/
+
+const ADDRESS_LOCALITY_KEYS = [
+  'island',
+  'city',
+  'town',
+  'village',
+  'hamlet',
+  'suburb',
+  'county',
+  'state',
+  'province',
+  'municipality',
+  'region',
+] as const
 
 type NominatimReverseResponse = {
   address?: Record<string, string>
@@ -23,7 +42,7 @@ function nominatimLanguage(): string {
 
 function cacheKey(lat: number, lng: number): string {
   const f = 10 ** CACHE_ROUND_DECIMALS
-  return `${nominatimLanguage()}:${Math.round(lat * f) / f},${Math.round(lng * f) / f}`
+  return `${CACHE_VERSION}:${nominatimLanguage()}:${Math.round(lat * f) / f},${Math.round(lng * f) / f}`
 }
 
 function sleep(ms: number): Promise<void> {
@@ -43,31 +62,73 @@ function nominatimUserAgent(): string {
   )
 }
 
-/** Build a short place line like "Tokyo, Japan" from Nominatim address parts. */
+/** True when the string is safe to show on an English landing page. */
+export function usesLatinScript(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  return !NON_LATIN_SCRIPT.test(t)
+}
+
+export function normalizePlaceSegment(segment: string): string {
+  return segment
+    .replace(/\s+Subdistrict\s+Municipality$/i, '')
+    .replace(/\s+District$/i, '')
+    .replace(/\s+Province$/i, '')
+    .replace(/\s+Municipality$/i, '')
+    .replace(/\s+County$/i, '')
+    .trim()
+}
+
+/** First Latin-script locality field (OSM often keeps `city` in Thai but `county` in English). */
+export function pickLatinLocality(address: Record<string, string>): string | null {
+  for (const key of ADDRESS_LOCALITY_KEYS) {
+    const raw = address[key]
+    if (!raw || !usesLatinScript(raw)) continue
+    const normalized = normalizePlaceSegment(raw)
+    if (normalized.length > 0) return normalized
+  }
+  return null
+}
+
+/** Build a short place line like "Ko Pha-ngan, Thailand" from Nominatim address parts. */
 export function formatPlaceFromNominatimAddress(
   address: Record<string, string> | undefined
 ): string | null {
   if (!address) return null
 
-  const locality =
-    address.city ||
-    address.town ||
-    address.village ||
-    address.municipality ||
-    address.island ||
-    address.hamlet ||
-    address.suburb
+  const countryRaw = address.country?.trim()
+  const country =
+    countryRaw && usesLatinScript(countryRaw) ? normalizePlaceSegment(countryRaw) : null
 
-  const country = address.country
-
-  // Prefer short "Place, Country" for landing (avoid long admin chains in local script).
-  if (locality && country) {
-    return `${locality}, ${country}`
-  }
-  const region = address.state || address.region || address.county
-  if (region && country) return `${region}, ${country}`
+  const locality = pickLatinLocality(address)
+  if (locality && country) return `${locality}, ${country}`
   if (country) return country
   return null
+}
+
+/** Parse comma-separated display_name, skipping non-Latin segments (e.g. Thai subdistrict names). */
+export function formatPlaceFromDisplayName(displayName: string | undefined): string | null {
+  if (!displayName?.trim()) return null
+
+  const parts = displayName
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const latin = parts.filter(usesLatinScript)
+  if (latin.length === 0) return null
+
+  const country = normalizePlaceSegment(latin[latin.length - 1])
+  const localityCandidates = latin.slice(0, -1)
+  if (localityCandidates.length === 0) return country
+
+  const best =
+    localityCandidates.find((p) => /\bdistrict\b/i.test(p)) ||
+    localityCandidates.find((p) => p.length <= 48 && !/municipality/i.test(p)) ||
+    localityCandidates[localityCandidates.length - 1]
+
+  const place = normalizePlaceSegment(best)
+  if (!place || place === country) return country
+  return `${place}, ${country}`
 }
 
 /**
@@ -118,7 +179,7 @@ export async function reverseGeocodePlaceName(
     const data = (await response.json()) as NominatimReverseResponse
     const place =
       formatPlaceFromNominatimAddress(data.address) ||
-      shortenDisplayName(data.display_name)
+      formatPlaceFromDisplayName(data.display_name)
 
     placeCache.set(key, place)
     return place
@@ -127,15 +188,6 @@ export async function reverseGeocodePlaceName(
     placeCache.set(key, null)
     return null
   }
-}
-
-function shortenDisplayName(displayName: string | undefined): string | null {
-  if (!displayName?.trim()) return null
-  const parts = displayName.split(',').map((p) => p.trim()).filter(Boolean)
-  if (parts.length >= 2) {
-    return `${parts[0]}, ${parts[parts.length - 1]}`
-  }
-  return parts[0] ?? null
 }
 
 /** Clear in-memory cache (tests). */
