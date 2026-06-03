@@ -20,6 +20,8 @@ Read-only JSON endpoints for the marketing / landing site. Data comes from **ver
 
 Both endpoints trigger a background refresh when cached feed data is older than ~60 minutes. No action is required from the landing site.
 
+After deploys that fix feed location data, trigger a one-time resync: `POST https://dapp.decleanup.net/api/impact/sync` with header `x-impact-sync-secret` (see `IMPACT_SYNC_SECRET` in Vercel).
+
 ---
 
 ## 1. Global stats

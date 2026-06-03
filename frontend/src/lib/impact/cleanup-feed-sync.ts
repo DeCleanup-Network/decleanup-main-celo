@@ -10,6 +10,7 @@ import {
 } from '@/lib/impact/indexer'
 import type { ImpactEntry } from '@/lib/impact/types'
 import { isAddress, type Address } from 'viem'
+import { parseCoordsFromContractRaw } from '@/lib/impact/coords-from-contract'
 import { formatLocationLabel } from '@/lib/impact/location-label'
 import { buildCleanupSummary } from '@/lib/impact/cleanup-feed-format'
 import {
@@ -33,15 +34,6 @@ function bigintToIso(ts: bigint | undefined, fallbackMs?: number): string | null
   if (!n || !Number.isFinite(n) || n <= 0) return null
   const ms = n > 1_000_000_000_000 ? n : n * 1000
   return new Date(ms).toISOString()
-}
-
-function coordsFromContract(rawLat: number, rawLng: number): { lat: number | null; lng: number | null } {
-  if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return { lat: null, lng: null }
-  if (rawLat === 0 && rawLng === 0) return { lat: null, lng: null }
-  const lat = rawLat / 1_000_000
-  const lng = rawLng / 1_000_000
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return { lat: null, lng: null }
-  return { lat, lng }
 }
 
 async function fetchImpactReportPermissions(impactCid: string) {
@@ -71,7 +63,8 @@ async function mapEntryToFeedRow(
   const details = readAt
     ? await getCleanupDetailsAt(readAt, onChainId)
     : await getCleanupDetailsFresh(onChainId)
-  const { lat, lng } = coordsFromContract(entry.latitude, entry.longitude)
+  // Use on-chain microdegrees from contract — entry.latitude/longitude are already degrees from indexer.
+  const { lat, lng } = parseCoordsFromContractRaw(details.latitude, details.longitude)
   const locationLabel = formatLocationLabel(entry.locationType, lat ?? 0, lng ?? 0)
   const nowIso = new Date().toISOString()
 

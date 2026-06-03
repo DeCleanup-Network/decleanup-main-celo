@@ -19,7 +19,10 @@ function titleCase(s: string): string {
 }
 
 function hasMeaningfulCoords(lat: number, lng: number): boolean {
-  return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return false
+  // Ignore sub-0.05° noise (e.g. feed double-scaled microdegrees stored as degrees).
+  if (Math.abs(lat) < 0.05 && Math.abs(lng) < 0.05) return false
+  return true
 }
 
 /** Approximate coords for public display (~11 km precision at 1 decimal). */

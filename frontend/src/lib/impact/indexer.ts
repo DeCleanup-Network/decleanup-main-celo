@@ -22,6 +22,7 @@
 
 import { getCleanupDetails, getCleanupCounter, getCleanupDetailsAt, getCleanupCounterAt } from '@/lib/blockchain/contracts'
 import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
+import { parseCoordsFromContractRaw } from './coords-from-contract'
 import { ImpactEntry, ImpactIndexCache } from './types'
 import type { Address } from 'viem'
 
@@ -291,12 +292,13 @@ function normalizeEntry(submission: any): ImpactEntry {
     : []
   
   const submitterAddr = submission.user ?? submission.submitter
+  const { lat, lng } = parseCoordsFromContractRaw(submission.latitude, submission.longitude)
   const entry: ImpactEntry = {
     submissionId: submission.id.toString(),
     submitter: submitterAddr ? String(submitterAddr) : '0x0000000000000000000000000000000000000000',
     timestamp: Number(submission.timestamp),
-    latitude: Number(submission.latitude) / 1_000_000,
-    longitude: Number(submission.longitude) / 1_000_000,
+    latitude: lat ?? 0,
+    longitude: lng ?? 0,
     
     locationType: impactData.locationType || 'Unknown',
     areaSqm,
