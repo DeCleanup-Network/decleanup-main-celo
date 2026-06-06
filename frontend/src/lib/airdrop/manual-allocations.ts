@@ -32,13 +32,13 @@ const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
     label: 'Past contributor, $cDCU airdrop',
   },
   {
-    walletAddress: '0x447b7830481763001df8e0e3e2e5714d452a37e7',
+    walletAddress: '0x46524951c7cCDf154578522F765f2D42d02ca7a4',
     amountCdcu: '250',
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',
   },
   {
-    walletAddress: '0x46524951c7cCDf154578522F765f2D42d02ca7a4',
+    walletAddress: '0x2291ef1573d9FdAE4E4cd092aD4031f7301f5b5e',
     amountCdcu: '250',
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',
