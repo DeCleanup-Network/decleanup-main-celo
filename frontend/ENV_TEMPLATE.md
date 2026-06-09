@@ -1,8 +1,12 @@
 # Environment Variables Template
 
-Copy to **`frontend/.env.local`**. Next.js loads only this file for the app.
+**Canonical copy-paste file:** **`frontend/.env.example`** — hand this to new devs; copy to `frontend/.env.local`.
 
-**Deploy docs:** `docs/deployment-plan.md` · **Mainnet addresses:** `../contracts/scripts/deployed_addresses.json` · **$cDCU:** `docs/B_CDCU_ONLY_ARCHITECTURE.md`
+Structure: **MUST HAVE** (wallet + submit flow) first, then **OPTIONAL — * flow** blocks (embedded login, claims, Supabase, ML, etc.).
+
+Next.js loads **`.env.local`** only for the app. This markdown file adds setup notes and production blocks.
+
+**Deploy docs:** `docs/deployment-plan.md` · **Mainnet addresses:** `../contracts/scripts/deployed_addresses.json` · **$cDCU:** `docs/B_CDCU_ONLY_ARCHITECTURE.md` · **Contracts deploy:** `../contracts/.env.example`
 
 Put comments on their own lines (inline `#` after URLs can break RPC parsing).
 
@@ -20,6 +24,8 @@ NEXT_PUBLIC_BLOCK_EXPLORER_NAME=CeloScan
 NEXT_PUBLIC_SUBMISSION_CONTRACT=0x2f3654f0ad8117c41185c589dcd0ea22522fe5af
 NEXT_PUBLIC_IMPACT_PRODUCT_NFT=0x97fa526fba91f01b5a4e0f25c71751e474cb6f45
 NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT=0x1936270b066ebadedc2d84f4ce3b488729d1d638
+NEXT_PUBLIC_CDCU_TOKEN_ADDRESS=0x34d66e9552e9dc23a24eca13bb1f8f71f4b9bfc1
+NEXT_PUBLIC_CLAIMVAULT_ADDRESS=0x4f69a1170c8799b5bc1587275b2e7da5a8406ff0
 
 NEXT_PUBLIC_HYPERCERTS_NETWORK=celo
 NEXT_PUBLIC_WEB_APP_URL=https://dapp.decleanup.net

@@ -453,7 +453,7 @@ Deploy docs: **`docs/B_CDCU_ONLY_ARCHITECTURE.md`**, **`contracts/scripts/README
 
 ## Environment variables
 
-Copy **`frontend/ENV_TEMPLATE.md`** → `frontend/.env.local`.
+Copy **`frontend/.env.example`** → `frontend/.env.local` (see **`frontend/ENV_TEMPLATE.md`** for notes).
 
 **Production minimum (mainnet)**
 

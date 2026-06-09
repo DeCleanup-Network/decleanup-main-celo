@@ -3,7 +3,7 @@
 ## Mainnet (production — Vercel)
 
 1. **`contracts/scripts/deployed_addresses.json`** — canonical Celo mainnet (`42220`) addresses.
-2. **Vercel env** — copy from **`frontend/ENV_TEMPLATE.md`**. Required:
+2. **Vercel env** — copy from **`frontend/.env.example`**. Required:
    - `NEXT_PUBLIC_CHAIN_ID=42220`
    - `NEXT_PUBLIC_RPC_URL` (Celo mainnet RPC)
    - `NEXT_PUBLIC_SUBMISSION_CONTRACT`, `NEXT_PUBLIC_IMPACT_PRODUCT_NFT`, `NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT`

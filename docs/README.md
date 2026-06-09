@@ -22,6 +22,6 @@
 
 **Onchain addresses:** `contracts/scripts/deployed_addresses.json` (Celo mainnet `42220`).
 
-**Environment template:** `frontend/ENV_TEMPLATE.md`.
+**Environment template:** `frontend/.env.example` (notes: `frontend/ENV_TEMPLATE.md`, contracts: `contracts/.env.example`).
 
 Code history: `git log`. Application changelog: root **`CHANGELOG.md`**.
