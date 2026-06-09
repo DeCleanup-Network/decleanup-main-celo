@@ -234,6 +234,12 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
       </div>
 
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {impactData.campaignName && (
+          <div className="sm:col-span-2">
+            <dt className="text-xs uppercase text-gray-400">Cleanup / campaign name</dt>
+            <dd className="text-base text-white">{impactData.campaignName}</dd>
+          </div>
+        )}
         {impactData.locationType && (
           <div>
             <dt className="text-xs uppercase text-gray-400">Location Type</dt>

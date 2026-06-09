@@ -402,6 +402,7 @@ function CleanupContent() {
 
   // Impact Report form data
   const [enhancedData, setEnhancedData] = useState({
+    campaignName: '',
     locationType: '',
     area: '',
     areaUnit: 'sqm' as 'sqm' | 'sqft',
@@ -1174,6 +1175,9 @@ function CleanupContent() {
         try {
           console.log('Uploading enhanced impact report data to IPFS...')
           const impactData = {
+            ...(enhancedData.campaignName.trim()
+              ? { campaignName: enhancedData.campaignName.trim() }
+              : {}),
             locationType: enhancedData.locationType,
             area: enhancedData.area,
             areaUnit: enhancedData.areaUnit,
@@ -2284,6 +2288,22 @@ function CleanupContent() {
               }
             }}
           >
+            {/* Cleanup / campaign name (optional) */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Cleanup / campaign name
+              </label>
+              <input
+                type="text"
+                value={enhancedData.campaignName}
+                onChange={(e) => setEnhancedData({ ...enhancedData, campaignName: e.target.value })}
+                placeholder="e.g. Earth Day beach cleanup, Koh Phangan 2026"
+                maxLength={120}
+                className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder:text-gray-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">Optional — shown on your impact report if provided.</p>
+            </div>
+
             {/* Location Type */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-300">

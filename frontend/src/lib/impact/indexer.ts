@@ -300,6 +300,10 @@ function normalizeEntry(submission: any): ImpactEntry {
     latitude: lat ?? 0,
     longitude: lng ?? 0,
     
+    campaignName:
+      typeof impactData.campaignName === 'string' && impactData.campaignName.trim()
+        ? impactData.campaignName.trim()
+        : undefined,
     locationType: impactData.locationType || 'Unknown',
     areaSqm,
     weightKg,

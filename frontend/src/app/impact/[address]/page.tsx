@@ -1086,7 +1086,9 @@ function PublicPortfolioContent() {
                     return (
                       <article key={e.submissionId} className="overflow-hidden rounded-xl border border-border bg-card">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-                          <p className="font-heading text-xl">Cleanup #{e.submissionId}</p>
+                          <p className="font-heading text-xl">
+                            {e.impact?.campaignName?.trim() || `Cleanup #${e.submissionId}`}
+                          </p>
                           <span
                             className="inline-flex items-center gap-1 rounded-full border border-brand-green/40 bg-brand-green/10 px-2.5 py-0.5 text-[11px] text-brand-green"
                             aria-label={badgeLabel}

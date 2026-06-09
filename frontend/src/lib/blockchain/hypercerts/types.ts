@@ -78,6 +78,7 @@ export interface HypercertMetadataInput {
   
   // Impact Report Data (from IPFS)
   impactData?: {
+    campaignName?: string
     locationType?: string
     wasteTypes?: string[]
     area?: number

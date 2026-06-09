@@ -7,6 +7,9 @@ import { buildHypercertRightsDimension } from './rights-presets'
 function buildWorkScope(input: HypercertMetadataInput): HypercertDimension<string> {
   const scopes = []
   
+  if (input.impactData?.campaignName) {
+    scopes.push(input.impactData.campaignName)
+  }
   if (input.impactData?.locationType) {
     scopes.push(input.impactData.locationType)
   }
