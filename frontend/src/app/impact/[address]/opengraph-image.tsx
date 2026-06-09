@@ -28,10 +28,10 @@ export default async function Image({ params }: { params: { address: string } })
   const addrOk = isAddress(raw)
   const displayAddr = shortAddr(raw)
 
-  let totalDcu = '—'
-  let verified = '—'
-  let reports = '—'
-  let level = '—'
+  let totalDcu = '-'
+  let verified = '-'
+  let reports = '-'
+  let level = '-'
 
   if (addrOk) {
     const data = await withTimeout(fetchPublicPortfolioData(raw as Address), OG_FETCH_MS)
@@ -39,7 +39,7 @@ export default async function Image({ params }: { params: { address: string } })
       totalDcu = Math.round(data.rewards.totalDcuBreakdown).toString()
       verified = String(data.verifiedCleanups)
       reports = String(data.verifiedWithReport)
-      level = data.level > 0 ? `Lv ${data.level}` : '—'
+      level = data.level > 0 ? `Lv ${data.level}` : '-'
     }
   }
 
@@ -99,7 +99,7 @@ export default async function Image({ params }: { params: { address: string } })
               lineHeight: 1.35,
             }}
           >
-            Verified cleanup impact and DCU — shareable proof of field activity on Celo.
+            Verified cleanup impact and DCU. Shareable proof of field activity on Celo.
           </div>
         </div>
 

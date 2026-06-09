@@ -1,6 +1,6 @@
 import { createPublicClient, http, isAddress } from 'viem'
 import { mainnet } from 'viem/chains'
-import { getEnsAddress, getEnsName } from 'viem/actions'
+import { getEnsAddress, getEnsName, getEnsText } from 'viem/actions'
 import { normalize } from 'viem/ens'
 
 function ethereumRpcUrl(): string {
@@ -38,4 +38,25 @@ export async function resolveAddressToEnsName(address: `0x${string}`): Promise<s
   } catch {
     return null
   }
+}
+
+const PORTFOLIO_ENS_TEXT_KEYS = ['url', 'description', 'com.twitter', 'org.farcaster', 'location'] as const
+
+/** Public ENS text records used for portfolio identity disclosure. */
+export async function resolveEnsTextRecords(
+  ensName: string
+): Promise<Record<string, string>> {
+  const name = normalize(ensName.trim())
+  const out: Record<string, string> = {}
+  await Promise.all(
+    PORTFOLIO_ENS_TEXT_KEYS.map(async (key) => {
+      try {
+        const value = await getEnsText(ethPublicClient, { name, key })
+        if (value?.trim()) out[key] = value.trim()
+      } catch {
+        // skip missing keys
+      }
+    })
+  )
+  return out
 }

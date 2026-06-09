@@ -15,3 +15,5 @@ Eligible users can mint **Hypercerts** on Celo using aggregated cleanup + impact
 | On-chain bonus | `DCURewardManager.claimHypercertReward` (DCU ledger bonus; see contract `hypercertBonus`) |
 
 Product narrative: **`docs/hypercerts-and-impact.md`**.
+
+**Proposed next-gen portal UI** (Green Goods Admin review, June 2026): **`docs/HYPERCERTS_PORTAL_PROPOSED_UI.md`** — wizard steps, SDG/capitals extensions, distribution, gap vs current `/hypercerts` page.

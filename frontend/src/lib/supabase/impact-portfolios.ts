@@ -27,12 +27,20 @@ function getSupabase() {
 }
 
 function rowToProfile(row: ImpactPortfolioRow): EditableProfile {
+  const extended = row as ImpactPortfolioRow & {
+    legal_name?: string
+    impact_context?: string
+    additionality_statement?: string
+  }
   return {
     displayName: row.display_name,
+    legalName: extended.legal_name ?? '',
     bio: row.bio,
     locationLabel: row.location_label,
     locationCoords: row.location_coords,
     showPreciseLocation: row.show_precise_location,
+    impactContext: extended.impact_context ?? '',
+    additionalityStatement: extended.additionality_statement ?? '',
     creatorName: row.creator_name,
     creatorRole: row.creator_role,
     projects: row.projects,
@@ -56,13 +64,20 @@ export async function getImpactPortfolioProfile(address: string): Promise<Editab
 }
 
 export async function upsertImpactPortfolioProfile(address: string, profile: EditableProfile): Promise<void> {
-  const insertData: ImpactPortfolioInsert = {
+  const insertData: ImpactPortfolioInsert & {
+    legal_name?: string
+    impact_context?: string
+    additionality_statement?: string
+  } = {
     address: address.toLowerCase(),
     display_name: profile.displayName,
+    legal_name: profile.legalName,
     bio: profile.bio,
     location_label: profile.locationLabel,
     location_coords: profile.locationCoords,
     show_precise_location: profile.showPreciseLocation,
+    impact_context: profile.impactContext,
+    additionality_statement: profile.additionalityStatement,
     creator_name: profile.creatorName,
     creator_role: profile.creatorRole,
     projects: profile.projects,

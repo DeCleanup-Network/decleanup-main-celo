@@ -23,7 +23,7 @@ export async function generateMetadata({
     }),
     metadataBase: metadataBase(),
     openGraph: {
-      title: `DeCleanup Rewards — Impact Portfolio · ${short}`,
+      title: `DeCleanup Rewards · Impact Portfolio · ${short}`,
       description,
       url: `/impact/${encodeURIComponent(raw)}`,
       siteName: 'DeCleanup Rewards',
@@ -32,7 +32,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: `DeCleanup Rewards — Impact Portfolio · ${short}`,
+      title: `DeCleanup Rewards · Impact Portfolio · ${short}`,
       description,
     },
   }

@@ -69,6 +69,77 @@ export const WASTE_TYPE_TO_SDG: Record<string, number[]> = {
  * 
  * Used by landing page and reporting
  */
+export type SdgAlignmentCard = {
+  /** Short label used in chips, e.g. "Sustainable Cities". */
+  name: string
+  color: string
+  goalLabel: string
+  fullTitle: string
+  description: string
+  ourLink: string
+  unUrl: string
+}
+
+/** Official UN SDG numbered icon (square JPEG from sdgs.un.org). */
+export function getSdgOfficialIconUrl(sdgNumber: number): string {
+  return `https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-${sdgNumber}.jpg`
+}
+
+/** Full SDG alignment cards; mirrors decleanup.net/sdg and litepaper. */
+export const SDG_ALIGNMENT_CARDS: Partial<Record<number, SdgAlignmentCard>> = {
+  11: {
+    name: 'Sustainable Cities',
+    color: '#FD6925',
+    goalLabel: 'GOAL ELEVEN',
+    fullTitle: 'Sustainable Cities & Communities',
+    description:
+      'Make cities and human settlements inclusive, safe, resilient and sustainable.',
+    ourLink:
+      'Verified neighborhood cleanups give cities transparent waste data & reward residents for civic action.',
+    unUrl: 'https://www.un.org/sustainabledevelopment/cities/',
+  },
+  12: {
+    name: 'Responsible Consumption',
+    color: '#BF8B2E',
+    goalLabel: 'GOAL TWELVE',
+    fullTitle: 'Responsible Consumption & Production',
+    description: 'Ensure sustainable consumption and production patterns.',
+    ourLink:
+      "Every cleanup categorizes waste (PET, plastic, glass, mixed), feeding open data on what's actually being thrown out, where.",
+    unUrl: 'https://www.un.org/sustainabledevelopment/sustainable-consumption-production/',
+  },
+  13: {
+    name: 'Climate Action',
+    color: '#407D52',
+    goalLabel: 'GOAL THIRTEEN',
+    fullTitle: 'Climate Action',
+    description: 'Take urgent action to combat climate change and its impacts.',
+    ourLink:
+      'Cleanup actions become hypercerts and feed dMRV pipelines, so climate-aligned funders get auditable receipts, not estimates.',
+    unUrl: 'https://www.un.org/sustainabledevelopment/climate-change/',
+  },
+  14: {
+    name: 'Life Below Water',
+    color: '#0A97D9',
+    goalLabel: 'GOAL FOURTEEN',
+    fullTitle: 'Life Below Water',
+    description: 'Conserve and sustainably use the oceans, seas and marine resources.',
+    ourLink:
+      'Beach & harbor cleanups stop plastic at the coast before it enters the ocean.',
+    unUrl: 'https://www.un.org/sustainabledevelopment/oceans/',
+  },
+  15: {
+    name: 'Life on Land',
+    color: '#56C596',
+    goalLabel: 'GOAL FIFTEEN',
+    fullTitle: 'Life on Land',
+    description: 'Protect, restore and promote sustainable use of terrestrial ecosystems.',
+    ourLink:
+      'Forest, riverbank and roadside cleanups reduce litter that fragments habitats and poisons soil.',
+    unUrl: 'https://www.un.org/sustainabledevelopment/biodiversity/',
+  },
+}
+
 export const SDG_METADATA: Record<number, { name: string; color: string }> = {
   1: { name: 'No Poverty', color: '#E5243B' },
   2: { name: 'Zero Hunger', color: '#DDA250' },

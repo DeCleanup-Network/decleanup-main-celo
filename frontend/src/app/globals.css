@@ -509,3 +509,24 @@ appkit-modal {
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .impact-portfolio-document {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .impact-portfolio-document .rounded-xl,
+  .impact-portfolio-document .rounded-2xl,
+  .impact-portfolio-document .rounded-lg,
+  .impact-portfolio-document .rounded-md {
+    break-inside: avoid;
+    border-color: #ccc !important;
+  }
+}

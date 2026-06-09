@@ -87,6 +87,25 @@ export type CumulativeImpactMetrics = {
   wasteTypeCounts: Record<string, number>
 }
 
+/** Minted hypercert row for public portfolio disclosure (wired from API/indexer later). */
+export type PortfolioHypercertRecord = {
+  hypercertId: string
+  metadataCid: string
+  txHash?: string
+  status: 'MINTED' | 'APPROVED' | 'PENDING'
+  workTimeframeStart?: number
+  workTimeframeEnd?: number
+  mintedAt?: number
+}
+
+/** Shape reference for portfolio hypercert table; not used in production payloads. */
+export const PORTFOLIO_HYPERCERT_PLACEHOLDER: PortfolioHypercertRecord = {
+  hypercertId: 'bafy…pending',
+  metadataCid: 'bafy…pending',
+  txHash: '0x…pending',
+  status: 'PENDING',
+}
+
 function normalizeArea(value: number, unit: string): number {
   if (unit === 'sqft') return value / 10.764
   return value
@@ -271,6 +290,8 @@ export type PublicPortfolioPayload = {
   rewards: PublicPortfolioRewards
   cumulative: CumulativeImpactMetrics
   impactProductImageUrl: string | null
+  /** TODO: populate from /api/hypercerts/requests + onchain mint index when portfolio read path is live */
+  hypercerts: PortfolioHypercertRecord[]
 }
 
 /**
@@ -401,6 +422,8 @@ export async function fetchPublicPortfolioData(
       wasteTypeCounts,
     },
     impactProductImageUrl,
+    // TODO: fetchHypercertRequestsByUser + filter MINTED rows into PortfolioHypercertRecord[]
+    hypercerts: [],
   }
 }
 
