@@ -32,11 +32,7 @@ export function DashboardProfileCard({
   const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
 
   const portfolioOwner = submissionOwnerAddress ?? address
-  const impactHref =
-    submissionOwnerAddress &&
-    submissionOwnerAddress.toLowerCase() !== address.toLowerCase()
-      ? `/impact/${submissionOwnerAddress}?signer=${address}`
-      : `/impact/${portfolioOwner}`
+  const impactHref = `/impact/${portfolioOwner}`
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">

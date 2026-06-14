@@ -25,7 +25,7 @@ export function UnlockSigningForm() {
       await unlock(password, duration)
       setPassword('')
     } catch {
-      setLocalError(`Incorrect ${WALLET_PASSKEY_POSSESSIVE}.`)
+      setLocalError(`Incorrect ${WALLET_PASSKEY_LOWER}.`)
     } finally {
       setPending(false)
     }

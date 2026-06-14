@@ -58,7 +58,7 @@ export function isReverseGeocodingEnabled(): boolean {
 function nominatimUserAgent(): string {
   return (
     process.env.NOMINATIM_USER_AGENT?.trim() ||
-    'DeCleanupRewards/1.0 (https://dapp.decleanup.net; contact: decentralizedcleanup@gmail.com)'
+    'DeCleanupRewards/1.0 (https://dapp.decleanup.net; contact: support@decleanup.net)'
   )
 }
 

@@ -48,7 +48,7 @@ export function MetamaskExportSection() {
   return (
     <details className="group border-t border-gray-800 pt-4">
       <summary className="cursor-pointer text-sm font-medium text-gray-300 marker:content-none [&::-webkit-details-marker]:hidden">
-        Advanced: import to MetaMask
+        Advanced: Import to external wallet
       </summary>
       <div className="mt-3 space-y-3 text-sm text-gray-400">
         <p>

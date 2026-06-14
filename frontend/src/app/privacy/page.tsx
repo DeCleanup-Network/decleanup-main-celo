@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 
-const PRIVACY_EMAIL = 'decentralizedcleanup@gmail.com'
+const PRIVACY_EMAIL = 'support@decleanup.net'
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Privacy Policy',

@@ -27,7 +27,8 @@
     "db:local:up": "docker compose -f docker-compose.db.yml up -d",
     "db:local:push": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/decleanup?sslmode=disable prisma db push",
     "db:local:check": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/decleanup?sslmode=disable node scripts/check-auth-db.mjs",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "support:wallet-reset": "node scripts/reset-user-wallet.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

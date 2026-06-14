@@ -34,6 +34,8 @@ import {
   Database,
   Layers,
   Download,
+  ImageIcon,
+  ChevronDown,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { resolveEnsToAddress, resolveAddressToEnsName } from '@/lib/utils/ens'
@@ -172,17 +174,11 @@ function PublicPortfolioContent() {
   const raw = typeof params?.address === 'string' ? params.address : ''
 
   const saParam = searchParams.get('sa') || searchParams.get('submissionOwner')
-  const signerParam = searchParams.get('signer')
   const submissionOwnerOverride = useMemo(() => {
     if (!saParam?.trim()) return undefined
     const t = saParam.trim()
     return isAddress(t) ? (t as Address) : undefined
   }, [saParam])
-  const signerFromQuery = useMemo(() => {
-    if (!signerParam?.trim()) return undefined
-    const t = signerParam.trim()
-    return isAddress(t) ? (t as Address) : undefined
-  }, [signerParam])
 
   const [resolved, setResolved] = useState<Address | null>(null)
   const [ensName, setEnsName] = useState<string | null>(null)
@@ -199,64 +195,52 @@ function PublicPortfolioContent() {
   const [saveProfileLoading, setSaveProfileLoading] = useState(false)
   const [isPortfolioVerifier, setIsPortfolioVerifier] = useState(false)
   const [endorsements, setEndorsements] = useState<PortfolioEndorsement[]>([])
+  const [expandedPhotoIds, setExpandedPhotoIds] = useState<Set<string>>(new Set())
 
   const badgeWalletAddress = submissionOwnerOverride ?? resolved ?? undefined
   const { showPastContributorBadge } = usePastContributorBadge(badgeWalletAddress ?? undefined)
 
+  /** URL path address is the single public portfolio identity (smart account or EOA). */
+  const portfolioDisplayAddress = resolved
+
+  /** When the signed-in owner views their SA portfolio, merge rewards from connected EOA (not in URL). */
+  const connectedOwnerEoa = useMemo((): Address | undefined => {
+    if (!resolved || !connectedAddress || !submissionOwnerAddress) return undefined
+    if (connectedAddress.toLowerCase() === resolved.toLowerCase()) return undefined
+    if (submissionOwnerAddress.toLowerCase() === resolved.toLowerCase()) {
+      return connectedAddress as Address
+    }
+    return undefined
+  }, [resolved, connectedAddress, submissionOwnerAddress])
+
   const effectiveSubmissionOwner = useMemo(() => {
     if (submissionOwnerOverride) return submissionOwnerOverride
-    if (signerFromQuery && resolved) return resolved
     if (!resolved || !connectedAddress || !submissionOwnerAddress) return undefined
     if (connectedAddress.toLowerCase() !== resolved.toLowerCase()) return undefined
     if (submissionOwnerAddress.toLowerCase() === resolved.toLowerCase()) return undefined
     return submissionOwnerAddress as Address
-  }, [submissionOwnerOverride, signerFromQuery, resolved, connectedAddress, submissionOwnerAddress])
+  }, [submissionOwnerOverride, resolved, connectedAddress, submissionOwnerAddress])
 
-  const portfolioDisplayAddress = useMemo((): Address | null => {
+  const rewardOwnerForFetch = useMemo((): Address | null => {
     if (!resolved) return null
-    return (effectiveSubmissionOwner ?? resolved) as Address
-  }, [resolved, effectiveSubmissionOwner])
+    if (connectedOwnerEoa) return connectedOwnerEoa
+    return resolved
+  }, [resolved, connectedOwnerEoa])
 
-  const signerDisplayAddress = useMemo((): Address | null => {
-    if (!resolved || !portfolioDisplayAddress) return null
-    if (signerFromQuery) return signerFromQuery
-    if (submissionOwnerOverride && resolved.toLowerCase() !== portfolioDisplayAddress.toLowerCase()) {
-      return resolved
-    }
+  const submissionOwnerForFetch = useMemo((): Address | undefined => {
+    if (!resolved) return undefined
+    if (submissionOwnerOverride) return submissionOwnerOverride
+    if (connectedOwnerEoa) return resolved
     if (
-      connectedAddress &&
-      submissionOwnerAddress &&
-      connectedAddress.toLowerCase() === resolved.toLowerCase() &&
-      submissionOwnerAddress.toLowerCase() !== resolved.toLowerCase()
+      effectiveSubmissionOwner &&
+      effectiveSubmissionOwner.toLowerCase() !== resolved.toLowerCase()
     ) {
-      return resolved
+      return effectiveSubmissionOwner
     }
-    return null
-  }, [
-    resolved,
-    portfolioDisplayAddress,
-    signerFromQuery,
-    submissionOwnerOverride,
-    connectedAddress,
-    submissionOwnerAddress,
-  ])
+    return undefined
+  }, [resolved, submissionOwnerOverride, connectedOwnerEoa, effectiveSubmissionOwner])
 
-  /** Reverse-ENS for the onchain identity shown on this page (explicit ?sa=, linked Safe, else path address). */
-  const ensLookupAddress = useMemo((): Address | null => {
-    if (!resolved) return null
-    try {
-      if (submissionOwnerOverride) return getAddress(submissionOwnerOverride)
-      if (
-        effectiveSubmissionOwner &&
-        effectiveSubmissionOwner.toLowerCase() !== resolved.toLowerCase()
-      ) {
-        return getAddress(effectiveSubmissionOwner)
-      }
-      return getAddress(resolved)
-    } catch {
-      return null
-    }
-  }, [resolved, submissionOwnerOverride, effectiveSubmissionOwner])
+  const ensLookupAddress = portfolioDisplayAddress
 
   const resolveParam = useCallback(async () => {
     const trimmed = decodeURIComponent(raw).trim()
@@ -308,8 +292,9 @@ function PublicPortfolioContent() {
     setError(null)
     void (async () => {
       try {
-        const payload = await fetchPublicPortfolioData(resolved, {
-          submissionOwner: effectiveSubmissionOwner,
+        if (!rewardOwnerForFetch) return
+        const payload = await fetchPublicPortfolioData(rewardOwnerForFetch, {
+          submissionOwner: submissionOwnerForFetch,
         })
         if (!cancelled) setData(payload)
       } catch (e) {
@@ -321,24 +306,14 @@ function PublicPortfolioContent() {
     return () => {
       cancelled = true
     }
-  }, [resolved, effectiveSubmissionOwner])
+  }, [resolved, rewardOwnerForFetch, submissionOwnerForFetch])
 
   const shareUrl =
     typeof window !== 'undefined' && portfolioDisplayAddress
       ? (() => {
           const base = `${window.location.origin}/impact/${portfolioDisplayAddress}`
-          if (
-            signerDisplayAddress &&
-            signerDisplayAddress.toLowerCase() !== portfolioDisplayAddress.toLowerCase()
-          ) {
-            return `${base}?signer=${signerDisplayAddress}`
-          }
-          if (
-            submissionOwnerOverride &&
-            resolved &&
-            resolved.toLowerCase() !== portfolioDisplayAddress.toLowerCase()
-          ) {
-            return `${base}?signer=${resolved}`
+          if (submissionOwnerOverride) {
+            return `${base}?sa=${submissionOwnerOverride}`
           }
           return base
         })()
@@ -372,20 +347,15 @@ function PublicPortfolioContent() {
   const totalRewards = reward?.totalDcuBreakdown || 0
 
   const displayTitle = useMemo(() => {
-    const shortenAddress = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`
     const trimmedRaw = decodeURIComponent(raw).trim()
     const rawLooksLikeEns = trimmedRaw.length > 0 && !isAddress(trimmedRaw) && trimmedRaw.includes('.')
 
     if (ensName?.trim()) return ensName.trim()
     if (rawLooksLikeEns) return trimmedRaw
     const fromProfile = profile?.displayName?.trim()
-    if (fromProfile) {
-      if (/^0x[a-fA-F0-9]{40}$/.test(fromProfile)) return shortenAddress(fromProfile)
-      return fromProfile
-    }
-    if (resolved) return shortenAddress(resolved)
-    return 'Impact portfolio'
-  }, [ensName, raw, profile?.displayName, resolved])
+    if (fromProfile && !/^0x[a-fA-F0-9]{40}$/i.test(fromProfile)) return fromProfile
+    return 'Impact Portfolio'
+  }, [ensName, raw, profile?.displayName])
 
   const locationCoords = useMemo(() => {
     if (!profile?.showPreciseLocation || !profile.locationCoords?.trim()) return null
@@ -471,10 +441,11 @@ function PublicPortfolioContent() {
       }
     }
     tryPush(resolved ?? undefined)
+    tryPush(connectedOwnerEoa ?? undefined)
     tryPush(effectiveSubmissionOwner ?? undefined)
     tryPush(submissionOwnerOverride ?? undefined)
     return out
-  }, [resolved, effectiveSubmissionOwner, submissionOwnerOverride])
+  }, [resolved, connectedOwnerEoa, effectiveSubmissionOwner, submissionOwnerOverride])
 
   useEffect(() => {
     if (addressesForVerifierCheck.length === 0) {
@@ -530,16 +501,7 @@ function PublicPortfolioContent() {
   }, [data, trendRange])
 
   const hasTrend = trendData.length > 0
-  const placeholderTrend = useMemo(
-    () =>
-      Array.from({ length: 6 }).map((_, i) => ({
-        day: `W${i + 1}`,
-        cleanups: i % 2 === 0 ? 1 : 0,
-        weight: i % 3 === 0 ? 0.7 : 0.2,
-      })),
-    []
-  )
-  const chartData = hasTrend ? trendData : placeholderTrend
+  const chartData = trendData
   const co2eEstimate = data ? estimatePlasticCo2eKg(data.cumulative.weightKg) : 0
 
   const socialLinks = [
@@ -576,9 +538,14 @@ function PublicPortfolioContent() {
   const canEditProfile = useMemo(() => {
     if (!connectedAddress || !resolved) return false
     const connected = connectedAddress.toLowerCase()
-    const owners = [resolved.toLowerCase(), effectiveSubmissionOwner?.toLowerCase()].filter(Boolean) as string[]
+    const owners = [
+      resolved.toLowerCase(),
+      connectedOwnerEoa?.toLowerCase(),
+      effectiveSubmissionOwner?.toLowerCase(),
+      submissionOwnerOverride?.toLowerCase(),
+    ].filter(Boolean) as string[]
     return owners.includes(connected)
-  }, [connectedAddress, resolved, effectiveSubmissionOwner])
+  }, [connectedAddress, resolved, connectedOwnerEoa, effectiveSubmissionOwner, submissionOwnerOverride])
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -634,23 +601,12 @@ function PublicPortfolioContent() {
                 </div>
               )}
               {portfolioDisplayAddress && (
-                <div className="min-w-0 max-w-full space-y-1">
+                <div className="min-w-0 max-w-full">
                   <CopyableAddress
                     address={portfolioDisplayAddress}
                     truncate
                     className="font-mono text-xs text-muted-foreground sm:text-sm"
                   />
-                  {signerDisplayAddress &&
-                  signerDisplayAddress.toLowerCase() !== portfolioDisplayAddress.toLowerCase() ? (
-                    <p className="text-[11px] text-muted-foreground/80">
-                      Signer:{' '}
-                      <CopyableAddress
-                        address={signerDisplayAddress}
-                        truncate
-                        className="inline font-mono text-[11px]"
-                      />
-                    </p>
-                  ) : null}
                 </div>
               )}
               {profile?.bio?.trim() ? (
@@ -1057,11 +1013,17 @@ function PublicPortfolioContent() {
                   </div>
                 </div>
                 <div className="rounded-md border border-border/60 p-3">
-                  <div className="h-56 w-full">
-                    <ImpactPortfolioTrendChart data={chartData} />
-                  </div>
-                  {!hasTrend && (
-                    <p className="mt-2 text-xs text-muted-foreground">Data populates as cleanups are verified.</p>
+                  {hasTrend ? (
+                    <div className="h-56 w-full">
+                      <ImpactPortfolioTrendChart data={chartData} />
+                    </div>
+                  ) : (
+                    <div className="flex h-56 w-full flex-col items-center justify-center gap-2 rounded-md bg-muted/20 px-4 text-center">
+                      <p className="text-sm text-muted-foreground">No verified cleanup trend yet</p>
+                      <p className="text-xs text-muted-foreground/80">
+                        Metrics and chart populate after cleanups are verified onchain.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1137,6 +1099,8 @@ function PublicPortfolioContent() {
                     const badgeLabel = d.hasImpactForm ? 'Verified · Report' : 'Verified'
                     const cid = d.impactFormDataHash || ''
                     const additionalLinks = extractAdditionalReportLinks(e.impact)
+                    const photosExpanded = expandedPhotoIds.has(e.submissionId)
+                    const hasPhotos = showBefore || showAfter
                     return (
                       <article key={e.submissionId} className="overflow-hidden rounded-xl border border-border bg-card">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -1159,24 +1123,64 @@ function PublicPortfolioContent() {
                             {badgeLabel}
                           </span>
                         </div>
-                        <div className="grid gap-0 md:grid-cols-2">
-                          <div className="aspect-[4/3] border-b border-border bg-black/40 md:border-b-0 md:border-r">
-                            {showBefore ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={beforeU} alt="Before cleanup evidence" className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Before photo hidden</div>
-                            )}
-                          </div>
-                          <div className="aspect-[4/3] bg-black/40">
-                            {showAfter ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={afterU} alt="After cleanup evidence" className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">After photo hidden</div>
-                            )}
-                          </div>
-                        </div>
+                        {hasPhotos ? (
+                          <>
+                            <button
+                              type="button"
+                              className="no-print flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2.5 text-left text-xs text-muted-foreground transition hover:bg-muted/30 hover:text-foreground"
+                              aria-expanded={photosExpanded}
+                              onClick={() => {
+                                setExpandedPhotoIds((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(e.submissionId)) next.delete(e.submissionId)
+                                  else next.add(e.submissionId)
+                                  return next
+                                })
+                              }}
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <ImageIcon className="h-4 w-4 shrink-0 text-brand-green" aria-hidden />
+                                {photosExpanded ? 'Hide before/after photos' : 'Show before/after photos'}
+                              </span>
+                              <ChevronDown
+                                className={`h-4 w-4 shrink-0 transition-transform ${photosExpanded ? 'rotate-180' : ''}`}
+                                aria-hidden
+                              />
+                            </button>
+                            <div
+                              className={`grid gap-0 md:grid-cols-2 ${photosExpanded ? 'block' : 'hidden'} print:grid`}
+                            >
+                              <div className="max-h-56 border-b border-border bg-black/40 md:max-h-64 md:border-b-0 md:border-r">
+                                {showBefore ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={beforeU}
+                                    alt="Before cleanup evidence"
+                                    className="h-full max-h-56 w-full object-contain md:max-h-64"
+                                  />
+                                ) : (
+                                  <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
+                                    Before photo hidden
+                                  </div>
+                                )}
+                              </div>
+                              <div className="max-h-56 bg-black/40 md:max-h-64">
+                                {showAfter ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={afterU}
+                                    alt="After cleanup evidence"
+                                    className="h-full max-h-56 w-full object-contain md:max-h-64"
+                                  />
+                                ) : (
+                                  <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
+                                    After photo hidden
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        ) : null}
                         <div className="grid gap-3 px-4 py-4 md:grid-cols-2">
                           <div className="rounded-md border border-border/60 p-3 text-xs">
                             <p className="text-muted-foreground">Scope</p>

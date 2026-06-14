@@ -1751,12 +1751,7 @@ function CleanupContent() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
               <Link
-                href={
-                  submissionOwnerAddress &&
-                  submissionOwnerAddress.toLowerCase() !== address?.toLowerCase()
-                    ? `/impact/${submissionOwnerAddress}?signer=${address as string}`
-                    : `/impact/${(submissionOwnerAddress ?? address) as string}`
-                }
+                href={`/impact/${(submissionOwnerAddress ?? address) as string}`}
                 className="text-brand-green underline"
               >
                 Impact Portfolio

@@ -506,4 +506,4 @@ Production URL for all public APIs: **https://dapp.decleanup.net**
 
 **Contract addresses:** always reconcile `deployed_addresses.json` + `verify-mainnet.sh` before publishing.
 
-**Support:** decentralizedcleanup@gmail.com
+**Support:** support@decleanup.net · [Wallet passkey reset runbook](./WALLET_SUPPORT_RESET.md) (team)

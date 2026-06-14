@@ -92,7 +92,7 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
       onSuccess()
       onClose()
     } catch {
-      setLocalError(`Incorrect ${WALLET_PASSKEY_POSSESSIVE}.`)
+      setLocalError(`Incorrect ${WALLET_PASSKEY_LOWER}.`)
     } finally {
       setPending(false)
     }
