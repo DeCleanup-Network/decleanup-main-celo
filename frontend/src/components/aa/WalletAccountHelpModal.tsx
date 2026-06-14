@@ -83,9 +83,9 @@ export function WalletAccountHelpModal({
             <span className="mt-1 block text-gray-500">Chain ID: {chainId}</span>
           </WalletHelpTopic>
 
-          <WalletHelpTopic label="Sign-in sync">
-            Google or email sign-in loads your encrypted wallet to each device. You still enter your{' '}
-            {WALLET_PASSKEY_LOWER} to unlock it.
+          <WalletHelpTopic label="MetaMask backup (optional)">
+            Export your signer key to MetaMask while you know your {WALLET_PASSKEY_LOWER}. If you forget the app
+            passkey later, connect MetaMask from the home page instead.
           </WalletHelpTopic>
         </div>
 

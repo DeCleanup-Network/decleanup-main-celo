@@ -141,11 +141,7 @@ export default function AccountSettingsPage() {
           )}
 
           <PasskeySettings />
-          {phase === 'unlocked' && (
-            <div className="rounded-xl border border-gray-800 bg-gray-900/50 px-4 pb-4 pt-2">
-              <MetamaskExportSection />
-            </div>
-          )}
+          {(phase === 'locked' || phase === 'unlocked') && <MetamaskExportSection />}
           <WalletLostAccessContactCard />
         </>
       )}

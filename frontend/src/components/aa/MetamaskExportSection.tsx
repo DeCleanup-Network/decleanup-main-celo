@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useWallet } from '@/providers/WalletProvider'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
@@ -9,14 +9,18 @@ import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER, WALLET_PASSKEY_POSSESSIVE } from 
 
 const CELO_MAINNET_RPC = 'https://forno.celo.org'
 
-/** Optional: reveal EOA private key to import into MetaMask on a trusted device. */
+/**
+ * Optional signer-key export to MetaMask — user's own backup if they forget the app wallet passkey later.
+ */
 export function MetamaskExportSection() {
   const {
     decryptForExport,
     decryptForExportInSession,
     needsSigningPassword,
     hasActiveSigningSession,
+    smartAccountAddress,
   } = useWallet()
+  const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,61 +50,97 @@ export function MetamaskExportSection() {
   }
 
   return (
-    <details className="group border-t border-gray-800 pt-4">
-      <summary className="cursor-pointer text-sm font-medium text-gray-300 marker:content-none [&::-webkit-details-marker]:hidden">
-        Advanced: Import to external wallet
-      </summary>
-      <div className="mt-3 space-y-3 text-sm text-gray-400">
-        <p>
-          Only on a device you trust. In MetaMask: Settings → Import account → Private Key. This exports
-          the signer key for your smart account, not the Safe address itself.
-        </p>
-        {!revealedKey ? (
-          <>
-            {!unlocked && (
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={`${WALLET_PASSKEY}…`}
-                className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white"
-              />
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending || (!unlocked && !password)}
-              className="border-white/10 text-foreground"
-              onClick={() => void revealKey()}
-            >
-              Reveal private key
-            </Button>
-          </>
+    <div className="rounded-xl border border-gray-800 bg-gray-900/50">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 p-4 text-left"
+        aria-expanded={open}
+      >
+        <div>
+          <h2 className="text-base font-semibold text-white">Back up to MetaMask (optional)</h2>
+          <p className="mt-1 text-sm text-gray-400">
+            Export your signer key when you are ready. MetaMask becomes your own backup if you forget the app{' '}
+            {WALLET_PASSKEY_LOWER} later.
+          </p>
+        </div>
+        {open ? (
+          <ChevronUp className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
         ) : (
-          <div className="relative">
-            <p
-              className={`break-all rounded-lg border border-gray-700 bg-black p-3 font-mono text-xs text-gray-200 ${
-                showKey ? '' : 'blur-sm select-none'
-              }`}
-            >
-              {revealedKey}
-            </p>
-            <button
-              type="button"
-              className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-white/[0.06]"
-              onClick={() => setShowKey((v) => !v)}
-              aria-label={showKey ? 'Hide key' : 'Show key'}
-            >
-              {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <ChevronDown className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
         )}
-        <p className="font-mono text-xs text-gray-500">
-          Celo RPC: {CELO_MAINNET_RPC} · Chain ID: {REQUIRED_CHAIN_ID}
-        </p>
-        {error ? <p className="text-xs text-red-400">{error}</p> : null}
-      </div>
-    </details>
+      </button>
+
+      {open ? (
+        <div className="space-y-4 border-t border-gray-800 px-4 pb-4 pt-4 text-sm text-gray-400">
+          <p>
+            Google sign-in already syncs your wallet. This step is only if you want a copy of the signing key in
+            MetaMask or another external wallet. Import via Settings → Import account → Private Key on a device you
+            trust.
+          </p>
+          {smartAccountAddress ? (
+            <p className="text-xs text-gray-500">
+              Your DeCleanup smart account address stays{' '}
+              <span className="font-mono text-gray-400">{smartAccountAddress}</span>. MetaMask holds the signer key
+              behind it, not the Safe address itself.
+            </p>
+          ) : null}
+          <p className="text-xs text-gray-500">
+            Forgot the app {WALLET_PASSKEY_LOWER} later? Connect MetaMask from the home page or sign-in screen
+            instead of using Google unlock. You pay gas yourself when using an external wallet.
+          </p>
+
+          {!revealedKey ? (
+            <>
+              {!unlocked && (
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={`${WALLET_PASSKEY}…`}
+                  className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white"
+                />
+              )}
+              {unlocked ? (
+                <p className="text-sm text-brand-green">Wallet unlocked. Reveal without typing your passkey again.</p>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending || (!unlocked && !password)}
+                className="border-white/10 text-foreground"
+                onClick={() => void revealKey()}
+              >
+                Reveal private key
+              </Button>
+            </>
+          ) : (
+            <div className="relative">
+              <p
+                className={`break-all rounded-lg border border-gray-700 bg-black p-3 font-mono text-xs text-gray-200 ${
+                  showKey ? '' : 'blur-sm select-none'
+                }`}
+              >
+                {revealedKey}
+              </p>
+              <button
+                type="button"
+                className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-white/[0.06]"
+                onClick={() => setShowKey((v) => !v)}
+                aria-label={showKey ? 'Hide key' : 'Show key'}
+              >
+                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+
+          <p className="font-mono text-xs text-gray-500">
+            Celo RPC: {CELO_MAINNET_RPC} · Chain ID: {REQUIRED_CHAIN_ID}
+          </p>
+          {error ? <p className="text-xs text-red-400">{error}</p> : null}
+        </div>
+      ) : null}
+    </div>
   )
 }

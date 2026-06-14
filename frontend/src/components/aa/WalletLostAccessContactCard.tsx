@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import Link from 'next/link'
 import { WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
 
 const LOST_ACCESS_EMAIL = 'support@decleanup.net'
@@ -11,7 +12,7 @@ type Props = {
 }
 
 /**
- * Lost passkey: contact support@decleanup.net for a team-assisted wallet reset.
+ * Lost passkey: use MetaMask if exported, else email support for team reset.
  */
 export function WalletLostAccessContactCard({ visible = true }: Props) {
   const [open, setOpen] = useState(false)
@@ -37,18 +38,22 @@ export function WalletLostAccessContactCard({ visible = true }: Props) {
       {open ? (
         <div className="space-y-3 border-t border-gray-800 px-4 pb-4 pt-2 text-sm leading-relaxed text-gray-400">
           <p>
-            If you forgot your {WALLET_PASSKEY_LOWER}, email the team to reset your wallet for this login.
+            <strong className="text-gray-300">Exported to MetaMask before?</strong> Connect MetaMask from the{' '}
+            <Link href="/" className="text-brand-green hover:underline">
+              home page
+            </Link>{' '}
+            or sign-in screen. You use the key in MetaMask instead of the app {WALLET_PASSKEY_LOWER}.
           </p>
           <p>
-            Email{' '}
+            <strong className="text-gray-300">Never exported?</strong> Email{' '}
             <a href={`mailto:${LOST_ACCESS_EMAIL}`} className="text-brand-green hover:underline">
               {LOST_ACCESS_EMAIL}
             </a>{' '}
             from the address you use to sign in. Include your smart account address if you know it.
           </p>
           <p className="text-xs text-gray-500">
-            After a reset you set a new {WALLET_PASSKEY_LOWER} and get a new smart account address. Previous
-            onchain cleanups, DCU, and impact portfolio on the old address are not moved automatically.
+            A team reset creates a new smart account address. Previous onchain cleanups, DCU, and impact portfolio on
+            the old address are not moved automatically.
           </p>
         </div>
       ) : null}

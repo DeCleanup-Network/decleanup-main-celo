@@ -12,7 +12,7 @@ For **DeCleanup team** when a user emails **support@decleanup.net** and cannot u
 ## Before you reset
 
 1. Confirm request came from the **sign-in email** (same as `User.email` in DB).
-2. Confirm they **do not** have access on another signed-in device where they still remember the passkey.
+2. Confirm they **do not** have the signer key in MetaMask or another external wallet from an earlier export.
 3. Note the **old smart account address** for support records.
 
 ## Option A — Script (recommended)

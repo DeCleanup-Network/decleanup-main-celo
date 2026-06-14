@@ -53,6 +53,7 @@ const WALLET_SECURITY_STEPS = [
   'Go to Account Settings and sign in with the same Google account you used in DeCleanup Rewards.',
   'Create a wallet passkey. Enable Face ID, Touch ID, or Windows Hello for faster unlock on this device.',
   'On a new phone or browser, sign in with the same account and enter your wallet passkey to unlock.',
+  'Optional: when you are ready, export your signer key to MetaMask. That is your own backup if you forget the app passkey later.',
 ] as const
 
 function SectionCard({
@@ -336,13 +337,14 @@ export default function UserGuidePage() {
             </ol>
 
             <div className="mb-5 rounded-lg border border-white/[0.08] bg-background/40 px-4 py-3 text-sm text-white/60">
-              If you forget your wallet passkey, email support@decleanup.net for a team reset. That creates a new
-              onchain address; previous cleanups stay on the old address.
+              Forgot your wallet passkey? If you exported your signer key to MetaMask, connect MetaMask from the home
+              page. Otherwise email support@decleanup.net for a team reset (new onchain address; old cleanups stay on
+              the previous address).
             </div>
 
             <details className="group rounded-lg border border-white/[0.08] bg-background/30">
               <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-white marker:content-none [&::-webkit-details-marker]:hidden">
-                <span className="font-heading">Import to external wallet (advanced)</span>
+                <span className="font-heading">Back up to MetaMask (optional)</span>
                 <ChevronDown
                   className="h-4 w-4 shrink-0 text-white/50 transition-transform group-open:rotate-180"
                   aria-hidden
@@ -350,8 +352,10 @@ export default function UserGuidePage() {
               </summary>
               <div className="space-y-4 border-t border-white/[0.08] px-4 pb-4 pt-3 text-sm leading-relaxed text-white/60">
                 <p>
-                  In Account Settings, unlock your wallet and use Advanced: Import to external wallet to reveal the
-                  signer private key for MetaMask or another compatible wallet.
+                  In Account Settings, unlock your wallet and open Back up to MetaMask. Reveal the signer private
+                  key and import it in MetaMask. Your DeCleanup smart account address stays the same; MetaMask holds
+                  the signing key. If you forget the app wallet passkey later, connect MetaMask from the home page
+                  instead of using Google unlock.
                 </p>
                 <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-100">
                   Anyone with your private key has full control of your signer. Never share it with anyone.

@@ -30,6 +30,10 @@ export function AccountHowItWorks() {
           <span className="font-medium text-gray-300">Wallet passkey</span> is yours alone. Required on every new
           device after sign-in. Face ID is optional on this device only.
         </p>
+        <p>
+          <span className="font-medium text-gray-300">MetaMask backup (optional)</span> — export your signer key when
+          ready. If you forget the app passkey later, connect MetaMask instead of unlocking here.
+        </p>
       </div>
     </details>
   )
