@@ -72,7 +72,7 @@ export function EnablePasskey({
       {!hideIntro && (
         <p className="text-sm text-gray-400">
           Optional: unlock on this device without typing your {WALLET_PASSKEY_LOWER} each time. Your private key never
-          leaves this device. You still need your {WALLET_PASSKEY_LOWER} for backup restore or a new phone.
+          leaves this device. You still need your {WALLET_PASSKEY_LOWER} on a new phone after Google sign-in.
         </p>
       )}
 

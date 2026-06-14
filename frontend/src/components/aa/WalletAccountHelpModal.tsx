@@ -83,9 +83,9 @@ export function WalletAccountHelpModal({
             <span className="mt-1 block text-gray-500">Chain ID: {chainId}</span>
           </WalletHelpTopic>
 
-          <WalletHelpTopic label="Encrypted backup">
-            A file with your key locked by your {WALLET_PASSKEY_LOWER}. Safe in Google Drive or on USB. Useless
-            without it.
+          <WalletHelpTopic label="Sign-in sync">
+            Google or email sign-in loads your encrypted wallet to each device. You still enter your{' '}
+            {WALLET_PASSKEY_LOWER} to unlock it.
           </WalletHelpTopic>
         </div>
 

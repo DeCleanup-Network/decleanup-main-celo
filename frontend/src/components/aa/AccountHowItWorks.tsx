@@ -27,12 +27,8 @@ export function AccountHowItWorks() {
           ) : null}
         </p>
         <p>
-          <span className="font-medium text-gray-300">Wallet passkey</span> is yours alone. Required on every device.
-          Face ID is optional on this device only.
-        </p>
-        <p>
-          <span className="font-medium text-gray-300">Backup</span> is insurance if sync fails. Usually sign-in +
-          passkey is enough on a new phone.
+          <span className="font-medium text-gray-300">Wallet passkey</span> is yours alone. Required on every new
+          device after sign-in. Face ID is optional on this device only.
         </p>
       </div>
     </details>

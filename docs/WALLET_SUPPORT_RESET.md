@@ -7,12 +7,12 @@ For **DeCleanup team** when a user emails **support@decleanup.net** and cannot u
 - Deletes **server-side** `UserWallet` + passkey rows for that login.
 - User **keeps** Google/email sign-in.
 - On next visit they **create a new wallet passkey** → **new smart account address**.
-- **Old onchain address is not recovered** (cleanups, DCU, impact portfolio stay on the old address unless they have a backup file).
+- **Old onchain address is not recovered** (cleanups, DCU, impact portfolio stay on the old address).
 
 ## Before you reset
 
 1. Confirm request came from the **sign-in email** (same as `User.email` in DB).
-2. Confirm they **do not** have an encrypted backup `.json` (or try `/recovery` first).
+2. Confirm they **do not** have access on another signed-in device where they still remember the passkey.
 3. Note the **old smart account address** for support records.
 
 ## Option A — Script (recommended)
@@ -55,16 +55,7 @@ COMMIT;
 
 1. Sign out everywhere, sign in again at https://dapp.decleanup.net
 2. Complete **new wallet passkey** setup in Account settings
-3. **Download a backup** immediately
-4. New smart account address will differ from the old one
-
-## In-app self-service (signed-in users)
-
-If the user can still **sign in with Google/email** but forgot the passkey and has no backup:
-
-**Account settings → Lost access / new wallet → Start new wallet (forgot passkey)**
-
-Same effect as the script for their own login (no team DB access needed).
+3. **New smart account address** will differ from the old one
 
 ## npm shortcut
 

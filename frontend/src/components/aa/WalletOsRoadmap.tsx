@@ -36,8 +36,8 @@ export function WalletOsRoadmap() {
         </div>
       </div>
 
-      <Link href="/recovery" className="text-xs text-brand-green underline">
-        Recovery &amp; backup instructions
+      <Link href="/guide#embedded-wallet" className="text-xs text-brand-green underline">
+        Wallet security guide
       </Link>
     </div>
   )

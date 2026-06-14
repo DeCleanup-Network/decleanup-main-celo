@@ -26,9 +26,9 @@ const PasskeySettings = dynamic(
   { ssr: false, loading: () => <div className="h-24 animate-pulse rounded-xl bg-gray-900/50" /> }
 )
 
-const WalletBackupSection = dynamic(
+const MetamaskExportSection = dynamic(
   () =>
-    import('@/components/aa/WalletBackupSection').then((m) => ({ default: m.WalletBackupSection })),
+    import('@/components/aa/MetamaskExportSection').then((m) => ({ default: m.MetamaskExportSection })),
   { ssr: false, loading: () => <div className="h-16 animate-pulse rounded-xl bg-gray-900/50" /> }
 )
 
@@ -40,7 +40,7 @@ export default function AccountSettingsPage() {
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { isConnected: wagmiConnected } = useAccount()
   const { signOutAll, disconnecting: signingOut } = useSignOutAll()
-  const { setupComplete, refreshBackupFlag } = useAccountSetupComplete(phase)
+  const { setupComplete } = useAccountSetupComplete(phase)
 
   useEffect(() => {
     if (!aaEnabled) return
@@ -111,12 +111,9 @@ export default function AccountSettingsPage() {
         <div className="space-y-4">
           {!setupComplete && <AccountSetupIntro />}
           <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
-            Your wallet is saved to your account but is not unlocked on this device yet. Use your wallet
-            passkey, or import an encrypted backup file if you created one earlier.
+            Your wallet is linked to this account, but encrypted wallet data is missing from the server.
+            Email support@decleanup.net from your sign-in address so the team can help.
           </div>
-          <Button asChild className="w-full">
-            <Link href="/import-wallet">Import backup file</Link>
-          </Button>
           <WalletLostAccessContactCard />
         </div>
       )}
@@ -144,7 +141,11 @@ export default function AccountSettingsPage() {
           )}
 
           <PasskeySettings />
-          <WalletBackupSection onBackupDownloaded={refreshBackupFlag} />
+          {phase === 'unlocked' && (
+            <div className="rounded-xl border border-gray-800 bg-gray-900/50 px-4 pb-4 pt-2">
+              <MetamaskExportSection />
+            </div>
+          )}
           <WalletLostAccessContactCard />
         </>
       )}
