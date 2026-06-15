@@ -51,8 +51,8 @@ const SUBMIT_STEPS = [
 
 const WALLET_SECURITY_STEPS = [
   'Go to Account Settings and sign in with the same Google account you used in DeCleanup Rewards.',
-  'Create a wallet passkey. Enable Face ID, Touch ID, or Windows Hello for faster unlock on this device.',
-  'On a new phone or browser, sign in with the same account and enter your wallet passkey to unlock.',
+  'Create a 6-digit wallet passcode. Confirm it, then optionally enable Face ID, Touch ID, or Windows Hello.',
+  'On a new phone or browser, sign in with the same account and enter your wallet passcode to unlock.',
   'Optional: when you are ready, export your signer key to MetaMask. That is your own backup if you forget the app passkey later.',
 ] as const
 
@@ -337,7 +337,7 @@ export default function UserGuidePage() {
             </ol>
 
             <div className="mb-5 rounded-lg border border-white/[0.08] bg-background/40 px-4 py-3 text-sm text-white/60">
-              Forgot your wallet passkey? If you exported your signer key to MetaMask, connect MetaMask from the home
+              Forgot your wallet passcode? If you exported your signer key to MetaMask, connect MetaMask from the home
               page. Otherwise email support@decleanup.net for a team reset (new onchain address; old cleanups stay on
               the previous address).
             </div>

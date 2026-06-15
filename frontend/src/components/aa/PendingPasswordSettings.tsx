@@ -1,23 +1,22 @@
 'use client'
 
-import { WalletPasskeySetupForm } from '@/components/aa/WalletPasskeySetupForm'
-import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
+import { WalletPasscodeSetupWizard } from '@/components/aa/WalletPasscodeSetupWizard'
 
-/** First-time wallet passkey — after protection overview on Account settings. */
+/** First-time wallet passcode — phone-style PIN, then optional Face ID. */
 export function PendingPasswordSettings() {
   return (
-    <div className="rounded-xl border border-brand-green/25 bg-gray-900/50 p-6 space-y-4">
-      <div>
-        <h2 className="font-heading text-lg tracking-wide text-white">CREATE &amp; SAVE YOUR {WALLET_PASSKEY.toUpperCase()}</h2>
+    <div className="rounded-xl border border-brand-green/25 bg-gray-900/50 p-6 space-y-6">
+      <div className="text-center sm:text-left">
+        <h2 className="font-heading text-lg tracking-wide text-white">CREATE YOUR WALLET PASSCODE</h2>
         <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-          Choose a {WALLET_PASSKEY_LOWER} you will remember, or store it in a password manager. There is no
-          other way to recover this wallet if you lose it — we cannot reset it for you.
+          Pick 6 digits you will remember. On a new device, sign in with Google or email and enter the same
+          passcode. Optional: export to MetaMask later for your own backup.
         </p>
-        <p className="mt-2 text-sm text-gray-400">
-          Required before your first onchain submit or claim.
+        <p className="mt-2 text-sm text-gray-500">
+          Required before your first onchain submit or claim. Not your Google password.
         </p>
       </div>
-      <WalletPasskeySetupForm defaultOpen compact />
+      <WalletPasscodeSetupWizard />
     </div>
   )
 }

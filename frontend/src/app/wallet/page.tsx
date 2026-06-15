@@ -13,7 +13,7 @@ import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
 import { WalletLostAccessContactCard } from '@/components/aa/WalletLostAccessContactCard'
 import { AccountSetupIntro } from '@/components/aa/AccountSetupIntro'
-import { WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
+import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
 import { useAaWallet } from '@/hooks/useAaWallet'
 import { useAccountSetupComplete } from '@/hooks/useAccountSetupComplete'
 import { useAccount } from 'wagmi'
@@ -124,7 +124,7 @@ export default function AccountSettingsPage() {
 
       {showWalletDetails && (
         <>
-          {!setupComplete && <AccountSetupIntro />}
+          {!setupComplete && phase !== 'pending-password' && <AccountSetupIntro />}
 
           {phase === 'pending-password' && <PendingPasswordSettings />}
 
@@ -135,8 +135,8 @@ export default function AccountSettingsPage() {
 
           {phase !== 'pending-password' && !setupComplete && (
             <p className="text-sm text-gray-400">
-              Set up Face ID / Touch ID below so you are not asked for your {WALLET_PASSKEY_LOWER} every time
-              you submit or claim.
+              Optional: enable Face ID / Touch ID below so you are not asked for your {WALLET_PASSCODE_LOWER}{' '}
+              every time you submit or claim.
             </p>
           )}
 
