@@ -12,7 +12,11 @@ import {
   REQUIRED_CHAIN_NAME,
   REQUIRED_RPC_URL,
 } from '@/lib/blockchain/chain-constants'
-import { getImpactPortfolioProfile, upsertImpactPortfolioProfile } from '@/lib/supabase/impact-portfolios'
+import {
+  getImpactPortfolioProfileResolved,
+  upsertImpactPortfolioProfile,
+} from '@/lib/supabase/impact-portfolios'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 
 const requiredChain = defineChain({
   id: REQUIRED_CHAIN_ID,
@@ -37,7 +41,12 @@ export async function GET(request: NextRequest) {
     if (!addressParam || !isValidPortfolioAddress(addressParam)) {
       return NextResponse.json({ error: 'Invalid or missing address' }, { status: 400 })
     }
-    const profile = await getImpactPortfolioProfile(addressParam)
+    const identity = await resolveWalletIdentity(addressParam)
+    const eoa = identity?.eoaAddress ?? addressParam
+    const profile = await getImpactPortfolioProfileResolved(
+      eoa,
+      identity?.smartAccountAddress
+    )
     return NextResponse.json({ success: true, profile })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Failed to fetch impact profile'

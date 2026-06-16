@@ -23,8 +23,6 @@ export function useAppWalletAddress() {
   let address: Address | undefined = wagmiConnected ? wagmiAddress : undefined
   if (embeddedWalletReady && eoaAddress) {
     address = eoaAddress
-  } else if (isEmbeddedAccount && smartAccountAddress && phase === 'loading') {
-    address = smartAccountAddress
   }
 
   const isConnected =

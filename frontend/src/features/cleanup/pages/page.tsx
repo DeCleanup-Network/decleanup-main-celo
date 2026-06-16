@@ -1751,7 +1751,7 @@ function CleanupContent() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
               <Link
-                href={`/impact/${(submissionOwnerAddress ?? address) as string}`}
+                href={`/impact/${address as string}`}
                 className="text-brand-green underline"
               >
                 Impact Portfolio

@@ -617,12 +617,7 @@ export default function HypercertsCertificationPage() {
                 <p className="text-[10px] uppercase tracking-widest font-mono opacity-60">Calculated verified contributions</p>
                 {displayAddress && (
                   <Link
-                    href={`/impact/${displayAddress}${
-                      submissionDataAddress &&
-                      submissionDataAddress.toLowerCase() !== displayAddress?.toLowerCase()
-                        ? `?sa=${submissionDataAddress}`
-                        : ''
-                    }`}
+                    href={`/impact/${displayAddress}`}
                     className="inline-block mt-2 text-[11px] font-sans font-semibold underline underline-offset-2 hover:opacity-80"
                   >
                     Open Impact Portfolio →

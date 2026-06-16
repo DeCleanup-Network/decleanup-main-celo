@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import { isAddress } from 'viem'
 import type { Address } from 'viem'
 import { fetchPublicPortfolioData } from '@/lib/impact/public-portfolio-data'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 
 export const runtime = 'nodejs'
 export const alt = 'DeCleanup Impact Portfolio'
@@ -26,15 +27,27 @@ function shortAddr(a: string) {
 export default async function Image({ params }: { params: { address: string } }) {
   const raw = decodeURIComponent(params.address || '').trim()
   const addrOk = isAddress(raw)
-  const displayAddr = shortAddr(raw)
 
+  let displayAddr = shortAddr(raw)
   let totalDcu = '-'
   let verified = '-'
   let reports = '-'
   let level = '-'
 
   if (addrOk) {
-    const data = await withTimeout(fetchPublicPortfolioData(raw as Address), OG_FETCH_MS)
+    const identity = await resolveWalletIdentity(raw).catch(() => null)
+    const eoa = (identity?.eoaAddress ?? raw) as Address
+    displayAddr = shortAddr(eoa)
+    const submissionOwner =
+      identity?.smartAccountAddress &&
+      identity.smartAccountAddress.toLowerCase() !== eoa.toLowerCase()
+        ? identity.smartAccountAddress
+        : undefined
+
+    const data = await withTimeout(
+      fetchPublicPortfolioData(eoa, { submissionOwner }),
+      OG_FETCH_MS
+    )
     if (data) {
       totalDcu = Math.round(data.rewards.totalDcuBreakdown).toString()
       verified = String(data.verifiedCleanups)

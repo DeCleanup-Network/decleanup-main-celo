@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAccount, useSignMessage } from 'wagmi'
 import { isAddress, getAddress } from 'viem'
@@ -165,12 +165,19 @@ function extractAdditionalReportLinks(impact: ImpactReportJson | null): Array<{ 
   return out
 }
 
+type WalletIdentityPayload = {
+  eoaAddress: Address
+  smartAccountAddress: Address | null
+  publicAddress: Address
+}
+
 function PublicPortfolioContent() {
   const { address: connectedAddress } = useAccount()
   const { signMessageAsync } = useSignMessage()
   const { submissionOwnerAddress } = useSmartAccountClient()
   const params = useParams()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const raw = typeof params?.address === 'string' ? params.address : ''
 
   const saParam = searchParams.get('sa') || searchParams.get('submissionOwner')
@@ -181,6 +188,7 @@ function PublicPortfolioContent() {
   }, [saParam])
 
   const [resolved, setResolved] = useState<Address | null>(null)
+  const [walletIdentity, setWalletIdentity] = useState<WalletIdentityPayload | null>(null)
   const [ensName, setEnsName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -197,48 +205,63 @@ function PublicPortfolioContent() {
   const [endorsements, setEndorsements] = useState<PortfolioEndorsement[]>([])
   const [expandedPhotoIds, setExpandedPhotoIds] = useState<Set<string>>(new Set())
 
-  const badgeWalletAddress = submissionOwnerOverride ?? resolved ?? undefined
+  /** URL path address — canonical public identity (EOA). */
+  const portfolioDisplayAddress = walletIdentity?.publicAddress ?? resolved
+
+  const badgeWalletAddress = submissionOwnerOverride ?? portfolioDisplayAddress ?? undefined
   const { showPastContributorBadge } = usePastContributorBadge(badgeWalletAddress ?? undefined)
 
-  /** URL path address is the single public portfolio identity (smart account or EOA). */
-  const portfolioDisplayAddress = resolved
-
-  /** When the signed-in owner views their SA portfolio, merge rewards from connected EOA (not in URL). */
+  /** When the signed-in owner views their portfolio, merge onchain data from the linked smart account. */
   const connectedOwnerEoa = useMemo((): Address | undefined => {
-    if (!resolved || !connectedAddress || !submissionOwnerAddress) return undefined
-    if (connectedAddress.toLowerCase() === resolved.toLowerCase()) return undefined
-    if (submissionOwnerAddress.toLowerCase() === resolved.toLowerCase()) {
+    if (!portfolioDisplayAddress || !connectedAddress || !submissionOwnerAddress) return undefined
+    if (connectedAddress.toLowerCase() === portfolioDisplayAddress.toLowerCase()) return undefined
+    if (submissionOwnerAddress.toLowerCase() === portfolioDisplayAddress.toLowerCase()) {
       return connectedAddress as Address
     }
     return undefined
-  }, [resolved, connectedAddress, submissionOwnerAddress])
+  }, [portfolioDisplayAddress, connectedAddress, submissionOwnerAddress])
 
   const effectiveSubmissionOwner = useMemo(() => {
     if (submissionOwnerOverride) return submissionOwnerOverride
-    if (!resolved || !connectedAddress || !submissionOwnerAddress) return undefined
-    if (connectedAddress.toLowerCase() !== resolved.toLowerCase()) return undefined
-    if (submissionOwnerAddress.toLowerCase() === resolved.toLowerCase()) return undefined
+    if (!portfolioDisplayAddress || !connectedAddress || !submissionOwnerAddress) return undefined
+    if (connectedAddress.toLowerCase() !== portfolioDisplayAddress.toLowerCase()) return undefined
+    if (submissionOwnerAddress.toLowerCase() === portfolioDisplayAddress.toLowerCase()) return undefined
     return submissionOwnerAddress as Address
-  }, [submissionOwnerOverride, resolved, connectedAddress, submissionOwnerAddress])
+  }, [submissionOwnerOverride, portfolioDisplayAddress, connectedAddress, submissionOwnerAddress])
 
   const rewardOwnerForFetch = useMemo((): Address | null => {
-    if (!resolved) return null
+    if (!portfolioDisplayAddress) return null
     if (connectedOwnerEoa) return connectedOwnerEoa
-    return resolved
-  }, [resolved, connectedOwnerEoa])
+    return walletIdentity?.eoaAddress ?? portfolioDisplayAddress
+  }, [portfolioDisplayAddress, connectedOwnerEoa, walletIdentity?.eoaAddress])
 
   const submissionOwnerForFetch = useMemo((): Address | undefined => {
-    if (!resolved) return undefined
+    if (!portfolioDisplayAddress) return undefined
     if (submissionOwnerOverride) return submissionOwnerOverride
-    if (connectedOwnerEoa) return resolved
+
+    const linkedSmart = walletIdentity?.smartAccountAddress
+    if (
+      linkedSmart &&
+      linkedSmart.toLowerCase() !== portfolioDisplayAddress.toLowerCase()
+    ) {
+      return linkedSmart
+    }
+
+    if (connectedOwnerEoa) return portfolioDisplayAddress
     if (
       effectiveSubmissionOwner &&
-      effectiveSubmissionOwner.toLowerCase() !== resolved.toLowerCase()
+      effectiveSubmissionOwner.toLowerCase() !== portfolioDisplayAddress.toLowerCase()
     ) {
       return effectiveSubmissionOwner
     }
     return undefined
-  }, [resolved, submissionOwnerOverride, connectedOwnerEoa, effectiveSubmissionOwner])
+  }, [
+    portfolioDisplayAddress,
+    submissionOwnerOverride,
+    walletIdentity?.smartAccountAddress,
+    connectedOwnerEoa,
+    effectiveSubmissionOwner,
+  ])
 
   const ensLookupAddress = portfolioDisplayAddress
 
@@ -269,6 +292,60 @@ function PublicPortfolioContent() {
   }, [resolveParam])
 
   useEffect(() => {
+    if (!resolved) {
+      setWalletIdentity(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/wallet/resolve-identity?address=${encodeURIComponent(resolved)}`,
+          { cache: 'no-store' }
+        )
+        const payload = await res.json().catch(() => ({}))
+        if (cancelled || !payload?.success) {
+          if (!cancelled) {
+            setWalletIdentity({
+              eoaAddress: resolved,
+              smartAccountAddress: null,
+              publicAddress: resolved,
+            })
+          }
+          return
+        }
+
+        const publicAddress = payload.publicAddress as Address
+        if (
+          payload.redirectToPublicAddress &&
+          publicAddress.toLowerCase() !== resolved.toLowerCase()
+        ) {
+          const qs = searchParams.toString()
+          router.replace(`/impact/${publicAddress}${qs ? `?${qs}` : ''}`)
+          return
+        }
+
+        setWalletIdentity({
+          eoaAddress: payload.eoaAddress as Address,
+          smartAccountAddress: (payload.smartAccountAddress as Address | null) ?? null,
+          publicAddress,
+        })
+      } catch {
+        if (!cancelled) {
+          setWalletIdentity({
+            eoaAddress: resolved,
+            smartAccountAddress: null,
+            publicAddress: resolved,
+          })
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [resolved, router, searchParams])
+
+  useEffect(() => {
     if (!ensLookupAddress) {
       setEnsName(null)
       return
@@ -283,7 +360,7 @@ function PublicPortfolioContent() {
   }, [ensLookupAddress])
 
   useEffect(() => {
-    if (!resolved) {
+    if (!portfolioDisplayAddress) {
       if (!error) setLoading(true)
       return
     }
@@ -306,17 +383,11 @@ function PublicPortfolioContent() {
     return () => {
       cancelled = true
     }
-  }, [resolved, rewardOwnerForFetch, submissionOwnerForFetch])
+  }, [portfolioDisplayAddress, rewardOwnerForFetch, submissionOwnerForFetch, error])
 
   const shareUrl =
     typeof window !== 'undefined' && portfolioDisplayAddress
-      ? (() => {
-          const base = `${window.location.origin}/impact/${portfolioDisplayAddress}`
-          if (submissionOwnerOverride) {
-            return `${base}?sa=${submissionOwnerOverride}`
-          }
-          return base
-        })()
+      ? `${window.location.origin}/impact/${portfolioDisplayAddress}`
       : ''
 
   const copyShare = async () => {
@@ -366,13 +437,13 @@ function PublicPortfolioContent() {
     data != null && Number(data.level ?? 0) >= MAX_IMPACT_PRODUCT_LEVEL
 
   useEffect(() => {
-    if (!resolved) return
+    if (!portfolioDisplayAddress) return
     const empty = emptyImpactProfile()
     let cancelled = false
     void (async () => {
       let localMerged = empty
       if (typeof window !== 'undefined') {
-        const key = `impact_profile:${resolved.toLowerCase()}`
+        const key = `impact_profile:${portfolioDisplayAddress.toLowerCase()}`
         try {
           const rawStored = window.localStorage.getItem(key)
           const stored = rawStored ? (JSON.parse(rawStored) as Partial<EditableProfile>) : {}
@@ -383,9 +454,10 @@ function PublicPortfolioContent() {
       }
 
       try {
-        const res = await fetch(`/api/impact/profile?address=${encodeURIComponent(resolved)}`, {
-          cache: 'no-store',
-        })
+        const res = await fetch(
+          `/api/impact/profile?address=${encodeURIComponent(portfolioDisplayAddress)}`,
+          { cache: 'no-store' }
+        )
         const payload = await res.json().catch(() => ({}))
         if (!cancelled && res.ok && payload?.success && payload?.profile) {
           const merged = sanitizeProfileFromUserInput(payload.profile as Partial<EditableProfile>)
@@ -405,15 +477,18 @@ function PublicPortfolioContent() {
     return () => {
       cancelled = true
     }
-  }, [resolved])
+  }, [portfolioDisplayAddress])
 
   useEffect(() => {
-    if (!resolved) {
+    if (!portfolioDisplayAddress) {
       setEndorsements([])
       return
     }
     let cancelled = false
-    void fetch(`/api/impact/endorsements?address=${encodeURIComponent(resolved)}`, { cache: 'no-store' })
+    void fetch(
+      `/api/impact/endorsements?address=${encodeURIComponent(portfolioDisplayAddress)}`,
+      { cache: 'no-store' }
+    )
       .then((r) => r.json())
       .then((payload) => {
         if (!cancelled && payload?.success && Array.isArray(payload.endorsements)) {
@@ -426,9 +501,9 @@ function PublicPortfolioContent() {
     return () => {
       cancelled = true
     }
-  }, [resolved])
+  }, [portfolioDisplayAddress])
 
-  /** Verifier role may be on the path address or a linked submission owner / ?sa= override. */
+  /** Verifier role may be on the EOA, linked smart account, or ?sa= override. */
   const addressesForVerifierCheck = useMemo((): Address[] => {
     const out: Address[] = []
     const tryPush = (a: string | undefined) => {
@@ -440,12 +515,13 @@ function PublicPortfolioContent() {
         // skip invalid
       }
     }
-    tryPush(resolved ?? undefined)
+    tryPush(portfolioDisplayAddress ?? undefined)
+    tryPush(walletIdentity?.smartAccountAddress ?? undefined)
     tryPush(connectedOwnerEoa ?? undefined)
     tryPush(effectiveSubmissionOwner ?? undefined)
     tryPush(submissionOwnerOverride ?? undefined)
     return out
-  }, [resolved, connectedOwnerEoa, effectiveSubmissionOwner, submissionOwnerOverride])
+  }, [portfolioDisplayAddress, walletIdentity?.smartAccountAddress, connectedOwnerEoa, effectiveSubmissionOwner, submissionOwnerOverride])
 
   useEffect(() => {
     if (addressesForVerifierCheck.length === 0) {
@@ -531,21 +607,29 @@ function PublicPortfolioContent() {
     })
     downloadJsonDisclosure(
       { ...payload, endorsements },
-      `decleanup-impact-portfolio-${(resolved || 'wallet').slice(0, 10)}.json`
+      `decleanup-impact-portfolio-${(portfolioDisplayAddress || 'wallet').slice(0, 10)}.json`
     )
-  }, [data, profile, ensName, shareUrl, endorsements, resolved])
+  }, [data, profile, ensName, shareUrl, endorsements, portfolioDisplayAddress])
 
   const canEditProfile = useMemo(() => {
-    if (!connectedAddress || !resolved) return false
+    if (!connectedAddress || !portfolioDisplayAddress) return false
     const connected = connectedAddress.toLowerCase()
     const owners = [
-      resolved.toLowerCase(),
+      portfolioDisplayAddress.toLowerCase(),
+      walletIdentity?.smartAccountAddress?.toLowerCase(),
       connectedOwnerEoa?.toLowerCase(),
       effectiveSubmissionOwner?.toLowerCase(),
       submissionOwnerOverride?.toLowerCase(),
     ].filter(Boolean) as string[]
     return owners.includes(connected)
-  }, [connectedAddress, resolved, connectedOwnerEoa, effectiveSubmissionOwner, submissionOwnerOverride])
+  }, [
+    connectedAddress,
+    portfolioDisplayAddress,
+    walletIdentity?.smartAccountAddress,
+    connectedOwnerEoa,
+    effectiveSubmissionOwner,
+    submissionOwnerOverride,
+  ])
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -764,18 +848,22 @@ function PublicPortfolioContent() {
               <Button
                 type="button"
                 onClick={async () => {
-                  if (!resolved || !draftProfile) return
+                  if (!portfolioDisplayAddress || !draftProfile) return
                   setSaveProfileError(null)
                   setSaveProfileLoading(true)
                   const sanitized = sanitizeProfileFromUserInput(draftProfile)
-                  const key = `impact_profile:${resolved.toLowerCase()}`
+                  const key = `impact_profile:${portfolioDisplayAddress.toLowerCase()}`
                   try {
                     if (typeof window !== 'undefined') {
                       window.localStorage.setItem(key, JSON.stringify(sanitized))
                     }
 
                     const connected = connectedAddress?.toLowerCase()
-                    const allowedSigners = [resolved.toLowerCase(), effectiveSubmissionOwner?.toLowerCase()].filter(Boolean) as string[]
+                    const allowedSigners = [
+                      portfolioDisplayAddress.toLowerCase(),
+                      walletIdentity?.smartAccountAddress?.toLowerCase(),
+                      effectiveSubmissionOwner?.toLowerCase(),
+                    ].filter(Boolean) as string[]
                     if (!connected || !allowedSigners.includes(connected)) {
                     setProfile(sanitized)
                     setDraftProfile(sanitized)
@@ -789,7 +877,7 @@ function PublicPortfolioContent() {
 
                     const timestamp = Date.now()
                     const message = buildProfileSignMessage({
-                      address: resolved,
+                      address: portfolioDisplayAddress,
                       profile: sanitized,
                       timestamp,
                     })
@@ -799,7 +887,7 @@ function PublicPortfolioContent() {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        address: resolved,
+                        address: portfolioDisplayAddress,
                         signerAddress: connectedAddress,
                         profile: sanitized,
                         timestamp,
@@ -855,7 +943,7 @@ function PublicPortfolioContent() {
           </section>
         )}
 
-        {error && !resolved && <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>}
+        {error && !portfolioDisplayAddress && <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>}
 
         {loading && (
           <div className="flex flex-col items-center justify-center gap-4 py-24">

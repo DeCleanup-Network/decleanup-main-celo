@@ -63,6 +63,22 @@ export async function getImpactPortfolioProfile(address: string): Promise<Editab
   return rowToProfile(data as ImpactPortfolioRow)
 }
 
+/** EOA-first lookup with optional legacy smart-account row fallback. */
+export async function getImpactPortfolioProfileResolved(
+  eoaAddress: string,
+  legacySmartAccount?: string | null
+): Promise<EditableProfile | null> {
+  const primary = await getImpactPortfolioProfile(eoaAddress)
+  if (primary) return primary
+  if (
+    legacySmartAccount &&
+    legacySmartAccount.toLowerCase() !== eoaAddress.toLowerCase()
+  ) {
+    return getImpactPortfolioProfile(legacySmartAccount)
+  }
+  return null
+}
+
 export async function upsertImpactPortfolioProfile(address: string, profile: EditableProfile): Promise<void> {
   const insertData: ImpactPortfolioInsert & {
     legal_name?: string

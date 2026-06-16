@@ -38,7 +38,7 @@ export function DashboardProfileCard({
       : (submissionOwnerAddress ?? address)
   const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
 
-  const portfolioOwner = submissionOwnerAddress ?? address
+  const portfolioOwner = address
   const impactHref = `/impact/${portfolioOwner}`
 
   return (

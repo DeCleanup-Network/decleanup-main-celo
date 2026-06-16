@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isAddress, type Address } from 'viem'
 import { fetchPublicPortfolioData } from '@/lib/impact/public-portfolio-data'
-import { getImpactPortfolioProfile } from '@/lib/supabase/impact-portfolios'
+import { getImpactPortfolioProfileResolved } from '@/lib/supabase/impact-portfolios'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 import { buildPortfolioDisclosureExport } from '@/lib/impact/portfolio-export'
 import { resolveAddressToEnsName, resolveEnsTextRecords } from '@/lib/server/ens'
 import { listPortfolioEndorsements } from '@/lib/supabase/impact-portfolio-endorsements'
@@ -16,21 +17,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing address' }, { status: 400 })
     }
 
-    const address = raw as Address
+    const identity = await resolveWalletIdentity(raw)
+    const eoaAddress = (identity?.eoaAddress ?? raw) as Address
     const sa = request.nextUrl.searchParams.get('sa')?.trim()
     const submissionOwner =
-      sa && isAddress(sa) ? (sa as Address) : undefined
+      sa && isAddress(sa)
+        ? (sa as Address)
+        : identity?.smartAccountAddress &&
+            identity.smartAccountAddress.toLowerCase() !== eoaAddress.toLowerCase()
+          ? identity.smartAccountAddress
+          : undefined
 
     const [data, profile, ensName, endorsements] = await Promise.all([
-      fetchPublicPortfolioData(address, { submissionOwner }),
-      getImpactPortfolioProfile(address).catch(() => null),
-      resolveAddressToEnsName(address).catch(() => null),
-      listPortfolioEndorsements(address).catch(() => []),
+      fetchPublicPortfolioData(eoaAddress, { submissionOwner }),
+      getImpactPortfolioProfileResolved(eoaAddress, identity?.smartAccountAddress).catch(() => null),
+      resolveAddressToEnsName(eoaAddress).catch(() => null),
+      listPortfolioEndorsements(eoaAddress).catch(() => []),
     ])
 
     const ensTextRecords = ensName ? await resolveEnsTextRecords(ensName).catch(() => ({})) : {}
     const origin = request.nextUrl.origin
-    const portfolioUrl = `${origin}/impact/${address}`
+    const portfolioUrl = `${origin}/impact/${eoaAddress}`
 
     const payload = {
       ...buildPortfolioDisclosureExport({
@@ -45,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     const download = request.nextUrl.searchParams.get('download') === '1'
     if (download) {
-      const filename = `decleanup-impact-portfolio-${address.slice(2, 8)}.json`
+      const filename = `decleanup-impact-portfolio-${eoaAddress.slice(2, 8)}.json`
       return new NextResponse(JSON.stringify(payload, null, 2), {
         headers: {
           'Content-Type': 'application/json',
