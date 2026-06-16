@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { HelpCircle } from 'lucide-react'
 import type { Address } from 'viem'
 import type { AaWalletState } from '@/hooks/useAaWallet'
@@ -35,12 +36,12 @@ export function WalletStatusCard({ wallet, loading }: Props) {
       <div className="rounded-xl border border-brand-green/25 bg-gray-900/60 p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-white">Your wallet address</h2>
+            <h2 className="text-base font-semibold text-white">Your wallet addresses</h2>
             <button
               type="button"
               onClick={() => setHelpOpen(true)}
               className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-800 hover:text-brand-green"
-              aria-label="Learn about your smart account"
+              aria-label="Learn about your wallet addresses"
             >
               <HelpCircle className="h-4 w-4" aria-hidden />
             </button>
@@ -49,8 +50,34 @@ export function WalletStatusCard({ wallet, loading }: Props) {
         </div>
 
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Smart account (onchain identity)</p>
+          <p className="text-xs uppercase tracking-wide text-brand-green/90">
+            MetaMask / airdrop / Gardens
+          </p>
+          <CopyableAddress address={wallet.eoaAddress} className="text-sm text-gray-200" />
+          <p className="text-xs text-gray-500">
+            Share this address for $cDCU airdrops and{' '}
+            <a
+              href="https://gardens.fund"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-green hover:underline"
+            >
+              gardens.fund
+            </a>
+            . Same address MetaMask shows after you export your signer key.
+          </p>
+        </div>
+
+        <div className="space-y-1 border-t border-gray-800 pt-4">
+          <p className="text-xs uppercase tracking-wide text-gray-500">DeCleanup smart account</p>
           <CopyableAddress address={wallet.smartAccountAddress} className="text-sm text-gray-200" />
+          <p className="text-xs text-gray-500">
+            Onchain identity for cleanups, rewards, and{' '}
+            <Link href={`/impact/${wallet.smartAccountAddress}`} className="text-brand-green hover:underline">
+              impact portfolio
+            </Link>
+            .
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-6 text-sm">

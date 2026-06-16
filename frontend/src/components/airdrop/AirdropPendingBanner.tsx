@@ -24,15 +24,14 @@ type AirdropCheck = {
  */
 export function AirdropPendingBanner() {
   const { showMainApp, address, walletBootstrapping } = useAppWalletAddress()
-  const { smartAccountAddress } = useWallet()
+  const { eoaAddress } = useWallet()
   const { isEmbeddedAccount: embedded } = useEmbeddedAuth()
   const [sessionAddress, setSessionAddress] = useState<string | null>(null)
   const [check, setCheck] = useState<AirdropCheck | null>(null)
 
-  // Embedded users: only their smart account (never stale session from a pre-login paste).
-  // External wallet: session from /airdrop check or connected address.
+  // Embedded: signer EOA (MetaMask / gardens). External: session or connected wagmi address.
   const verifyAddress = embedded
-    ? smartAccountAddress ?? null
+    ? eoaAddress ?? null
     : sessionAddress || address || null
 
   useEffect(() => {

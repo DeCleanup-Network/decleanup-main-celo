@@ -59,12 +59,17 @@ export function WalletAccountHelpModal({
             </span>
           </WalletHelpTopic>
 
-          <WalletHelpTopic label="Signing key">
-            Your key never leaves this device — only you can sign. It authorizes actions for your wallet
-            address after you unlock.
+          <WalletHelpTopic label="MetaMask / Gardens address">
+            Your signer address — use this for $cDCU airdrops, MetaMask import, and gardens.fund. It is different from
+            your smart account on purpose.
             <span className="mt-2 block font-mono text-[10px] text-gray-500">
-              EOA: {eoaAddress}
+              Signer (EOA): {eoaAddress}
             </span>
+          </WalletHelpTopic>
+
+          <WalletHelpTopic label="Signing key">
+            The private key you export unlocks the signer address above. It authorizes your smart account after you
+            unlock in the app.
           </WalletHelpTopic>
 
           <WalletHelpTopic label="Gas sponsorship">

@@ -17,7 +17,7 @@ const GIVETH_DONOR_ALLOCATIONS: readonly AirdropAllocation[] = GIVETH_DONOR_WALL
   })
 )
 
-/** Past contributors (250 cDCU each). Giveth list wins on duplicate addresses if merged later. */
+/** Past contributors (250 cDCU each). Use signer EOA — same address as MetaMask / gardens.fund. */
 const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
   {
     walletAddress: '0xEf0862aE5175dF25E59Db4E9115Fb6987Cf4B779',
@@ -57,6 +57,18 @@ const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
   },
   {
     walletAddress: '0xF6ea014f47cF04FF218139C316a40Fe2854b3690',
+    amountCdcu: '250',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
+  },
+  {
+    walletAddress: '0xB11ab239fFcE16716442Ad2Bb4ad24A76bc2a6BC',
+    amountCdcu: '250',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
+  },
+  {
+    walletAddress: '0xFc8c08681aB2aCb8b48205030B0AFFED436813bB',
     amountCdcu: '250',
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',

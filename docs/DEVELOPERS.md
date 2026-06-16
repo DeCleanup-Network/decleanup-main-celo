@@ -359,7 +359,7 @@ Static allocation lists (not live Giveth API):
 | File | Category | Amount |
 |------|----------|--------|
 | `frontend/src/lib/airdrop/giveth-donors.ts` | `giveth_donors` | 250 $cDCU each |
-| `frontend/src/lib/airdrop/manual-allocations.ts` | `past_contributor` | 250 $cDCU (most rows) |
+| `frontend/src/lib/airdrop/manual-allocations.ts` | `past_contributor` | 250 $cDCU (most rows). **Whitelist signer EOA** (MetaMask / gardens.fund address from Account settings), not the Safe smart account. |
 
 Check eligibility:
 

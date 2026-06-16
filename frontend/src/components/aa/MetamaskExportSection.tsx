@@ -60,8 +60,8 @@ export function MetamaskExportSection() {
         <div>
           <h2 className="text-base font-semibold text-white">Back up to MetaMask (optional)</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Export your signer key when you are ready. MetaMask becomes your own backup if you forget the app{' '}
-            {WALLET_PASSKEY_LOWER} later.
+            Export your signer key for MetaMask, gardens.fund, and $cDCU airdrops — this address matches Account
+            settings under MetaMask / Gardens.
           </p>
         </div>
         {open ? (
@@ -74,20 +74,19 @@ export function MetamaskExportSection() {
       {open ? (
         <div className="space-y-4 border-t border-gray-800 px-4 pb-4 pt-4 text-sm text-gray-400">
           <p>
-            Google sign-in already syncs your wallet. This step is only if you want a copy of the signing key in
-            MetaMask or another external wallet. Import via Settings → Import account → Private Key on a device you
-            trust.
+            Google sign-in already syncs your wallet. Import this key in MetaMask on a device you trust (Settings →
+            Import account → Private Key). Use that MetaMask address on gardens.fund and for airdrop whitelist checks.
           </p>
           {smartAccountAddress ? (
             <p className="text-xs text-gray-500">
-              Your DeCleanup smart account address stays{' '}
-              <span className="font-mono text-gray-400">{smartAccountAddress}</span>. MetaMask holds the signer key
-              behind it, not the Safe address itself.
+              <span className="text-gray-400">Signer (MetaMask / Gardens):</span> shown in Account settings above your
+              smart account. <span className="font-mono text-gray-400">Smart account: {smartAccountAddress}</span> stays
+              for DeCleanup cleanups only.
             </p>
           ) : null}
           <p className="text-xs text-gray-500">
-            Forgot the app {WALLET_PASSKEY_LOWER} later? Connect MetaMask from the home page or sign-in screen
-            instead of using Google unlock. You pay gas yourself when using an external wallet.
+            Forgot the app {WALLET_PASSKEY_LOWER}? Connect the same MetaMask account from the home page instead of
+            Google unlock.
           </p>
 
           {!revealedKey ? (

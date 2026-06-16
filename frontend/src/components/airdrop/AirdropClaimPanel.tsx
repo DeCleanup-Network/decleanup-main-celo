@@ -62,7 +62,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: appAddress, showMainApp, wagmiConnected } = useAppWalletAddress()
   const {
-    smartAccountAddress: embeddedSmartAddress,
+    eoaAddress: embeddedEoaAddress,
     getGaslessClient,
     hasActiveSigningSession,
   } = useWallet()
@@ -84,12 +84,13 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     mounted && !isEmbeddedAccount && wagmiConnected && chainId !== REQUIRED_CHAIN_ID
 
   const connectedClaimAddress = useMemo((): Address | undefined => {
+    // Embedded: mint cDCU to signer EOA (MetaMask / gardens.fund), not the Safe smart account.
     if (isEmbeddedAccount) {
-      return embeddedSmartAddress ?? undefined
+      return embeddedEoaAddress ?? undefined
     }
     if (wagmiConnected && appAddress) return appAddress
     return undefined
-  }, [isEmbeddedAccount, embeddedSmartAddress, wagmiConnected, appAddress])
+  }, [isEmbeddedAccount, embeddedEoaAddress, wagmiConnected, appAddress])
 
   const normalizedChecked = checkedAddress.toLowerCase()
   const normalizedConnected = (connectedClaimAddress ?? '').toLowerCase()
@@ -158,17 +159,19 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     await runCheck(inputAddress)
   }
 
-  // Restore address from URL, session, or prop — then auto-check once
+  // Restore address from URL, session, prop, or embedded signer EOA — then auto-check once
   useEffect(() => {
     const fromUrl = searchParams.get('address')?.trim()
     const fromSession = readPendingAirdropAddress()
-    const candidate = fromUrl || initialAddress || fromSession || ''
+    const fromWallet =
+      isEmbeddedAccount && embeddedEoaAddress ? embeddedEoaAddress : ''
+    const candidate = fromUrl || initialAddress || fromSession || fromWallet || ''
     if (!candidate || !isAddress(candidate)) return
     if (autoCheckedRef.current === candidate.toLowerCase()) return
     autoCheckedRef.current = candidate.toLowerCase()
     setInputAddress(candidate)
     void runCheck(candidate)
-  }, [searchParams, initialAddress, runCheck])
+  }, [searchParams, initialAddress, runCheck, isEmbeddedAccount, embeddedEoaAddress])
 
   const fetchClaimSignature = useCallback(async (recipient: string): Promise<ClaimSignResult> => {
     const signRes = await fetch('/api/airdrop/claim-request', {
@@ -330,7 +333,9 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       })
 
       clearPendingAirdropAddress()
-      setMessage(`Claim submitted for ${result.amountCdcu} cDCU.`)
+      setMessage(
+        `Claim submitted for ${result.amountCdcu} cDCU to your MetaMask address. Use the same wallet on gardens.fund.`
+      )
       setResult((prev) =>
         prev
           ? {
@@ -375,8 +380,11 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <form onSubmit={handleCheck} className="space-y-3">
           <label htmlFor="airdrop-address" className="block text-sm font-medium text-muted-foreground">
-            Wallet address
+            Wallet address (MetaMask / Gardens)
           </label>
+          <p className="text-xs text-muted-foreground">
+            Use your signer address — the one MetaMask shows after export, not your DeCleanup smart account.
+          </p>
           <input
             id="airdrop-address"
             className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs break-all outline-none focus:border-brand-green sm:text-sm"

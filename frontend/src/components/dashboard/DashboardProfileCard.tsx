@@ -7,6 +7,8 @@ import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { useVerifierAccess } from '@/hooks/useVerifierAccess'
 import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
+import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
+import { useWallet } from '@/providers/WalletProvider'
 import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +30,12 @@ export function DashboardProfileCard({
   claimFeeInfo,
 }: Props) {
   const { showVerifierFeatures } = useVerifierAccess({ defer: true })
-  const badgeAddress = submissionOwnerAddress ?? address
+  const { isEmbeddedAccount } = useEmbeddedAuth()
+  const { eoaAddress } = useWallet()
+  const badgeAddress =
+    isEmbeddedAccount && eoaAddress
+      ? eoaAddress
+      : (submissionOwnerAddress ?? address)
   const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
 
   const portfolioOwner = submissionOwnerAddress ?? address
