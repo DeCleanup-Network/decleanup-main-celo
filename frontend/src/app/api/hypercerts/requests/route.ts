@@ -9,6 +9,7 @@ import {
   hasOpenHypercertWorkflowForUser,
   insertHypercertRequest,
   listHypercertRequests,
+  listHypercertRequestsForPortfolio,
 } from '@/lib/supabase/hypercert-requests-db'
 
 export const runtime = 'nodejs'
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const requester = searchParams.get('requester')?.trim()
+    const legacyRequester = searchParams.get('legacyRequester')?.trim()
     const status = searchParams.get('status')?.trim() as
       | 'PENDING'
       | 'APPROVED'
@@ -46,11 +48,19 @@ export async function GET(request: NextRequest) {
     if (requester && !isAddress(requester)) {
       return NextResponse.json({ error: 'Invalid requester address' }, { status: 400 })
     }
+    if (legacyRequester && !isAddress(legacyRequester)) {
+      return NextResponse.json({ error: 'Invalid legacy requester address' }, { status: 400 })
+    }
 
-    const requests = await listHypercertRequests({
-      requester: requester || undefined,
-      status: status || undefined,
-    })
+    const requests =
+      requester && legacyRequester
+        ? await listHypercertRequestsForPortfolio(requester, legacyRequester, {
+            status: status || undefined,
+          })
+        : await listHypercertRequests({
+            requester: requester || undefined,
+            status: status || undefined,
+          })
 
     return NextResponse.json({ success: true, requests })
   } catch (e) {

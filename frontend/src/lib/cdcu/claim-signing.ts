@@ -267,6 +267,19 @@ export async function getClaimableAmountFromChain(recipient: Address): Promise<b
   }
 }
 
+/** Sum Reward Manager totalEarned across EOA + optional linked smart account. */
+export async function getClaimableAmountFromChainMerged(
+  recipient: Address,
+  linkedAccount?: Address | null
+): Promise<bigint> {
+  const primary = await getClaimableAmountFromChain(recipient)
+  if (!linkedAccount || linkedAccount.toLowerCase() === recipient.toLowerCase()) {
+    return primary
+  }
+  const linked = await getClaimableAmountFromChain(linkedAccount)
+  return primary + linked
+}
+
 /**
  * Count successful ClaimVault mints to `mintRecipient` for CleanupCampaign category.
  * Used on serverless hosts where the local JSON issued store is not durable across invocations.
@@ -311,10 +324,11 @@ export async function getCleanupCampaignClaimCountForRecipient(mintRecipient: Ad
  *
  * @param opts.mintRecipient — optional payout address; when set, milestones are at least the
  *   on-chain CleanupCampaign claim count (fixes Vercel ephemeral file store).
+ * @param opts.linkedAccount — optional smart account to merge reward points from (EOA-first).
  */
 export async function getEligibilityAndClaimable(
   recipient: Address,
-  opts?: { mintRecipient?: Address }
+  opts?: { mintRecipient?: Address; linkedAccount?: Address }
 ): Promise<{
   totalPointsWei: bigint
   /** True when user has reached the next 50-point milestone and has a tranche to claim. */
@@ -327,8 +341,12 @@ export async function getEligibilityAndClaimable(
   /** $cDCU amount for the next tranche only (one claim). */
   claimableNextTrancheWei: bigint
 }> {
-  const totalPointsWei = await getClaimableAmountFromChain(recipient)
+  const totalPointsWei = await getClaimableAmountFromChainMerged(recipient, opts?.linkedAccount)
   let milestonesClaimed = await getMilestonesClaimed(recipient, totalPointsWei)
+  if (opts?.linkedAccount && opts.linkedAccount.toLowerCase() !== recipient.toLowerCase()) {
+    const linkedMilestones = await getMilestonesClaimed(opts.linkedAccount, totalPointsWei)
+    milestonesClaimed = Math.max(milestonesClaimed, linkedMilestones)
+  }
   const tiers = tiersReachedWei(totalPointsWei)
   const tierSafe = tiers > 1_000_000n ? 1_000_000 : Number(tiers)
 

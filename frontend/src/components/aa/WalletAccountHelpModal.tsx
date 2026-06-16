@@ -52,7 +52,7 @@ export function WalletAccountHelpModal({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <WalletHelpTopic label="Your wallet address">
-            Your DeCleanup identity on Celo — impact portfolio, rewards, $cDCU airdrops, and{' '}
+            Your DeCleanup identity on Celo. Impact portfolio, rewards, $cDCU airdrops, and{' '}
             <a
               href="https://gardens.fund"
               target="_blank"

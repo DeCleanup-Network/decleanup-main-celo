@@ -14,6 +14,7 @@ import {
   ELIGIBILITY_THRESHOLD_WEI,
   DCU_POINTS_PER_TRANCHE,
 } from '@/lib/cdcu/claim-signing'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 
 export async function GET(request: Request) {
   try {
@@ -30,6 +31,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid mintRecipient' }, { status: 400 })
     }
 
+    const identity = await resolveWalletIdentity(recipient)
+    const rewardIdentity = (identity?.publicAddress ?? recipient) as Address
+    const linkedAccount =
+      identity?.smartAccountAddress &&
+      identity.smartAccountAddress.toLowerCase() !== rewardIdentity.toLowerCase()
+        ? identity.smartAccountAddress
+        : undefined
+
     const {
       totalPointsWei,
       eligible,
@@ -37,13 +46,18 @@ export async function GET(request: Request) {
       milestonesClaimed,
       nextMilestonePointsWei,
       claimableNextTrancheWei,
-    } = await getEligibilityAndClaimable(recipient as Address, {
+    } = await getEligibilityAndClaimable(rewardIdentity, {
       mintRecipient: mintRecipient && isAddress(mintRecipient) ? (mintRecipient as Address) : undefined,
+      linkedAccount,
     })
-    const [alreadyClaimedWei, pendingWei] = await Promise.all([
-      getIssuedWei(recipient),
-      getPendingWei(recipient),
+    const [issuedPrimary, issuedLinked, pendingPrimary, pendingLinked] = await Promise.all([
+      getIssuedWei(rewardIdentity),
+      linkedAccount ? getIssuedWei(linkedAccount) : Promise.resolve(0n),
+      getPendingWei(rewardIdentity),
+      linkedAccount ? getPendingWei(linkedAccount) : Promise.resolve(0n),
     ])
+    const alreadyClaimedWei = issuedPrimary + issuedLinked
+    const pendingWei = pendingPrimary + pendingLinked
     const claimableNowWei =
       claimableNextTrancheWei > pendingWei ? claimableNextTrancheWei - pendingWei : 0n
 

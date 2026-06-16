@@ -52,7 +52,7 @@ export function WalletStatusCard({ wallet, loading }: Props) {
         <div className="space-y-1">
           <CopyableAddress address={wallet.eoaAddress} className="text-sm text-gray-200" />
           <p className="text-xs text-gray-500 leading-relaxed">
-            This is your DeCleanup identity — your impact portfolio, rewards, and governance all live
+            This is your DeCleanup identity. Your impact portfolio, rewards, and governance all live
             here. Import this address to MetaMask or Rabby using your signing key.{' '}
             <Link href={`/impact/${wallet.eoaAddress}`} className="text-brand-green hover:underline">
               View impact portfolio

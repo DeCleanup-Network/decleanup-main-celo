@@ -27,12 +27,16 @@ type EmbeddedPath = 'unset' | 'yes' | 'no'
  * - AA auth: user unlocked embedded wallet (WalletProvider signing session), or
  * - Privy/Web3Auth: embedded social/email wallet on Celo Sepolia (not external WC/MetaMask).
  *
- * `submissionOwnerAddress` — Safe when sponsored, else EOA `address`.
+ * `publicWalletAddress` — EOA (user-visible identity).
+ * `onchainOwnerAddress` / `submissionOwnerAddress` — Safe when gasless, else EOA (submissions + claims).
  */
 export function useSmartAccountClient(): {
   client: unknown | null
   smartAccountAddress: Address | null
+  /** @deprecated Prefer `onchainOwnerAddress` — same value. */
   submissionOwnerAddress: Address | undefined
+  publicWalletAddress: Address | undefined
+  onchainOwnerAddress: Address | undefined
   isLoading: boolean
   error: Error | null
   expectsSponsoredGas: boolean
@@ -41,7 +45,7 @@ export function useSmartAccountClient(): {
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: appAddress, canTransact } = useAppWalletAddress()
   const { address: wagmiAddress, isConnected: wagmiConnected, connector } = useAccount()
-  const { smartAccountAddress: aaSmartAddress, getGaslessClient, hasActiveSigningSession } =
+  const { smartAccountAddress: aaSmartAddress, getGaslessClient, hasActiveSigningSession, eoaAddress } =
     useWallet()
   const chainId = useResolvedChainId()
   const { data: walletClient } = useWalletClient()
@@ -239,10 +243,20 @@ export function useSmartAccountClient(): {
     scLoading,
   ])
 
+  const publicWalletAddress = useMemo((): Address | undefined => {
+    if (!isConnected || !address) return undefined
+    if (aa && isEmbeddedAccount && eoaAddress) return eoaAddress
+    return address as Address
+  }, [aa, isEmbeddedAccount, eoaAddress, address, isConnected])
+
+  const onchainOwnerAddress = submissionOwnerAddress
+
   return {
     client,
     smartAccountAddress: aa ? aaSmartAddress : smartAccountAddress,
     submissionOwnerAddress,
+    publicWalletAddress,
+    onchainOwnerAddress,
     /** Background gasless init — do not block UI; submit checks client when tapped. */
     isLoading: detectingEmbedded,
     error,

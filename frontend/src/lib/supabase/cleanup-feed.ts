@@ -6,6 +6,8 @@ export type CleanupFeedRow = {
   submission_id: string
   chain_id: number
   submitter: string
+  /** Public identity for portfolio links; null for external wallets without mapping. */
+  eoa_address: string | null
   submitted_at: string | null
   verified_at: string | null
   latitude: number | null
@@ -76,6 +78,7 @@ function rowFromDb(data: DbRow): CleanupFeedRow {
     submission_id: data.submission_id,
     chain_id: data.chain_id,
     submitter: data.submitter,
+    eoa_address: (data as DbRow & { eoa_address?: string | null }).eoa_address ?? null,
     submitted_at: data.submitted_at,
     verified_at: data.verified_at,
     latitude: data.latitude,
@@ -109,6 +112,7 @@ function rowToInsert(row: Omit<CleanupFeedRow, 'created_at'>): DbInsert {
     submission_id: row.submission_id,
     chain_id: row.chain_id,
     submitter: row.submitter.toLowerCase(),
+    eoa_address: row.eoa_address?.toLowerCase() ?? null,
     submitted_at: row.submitted_at,
     verified_at: row.verified_at,
     latitude: row.latitude,

@@ -109,7 +109,7 @@ export function rowToPublicFeedItem(row: CleanupFeedRow): PublicCleanupFeedItem 
   return {
     submissionId: row.submission_id,
     chainId: row.chain_id,
-    submitter: row.submitter,
+    submitter: row.eoa_address ?? row.submitter,
     submittedAt: row.submitted_at,
     verifiedAt: row.verified_at,
     location: {

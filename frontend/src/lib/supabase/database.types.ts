@@ -126,6 +126,7 @@ export interface Database {
           submission_id: string
           chain_id: number
           submitter: string
+          eoa_address: string | null
           submitted_at: string | null
           verified_at: string | null
           latitude: number | null
@@ -156,6 +157,7 @@ export interface Database {
           submission_id: string
           chain_id: number
           submitter: string
+          eoa_address?: string | null
           submitted_at?: string | null
           verified_at?: string | null
           latitude?: number | null
@@ -183,6 +185,7 @@ export interface Database {
         }
         Update: {
           submitter?: string
+          eoa_address?: string | null
           submitted_at?: string | null
           verified_at?: string | null
           latitude?: number | null

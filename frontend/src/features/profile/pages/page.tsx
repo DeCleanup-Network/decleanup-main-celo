@@ -32,9 +32,9 @@ import {
   hasActiveStreak,
   claimImpactProductFromVerification,
   getCleanupDetailsFresh,
-  getUserRewardStats,
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
+import { getMergedUserRewardStats, getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_ID, REQUIRED_CHAIN_NAME } from '@/lib/blockchain/wagmi'
 import { useChainId } from 'wagmi'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
@@ -95,8 +95,10 @@ export default function ProfilePage() {
   const { writeContractAsEoa } = useWallet()
   const address = appAddress ?? wagmiAddress
   const isConnected = appConnected || wagmiConnected
-  const { submissionOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
+  const { submissionOwnerAddress, publicWalletAddress, onchainOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
     useSmartAccountClient()
+  const onchainOwner = (onchainOwnerAddress ?? submissionOwnerAddress) as Address | undefined
+  const publicAddress = (publicWalletAddress ?? address) as Address | undefined
   const chainId = useChainId()
   const [hasMounted, setHasMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -138,7 +140,11 @@ export default function ProfilePage() {
   }, [])
 
   const loadProfileData = useCallback(
-    async (userAddress: Address, options?: { showSpinner?: boolean }) => {
+    async (
+      publicAddress: Address,
+      onchainOwner: Address,
+      options?: { showSpinner?: boolean }
+    ) => {
       const showSpinner = options?.showSpinner ?? true
       try {
         if (showSpinner) {
@@ -147,14 +153,14 @@ export default function ProfilePage() {
 
         const [dcuBalance, stakedDCU, level, streak, activeStreak, tokenId, rewardStats, submissions] =
           await Promise.all([
-            getDCUBalance(userAddress),
-            getStakedDCU(userAddress),
-            getUserLevel(userAddress),
-            getStreakCount(userAddress),
-            hasActiveStreak(userAddress),
-            getUserTokenId(userAddress),
-            getUserRewardStats(userAddress),
-            getUserSubmissions(userAddress),
+            getDCUBalance(publicAddress),
+            getStakedDCU(publicAddress),
+            getMergedUserLevel(publicAddress, onchainOwner),
+            getStreakCount(onchainOwner),
+            hasActiveStreak(onchainOwner),
+            getUserTokenId(onchainOwner),
+            getMergedUserRewardStats(publicAddress, onchainOwner),
+            getUserSubmissions(onchainOwner),
           ])
         const referralsDCU = Number(formatEther(rewardStats.referralRewardsAmount))
 
@@ -360,16 +366,15 @@ export default function ProfilePage() {
       setLoading(false)
       return
     }
-    if (!submissionOwnerAddress) {
+    if (!onchainOwner || !publicAddress) {
       return
     }
 
-    const owner = submissionOwnerAddress
-    loadProfileData(owner, { showSpinner: true })
+    loadProfileData(publicAddress, onchainOwner, { showSpinner: true })
 
     const handleVisibilityChange = () => {
-      if (!document.hidden && isConnected && address && submissionOwnerAddress) {
-        loadProfileData(submissionOwnerAddress, { showSpinner: false })
+      if (!document.hidden && isConnected && address && onchainOwner) {
+        loadProfileData(publicAddress, onchainOwner, { showSpinner: false })
       }
     }
 
@@ -377,7 +382,7 @@ export default function ProfilePage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [address, isConnected, loadProfileData, submissionOwnerAddress])
+  }, [address, isConnected, loadProfileData, onchainOwner, publicAddress])
 
   // Check for pending cleanup status (single source of truth = verification.ts)
 useEffect(() => {
@@ -385,12 +390,11 @@ useEffect(() => {
     setCleanupStatus(null)
     return
   }
-  if (!submissionOwnerAddress) {
+  if (!onchainOwner) {
     return
   }
 
-  const submissionOwner = submissionOwnerAddress
-
+  const submissionOwner = onchainOwner
   let cancelled = false
 
   async function refresh() {
@@ -435,7 +439,7 @@ useEffect(() => {
     cancelled = true
     clearInterval(interval)
   }
-}, [address, isConnected, submissionOwnerAddress])
+}, [address, isConnected, onchainOwner])
 
 
   if (!hasMounted) {
@@ -508,10 +512,10 @@ useEffect(() => {
             variant="ghost"
             size="sm"
             onClick={async () => {
-              if (isRefreshing || !address || !submissionOwnerAddress) return
+              if (isRefreshing || !address || !onchainOwner || !publicAddress) return
               setIsRefreshing(true)
               try {
-                await loadProfileData(submissionOwnerAddress, { showSpinner: false })
+                await loadProfileData(publicAddress, onchainOwner, { showSpinner: false })
               } catch (error) {
                 console.error('Error refreshing profile:', error)
               } finally {
@@ -526,14 +530,14 @@ useEffect(() => {
           </Button>
         </div>
 
-        {submissionOwnerAddress && (
+        {(publicAddress) ? (
           <DashboardReferralLinkCard
             className="mb-6"
-            submissionOwnerAddress={submissionOwnerAddress}
+            referralAddress={publicAddress}
             impactLevel={profileData.level > 0 ? profileData.level : 1}
             onNotify={(p) => setNotifyModal({ variant: p.variant || 'info', title: p.title, message: p.message })}
           />
-        )}
+        ) : null}
 
         {/* Three-Column Dashboard Layout */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -662,7 +666,7 @@ useEffect(() => {
                   : smartAccountOwnsSubmission || expectsSponsoredGas
                     ? {
                         gaslessClient: gaslessClient as GaslessClient,
-                        smartAccountAddress: (onChainCleanupOwner ?? submissionOwnerAddress) as Address,
+                        smartAccountAddress: (onChainCleanupOwner ?? onchainOwner) as Address,
                         eoaAddress: address,
                       }
                     : {
@@ -677,8 +681,8 @@ useEffect(() => {
                 await claimImpactProductFromVerification(cleanupStatus.cleanupId, claimOptions)
 
                 // Mark as claimed in localStorage
-                if (address && cleanupStatus.cleanupId && submissionOwnerAddress) {
-                  const claimOwner = submissionOwnerAddress
+                if (address && cleanupStatus.cleanupId && onchainOwner) {
+                  const claimOwner = onchainOwner
                   markCleanupAsClaimed(claimOwner, cleanupStatus.cleanupId)
                   for (const low of new Set([claimOwner.toLowerCase(), address.toLowerCase()])) {
                     localStorage.removeItem(`pending_cleanup_id_${low}`)
@@ -692,17 +696,14 @@ useEffect(() => {
                 })
             
                 // Refresh local status + profile data + cleanup status
-                if (address && submissionOwnerAddress) {
-                  const refreshOwner = submissionOwnerAddress
-                  // Wait longer for state to update after claim (RPC propagation + NFT operations)
+                if (address && onchainOwner && publicAddress) {
                   await new Promise(resolve => setTimeout(resolve, 5000))
                   
                   console.log('[Profile] Refreshing profile data after claim...')
-                  await loadProfileData(refreshOwner, { showSpinner: false })
+                  await loadProfileData(publicAddress, onchainOwner, { showSpinner: false })
                   console.log('[Profile] Profile data refreshed')
                   
-                  // Refresh cleanup status to hide claim button
-                  const newStatus = await getUserCleanupStatus(refreshOwner)
+                  const newStatus = await getUserCleanupStatus(onchainOwner)
                   console.log('[Profile] New cleanup status:', newStatus)
                   setCleanupStatus(newStatus ? {
                     cleanupId: newStatus.cleanupId ?? null,

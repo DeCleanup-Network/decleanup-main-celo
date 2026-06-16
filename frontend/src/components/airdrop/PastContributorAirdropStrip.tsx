@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
-import { useWallet } from '@/providers/WalletProvider'
-import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { readPendingAirdropAddress } from '@/lib/airdrop/pending-session'
 
 type AirdropCheck = {
@@ -19,16 +17,10 @@ type PastContributorAirdropStripProps = {
 /** Footer strip for past contributors; hidden after airdrop is claimed for the checked address. */
 export function PastContributorAirdropStrip({ variant }: PastContributorAirdropStripProps) {
   const { address, showMainApp } = useAppWalletAddress()
-  const { smartAccountAddress } = useWallet()
-  const { isEmbeddedAccount: embedded } = useEmbeddedAuth()
   const [hidden, setHidden] = useState(false)
 
   const checkAddress =
-    variant === 'app' && showMainApp
-      ? embedded
-        ? smartAccountAddress ?? null
-        : address ?? null
-      : readPendingAirdropAddress()
+    variant === 'app' && showMainApp ? address ?? null : readPendingAirdropAddress()
 
   useEffect(() => {
     if (!checkAddress) {

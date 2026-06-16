@@ -104,7 +104,7 @@ export default function HypercertsCertificationPage() {
           })
 
           const metadataInput = {
-            userAddress: owner,
+            userAddress: (displayAddress ?? owner) as string,
             cleanups: verifiedCleanups,
             summary: {
               totalCleanups: aggregated.totalCleanups,
@@ -112,8 +112,13 @@ export default function HypercertsCertificationPage() {
               timeframeStart: aggregated.timeframeStart,
               timeframeEnd: aggregated.timeframeEnd,
             },
-            issuer: 'DeCleanup Network',
+            issuer: displayAddress ?? 'DeCleanup Network',
             version: 'v1',
+            impactData: displayAddress
+              ? {
+                  contributors: [displayAddress],
+                }
+              : undefined,
             branding: brandingCids ? {
               logoImageCid: brandingCids.logoImageCid,
               bannerImageCid: brandingCids.bannerImageCid,
@@ -139,16 +144,23 @@ export default function HypercertsCertificationPage() {
     }
 
     void loadData()
-  }, [showMainApp, brandingCids, brandingTitle, brandingDescription, submissionDataAddress, chainId])
+  }, [showMainApp, brandingCids, brandingTitle, brandingDescription, submissionDataAddress, displayAddress, chainId])
 
   useEffect(() => {
     if (!signerAddress) return
     void (async () => {
-      const requests = await fetchHypercertRequestsByUser(signerAddress)
+      const requests = await fetchHypercertRequestsByUser(
+        (displayAddress ?? signerAddress) as string,
+        submissionDataAddress &&
+          displayAddress &&
+          submissionDataAddress.toLowerCase() !== displayAddress.toLowerCase()
+          ? submissionDataAddress
+          : undefined
+      )
       setUserRequests(requests)
       console.log('📋 User Hypercert requests:', requests)
     })()
-  }, [signerAddress, submitResult])
+  }, [signerAddress, displayAddress, submissionDataAddress, submitResult])
 
   const handleBrandingUpload = async (type: 'logo' | 'banner') => {
     try {

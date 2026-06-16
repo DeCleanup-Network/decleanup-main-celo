@@ -5,7 +5,7 @@ import { getImpactPortfolioProfileResolved } from '@/lib/supabase/impact-portfol
 import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 import { buildPortfolioDisclosureExport } from '@/lib/impact/portfolio-export'
 import { resolveAddressToEnsName, resolveEnsTextRecords } from '@/lib/server/ens'
-import { listPortfolioEndorsements } from '@/lib/supabase/impact-portfolio-endorsements'
+import { listPortfolioEndorsementsResolved } from '@/lib/supabase/impact-portfolio-endorsements'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       fetchPublicPortfolioData(eoaAddress, { submissionOwner }),
       getImpactPortfolioProfileResolved(eoaAddress, identity?.smartAccountAddress).catch(() => null),
       resolveAddressToEnsName(eoaAddress).catch(() => null),
-      listPortfolioEndorsements(eoaAddress).catch(() => []),
+      listPortfolioEndorsementsResolved(eoaAddress, identity?.smartAccountAddress).catch(() => []),
     ])
 
     const ensTextRecords = ensName ? await resolveEnsTextRecords(ensName).catch(() => ({})) : {}

@@ -52,13 +52,20 @@ function mergeUniqueById(primary: HypercertRequest[], secondary: HypercertReques
   return Array.from(map.values()).sort((a, b) => b.submittedAt - a.submittedAt)
 }
 
-export async function fetchHypercertRequestsByUser(address: string): Promise<HypercertRequest[]> {
-  const local = readLocalFallback().filter((r) => r.requester.toLowerCase() === address.toLowerCase())
+export async function fetchHypercertRequestsByUser(
+  primaryAddress: string,
+  legacyAddress?: string
+): Promise<HypercertRequest[]> {
+  const primary = primaryAddress.toLowerCase()
+  const legacy = legacyAddress?.toLowerCase()
+  const local = readLocalFallback().filter((r) => {
+    const req = r.requester.toLowerCase()
+    return req === primary || (legacy != null && req === legacy)
+  })
   try {
-    const res = await fetch(
-      `/api/hypercerts/requests?requester=${encodeURIComponent(address)}`,
-      { cache: 'no-store' }
-    )
+    const qs = new URLSearchParams({ requester: primaryAddress })
+    if (legacyAddress) qs.set('legacyRequester', legacyAddress)
+    const res = await fetch(`/api/hypercerts/requests?${qs.toString()}`, { cache: 'no-store' })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data?.success || !Array.isArray(data.requests)) {
       return local

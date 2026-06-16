@@ -27,6 +27,7 @@ import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import type { Address } from 'viem'
+import { normalizeReferrerAddress } from '@/lib/wallet/normalize-referrer-address'
 import {
   CONTRACT_ADDRESSES,
   MAX_IMPACT_PRODUCT_LEVEL,
@@ -227,6 +228,8 @@ function CleanupContent() {
   const {
     client: gaslessClient,
     submissionOwnerAddress,
+    publicWalletAddress,
+    onchainOwnerAddress,
     error: gaslessError,
     expectsSponsoredGas,
   } = useSmartAccountClient()
@@ -326,32 +329,29 @@ function CleanupContent() {
 
   useEffect(() => {
     if (!mounted || !address) return
-    if (!submissionOwnerAddress) return
+    const submissionOwner = onchainOwnerAddress ?? submissionOwnerAddress
+    if (!submissionOwner) return
 
     const loadReferrer = async () => {
       try {
-        // First, check if user has already submitted - if yes, they can't be referred again
         const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
-        const owner = submissionOwnerAddress
+        const owner = submissionOwner
+        const walletScope = (publicWalletAddress ?? address).toLowerCase()
         const submissions = await getUserSubmissions(owner)
         const hasSubmitted = submissions.length > 0
 
         if (hasSubmitted) {
-          // User has already submitted - ignore referral links (one-time chance used)
           console.log('[Cleanup] User has already submitted - referral links are ignored')
           setReferrerAddress(null)
           setShowReferralNotification(false)
-          
-          // Clear any pending referral
+
           if (typeof window !== 'undefined') {
             localStorage.removeItem('referrer_pending')
-            const referrerKey = `referrer_${address.toLowerCase()}`
-            localStorage.removeItem(referrerKey)
+            localStorage.removeItem(`referrer_${walletScope}`)
           }
           return
         }
 
-        // User hasn't submitted yet - check for referral link
         let ref: string | null = null
         if (searchParams) {
           ref = searchParams.get('ref')
@@ -363,30 +363,24 @@ function CleanupContent() {
         }
 
         if (ref && /^0x[a-fA-F0-9]{40}$/.test(ref)) {
-          const referrerAddr = ref as Address
+          const referrerAddr = await normalizeReferrerAddress(ref as Address)
           console.log('[Cleanup] Referral link in URL for new user, saving:', referrerAddr)
           setReferrerAddress(referrerAddr)
           setShowReferralNotification(true)
 
-          // Persist referrer in localStorage so it's available when user submits.
-          // Scope only to this address; drop the unscoped `referrer_pending` so it can't leak
-          // to a different wallet later in the same browser.
           if (typeof window !== 'undefined') {
-            const referrerKey = `referrer_${address.toLowerCase()}`
-            localStorage.setItem(referrerKey, referrerAddr)
+            localStorage.setItem(`referrer_${walletScope}`, referrerAddr)
             localStorage.removeItem('referrer_pending')
           }
         } else if (typeof window !== 'undefined') {
-          // If no ref in URL, check localStorage for saved referrer scoped to THIS wallet only.
-          const referrerKey = `referrer_${address.toLowerCase()}`
+          const referrerKey = `referrer_${walletScope}`
           const savedReferrer = localStorage.getItem(referrerKey)
           if (savedReferrer && /^0x[a-fA-F0-9]{40}$/.test(savedReferrer)) {
-            console.log('[Cleanup] Found saved referrer from previous visit:', savedReferrer)
-            setReferrerAddress(savedReferrer as Address)
+            const referrerAddr = await normalizeReferrerAddress(savedReferrer as Address)
+            console.log('[Cleanup] Found saved referrer from previous visit:', referrerAddr)
+            setReferrerAddress(referrerAddr)
             setShowReferralNotification(true)
           } else {
-            // This wallet has no scoped referrer. Clear any stale unscoped pending key so it
-            // doesn't follow the user across wallet switches.
             setReferrerAddress(null)
             setShowReferralNotification(false)
             localStorage.removeItem('referrer_pending')
@@ -398,7 +392,7 @@ function CleanupContent() {
     }
 
     loadReferrer()
-  }, [mounted, searchParams, address, submissionOwnerAddress])
+  }, [mounted, searchParams, address, publicWalletAddress, onchainOwnerAddress, submissionOwnerAddress])
 
   // Impact Report form data
   const [enhancedData, setEnhancedData] = useState({

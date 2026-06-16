@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils'
 type NotifyPayload = { title: string; message: string; variant?: 'success' | 'info' | 'error' }
 
 type Props = {
-  submissionOwnerAddress: Address
+  /** Canonical EOA referral identity (matches portfolio and airdrop address). */
+  referralAddress: Address
   /** Impact Product level (for Farcaster share text); use ≥1 if none yet. */
   impactLevel: number
   /** Section title (e.g. home: "Invite Friends", profile: "Your referral link"). */
@@ -21,14 +22,14 @@ type Props = {
 }
 
 export function DashboardReferralLinkCard({
-  submissionOwnerAddress,
+  referralAddress,
   impactLevel,
   title = 'YOUR REFERRAL LINK',
   onNotify,
   className,
 }: Props) {
   const [copying, setCopying] = useState(false)
-  const link = generateReferralLink(submissionOwnerAddress)
+  const link = generateReferralLink(referralAddress)
   const levelForShare = impactLevel > 0 ? impactLevel : 1
 
   const handleCopy = async () => {

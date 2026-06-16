@@ -23,6 +23,7 @@ import {
   upsertCleanupFeedRows,
   type CleanupFeedRow,
 } from '@/lib/supabase/cleanup-feed'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
 
 function cidFromHash(hash: string): string {
@@ -89,11 +90,19 @@ async function mapEntryToFeedRow(
     placeName: locationPlaceName,
   })
   const nowIso = new Date().toISOString()
+  const identity = await resolveWalletIdentity(entry.submitter).catch(() => null)
+  const eoaAddress =
+    identity &&
+    identity.smartAccountAddress &&
+    identity.eoaAddress.toLowerCase() !== identity.smartAccountAddress.toLowerCase()
+      ? identity.publicAddress.toLowerCase()
+      : identity?.publicAddress.toLowerCase() ?? null
 
   const row: Omit<CleanupFeedRow, 'created_at'> = {
     submission_id: entry.submissionId,
     chain_id: REQUIRED_CHAIN_ID,
     submitter: entry.submitter.toLowerCase(),
+    eoa_address: eoaAddress,
     submitted_at: bigintToIso(details.timestamp, entry.timestamp * 1000),
     verified_at:
       bigintToIso(details.processedTimestamp) ??

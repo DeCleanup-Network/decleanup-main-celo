@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 import type { PortfolioEndorsement } from '@/lib/impact/portfolio-endorsements'
+import { portfolioLookupAddresses } from '@/lib/wallet/portfolio-lookup-addresses'
 
 type EndorsementRow = {
   id: string
@@ -59,6 +60,37 @@ export async function listPortfolioEndorsements(portfolioAddress: string): Promi
   }
 
   return ((data as unknown as EndorsementRow[]) ?? []).map(rowToEndorsement)
+}
+
+/** EOA-first lookup; merges endorsements stored under legacy smart-account URLs. */
+export async function listPortfolioEndorsementsResolved(
+  eoaAddress: string,
+  legacySmartAccount?: string | null
+): Promise<PortfolioEndorsement[]> {
+  const addresses = portfolioLookupAddresses(eoaAddress, legacySmartAccount)
+  if (addresses.length === 1) {
+    return listPortfolioEndorsements(addresses[0])
+  }
+
+  const { data, error } = await getSupabase()
+    .from('impact_portfolio_endorsements' as 'impact_portfolios')
+    .select('id, portfolio_address, endorser_address, endorser_name, endorser_org, statement, signature, created_at')
+    .in('portfolio_address', addresses)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (error.message.includes('impact_portfolio_endorsements')) return []
+    throw new Error(`Failed to list endorsements: ${error.message}`)
+  }
+
+  const seen = new Set<string>()
+  const out: PortfolioEndorsement[] = []
+  for (const row of (data as unknown as EndorsementRow[]) ?? []) {
+    if (seen.has(row.id)) continue
+    seen.add(row.id)
+    out.push(rowToEndorsement(row))
+  }
+  return out
 }
 
 export async function insertPortfolioEndorsement(params: {

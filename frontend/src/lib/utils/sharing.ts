@@ -13,7 +13,7 @@ export function getDappOriginForLinks(): string {
 }
 
 /**
- * Generate a referral link for the given address (onchain submitter / smart account).
+ * Generate a referral link for the given address (canonical EOA public identity).
  */
 export function generateReferralLink(address: string, _platform: string = 'web'): string {
     return `${getDappOriginForLinks()}?ref=${address}`

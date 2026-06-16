@@ -59,7 +59,7 @@ export function MetamaskExportSection() {
         <div>
           <h2 className="text-base font-semibold text-white">Back up to MetaMask (optional)</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Export your signing key for MetaMask, gardens.fund, and $cDCU airdrops — same address as Account settings.
+            Export your signing key for MetaMask, gardens.fund, and $cDCU airdrops. Same address as Account settings.
           </p>
         </div>
         {open ? (
@@ -73,7 +73,7 @@ export function MetamaskExportSection() {
         <div className="space-y-4 border-t border-gray-800 px-4 pb-4 pt-4 text-sm text-gray-400">
           <p>
             Google sign-in already syncs your wallet. Import this key in MetaMask on a device you trust (Settings →
-            Import account → Private Key). Use that address on gardens.fund and for airdrop whitelist checks — it matches
+            Import account → Private Key). Use that address on gardens.fund and for airdrop whitelist checks. It matches
             your wallet address in Account settings.
           </p>
           <p className="text-xs text-gray-500">

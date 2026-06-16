@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import type { HypercertMetadata, HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import type { Database, Json } from './database.types'
+import { portfolioLookupAddresses } from '@/lib/wallet/portfolio-lookup-addresses'
 
 type Row = Database['public']['Tables']['hypercert_requests']['Row']
 
@@ -109,6 +110,40 @@ export async function listHypercertRequests(filters: {
   const { data, error } = await q
   if (error) throw new Error(`Failed to list hypercert requests: ${error.message}`)
   return (data as Row[]).map(rowToRequest)
+}
+
+/** List requests for EOA + optional legacy smart-account requester (deduped). */
+export async function listHypercertRequestsForPortfolio(
+  eoaAddress: string,
+  legacySmartAccount?: string | null,
+  filters?: { status?: HypercertRequest['status'] }
+): Promise<HypercertRequest[]> {
+  const addresses = portfolioLookupAddresses(eoaAddress, legacySmartAccount)
+  if (addresses.length === 1) {
+    return listHypercertRequests({ requester: addresses[0], status: filters?.status })
+  }
+
+  let q = getSupabase()
+    .from('hypercert_requests')
+    .select()
+    .in('requester', addresses)
+    .order('submitted_at', { ascending: false })
+
+  if (filters?.status) {
+    q = q.eq('status', filters.status)
+  }
+
+  const { data, error } = await q
+  if (error) throw new Error(`Failed to list hypercert requests: ${error.message}`)
+
+  const seen = new Set<string>()
+  const out: HypercertRequest[] = []
+  for (const row of (data as Row[]) ?? []) {
+    if (seen.has(row.id)) continue
+    seen.add(row.id)
+    out.push(rowToRequest(row))
+  }
+  return out
 }
 
 export async function updateHypercertRequestStatus(params: {

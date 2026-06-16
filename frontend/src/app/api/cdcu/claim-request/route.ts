@@ -21,6 +21,7 @@ import {
   setPendingWei,
   CLAIM_CATEGORY,
 } from '@/lib/cdcu/claim-signing'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 
 const MAX_EXPIRY_SECONDS = 7 * 24 * 60 * 60 // 7 days (backend policy; contract allows up to 30)
 
@@ -62,8 +63,17 @@ export async function POST(request: Request) {
       )
     }
 
-    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(source as Address, {
+    const identity = await resolveWalletIdentity(source)
+    const rewardIdentity = (identity?.publicAddress ?? source) as Address
+    const linkedAccount =
+      identity?.smartAccountAddress &&
+      identity.smartAccountAddress.toLowerCase() !== rewardIdentity.toLowerCase()
+        ? identity.smartAccountAddress
+        : undefined
+
+    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(rewardIdentity, {
       mintRecipient: recipient as Address,
+      linkedAccount,
     })
     if (!eligible) {
       return NextResponse.json(
@@ -75,7 +85,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const pending = await getPendingWei(source)
+    const pendingPrimary = await getPendingWei(rewardIdentity)
+    const pendingLinked = linkedAccount ? await getPendingWei(linkedAccount) : 0n
+    const pending = pendingPrimary + pendingLinked
     const claimable = claimableNextTrancheWei > pending ? claimableNextTrancheWei - pending : 0n
 
     if (claimable === 0n) {
@@ -103,7 +115,7 @@ export async function POST(request: Request) {
       privateKey
     )
 
-    await setPendingWei(source, claimable)
+    await setPendingWei(rewardIdentity, claimable)
 
     return NextResponse.json({
       recipient: signed.recipient,

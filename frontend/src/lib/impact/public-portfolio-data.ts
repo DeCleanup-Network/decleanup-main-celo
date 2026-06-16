@@ -18,6 +18,7 @@ import type { CleanupDetails } from '@/lib/blockchain/contracts'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
+import { fetchPortfolioHypercerts } from '@/lib/impact/portfolio-hypercerts'
 import { fetchViaIpfsGatewayProxy, proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
 
 export function hashToGatewayUrl(hash: string): string {
@@ -87,15 +88,17 @@ export type CumulativeImpactMetrics = {
   wasteTypeCounts: Record<string, number>
 }
 
-/** Minted hypercert row for public portfolio disclosure (wired from API/indexer later). */
+/** Minted hypercert row for public portfolio disclosure. */
 export type PortfolioHypercertRecord = {
   hypercertId: string
   metadataCid: string
   txHash?: string
-  status: 'MINTED' | 'APPROVED' | 'PENDING'
+  status: 'MINTED' | 'APPROVED' | 'PENDING' | 'REJECTED'
   workTimeframeStart?: number
   workTimeframeEnd?: number
   mintedAt?: number
+  /** Public contributor identity (EOA); resolved from legacy Safe requester when needed. */
+  contributorAddress?: string
 }
 
 /** Shape reference for portfolio hypercert table; not used in production payloads. */
@@ -391,6 +394,11 @@ export async function fetchPublicPortfolioData(
 
   const impactProductImageUrl = await resolveImpactProductPreview(level, tokenId)
 
+  const hypercerts = await fetchPortfolioHypercerts(
+    rewardOwner,
+    linkedForRewards ?? opts?.submissionOwner ?? undefined
+  ).catch(() => [])
+
   return {
     address: rewardOwner,
     mergedFromOwner: submissionMerged,
@@ -422,8 +430,7 @@ export async function fetchPublicPortfolioData(
       wasteTypeCounts,
     },
     impactProductImageUrl,
-    // TODO: fetchHypercertRequestsByUser + filter MINTED rows into PortfolioHypercertRecord[]
-    hypercerts: [],
+    hypercerts,
   }
 }
 

@@ -148,7 +148,7 @@ function HomeContent() {
   }, [address])
 
   const chainId = useResolvedChainId()
-  const { submissionOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
+  const { submissionOwnerAddress, publicWalletAddress, onchainOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
     useSmartAccountClient()
   const {
     cleanupStatus,
@@ -162,7 +162,8 @@ function HomeContent() {
     mounted,
     isConnected,
     address: address as Address | undefined,
-    submissionOwnerAddress: submissionOwnerAddress as Address | undefined,
+    publicWalletAddress: publicWalletAddress as Address | undefined,
+    onchainOwnerAddress: onchainOwnerAddress as Address | undefined,
     chainId: chainId ?? undefined,
     wantSubmissionDetails: showBreakdown,
   })
@@ -171,7 +172,8 @@ function HomeContent() {
       mounted,
       address: address as Address | undefined,
       isConnected,
-      submissionOwnerAddress: submissionOwnerAddress as Address | undefined,
+      publicWalletAddress: publicWalletAddress as Address | undefined,
+      onchainOwnerAddress: onchainOwnerAddress as Address | undefined,
     })
 
   const handleClaimImpactLevel = async () => {
@@ -182,7 +184,7 @@ function HomeContent() {
       })
       return
     }
-    if (!submissionOwnerAddress) {
+    if (!onchainOwnerAddress) {
       console.warn('[Home] Claim blocked: submission owner not ready')
       return
     }
@@ -260,7 +262,7 @@ function HomeContent() {
         : smartAccountOwnsSubmission || expectsSponsoredGas
           ? {
               gaslessClient: gaslessClient as GaslessClient,
-              smartAccountAddress: (onChainCleanupOwner ?? submissionOwnerAddress) as Address,
+              smartAccountAddress: (onChainCleanupOwner ?? onchainOwnerAddress) as Address,
               eoaAddress: connectedEoa,
             }
           : {
@@ -277,7 +279,7 @@ function HomeContent() {
       )
 
       if (address && cleanupStatus.cleanupId !== undefined && cleanupStatus.cleanupId !== null) {
-        const claimOwner = submissionOwnerAddress as Address
+        const claimOwner = onchainOwnerAddress as Address
         console.log('[Home] Marking cleanup as claimed:', cleanupStatus.cleanupId.toString())
         markCleanupAsClaimed(claimOwner, cleanupStatus.cleanupId)
         const claimedKey = `claimed_cleanup_ids_${claimOwner.toLowerCase()}`
@@ -630,10 +632,10 @@ function HomeContent() {
                 />
               ) : null}
 
-              {submissionOwnerAddress ? (
+              {publicWalletAddress ? (
                 <DashboardReferralLinkCard
                   title="Invite Friends"
-                  submissionOwnerAddress={submissionOwnerAddress}
+                  referralAddress={publicWalletAddress}
                   impactLevel={impactProduct.level > 0 ? impactProduct.level : 1}
                   onNotify={(p) => setNotifyModal({ title: p.title, message: p.message, variant: p.variant || 'info' })}
                 />
@@ -665,9 +667,9 @@ function HomeContent() {
                     </p>
                     <p className="mt-1 text-[10px] leading-snug text-muted-foreground">Total network points from all activities</p>
                   </div>
-                  {address && submissionOwnerAddress ? (
+                  {publicWalletAddress && onchainOwnerAddress ? (
                     <div className="min-w-0 w-full">
-                      <DashboardClaimCdcu rewardAddress={submissionOwnerAddress} payoutAddress={address} />
+                      <DashboardClaimCdcu rewardAddress={publicWalletAddress} payoutAddress={publicWalletAddress} />
                     </div>
                   ) : null}
                 </div>

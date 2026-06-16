@@ -8,11 +8,10 @@ import { useAccount } from 'wagmi'
 import { checkEligibility } from '@/lib/verifier/eligibility'
 import { VerifierEligibility, VerifierMetrics } from '@/lib/verifier/types'
 import {
-  getUserLevelFresh,
   getUserSubmissionsFresh,
   getCleanupDetailsFresh,
-  getUserRewardStats,
 } from '@/lib/blockchain/contracts'
+import { getMergedUserRewardStats, getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { CONTRACT_READ_TTL_MS } from '@/lib/contractCache'
 import { Address } from 'viem'
@@ -29,15 +28,15 @@ interface UseVerifierEligibilityResult {
 
 export function useVerifierEligibility(): UseVerifierEligibilityResult {
   const { address } = useAccount()
-  const { submissionOwnerAddress } = useSmartAccountClient()
-  /** Same identity as dashboard / submissions: Safe when gasless, else EOA (undefined while Safe resolves). */
-  const rewardOwner = submissionOwnerAddress
+  const { submissionOwnerAddress, publicWalletAddress, onchainOwnerAddress } = useSmartAccountClient()
+  const rewardIdentity = (publicWalletAddress ?? address) as Address | undefined
+  const submissionOwner = (onchainOwnerAddress ?? submissionOwnerAddress) as Address | undefined
   const [eligibility, setEligibility] = useState<VerifierEligibility | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchEligibility = useCallback(async (silent = false) => {
-    if (!rewardOwner) {
+    if (!rewardIdentity || !submissionOwner) {
       setEligibility(null)
       return
     }
@@ -48,12 +47,11 @@ export function useVerifierEligibility(): UseVerifierEligibilityResult {
     setError(null)
 
     try {
-      // Fresh reads: eligibility must not use stale cached level/DCU after mints or claims.
-      const level = await getUserLevelFresh(rewardOwner)
-      const rewardStats = await getUserRewardStats(rewardOwner)
+      const level = await getMergedUserLevel(rewardIdentity, submissionOwner)
+      const rewardStats = await getMergedUserRewardStats(rewardIdentity, submissionOwner)
       const dcuPointsEarned = Number(rewardStats.totalEarned) / 1e18
 
-      const submissions = await getUserSubmissionsFresh(rewardOwner)
+      const submissions = await getUserSubmissionsFresh(submissionOwner)
       let approvedCount = 0
 
       for (const submissionId of submissions) {
@@ -83,28 +81,28 @@ export function useVerifierEligibility(): UseVerifierEligibilityResult {
         setIsLoading(false)
       }
     }
-  }, [rewardOwner])
+  }, [rewardIdentity, submissionOwner])
 
   useEffect(() => {
     void fetchEligibility(false)
   }, [fetchEligibility])
 
   useEffect(() => {
-    if (!rewardOwner) return
+    if (!rewardIdentity || !submissionOwner) return
     const id = setInterval(() => {
       void fetchEligibility(true)
     }, ELIGIBILITY_POLL_MS)
     return () => clearInterval(id)
-  }, [rewardOwner, fetchEligibility])
+  }, [rewardIdentity, submissionOwner, fetchEligibility])
 
   useEffect(() => {
-    if (!rewardOwner) return
+    if (!rewardIdentity || !submissionOwner) return
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void fetchEligibility(true)
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [rewardOwner, fetchEligibility])
+  }, [rewardIdentity, submissionOwner, fetchEligibility])
 
   return {
     eligibility,

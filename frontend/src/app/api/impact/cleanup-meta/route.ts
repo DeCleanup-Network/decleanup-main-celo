@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       submission_id: submissionId,
       chain_id: REQUIRED_CHAIN_ID,
       submitter: details.user.toLowerCase(),
+      eoa_address: null,
       submitted_at: null,
       verified_at: null,
       latitude: null,

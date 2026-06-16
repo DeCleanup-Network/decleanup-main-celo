@@ -7,8 +7,9 @@ import {
 } from '@/lib/impact/portfolio-endorsements'
 import {
   insertPortfolioEndorsement,
-  listPortfolioEndorsements,
+  listPortfolioEndorsementsResolved,
 } from '@/lib/supabase/impact-portfolio-endorsements'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,12 @@ export async function GET(request: NextRequest) {
     if (!address || !isValidEndorsementAddress(address)) {
       return NextResponse.json({ error: 'Invalid or missing address' }, { status: 400 })
     }
-    const endorsements = await listPortfolioEndorsements(address)
+    const identity = await resolveWalletIdentity(address)
+    const eoa = identity?.eoaAddress ?? address
+    const endorsements = await listPortfolioEndorsementsResolved(
+      eoa,
+      identity?.smartAccountAddress
+    )
     return NextResponse.json({ success: true, endorsements })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Failed to fetch endorsements'
@@ -43,11 +49,13 @@ type PostBody = {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as PostBody
-    const portfolioAddress = body?.portfolioAddress?.trim()
+    const portfolioRaw = body?.portfolioAddress?.trim()
     const endorserAddress = body?.endorserAddress?.trim()
-    if (!portfolioAddress || !isValidEndorsementAddress(portfolioAddress)) {
+    if (!portfolioRaw || !isValidEndorsementAddress(portfolioRaw)) {
       return NextResponse.json({ error: 'Invalid portfolio address' }, { status: 400 })
     }
+    const identity = await resolveWalletIdentity(portfolioRaw)
+    const portfolioAddress = identity?.publicAddress ?? portfolioRaw
     if (!endorserAddress || !isValidEndorsementAddress(endorserAddress)) {
       return NextResponse.json({ error: 'Invalid endorser address' }, { status: 400 })
     }

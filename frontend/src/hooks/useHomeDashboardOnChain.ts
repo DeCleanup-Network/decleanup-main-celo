@@ -16,6 +16,7 @@ import {
 import { getUserCleanupStatus } from '@/lib/blockchain/verification'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
+import { getMergedUserRewardStats, getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { loadImpactProductDisplay, type ImpactProductDisplayState } from '@/lib/dashboard/load-impact-product-display'
 import { scheduleIdle } from '@/lib/dashboard/schedule-idle'
 import { invalidateSubmissionDetailsCache } from '@/lib/contractCache'
@@ -109,6 +110,11 @@ type Params = {
   mounted: boolean
   isConnected: boolean
   address?: Address
+  /** User-visible EOA; reward totals merge EOA + linked Safe. */
+  publicWalletAddress?: Address
+  /** Onchain submission owner (Safe when gasless). */
+  onchainOwnerAddress?: Address
+  /** @deprecated Use onchainOwnerAddress */
   submissionOwnerAddress?: Address
   chainId?: number
   /** When true, load per-submission details for breakdown / verified counts. */
@@ -125,10 +131,14 @@ export function useHomeDashboardOnChain({
   mounted,
   isConnected,
   address,
+  publicWalletAddress,
+  onchainOwnerAddress,
   submissionOwnerAddress,
   chainId,
   wantSubmissionDetails,
 }: Params) {
+  const rewardIdentity = publicWalletAddress ?? address
+  const submissionOwner = onchainOwnerAddress ?? submissionOwnerAddress
   const [cleanupStatus, setCleanupStatus] = useState<HomeCleanupStatus | null>(null)
   const [hypercertEligibility, setHypercertEligibility] = useState<{
     cleanupCount: number
@@ -224,15 +234,15 @@ export function useHomeDashboardOnChain({
   )
 
   const loadCore = useCallback(async () => {
-    if (!submissionOwnerAddress) return
-    const owner = submissionOwnerAddress
+    if (!submissionOwner || !rewardIdentity) return
+    const owner = submissionOwner
     const cancelled = { current: false }
 
     try {
       const [status, rewardStatsData, level, tokenId, feeInfo] = await Promise.all([
         getUserCleanupStatus(owner),
-        getUserRewardStats(owner),
-        getUserLevel(owner),
+        getMergedUserRewardStats(rewardIdentity, owner),
+        getMergedUserLevel(rewardIdentity, owner),
         getUserTokenId(owner),
         getClaimFee(),
       ])
@@ -251,7 +261,7 @@ export function useHomeDashboardOnChain({
       console.error('Error loading dashboard core:', error)
       return null
     }
-  }, [submissionOwnerAddress, loadImpactProduct])
+  }, [submissionOwner, rewardIdentity, loadImpactProduct])
 
   const refreshFull = useCallback(async () => {
     detailsLoadedRef.current = false
@@ -280,7 +290,7 @@ export function useHomeDashboardOnChain({
     cancelledRef.current = false
     detailsLoadedRef.current = false
 
-    if (!mounted || !isConnected || !address || !submissionOwnerAddress) {
+    if (!mounted || !isConnected || !address || !submissionOwner) {
       setCleanupStatus(null)
       pendingCleanupIdRef.current = undefined
       setHypercertEligibility(null)
@@ -330,22 +340,22 @@ export function useHomeDashboardOnChain({
       document.removeEventListener('visibilitychange', onVisibility)
       idleCancelRef.current?.()
     }
-  }, [mounted, isConnected, address, submissionOwnerAddress, loadCore])
+  }, [mounted, isConnected, address, submissionOwner, loadCore])
 
   // Defer heavy submission details until idle or breakdown opened
   useEffect(() => {
-    if (!mounted || !isConnected || !submissionOwnerAddress || !hasLoadedCoreOnce) return
+    if (!mounted || !isConnected || !submissionOwner || !rewardIdentity || !hasLoadedCoreOnce) return
     if (!wantSubmissionDetails && detailsLoadedRef.current) return
 
     const runDetails = async () => {
       if (detailsLoadedRef.current && !wantSubmissionDetails) return
       try {
         const [rewardStatsData, level] = await Promise.all([
-          getUserRewardStats(submissionOwnerAddress),
-          getUserLevel(submissionOwnerAddress),
+          getMergedUserRewardStats(rewardIdentity, submissionOwner),
+          getMergedUserLevel(rewardIdentity, submissionOwner),
         ])
         if (cancelledRef.current) return
-        await loadSubmissionDetails(submissionOwnerAddress, level, rewardStatsData)
+        await loadSubmissionDetails(submissionOwner, level, rewardStatsData)
       } catch (error) {
         console.error('Error loading dashboard details:', error)
       }
@@ -366,7 +376,8 @@ export function useHomeDashboardOnChain({
   }, [
     mounted,
     isConnected,
-    submissionOwnerAddress,
+    submissionOwner,
+    rewardIdentity,
     hasLoadedCoreOnce,
     wantSubmissionDetails,
     loadSubmissionDetails,
