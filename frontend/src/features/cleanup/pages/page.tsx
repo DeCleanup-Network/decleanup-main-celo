@@ -26,7 +26,6 @@ import {
   invalidateSubmissionDetailsCache,
   invalidateUserSubmissionsCache,
 } from '@/lib/contractCache'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { notifyVerifierTelegramOfSubmission } from '@/lib/client/notify-verifier-telegram'
 import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'

@@ -1,4 +1,4 @@
-import type { PublicPortfolioPayload } from '@/lib/impact/public-portfolio-data'
+import type { PublicPortfolioPayload } from '@/lib/impact/public-portfolio-shared'
 import type { EditableProfile } from '@/lib/impact/portfolio-profile'
 import type { PortfolioEndorsement } from '@/lib/impact/portfolio-endorsements'
 import { PLASTIC_CO2E_FACTOR_KG, estimatePlasticCo2eKg } from '@/lib/impact/portfolio-display'

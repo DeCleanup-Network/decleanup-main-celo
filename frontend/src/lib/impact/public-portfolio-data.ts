@@ -14,100 +14,55 @@ import {
   getTokenURIForLevel,
   type UserRewardStats,
 } from '@/lib/blockchain/contracts'
-import type { CleanupDetails } from '@/lib/blockchain/contracts'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
-import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
-import { fetchPortfolioHypercerts } from '@/lib/impact/portfolio-hypercerts'
 import { fetchViaIpfsGatewayProxy, proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import {
+  hashToGatewayUrl,
+  type ImpactReportJson,
+  type EnrichedCleanup,
+  type PublicPortfolioPayload,
+  type PortfolioHypercertRecord,
+} from '@/lib/impact/public-portfolio-shared'
 
-export function hashToGatewayUrl(hash: string): string {
-  if (!hash) return ''
-  const h = hash.trim()
-  if (h.startsWith('ipfs://')) {
-    const path = h.replace(/^ipfs:\/\//, '').replace(/^\/+/, '')
-    const cid = path.split('/')[0]
-    return getIPFSUrl(cid)
+export type {
+  ImpactReportJson,
+  EnrichedCleanup,
+  PublicPortfolioRewards,
+  CumulativeImpactMetrics,
+  PortfolioHypercertRecord,
+  PublicPortfolioPayload,
+} from '@/lib/impact/public-portfolio-shared'
+export {
+  hashToGatewayUrl,
+  hashToProxyDisplayUrl,
+  canShowPhoto,
+  PORTFOLIO_HYPERCERT_PLACEHOLDER,
+} from '@/lib/impact/public-portfolio-shared'
+
+function portfolioApiOrigin(): string {
+  if (typeof window !== 'undefined') return window.location.origin
+  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, '')
+  if (process.env.VERCEL_URL?.trim()) return `https://${process.env.VERCEL_URL.trim()}`
+  return 'http://localhost:3000'
+}
+
+async function loadPortfolioHypercerts(
+  eoaAddress: Address,
+  legacySmartAccount?: Address | null
+): Promise<PortfolioHypercertRecord[]> {
+  try {
+    const params = new URLSearchParams({ address: eoaAddress })
+    if (legacySmartAccount) params.set('sa', legacySmartAccount)
+    const res = await fetch(
+      `${portfolioApiOrigin()}/api/impact/portfolio-hypercerts?${params.toString()}`,
+      { cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    return (await res.json()) as PortfolioHypercertRecord[]
+  } catch {
+    return []
   }
-  return getIPFSUrl(h)
-}
-
-/** Same as {@link hashToGatewayUrl} but for `<img src>` / media: same-origin proxy avoids Pinata CORS/CORP/429. */
-export function hashToProxyDisplayUrl(hash: string): string {
-  const u = hashToGatewayUrl(hash)
-  if (!u) return ''
-  return proxyIpfsHttpUrl(u)
-}
-
-/** Impact JSON stored with submissions (see cleanup flow). */
-export type ImpactReportJson = {
-  campaignName?: string
-  cleanupDate?: string
-  locationType?: string
-  area?: string
-  areaUnit?: string
-  weight?: string
-  weightUnit?: string
-  bags?: string
-  hours?: string
-  minutes?: string
-  wasteTypes?: string[]
-  environmentalChallenges?: string
-  preventionIdeas?: string
-  scopeOfWork?: string
-  additionalNotes?: string
-  contributors?: string[]
-  beforePhotoAllowed?: boolean
-  afterPhotoAllowed?: boolean
-  rightsAssignment?: string
-}
-
-export type EnrichedCleanup = {
-  submissionId: string
-  details: CleanupDetails
-  impact: ImpactReportJson | null
-}
-
-export type PublicPortfolioRewards = {
-  totalDcuBreakdown: number
-  cleanupsDCU: number
-  referralsDCU: number
-  streakDCU: number
-  reportsDCU: number
-  recyclablesDCU: number
-  hypercertsDCU: number
-  verifierDCU: number
-  totalEarned: number
-  rewardManagerBalance: number
-}
-
-export type CumulativeImpactMetrics = {
-  areaSqm: number
-  weightKg: number
-  bagsTotal: number
-  minutesTotal: number
-  wasteTypeCounts: Record<string, number>
-}
-
-/** Minted hypercert row for public portfolio disclosure. */
-export type PortfolioHypercertRecord = {
-  hypercertId: string
-  metadataCid: string
-  txHash?: string
-  status: 'MINTED' | 'APPROVED' | 'PENDING' | 'REJECTED'
-  workTimeframeStart?: number
-  workTimeframeEnd?: number
-  mintedAt?: number
-  /** Public contributor identity (EOA); resolved from legacy Safe requester when needed. */
-  contributorAddress?: string
-}
-
-/** Shape reference for portfolio hypercert table; not used in production payloads. */
-export const PORTFOLIO_HYPERCERT_PLACEHOLDER: PortfolioHypercertRecord = {
-  hypercertId: 'bafy…pending',
-  metadataCid: 'bafy…pending',
-  txHash: '0x…pending',
-  status: 'PENDING',
 }
 
 function normalizeArea(value: number, unit: string): number {
@@ -279,25 +234,6 @@ async function resolveImpactProductPreview(level: number, tokenId: bigint | null
   return proxyIpfsHttpUrl(fallback)
 }
 
-export type PublicPortfolioPayload = {
-  address: Address
-  /** If smart-account submissions were merged from this address */
-  mergedFromOwner?: Address
-  level: number
-  tokenId: bigint | null
-  submissions: bigint[]
-  enriched: EnrichedCleanup[]
-  aggregated: ReturnType<typeof aggregateUserCleanups> | null
-  verifiedCleanups: number
-  verifiedWithReport: number
-  contributorCleanupCount: number
-  rewards: PublicPortfolioRewards
-  cumulative: CumulativeImpactMetrics
-  impactProductImageUrl: string | null
-  /** TODO: populate from /api/hypercerts/requests + onchain mint index when portfolio read path is live */
-  hypercerts: PortfolioHypercertRecord[]
-}
-
 /**
  * @param rewardOwner - address used for Reward Manager / DCU (usually EOA or same as path)
  * @param opts.submissionOwner - optional: smart account that holds submissions when path is EOA
@@ -395,10 +331,10 @@ export async function fetchPublicPortfolioData(
 
   const impactProductImageUrl = await resolveImpactProductPreview(level, tokenId)
 
-  const hypercerts = await fetchPortfolioHypercerts(
+  const hypercerts = await loadPortfolioHypercerts(
     rewardOwner,
     linkedForRewards ?? opts?.submissionOwner ?? undefined
-  ).catch(() => [])
+  )
 
   return {
     address: rewardOwner,
@@ -433,12 +369,4 @@ export async function fetchPublicPortfolioData(
     impactProductImageUrl,
     hypercerts,
   }
-}
-
-/** Whether to show before/after in public portfolio (default true if unset). */
-export function canShowPhoto(impact: ImpactReportJson | null, which: 'before' | 'after'): boolean {
-  if (!impact) return true
-  const key = which === 'before' ? 'beforePhotoAllowed' : 'afterPhotoAllowed'
-  const v = impact[key]
-  return v !== false
 }

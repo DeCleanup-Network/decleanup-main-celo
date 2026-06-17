@@ -41,12 +41,14 @@ import dynamic from 'next/dynamic'
 import { resolveEnsToAddress, resolveAddressToEnsName } from '@/lib/utils/ens'
 import {
   fetchPublicPortfolioData,
+} from '@/lib/impact/public-portfolio-data'
+import {
   hashToProxyDisplayUrl,
   canShowPhoto,
   hashToGatewayUrl,
   type ImpactReportJson,
   type PublicPortfolioPayload,
-} from '@/lib/impact/public-portfolio-data'
+} from '@/lib/impact/public-portfolio-shared'
 import { Button } from '@/components/ui/button'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { CopyableAddress } from '@/components/ui/copyable-address'

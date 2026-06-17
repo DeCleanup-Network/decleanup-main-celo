@@ -1,7 +1,7 @@
 import 'server-only'
 
 import type { Address } from 'viem'
-import type { PortfolioHypercertRecord } from '@/lib/impact/public-portfolio-data'
+import type { PortfolioHypercertRecord } from '@/lib/impact/public-portfolio-shared'
 import { listHypercertRequestsForPortfolio } from '@/lib/supabase/hypercert-requests-db'
 import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 

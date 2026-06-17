@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ExternalLink, Layers } from 'lucide-react'
-import type { PortfolioHypercertRecord } from '@/lib/impact/public-portfolio-data'
+import type { PortfolioHypercertRecord } from '@/lib/impact/public-portfolio-shared'
 
 type Props = {
   hypercerts: PortfolioHypercertRecord[]

@@ -1,6 +1,6 @@
 import type { CleanupFeedRow } from '@/lib/supabase/cleanup-feed'
 import { formatApproxCoords } from '@/lib/impact/location-label'
-import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-data'
+import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-shared'
 
 function fmtNum(n: number, digits = 1): string {
   if (!Number.isFinite(n) || n <= 0) return '0'
