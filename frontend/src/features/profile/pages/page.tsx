@@ -399,7 +399,12 @@ useEffect(() => {
 
   async function refresh() {
     try {
-      const status = await getUserCleanupStatus(submissionOwner)
+      const status = await getUserCleanupStatus(
+        submissionOwner,
+        publicAddress && publicAddress.toLowerCase() !== submissionOwner.toLowerCase()
+          ? [publicAddress]
+          : []
+      )
 
       if (cancelled) return
 
@@ -703,7 +708,12 @@ useEffect(() => {
                   await loadProfileData(publicAddress, onchainOwner, { showSpinner: false })
                   console.log('[Profile] Profile data refreshed')
                   
-                  const newStatus = await getUserCleanupStatus(onchainOwner)
+                  const newStatus = await getUserCleanupStatus(
+                    onchainOwner,
+                    publicAddress && publicAddress.toLowerCase() !== onchainOwner.toLowerCase()
+                      ? [publicAddress]
+                      : []
+                  )
                   console.log('[Profile] New cleanup status:', newStatus)
                   setCleanupStatus(newStatus ? {
                     cleanupId: newStatus.cleanupId ?? null,

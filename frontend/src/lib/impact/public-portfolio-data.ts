@@ -42,6 +42,7 @@ export function hashToProxyDisplayUrl(hash: string): string {
 /** Impact JSON stored with submissions (see cleanup flow). */
 export type ImpactReportJson = {
   campaignName?: string
+  cleanupDate?: string
   locationType?: string
   area?: string
   areaUnit?: string

@@ -22,6 +22,7 @@ export interface ImpactEntry {
   
   // Impact report data (from IPFS); normalized to base units
   campaignName?: string
+  cleanupDate?: string
   locationType: string
   areaSqm: number // Always sqm (normalized by indexer)
   weightKg: number // Always kg (normalized by indexer)

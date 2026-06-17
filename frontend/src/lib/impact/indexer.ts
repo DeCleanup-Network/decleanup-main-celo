@@ -304,6 +304,10 @@ function normalizeEntry(submission: any): ImpactEntry {
       typeof impactData.campaignName === 'string' && impactData.campaignName.trim()
         ? impactData.campaignName.trim()
         : undefined,
+    cleanupDate:
+      typeof impactData.cleanupDate === 'string' && impactData.cleanupDate.trim()
+        ? impactData.cleanupDate.trim()
+        : undefined,
     locationType: impactData.locationType || 'Unknown',
     areaSqm,
     weightKg,

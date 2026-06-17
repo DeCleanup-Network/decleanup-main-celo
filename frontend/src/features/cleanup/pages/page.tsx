@@ -20,8 +20,13 @@ import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useWallet } from '@/providers/WalletProvider'
 import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
 import { getCleanupDetails } from '@/lib/blockchain/contracts'
-import { isImpactClaimOutstanding, markCleanupAsClaimed } from '@/lib/blockchain/verification'
+import { isImpactClaimOutstanding, markCleanupAsClaimed, storePendingCleanup } from '@/lib/blockchain/verification'
 import { clearPendingCleanupDataForIdentities, resetSubmissionCounting } from '@/lib/utils/cleanup-data'
+import {
+  invalidateSubmissionDetailsCache,
+  invalidateUserSubmissionsCache,
+} from '@/lib/contractCache'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { notifyVerifierTelegramOfSubmission } from '@/lib/client/notify-verifier-telegram'
 import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
@@ -397,6 +402,7 @@ function CleanupContent() {
   // Impact Report form data
   const [enhancedData, setEnhancedData] = useState({
     campaignName: '',
+    cleanupDate: '',
     locationType: '',
     area: '',
     areaUnit: 'sqm' as 'sqm' | 'sqft',
@@ -1172,6 +1178,8 @@ function CleanupContent() {
             ...(enhancedData.campaignName.trim()
               ? { campaignName: enhancedData.campaignName.trim() }
               : {}),
+            cleanupDate:
+              enhancedData.cleanupDate.trim() || new Date().toISOString().slice(0, 10),
             locationType: enhancedData.locationType,
             area: enhancedData.area,
             areaUnit: enhancedData.areaUnit,
@@ -1339,22 +1347,33 @@ function CleanupContent() {
           submissionId: cleanupId.toString(),
         })
         
-        // Store cleanup ID in localStorage for verification checking (scoped to onchain submitter: Safe or EOA)
-        if (typeof window !== 'undefined' && address && submissionOwnerAddress) {
-          const storageOwner = submissionOwnerAddress.toLowerCase()
-          const pendingKey = `pending_cleanup_id_${storageOwner}`
-          const locationKey = `pending_cleanup_location_${storageOwner}`
-          localStorage.setItem(pendingKey, cleanupId.toString())
-          localStorage.setItem(locationKey, JSON.stringify(location))
+        // Store cleanup ID for verification checking (EOA + onchain submitter keys)
+        const onchainOwner = (onchainOwnerAddress ?? submissionOwnerAddress) as Address | undefined
+        if (typeof window !== 'undefined' && onchainOwner) {
+          storePendingCleanup(onchainOwner, cleanupId)
+          const publicAddr = (publicWalletAddress ?? address) as Address | undefined
+          if (publicAddr && publicAddr.toLowerCase() !== onchainOwner.toLowerCase()) {
+            storePendingCleanup(publicAddr, cleanupId)
+          }
+          const locKey = `pending_cleanup_location_${onchainOwner.toLowerCase()}`
+          localStorage.setItem(locKey, JSON.stringify(location))
 
           // Clear referrer from localStorage after successful submission
-          // The referrer is now stored onchain, so we don't need to keep it locally
-          const referrerKey = `referrer_${address.toLowerCase()}`
-          localStorage.removeItem(referrerKey)
+          const referrerKey = `referrer_${(publicWalletAddress ?? address)?.toLowerCase()}`
+          if (referrerKey !== 'referrer_undefined') {
+            localStorage.removeItem(referrerKey)
+          }
 
-          // Also clear old global keys if they exist
           localStorage.removeItem('pending_cleanup_id')
           localStorage.removeItem('pending_cleanup_location')
+
+          invalidateUserSubmissionsCache(REQUIRED_CHAIN_ID, onchainOwner)
+          invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+          window.dispatchEvent(
+            new CustomEvent('decleanup:cleanup-submitted', {
+              detail: { cleanupId: cleanupId.toString(), owner: onchainOwner },
+            })
+          )
         }
 
         // Immediately update pendingCleanup state to lock the submit button
@@ -2290,7 +2309,23 @@ function CleanupContent() {
                 maxLength={120}
                 className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder:text-gray-500"
               />
-              <p className="mt-1 text-xs text-gray-500">Optional — shown on your impact report if provided.</p>
+              <p className="mt-1 text-xs text-gray-500">Optional. Shown on your impact report if provided.</p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Cleanup date
+              </label>
+              <input
+                type="date"
+                value={enhancedData.cleanupDate}
+                onChange={(e) => setEnhancedData({ ...enhancedData, cleanupDate: e.target.value })}
+                max={new Date().toISOString().slice(0, 10)}
+                className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white [color-scheme:dark]"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Optional. Leave blank to use today&apos;s date when you submit.
+              </p>
             </div>
 
             {/* Location Type */}

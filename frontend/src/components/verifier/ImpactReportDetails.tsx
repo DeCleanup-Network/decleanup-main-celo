@@ -240,6 +240,12 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
             <dd className="text-base text-white">{impactData.campaignName}</dd>
           </div>
         )}
+        {impactData.cleanupDate && (
+          <div>
+            <dt className="text-xs uppercase text-gray-400">Cleanup date</dt>
+            <dd className="text-base text-white">{impactData.cleanupDate}</dd>
+          </div>
+        )}
         {impactData.locationType && (
           <div>
             <dt className="text-xs uppercase text-gray-400">Location Type</dt>

@@ -236,11 +236,18 @@ export function useHomeDashboardOnChain({
   const loadCore = useCallback(async () => {
     if (!submissionOwner || !rewardIdentity) return
     const owner = submissionOwner
+    const identityAliases: Address[] = []
+    if (rewardIdentity.toLowerCase() !== owner.toLowerCase()) {
+      identityAliases.push(rewardIdentity)
+    }
+    if (address && address.toLowerCase() !== owner.toLowerCase() && address.toLowerCase() !== rewardIdentity.toLowerCase()) {
+      identityAliases.push(address)
+    }
     const cancelled = { current: false }
 
     try {
       const [status, rewardStatsData, level, tokenId, feeInfo] = await Promise.all([
-        getUserCleanupStatus(owner),
+        getUserCleanupStatus(owner, identityAliases),
         getMergedUserRewardStats(rewardIdentity, owner),
         getMergedUserLevel(rewardIdentity, owner),
         getUserTokenId(owner),
@@ -261,7 +268,17 @@ export function useHomeDashboardOnChain({
       console.error('Error loading dashboard core:', error)
       return null
     }
-  }, [submissionOwner, rewardIdentity, loadImpactProduct])
+  }, [submissionOwner, rewardIdentity, address, loadImpactProduct])
+
+  // Refresh immediately when a cleanup is submitted (home may mount before chain index catches up).
+  useEffect(() => {
+    if (!mounted || !isConnected || !submissionOwner) return
+    const onSubmitted = () => {
+      void loadCore()
+    }
+    window.addEventListener('decleanup:cleanup-submitted', onSubmitted)
+    return () => window.removeEventListener('decleanup:cleanup-submitted', onSubmitted)
+  }, [mounted, isConnected, submissionOwner, loadCore])
 
   const refreshFull = useCallback(async () => {
     detailsLoadedRef.current = false

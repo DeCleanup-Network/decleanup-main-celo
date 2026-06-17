@@ -24,6 +24,11 @@ export function invalidateSubmissionDetailsCache(chainId: number, submissionId: 
   store.delete(`details:${chainId}:${submissionId.toString()}`)
 }
 
+/** After a new submission, drop cached `getSubmissionsByUser` so pending status resolves immediately. */
+export function invalidateUserSubmissionsCache(chainId: number, ownerAddress: string): void {
+  store.delete(`submissions:${chainId}:${ownerAddress.toLowerCase()}`)
+}
+
 /**
  * In-memory time-based cache for async contract reads. Not shared across tabs/workers.
  */

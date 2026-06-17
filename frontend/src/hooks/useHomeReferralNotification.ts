@@ -50,7 +50,12 @@ export function useHomeReferralNotification({
           if (contractReferrer) {
             const submissions = await getUserSubmissions(owner)
             const hasSubmitted = submissions.length > 0
-            const currentStatus = await getUserCleanupStatus(owner)
+            const currentStatus = await getUserCleanupStatus(
+              owner,
+              publicWalletAddress && publicWalletAddress.toLowerCase() !== owner.toLowerCase()
+                ? [publicWalletAddress]
+                : []
+            )
             const hasPendingCleanup = currentStatus?.hasPendingCleanup || false
             const displayReferrer = await normalizeReferrerAddress(contractReferrer)
 

@@ -3,6 +3,7 @@ import {
   getCleanupDetailsFresh,
   findLatestClaimableCleanup,
   getUserSubmissions,
+  getUserSubmissionsFresh,
 } from './contracts'
 
 /** Verified submissions (approved, not rejected) for this user — drives level claim eligibility vs NFT userLevel. */
@@ -146,6 +147,39 @@ function getPendingCleanupId(user: Address): bigint | null {
   }
 }
 
+/** Pending id may be stored under EOA or smart-account key after submit. */
+function resolvePendingCleanupId(user: Address, identityAliases: Address[] = []): bigint | null {
+  const seen = new Set<string>()
+  for (const addr of [user, ...identityAliases]) {
+    const low = addr.toLowerCase()
+    if (seen.has(low)) continue
+    seen.add(low)
+    const id = getPendingCleanupId(addr)
+    if (id !== null) return id
+  }
+  return null
+}
+
+function storePendingCleanupForIdentities(user: Address, identityAliases: Address[], cleanupId: bigint) {
+  const seen = new Set<string>()
+  for (const addr of [user, ...identityAliases]) {
+    const low = addr.toLowerCase()
+    if (seen.has(low)) continue
+    seen.add(low)
+    storePendingCleanup(addr, cleanupId)
+  }
+}
+
+function clearPendingCleanupForIdentities(user: Address, identityAliases: Address[] = []) {
+  const seen = new Set<string>()
+  for (const addr of [user, ...identityAliases]) {
+    const low = addr.toLowerCase()
+    if (seen.has(low)) continue
+    seen.add(low)
+    clearPendingCleanup(addr)
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /*                          CLEANUP STATUS RESOLUTION                          */
 /* -------------------------------------------------------------------------- */
@@ -162,9 +196,10 @@ function getPendingCleanupId(user: Address): bigint | null {
  * for the latest verified but unclaimed cleanup as a fallback.
  */
 export async function getLatestCleanupStatus(
-  user: Address
+  user: Address,
+  identityAliases: Address[] = []
 ): Promise<VerificationStatus | null> {
-  let cleanupId = getPendingCleanupId(user)
+  let cleanupId = resolvePendingCleanupId(user, identityAliases)
   
   console.log('[verification] getLatestCleanupStatus:', {
     user,
@@ -180,9 +215,7 @@ export async function getLatestCleanupStatus(
   if (cleanupId === null || cleanupId === undefined) {
     try {
       console.log('[verification] No cleanup ID in localStorage, checking if user has submissions...')
-      // First check if user has any submissions at all
-      const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
-      const userSubmissions = await getUserSubmissions(user)
+      const userSubmissions = await getUserSubmissionsFresh(user)
       
       if (userSubmissions.length === 0) {
         console.log('[verification] User has no submissions, returning null (new user)')
@@ -197,9 +230,23 @@ export async function getLatestCleanupStatus(
       if (foundCleanupId !== null && foundCleanupId !== undefined) {
         cleanupId = foundCleanupId
         console.log('[verification] Found claimable cleanup from contract:', cleanupId.toString())
-        storePendingCleanup(user, cleanupId)
+        storePendingCleanupForIdentities(user, identityAliases, cleanupId)
       } else {
         console.log('[verification] No claimable cleanup found in contract')
+        const latestSubmissionId = userSubmissions.reduce(
+          (max, id) => (id > max ? id : max),
+          userSubmissions[0]
+        )
+        const latestDetails = await getCleanupDetailsFresh(latestSubmissionId)
+        if (
+          latestDetails.user.toLowerCase() === user.toLowerCase() &&
+          !latestDetails.verified &&
+          !latestDetails.rejected
+        ) {
+          cleanupId = latestSubmissionId
+          console.log('[verification] Recovering unverified latest submission as pending:', cleanupId.toString())
+          storePendingCleanupForIdentities(user, identityAliases, cleanupId)
+        }
       }
     } catch (err) {
       console.warn('[verification] Failed to find latest claimable cleanup from contract:', err)
@@ -212,27 +259,35 @@ export async function getLatestCleanupStatus(
     const localClaimed = await isCleanupClaimedEffective(user, cleanupId)
     if (localClaimed) {
       console.log('[verification] Cleanup in localStorage is already claimed, clearing it')
-      clearPendingCleanup(user)
+      clearPendingCleanupForIdentities(user, identityAliases)
       return null
     }
   }
 
-  // Strict submit -> verify -> claim loop:
-  // only the latest submission can be considered claimable.
-  // If localStorage still points to an older submission, clear it and block claim UI.
+  // Strict submit -> verify -> claim loop: only the latest submission can be pending.
+  // Do not clear when pending id is ahead of the cached submission list (fresh submit / RPC lag).
   if (cleanupId !== null && cleanupId !== undefined) {
     try {
-      const { getUserSubmissions } = await import('@/lib/blockchain/contracts')
-      const submissions = await getUserSubmissions(user)
+      const submissions = await getUserSubmissionsFresh(user)
       if (submissions.length > 0) {
-        const latestSubmissionId = [...submissions].sort((a, b) => (a > b ? -1 : a < b ? 1 : 0))[0]
+        const latestSubmissionId = submissions.reduce(
+          (max, id) => (id > max ? id : max),
+          submissions[0]
+        )
         if (cleanupId !== latestSubmissionId) {
-          console.log('[verification] Pending cleanup is not latest submission; clearing stale pending ID', {
+          const pendingInList = submissions.some((id) => id === cleanupId)
+          if (pendingInList || cleanupId < latestSubmissionId) {
+            console.log('[verification] Pending cleanup is not latest submission; clearing stale pending ID', {
+              pendingCleanupId: cleanupId.toString(),
+              latestSubmissionId: latestSubmissionId.toString(),
+            })
+            clearPendingCleanupForIdentities(user, identityAliases)
+            return null
+          }
+          console.log('[verification] Pending cleanup ahead of submission list; trusting local pending id', {
             pendingCleanupId: cleanupId.toString(),
             latestSubmissionId: latestSubmissionId.toString(),
           })
-          clearPendingCleanup(user)
-          return null
         }
       }
     } catch (err) {
@@ -264,14 +319,14 @@ export async function getLatestCleanupStatus(
         expected: user,
         found: details.user,
       })
-      clearPendingCleanup(user)
+      clearPendingCleanupForIdentities(user, identityAliases)
       return null
     }
 
     // If cleanup doesn't exist or has invalid data, return null
     if (details.user === '0x0000000000000000000000000000000000000000') {
       console.warn('[verification] Cleanup not found on contract, clearing localStorage')
-      clearPendingCleanup(user)
+      clearPendingCleanupForIdentities(user, identityAliases)
       return null
     }
 
@@ -297,7 +352,7 @@ export async function getLatestCleanupStatus(
             verifiedCount,
             cleanupId: cleanupId.toString(),
           })
-          clearPendingCleanup(user)
+          clearPendingCleanupForIdentities(user, identityAliases)
           markCleanupAsClaimed(user, cleanupId)
           return null
         }
@@ -333,20 +388,20 @@ export async function getLatestCleanupStatus(
     // Unlock flow if terminal
     // If cleanup is claimed, clear pending cleanup and ensure it's marked
     if (claimed) {
-      clearPendingCleanup(user)
+      clearPendingCleanupForIdentities(user, identityAliases)
       // Ensure it's marked (in case it wasn't already)
       markCleanupAsClaimed(user, cleanupId)
       // Return null to indicate no claimable cleanup (user needs to submit new one)
       return null
     } else if (rejected) {
-      clearPendingCleanup(user)
+      clearPendingCleanupForIdentities(user, identityAliases)
       // Return null for rejected cleanups (user needs to submit new one)
       return null
     } else if (verified && canClaim) {
-      storePendingCleanup(user, cleanupId)
+      storePendingCleanupForIdentities(user, identityAliases, cleanupId)
     } else if (verified && !canClaim) {
       console.log('[verification] Cleanup already claimed, clearing from localStorage')
-      clearPendingCleanup(user)
+      clearPendingCleanupForIdentities(user, identityAliases)
       return null
     }
 
@@ -371,7 +426,10 @@ export async function getLatestCleanupStatus(
  * - Can claim?
  * - Is locked?
  */
-export async function getUserCleanupStatus(user: Address): Promise<{
+export async function getUserCleanupStatus(
+  user: Address,
+  identityAliases: Address[] = []
+): Promise<{
   hasPendingCleanup: boolean
   canSubmit: boolean
   canClaim: boolean
@@ -397,7 +455,7 @@ export async function getUserCleanupStatus(user: Address): Promise<{
     }
   }
 
-  const latest = await getLatestCleanupStatus(user)
+  const latest = await getLatestCleanupStatus(user, identityAliases)
 
   if (!latest) {
     return {

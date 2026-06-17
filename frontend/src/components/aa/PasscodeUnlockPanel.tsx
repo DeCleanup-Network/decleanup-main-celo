@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { NumericPasscodePad } from '@/components/aa/NumericPasscodePad'
 import { useWallet } from '@/providers/WalletProvider'
-import { isPasskeySupported } from '@/lib/passkey/config-client'
+import { isPasskeySupported, isPlatformAuthenticatorAvailable } from '@/lib/passkey/config-client'
 import { getPreferredSessionDuration, type SessionDurationId } from '@/lib/client-wallet/signing-session'
 import { SigningSessionDurationField } from '@/components/aa/SigningSessionDurationField'
 import {
@@ -21,7 +21,7 @@ type Props = {
 }
 
 export function PasscodeUnlockPanel({ onSuccess, showSessionDuration = true, compact = false }: Props) {
-  const { unlock, unlockWithPasskey, isPasskeyEnabled, passkeyLoading, error } = useWallet()
+  const { unlock, unlockWithPasskey, registerPasskey, isPasskeyEnabled, passkeyLoading, error } = useWallet()
   const [passcode, setPasscode] = useState('')
   const [legacyMode, setLegacyMode] = useState(false)
   const [legacyPassword, setLegacyPassword] = useState('')
@@ -29,8 +29,15 @@ export function PasscodeUnlockPanel({ onSuccess, showSessionDuration = true, com
   const [pending, setPending] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
+  const [platformAvailable, setPlatformAvailable] = useState(false)
+  const [biometricSetup, setBiometricSetup] = useState(false)
 
-  const showPasskey = isPasskeyEnabled && isPasskeySupported()
+  const showBiometric = isPasskeySupported() && platformAvailable
+
+  useEffect(() => {
+    if (!isPasskeySupported()) return
+    void isPlatformAuthenticatorAvailable().then(setPlatformAvailable)
+  }, [])
 
   useEffect(() => {
     const status = getUnlockAttemptStatus()
@@ -72,6 +79,24 @@ export function PasscodeUnlockPanel({ onSuccess, showSessionDuration = true, com
     }
   }
 
+  const tryEnableBiometricAndUnlock = async (password: string) => {
+    setLocalError(null)
+    setPending(true)
+    try {
+      await registerPasskey(password)
+      await unlockWithPasskey(duration)
+      clearUnlockAttempts()
+      setPasscode('')
+      setBiometricSetup(false)
+      onSuccess?.()
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Could not enable biometrics')
+      setPasscode('')
+    } finally {
+      setPending(false)
+    }
+  }
+
   const submitPasskey = async () => {
     setLocalError(null)
     setPending(true)
@@ -88,16 +113,34 @@ export function PasscodeUnlockPanel({ onSuccess, showSessionDuration = true, com
 
   const locked = lockoutSeconds > 0
 
+  const biometricSubtitle = biometricSetup
+    ? 'Enter your passcode once to enable Face ID / Touch ID on this device.'
+    : showBiometric
+      ? 'Or use Face ID / Touch ID above'
+      : undefined
+
   return (
     <div className={compact ? 'space-y-3' : 'space-y-4'}>
-      {showPasskey && (
+      {showBiometric && !legacyMode && (
         <Button
           type="button"
           disabled={pending || passkeyLoading || locked}
           className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90"
-          onClick={() => void submitPasskey()}
+          onClick={() => {
+            if (isPasskeyEnabled) {
+              void submitPasskey()
+              return
+            }
+            setBiometricSetup(true)
+            setPasscode('')
+            setLocalError(null)
+          }}
         >
-          {pending || passkeyLoading ? 'Waiting for biometrics…' : 'Face ID / Touch ID'}
+          {pending || passkeyLoading
+            ? 'Waiting for biometrics…'
+            : isPasskeyEnabled
+              ? 'Face ID / Touch ID'
+              : 'Enable Face ID / Touch ID'}
         </Button>
       )}
 
@@ -144,23 +187,44 @@ export function PasscodeUnlockPanel({ onSuccess, showSessionDuration = true, com
           <NumericPasscodePad
             value={passcode}
             onChange={setPasscode}
-            onComplete={(v) => void tryUnlock(v)}
-            title="Enter passcode"
-            subtitle={showPasskey ? 'Or use Face ID above' : undefined}
+            onComplete={(v) => {
+              if (biometricSetup && !isPasskeyEnabled) {
+                void tryEnableBiometricAndUnlock(v)
+                return
+              }
+              void tryUnlock(v)
+            }}
+            title={biometricSetup ? 'Enable biometrics' : 'Enter passcode'}
+            subtitle={biometricSubtitle}
             error={localError}
             disabled={pending || locked}
           />
-          <button
-            type="button"
-            className="mx-auto block text-xs text-gray-500 underline"
-            onClick={() => {
-              setLegacyMode(true)
-              setPasscode('')
-              setLocalError(null)
-            }}
-          >
-            Using an older longer passcode?
-          </button>
+          {biometricSetup && !isPasskeyEnabled ? (
+            <button
+              type="button"
+              className="mx-auto block text-xs text-gray-500 underline"
+              onClick={() => {
+                setBiometricSetup(false)
+                setPasscode('')
+                setLocalError(null)
+              }}
+            >
+              Use passcode only
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="mx-auto block text-xs text-gray-500 underline"
+              onClick={() => {
+                setLegacyMode(true)
+                setPasscode('')
+                setBiometricSetup(false)
+                setLocalError(null)
+              }}
+            >
+              Using longer passcode?
+            </button>
+          )}
         </>
       )}
 
