@@ -12,6 +12,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/server/api-request-guards'
 import { checkInMemoryRateLimit } from '@/lib/server/rate-limit'
+import {
+  CONTRACT_ADDRESSES,
+  REQUIRED_CHAIN_ID,
+  REQUIRED_CHAIN_NAME,
+} from '@/lib/blockchain/chain-constants'
 import { isTelegramNotifierConfigured } from '@/lib/server/telegram-config'
 import { notifyVerifiersOfNewSubmission } from '@/lib/server/telegram-submission-notify'
 
@@ -36,12 +41,16 @@ function tooManyRequests(resetAt: number) {
 export async function GET() {
   return NextResponse.json({
     configured: isTelegramNotifierConfigured(),
+    chainId: REQUIRED_CHAIN_ID,
+    chainName: REQUIRED_CHAIN_NAME,
+    submissionContract: CONTRACT_ADDRESSES.VERIFICATION || null,
     hint: 'Set TELEGRAM_BOT_TOKEN and TELEGRAM_VERIFIER_CHAT_ID on the server.',
   })
 }
 
 export async function POST(request: NextRequest) {
   if (!isTelegramNotifierConfigured()) {
+    console.warn('[telegram/submission-created] skipped: telegram_not_configured')
     return NextResponse.json(
       { ok: false, skipped: true, reason: 'telegram_not_configured' },
       { status: 200 }
@@ -74,6 +83,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, sent: true, messageId: result.messageId })
     }
 
+    console.warn('[telegram/submission-created] not sent:', result.reason, result.detail ?? '')
     return NextResponse.json({
       ok: true,
       sent: false,

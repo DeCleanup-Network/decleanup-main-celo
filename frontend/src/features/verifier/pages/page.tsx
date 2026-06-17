@@ -1483,9 +1483,11 @@ export default function VerifierPage() {
                     <div>
                       <h3 className="mb-2 text-lg font-bold text-white">Cleanup #{cleanup.id.toString()}</h3>
                       <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <User className="h-4 w-4" />
-                          <span className="font-mono text-xs">{cleanup.user}</span>
+                        <div className="flex min-w-0 items-start gap-2 text-gray-400">
+                          <User className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span className="min-w-0 break-all font-mono text-[11px] leading-snug text-gray-300">
+                            {cleanup.user}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-400">
                           <Calendar className="h-4 w-4" />
@@ -1793,8 +1795,11 @@ export default function VerifierPage() {
                       <div className="mt-2 text-sm text-gray-400">
                         Level {cleanup.level} ({getLevelName(cleanup.level)}) • {formatDate(cleanup.timestamp)}
                       </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        User: <span className="font-mono">{cleanup.user.slice(0, 10)}...{cleanup.user.slice(-8)}</span>
+                      <div className="mt-1 min-w-0 text-xs text-gray-500">
+                        User:{' '}
+                        <span className="break-all font-mono text-[11px] leading-snug text-gray-400">
+                          {cleanup.user}
+                        </span>
                       </div>
                     </div>
                     <div className="text-sm text-gray-400">
@@ -1832,9 +1837,11 @@ export default function VerifierPage() {
                         <span className="font-bold text-white">Cleanup #{cleanup.id.toString()}</span>
                       </div>
                       <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <User className="h-4 w-4" />
-                          <span className="font-mono text-xs">{cleanup.user}</span>
+                        <div className="flex min-w-0 items-start gap-2 text-gray-400">
+                          <User className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span className="min-w-0 break-all font-mono text-[11px] leading-snug text-gray-300">
+                            {cleanup.user}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-400">
                           <Calendar className="h-4 w-4" />

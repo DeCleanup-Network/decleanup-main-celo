@@ -448,6 +448,11 @@ const SUBMISSION_ABI = [
   },
 ] as const
 
+export type SubmitCleanupResult = {
+  submissionId: bigint
+  txHash: `0x${string}`
+}
+
 export async function submitCleanup(
   beforeHash: string,
   afterHash: string,
@@ -462,7 +467,7 @@ export async function submitCleanup(
     recyclablesPhotoHash?: string
     recyclablesReceiptHash?: string
   }
-): Promise<bigint> {
+): Promise<SubmitCleanupResult> {
   if (!SUBMISSION_ADDRESS) {
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
   }
@@ -574,7 +579,7 @@ export async function submitCleanup(
       throw new Error('Failed to get submission ID from transaction')
     }
 
-    return submissionId
+    return { submissionId, txHash: hash }
   } catch (error: any) {
     console.error('Error submitting cleanup:', error)
     let errorMessage = 'Unknown error'

@@ -3,6 +3,49 @@
  * after a successful onchain cleanup submission.
  */
 
+const CLIENT_RETRIES = 3
+const CLIENT_RETRY_DELAY_MS = 2_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+type NotifyResponse = {
+  ok?: boolean
+  sent?: boolean
+  skipped?: boolean
+  reason?: string
+  detail?: string
+}
+
+async function postSubmissionNotify(
+  body: Record<string, string>,
+  attempt: number
+): Promise<void> {
+  const res = await fetch('/api/telegram/submission-created', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  const data = (await res.json().catch(() => ({}))) as NotifyResponse
+
+  if (!res.ok) {
+    throw new Error(data.detail || data.reason || `HTTP ${res.status}`)
+  }
+
+  if (data.skipped || data.sent === false) {
+    const retryable =
+      data.reason === 'not_found' && attempt < CLIENT_RETRIES - 1
+    if (retryable) {
+      await sleep(CLIENT_RETRY_DELAY_MS * (attempt + 1))
+      return postSubmissionNotify(body, attempt + 1)
+    }
+    console.warn('[notifyVerifierTelegram] alert not sent:', data)
+    return
+  }
+}
+
 export function notifyVerifierTelegramOfSubmission(params: {
   submissionId: string
   txHash?: string
@@ -14,11 +57,7 @@ export function notifyVerifierTelegramOfSubmission(params: {
   }
   if (params.txHash) body.txHash = params.txHash
 
-  void fetch('/api/telegram/submission-created', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }).catch((err) => {
+  void postSubmissionNotify(body, 0).catch((err) => {
     console.warn('[notifyVerifierTelegram] failed (non-fatal):', err)
   })
 }

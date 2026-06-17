@@ -85,6 +85,39 @@ const publicClient = createPublicClient({
   transport: http(REQUIRED_RPC_URL),
 })
 
+const READ_RETRIES = 4
+const READ_RETRY_DELAY_MS = 1_500
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function readPendingSubmissionDetails(
+  submissionAddress: Address,
+  id: bigint
+): Promise<SubmissionDetailsTuple | null> {
+  for (let attempt = 0; attempt < READ_RETRIES; attempt++) {
+    try {
+      const details = (await publicClient.readContract({
+        address: submissionAddress,
+        abi: SUBMISSION_DETAILS_ABI,
+        functionName: 'getSubmissionDetails',
+        args: [id],
+      })) as SubmissionDetailsTuple
+      return details
+    } catch (e) {
+      const isLast = attempt === READ_RETRIES - 1
+      console.warn(
+        `[telegram-submission-notify] readContract attempt ${attempt + 1}/${READ_RETRIES} failed:`,
+        e
+      )
+      if (isLast) return null
+      await sleep(READ_RETRY_DELAY_MS * (attempt + 1))
+    }
+  }
+  return null
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -150,16 +183,8 @@ export async function notifyVerifiersOfNewSubmission(params: {
     return { sent: false, reason: 'already_notified' }
   }
 
-  let details: SubmissionDetailsTuple
-  try {
-    details = (await publicClient.readContract({
-      address: submissionAddress,
-      abi: SUBMISSION_DETAILS_ABI,
-      functionName: 'getSubmissionDetails',
-      args: [id],
-    })) as SubmissionDetailsTuple
-  } catch (e) {
-    console.warn('[telegram-submission-notify] readContract failed:', e)
+  const details = await readPendingSubmissionDetails(submissionAddress, id)
+  if (!details) {
     return { sent: false, reason: 'not_found' }
   }
 

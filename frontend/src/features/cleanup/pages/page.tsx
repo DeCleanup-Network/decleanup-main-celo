@@ -1257,7 +1257,7 @@ function CleanupContent() {
         const combinedRecyclablesSubmit =
           isAtomicContractTxEnabled() && hasRecyclables && !!recyclablesPhotoHash
 
-        const cleanupId = await submitCleanup(
+        const { submissionId: cleanupId, txHash: submitTxHash } = await submitCleanup(
           beforeHash.hash,
           afterHash.hash,
           location.lat,
@@ -1277,6 +1277,11 @@ function CleanupContent() {
         
 
         console.log('✅ Cleanup submitted with ID:', cleanupId.toString())
+        notifyVerifierTelegramOfSubmission({
+          submissionId: cleanupId.toString(),
+          txHash: submitTxHash,
+        })
+
         console.log('✅ Referrer address used in submission:', referrerAddress || 'none (no referrer)')
         if (referrerAddress && referrerAddress !== '0x0000000000000000000000000000000000000000') {
           console.log('✅ Referral reward will be distributed when cleanup is verified and user claims their first Impact Product level!')
@@ -1341,10 +1346,6 @@ function CleanupContent() {
         }
 
         setCleanupId(cleanupId)
-
-        notifyVerifierTelegramOfSubmission({
-          submissionId: cleanupId.toString(),
-        })
         
         // Store cleanup ID for verification checking (EOA + onchain submitter keys)
         const onchainOwner = (onchainOwnerAddress ?? submissionOwnerAddress) as Address | undefined

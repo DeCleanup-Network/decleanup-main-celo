@@ -716,7 +716,7 @@ function HomeContent() {
                     DCU from their own contracts.
                   </p>
                 )}
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   {
                     label: 'Cleanups',
@@ -740,34 +740,40 @@ function HomeContent() {
                     showToken: true,
                   },
                   {
-                    label: 'Hypercerts (impact certificates)',
+                    label: 'Hypercerts',
+                    hint: 'impact certificates',
                     value: rewardStats.hypercertsDCU.toFixed(0),
                     showToken: true,
                   },
                   { label: 'Verifier', value: rewardStats.verifierDCU.toFixed(0), showToken: true },
                   {
-                    label: 'Contributed cleanups',
+                    label: 'Contributed',
+                    hint: 'cleanups',
                     value: String(rewardStats.contributorCleanupCount),
                     showToken: false,
-                    suffix: ' cleanups',
                   },
                 ].map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-lg border border-border bg-background/50 p-3 transition-all hover:border-brand-green/50 hover:bg-background sm:p-3.5"
+                    className="min-w-0 rounded-lg border border-border bg-background/50 p-2.5 transition-all hover:border-brand-green/50 hover:bg-background sm:p-3"
                   >
-                    <div className="mb-1">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="mb-1 min-w-0">
+                      <span className="block text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
                         {stat.label}
                       </span>
+                      {'hint' in stat && stat.hint ? (
+                        <span className="block text-[9px] normal-case leading-tight text-muted-foreground/80">
+                          {stat.hint}
+                        </span>
+                      ) : null}
                     </div>
-                    <p className="font-heading text-xl leading-none text-foreground sm:text-2xl">
+                    <p className="min-w-0 font-heading text-lg leading-tight text-foreground sm:text-xl">
                       {!hasLoadedDashboardOnce ? (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
                       ) : (
-                        <span>
+                        <span className="break-words">
                           {stat.value}
-                          {stat.showToken ? ' DCU' : `${'suffix' in stat && stat.suffix ? stat.suffix : ''}`}
+                          {stat.showToken ? ' DCU' : ''}
                         </span>
                       )}
                     </p>

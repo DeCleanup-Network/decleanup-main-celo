@@ -1254,7 +1254,7 @@ export default function VerifierPage() {
                     ) : (
                         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                             {pendingCleanups.map(cleanup => (
-                                <div key={cleanup.id.toString()} className="rounded-lg border border-border bg-card overflow-hidden">
+                                <div key={cleanup.id.toString()} className="min-w-0 rounded-lg border border-border bg-card overflow-hidden">
                                     <div className="grid grid-cols-2 gap-1 bg-gray-900">
                                         {cleanup.beforePhotoHash ? (
                                             <img 
@@ -1290,7 +1290,7 @@ export default function VerifierPage() {
                                             <span className="font-mono text-xs text-gray-400">ID: {cleanup.id.toString()}</span>
                                             <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs text-yellow-500">Pending</span>
                                         </div>
-                                        <p className="mb-2 font-mono text-xs text-gray-400 break-all">
+                                        <p className="mb-2 min-w-0 font-mono text-[11px] leading-snug text-gray-400 break-all">
                                             User: {cleanup.user}
                                         </p>
                                         {/* Additional info badges */}
@@ -1364,7 +1364,7 @@ export default function VerifierPage() {
                     ) : (
                         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                             {verifiedCleanups.map(cleanup => (
-                                <div key={cleanup.id.toString()} className="rounded-lg border border-border bg-card overflow-hidden opacity-75">
+                                <div key={cleanup.id.toString()} className="min-w-0 rounded-lg border border-border bg-card overflow-hidden opacity-75">
                                     <div className="grid grid-cols-2 gap-1 bg-gray-900">
                                         {cleanup.beforePhotoHash ? (
                                             <img 
@@ -1400,7 +1400,7 @@ export default function VerifierPage() {
                                             <span className="font-mono text-xs text-gray-400">ID: {cleanup.id.toString()}</span>
                                             <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-500">Verified</span>
                                         </div>
-                                        <p className="font-mono text-xs text-gray-400 truncate">
+                                        <p className="min-w-0 font-mono text-[11px] leading-snug text-gray-400 break-all">
                                             User: {cleanup.user}
                                         </p>
                                     </div>
