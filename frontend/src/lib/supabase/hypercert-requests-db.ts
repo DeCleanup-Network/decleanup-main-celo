@@ -39,6 +39,10 @@ function rowToRequest(row: Row): HypercertRequest {
     reviewedAt: row.reviewed_at != null ? Number(row.reviewed_at) : undefined,
     reviewedBy: row.reviewed_by ?? undefined,
     rejectionReason: row.rejection_reason ?? undefined,
+    atUri: row.at_uri ?? undefined,
+    atCid: row.at_cid ?? undefined,
+    atPublishedAt: row.at_published_at ? new Date(row.at_published_at).getTime() / 1000 : undefined,
+    atPublishError: row.at_publish_error ?? undefined,
   }
 }
 
