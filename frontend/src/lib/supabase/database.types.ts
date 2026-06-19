@@ -279,6 +279,11 @@ export interface Database {
           tx_hash: string | null
           created_at: string
           updated_at: string
+          at_uri: string | null
+          at_cid: string | null
+          at_published_at: string | null
+          at_publish_error: string | null
+          at_version: string | null
         }
         Insert: {
           id: string
@@ -292,6 +297,11 @@ export interface Database {
           metadata_cid?: string | null
           hypercert_id?: string | null
           tx_hash?: string | null
+          at_uri?: string | null
+          at_cid?: string | null
+          at_published_at?: string | null
+          at_publish_error?: string | null
+          at_version?: string | null
         }
         Update: {
           requester?: string
@@ -304,6 +314,11 @@ export interface Database {
           hypercert_id?: string | null
           tx_hash?: string | null
           updated_at?: string
+          at_uri?: string | null
+          at_cid?: string | null
+          at_published_at?: string | null
+          at_publish_error?: string | null
+          at_version?: string | null
         }
         Relationships: []
       }
