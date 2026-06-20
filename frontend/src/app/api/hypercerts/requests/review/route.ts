@@ -6,7 +6,8 @@ import {
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById, updateHypercertRequestStatus } from '@/lib/supabase/hypercert-requests-db'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
-import { isAtProtoEnabled, getAtProtoOrgDid, publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto'
+import { isAtProtoEnabled, getAtProtoOrgDid } from '@/lib/blockchain/hypercerts/atproto'
+import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
 import type { AtProtoPublishResult } from '@/lib/blockchain/hypercerts/atproto/types'
 
 export const runtime = 'nodejs'
