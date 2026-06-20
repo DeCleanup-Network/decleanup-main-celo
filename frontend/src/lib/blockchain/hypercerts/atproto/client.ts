@@ -56,7 +56,8 @@ export async function publishActivity(
     collection: 'org.hypercerts.claim.activity',
     record: record as never,
   })
-  return { uri: response.uri, cid: response.cid }
+  const { uri, cid } = response as unknown as { uri: string; cid: string }
+  return { uri, cid }
 }
 
 export async function publishAttachment(
@@ -70,7 +71,8 @@ export async function publishAttachment(
     collection: 'org.hypercerts.context.attachment',
     record: { ...(record as object), subject: parent } as never,
   })
-  return { uri: response.uri, cid: response.cid }
+  const { uri, cid } = response as unknown as { uri: string; cid: string }
+  return { uri, cid }
 }
 
 export async function publishMeasurement(
@@ -84,7 +86,8 @@ export async function publishMeasurement(
     collection: 'org.hypercerts.context.measurement',
     record: { ...(record as object), subject: parent } as never,
   })
-  return { uri: response.uri, cid: response.cid }
+  const { uri, cid } = response as unknown as { uri: string; cid: string }
+  return { uri, cid }
 }
 
 export async function publishEvaluation(
@@ -98,7 +101,8 @@ export async function publishEvaluation(
     collection: 'org.hypercerts.context.evaluation',
     record: { ...(record as object), subject: parent } as never,
   })
-  return { uri: response.uri, cid: response.cid }
+  const { uri, cid } = response as unknown as { uri: string; cid: string }
+  return { uri, cid }
 }
 
 export { toStrongRef }

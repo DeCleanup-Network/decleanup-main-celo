@@ -1,3 +1,9 @@
+import type {
+  OrgHypercertsClaimActivity,
+  OrgHypercertsContextAttachment,
+  OrgHypercertsContextMeasurement,
+  OrgHypercertsContextEvaluation,
+} from '@hypercerts-org/lexicon'
 import type { HypercertRequest } from '../types'
 import type { ImpactEntry } from '@/lib/impact/types'
 
@@ -14,11 +20,12 @@ export interface CleanupPhoto {
   mimeType: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface AtProtoRecords {
-  activity: OrgHypercertsClaimActivity.Record
-  attachments: OrgHypercertsContextAttachment.Record[]
-  measurements: OrgHypercertsContextMeasurement.Record[]
-  evaluation?: OrgHypercertsContextEvaluation.Record
+  activity: Record<string, any>
+  attachments: Record<string, any>[]
+  measurements: Record<string, any>[]
+  evaluation?: Record<string, any>
 }
 
 export interface PublishContext {

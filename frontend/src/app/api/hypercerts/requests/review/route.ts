@@ -6,7 +6,8 @@ import {
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById, updateHypercertRequestStatus } from '@/lib/supabase/hypercert-requests-db'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
-import { isAtProtoEnabled, getAtProtoOrgDid, publishHypercertToAtProto } from '@/lib/blockchain/hypercerts'
+import { isAtProtoEnabled, getAtProtoOrgDid, publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto'
+import type { AtProtoPublishResult } from '@/lib/blockchain/hypercerts/atproto/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -94,14 +95,14 @@ export async function POST(request: NextRequest) {
     if (isAtProtoEnabled() && nextStatus === 'APPROVED') {
       const verifierDid = getAtProtoOrgDid()
       publishHypercertToAtProto(requestId, verifierDid)
-        .then((result) => {
+        .then((result: AtProtoPublishResult) => {
           if (!result.success) {
             console.error(`[ATProto] Publish failed for ${requestId}: ${result.error}`)
           } else {
             console.log(`[ATProto] Published ${requestId} -> ${result.atUri}`)
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error(`[ATProto] Exception for ${requestId}:`, err)
         })
     }

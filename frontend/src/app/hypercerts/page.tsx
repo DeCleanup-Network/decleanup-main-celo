@@ -499,10 +499,10 @@ export default function HypercertsCertificationPage() {
                           ✅ Minted: {request.hypercertId}
                         </div>
                       )}
-                      {isAtProtoUiEnabled() && request.at_uri && (
+                      {isAtProtoUiEnabled() && request.atUri && (
                         <div className="text-xs mt-2">
                           <a
-                            href={`https://hyperscan.org/hypercert/${encodeURIComponent(request.at_uri!)}`}
+                            href={`https://hyperscan.org/hypercert/${encodeURIComponent(request.atUri!)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-brand-green hover:underline"

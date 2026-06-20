@@ -40,8 +40,8 @@ export async function publishHypercertToAtProto(
     }
 
     // Idempotency: if already published, return existing
-    if (request.at_uri) {
-      return { success: true, atUri: request.at_uri, atCid: request.at_cid }
+    if (request.atUri) {
+      return { success: true, atUri: request.atUri, atCid: request.atCid }
     }
 
     // 2. Fetch impact entries and photos

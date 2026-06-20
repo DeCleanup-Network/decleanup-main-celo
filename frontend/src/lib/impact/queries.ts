@@ -72,7 +72,7 @@ export async function getImpactEntriesByRequestId(requestId: string): Promise<Im
     weightKg: row.weight_kg ?? 0,
     bags: row.bags ?? 0,
     totalMinutes: row.duration_minutes ?? 0,
-    wasteTypes: Array.isArray(row.waste_types) ? row.waste_types : [],
+    wasteTypes: Array.isArray(row.waste_types) ? (row.waste_types as string[]) : [],
     contributors: [],
     ipfsHash: row.impact_ipfs_cid ?? '',
     resolvedAt: row.verified_at
