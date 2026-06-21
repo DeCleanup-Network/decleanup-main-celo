@@ -15,6 +15,14 @@ type IpfsDiagnostic = {
   pinataTestError?: string | null
 }
 
+const UPLOAD_RETRIES = 3
+const UPLOAD_RETRY_DELAY_MS = 2_000
+const UPLOAD_TIMEOUT_MS = 120_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function getIpfsDiagnosticHint(): Promise<string | null> {
   try {
     const res = await fetch('/api/ipfs/upload', { method: 'GET' })
@@ -42,7 +50,31 @@ async function getIpfsDiagnosticHint(): Promise<string | null> {
  */
 export async function uploadToIPFS(
   file: File,
-  options?: { pinataKeyvalueType?: string }
+  options?: { pinataKeyvalueType?: string; retries?: number }
+): Promise<IPFSUploadResult> {
+  const maxAttempts = options?.retries ?? UPLOAD_RETRIES
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await uploadToIPFSOnce(file, options?.pinataKeyvalueType)
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      const retryable =
+        attempt < maxAttempts - 1 &&
+        (/network|fetch|timeout|429|502|503|504/i.test(lastError.message) ||
+          lastError.message.includes('Could not reach'))
+      if (!retryable) break
+      await sleep(UPLOAD_RETRY_DELAY_MS * (attempt + 1))
+    }
+  }
+
+  throw lastError ?? new Error('Failed to upload to IPFS')
+}
+
+async function uploadToIPFSOnce(
+  file: File,
+  pinataKeyvalueType?: string
 ): Promise<IPFSUploadResult> {
   try {
     // Use API route to avoid CORS issues
@@ -53,7 +85,7 @@ export async function uploadToIPFS(
     const metadata = JSON.stringify({
       name: file.name,
       keyvalues: {
-        type: options?.pinataKeyvalueType ?? 'cleanup-photo',
+        type: pinataKeyvalueType ?? 'cleanup-photo',
         timestamp: new Date().toISOString(),
       },
     })
@@ -69,6 +101,7 @@ export async function uploadToIPFS(
     const response = await fetch('/api/ipfs/upload', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -136,6 +169,30 @@ export async function uploadToIPFS(
     }
     throw new Error('Failed to upload to IPFS')
   }
+}
+
+/** Upload before/after photos one at a time (more reliable on mobile Safari). */
+export async function uploadCleanupPhotosSequentially(
+  beforePhoto: File,
+  afterPhoto: File
+): Promise<{ beforeHash: IPFSUploadResult; afterHash: IPFSUploadResult }> {
+  let beforeHash: IPFSUploadResult
+  try {
+    beforeHash = await uploadToIPFS(beforePhoto, { pinataKeyvalueType: 'cleanup-before-photo' })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to upload before photo: ${message}`)
+  }
+
+  let afterHash: IPFSUploadResult
+  try {
+    afterHash = await uploadToIPFS(afterPhoto, { pinataKeyvalueType: 'cleanup-after-photo' })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to upload after photo: ${message}`)
+  }
+
+  return { beforeHash, afterHash }
 }
 
 /**

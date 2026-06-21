@@ -127,6 +127,7 @@ async function mapEntryToFeedRow(
     before_photo_cid: cidFromHash(details.beforePhotoHash || ''),
     after_photo_cid: cidFromHash(details.afterPhotoHash || ''),
     impact_ipfs_cid: cidFromHash(details.impactFormDataHash || entry.ipfsHash || ''),
+    optional_video_cid: existing?.optional_video_cid ?? '',
     summary: '',
     synced_at: nowIso,
   }

@@ -149,6 +149,7 @@ export interface Database {
           before_photo_cid: string
           after_photo_cid: string
           impact_ipfs_cid: string
+          optional_video_cid: string
           summary: string
           synced_at: string
           created_at: string
@@ -180,6 +181,7 @@ export interface Database {
           before_photo_cid?: string
           after_photo_cid?: string
           impact_ipfs_cid?: string
+          optional_video_cid?: string
           summary?: string
           synced_at?: string
         }
@@ -208,6 +210,7 @@ export interface Database {
           before_photo_cid?: string
           after_photo_cid?: string
           impact_ipfs_cid?: string
+          optional_video_cid?: string
           summary?: string
           synced_at?: string
         }

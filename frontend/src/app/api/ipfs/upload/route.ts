@@ -4,8 +4,10 @@ import { Agent as UndiciAgent } from 'undici'
 import { convertHeicToJpegIfNeeded } from '@/lib/server/convert-heic-for-pinata'
 import { checkInMemoryRateLimit, getRateLimitKey, tooManyRequestsResponse } from '@/lib/server/rate-limit'
 import {
+  MAX_CLEANUP_VIDEO_BYTES,
   MAX_MULTIPART_BODY_BYTES,
   isAllowedCleanupImageMime,
+  isAllowedCleanupVideoMime,
   isAllowedPinataJsonFile,
   pinataMetadataJsonSchema,
   pinataOptionsJsonSchema,
@@ -83,7 +85,10 @@ export async function POST(request: NextRequest) {
       return tooManyRequestsResponse(rateLimit.resetAt)
     }
 
-    const tooLarge = rejectIfContentLengthExceeds(request, MAX_MULTIPART_BODY_BYTES)
+    const tooLarge = rejectIfContentLengthExceeds(
+      request,
+      Math.max(MAX_MULTIPART_BODY_BYTES, MAX_CLEANUP_VIDEO_BYTES)
+    )
     if (tooLarge) return tooLarge
 
     const pinataHeaders = getPinataUploadHeaders()
@@ -118,17 +123,19 @@ export async function POST(request: NextRequest) {
     }
 
     const isJsonUpload = isAllowedPinataJsonFile(file)
-    if (!isAllowedCleanupImageMime(file) && !isJsonUpload) {
+    const isVideoUpload = isAllowedCleanupVideoMime(file)
+    if (!isAllowedCleanupImageMime(file) && !isJsonUpload && !isVideoUpload) {
       return NextResponse.json(
         {
           error:
-            'Unsupported file type. Use JPEG, PNG, HEIC/HEIF, WebP, or a .json file (application/json) for metadata.',
+            'Unsupported file type. Use JPEG, PNG, HEIC/HEIF, WebP, MP4/MOV (video), or a .json file (application/json) for metadata.',
         },
         { status: 415 }
       )
     }
 
-    if (file.size > MAX_MULTIPART_BODY_BYTES) {
+    const maxBytes = isVideoUpload ? MAX_CLEANUP_VIDEO_BYTES : MAX_MULTIPART_BODY_BYTES
+    if (file.size > maxBytes) {
       return NextResponse.json({ error: 'File too large' }, { status: 413 })
     }
 
@@ -143,6 +150,8 @@ export async function POST(request: NextRequest) {
       fileForPinata = new File([text], file.name, {
         type: file.type || 'application/json',
       })
+    } else if (isVideoUpload) {
+      fileForPinata = file
     } else {
       try {
         fileForPinata = await convertHeicToJpegIfNeeded(file)
@@ -181,7 +190,7 @@ export async function POST(request: NextRequest) {
       const defaultMetadata = {
         name: fileForPinata.name,
         keyvalues: {
-          type: isJsonUpload ? 'json-metadata' : 'cleanup-photo',
+          type: isJsonUpload ? 'json-metadata' : isVideoUpload ? 'cleanup-video' : 'cleanup-photo',
           timestamp: new Date().toISOString(),
         },
       }

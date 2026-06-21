@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { BackButton } from '@/components/layout/BackButton'
 import { Camera, Upload, ArrowRight, ArrowLeft, Check, Loader2, ExternalLink, X, Clock, AlertCircle, Users, CheckCircle, Award } from 'lucide-react'
-import { uploadToIPFS, uploadJSONToIPFS } from '@/lib/blockchain/ipfs'
+import { uploadToIPFS, uploadJSONToIPFS, uploadCleanupPhotosSequentially } from '@/lib/blockchain/ipfs'
 import { submitCleanup, getSubmissionFee, attachRecyclablesToSubmission, getUserLevel, isAtomicContractTxEnabled, type GaslessClient } from '@/lib/blockchain/contracts'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useWallet } from '@/providers/WalletProvider'
@@ -43,6 +43,11 @@ import {
 } from '@/lib/blockchain/chain-constants'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
+import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
+import {
+  MAX_CLEANUP_VIDEO_DURATION_SEC,
+  validateCleanupVideoFile,
+} from '@/lib/utils/validate-video-for-upload'
 import type { HypercertRightsPresetId } from '@/lib/blockchain/hypercerts/rights-presets'
 import { HYPERCERT_RIGHTS_PRESETS } from '@/lib/blockchain/hypercerts/rights-presets'
 
@@ -245,6 +250,14 @@ function CleanupContent() {
   const [step, setStep] = useState<Step>('photos')
   const [beforePhoto, setBeforePhoto] = useState<File | null>(null)
   const [afterPhoto, setAfterPhoto] = useState<File | null>(null)
+  const [beforePhotoPreview, setBeforePhotoPreview] = useState<string | null>(null)
+  const [afterPhotoPreview, setAfterPhotoPreview] = useState<string | null>(null)
+  const [photoProcessing, setPhotoProcessing] = useState<
+    'before' | 'after' | 'recyclables' | 'recyclablesReceipt' | 'video' | null
+  >(null)
+  const [optionalVideo, setOptionalVideo] = useState<File | null>(null)
+  const [optionalVideoPreview, setOptionalVideoPreview] = useState<string | null>(null)
+  const [uploadPhase, setUploadPhase] = useState<string | null>(null)
   const [beforePhotoAllowed, setBeforePhotoAllowed] = useState(false)
   const [afterPhotoAllowed, setAfterPhotoAllowed] = useState(false)
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -645,6 +658,36 @@ function CleanupContent() {
   // Removed Base Build host check - not needed for Celo deployment
   const isBaseBuildHost = false
 
+  useEffect(() => {
+    if (!beforePhoto) {
+      setBeforePhotoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(beforePhoto)
+    setBeforePhotoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [beforePhoto])
+
+  useEffect(() => {
+    if (!afterPhoto) {
+      setAfterPhotoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(afterPhoto)
+    setAfterPhotoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [afterPhoto])
+
+  useEffect(() => {
+    if (!optionalVideo) {
+      setOptionalVideoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(optionalVideo)
+    setOptionalVideoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [optionalVideo])
+
   const handlePhotoSelect = (type: 'before' | 'after' | 'recyclables' | 'recyclablesReceipt') => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -661,12 +704,16 @@ function CleanupContent() {
           setAlertModal({ message: 'Image size must be less than 10 MB', variant: 'warning' })
           return
         }
+        setPhotoProcessing(type)
         let ready = file
         try {
           ready = await normalizeImageFileForUpload(file)
+          ready = await compressImageIfLarge(ready)
         } catch (err) {
           console.warn('Browser HEIC conversion failed, passing raw file to server:', err)
           ready = file
+        } finally {
+          setPhotoProcessing(null)
         }
         if (ready.size > 10 * 1024 * 1024) {
           setAlertModal({ message: 'Image size must be less than 10 MB after conversion', variant: 'warning' })
@@ -684,6 +731,48 @@ function CleanupContent() {
       })()
     }
     input.click()
+  }
+
+  const handleOptionalVideoSelect = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'video/mp4,video/quicktime,video/webm,video/*'
+    input.onchange = (e) => {
+      void (async () => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+        setPhotoProcessing('video')
+        try {
+          const check = await validateCleanupVideoFile(file)
+          if (!check.ok) {
+            setAlertModal({ message: check.message, variant: 'warning' })
+            return
+          }
+          setOptionalVideo(file)
+        } finally {
+          setPhotoProcessing(null)
+        }
+      })()
+    }
+    input.click()
+  }
+
+  const saveOptionalVideoMeta = (submissionId: string, videoFile: File) => {
+    void (async () => {
+      try {
+        const uploaded = await uploadToIPFS(videoFile, { pinataKeyvalueType: 'cleanup-video' })
+        await fetch('/api/impact/cleanup-media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            submissionId,
+            optionalVideoCid: uploaded.hash,
+          }),
+        })
+      } catch (err) {
+        console.warn('[cleanup-video] Failed to attach optional video (non-fatal):', err)
+      }
+    })()
   }
 
   const getLocation = () => {
@@ -1130,18 +1219,11 @@ function CleanupContent() {
     /** Use live validation at submit time — avoids stale `hasImpactForm` state skipping the IPFS hash. */
     const impactFormEligible = validation.hasStartedFilling && validation.isValid
     try {
-      // Upload photos to IPFS
+      // Upload photos to IPFS (sequential — more reliable on iPhone Safari)
       console.log('Uploading photos to IPFS...')
-      const [beforeHash, afterHash] = await Promise.all([
-        uploadToIPFS(beforePhoto).catch((error) => {
-          console.error('Error uploading before photo:', error)
-          throw new Error(`Failed to upload before photo: ${error.message}`)
-        }),
-        uploadToIPFS(afterPhoto).catch((error) => {
-          console.error('Error uploading after photo:', error)
-          throw new Error(`Failed to upload after photo: ${error.message}`)
-        }),
-      ])
+      setUploadPhase('Uploading photos…')
+      const { beforeHash, afterHash } = await uploadCleanupPhotosSequentially(beforePhoto, afterPhoto)
+      setUploadPhase(null)
 
       console.log('Photos uploaded:', { beforeHash: beforeHash.hash, afterHash: afterHash.hash })
       console.log('Location:', { lat: location.lat, lng: location.lng })
@@ -1346,6 +1428,10 @@ function CleanupContent() {
         }
 
         setCleanupId(cleanupId)
+
+        if (optionalVideo) {
+          saveOptionalVideoMeta(cleanupId.toString(), optionalVideo)
+        }
         
         // Store cleanup ID for verification checking (EOA + onchain submitter keys)
         const onchainOwner = (onchainOwnerAddress ?? submissionOwnerAddress) as Address | undefined
@@ -1623,6 +1709,7 @@ function CleanupContent() {
         })
       }
     } finally {
+      setUploadPhase(null)
       setIsSubmitting(false)
     }
   }
@@ -2044,7 +2131,7 @@ function CleanupContent() {
               Submit Cleanup Photos
             </h1>
             <p className="text-sm text-gray-400">
-              Before/after photos with location. JPEG, JPG, or HEIC, max 10 MB each.
+              Before/after photos with location. JPEG, JPG, or HEIC, max 10 MB each. Optional video up to {MAX_CLEANUP_VIDEO_DURATION_SEC}s.
             </p>
           </div>
 
@@ -2054,10 +2141,10 @@ function CleanupContent() {
               <label className="mb-2 block text-sm font-medium text-gray-300">
                 Before Photo *
               </label>
-              {beforePhoto ? (
+              {beforePhoto && beforePhotoPreview ? (
                 <div className="relative mb-2">
                   <img
-                    src={URL.createObjectURL(beforePhoto)}
+                    src={beforePhotoPreview}
                     alt="Before cleanup"
                     className="h-48 w-full rounded-lg object-cover"
                   />
@@ -2069,11 +2156,16 @@ function CleanupContent() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+              ) : photoProcessing === 'before' ? (
+                <div className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900">
+                  <Loader2 className="mb-2 h-8 w-8 animate-spin text-brand-green" />
+                  <p className="text-sm text-gray-400">Processing photo…</p>
+                </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => handlePhotoSelect('before')}
-                  disabled={isPhotoUploadDisabled}
+                  disabled={isPhotoUploadDisabled || photoProcessing !== null}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed hover:border-gray-600"
                 >
                   <Upload className={`mb-2 h-10 w-10 ${isPhotoUploadDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
@@ -2104,10 +2196,10 @@ function CleanupContent() {
               <label className="mb-2 block text-sm font-medium text-gray-300">
                 After Photo *
               </label>
-              {afterPhoto ? (
+              {afterPhoto && afterPhotoPreview ? (
                 <div className="relative mb-2">
                   <img
-                    src={URL.createObjectURL(afterPhoto)}
+                    src={afterPhotoPreview}
                     alt="After cleanup"
                     className="h-48 w-full rounded-lg object-cover"
                   />
@@ -2119,11 +2211,16 @@ function CleanupContent() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+              ) : photoProcessing === 'after' ? (
+                <div className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900">
+                  <Loader2 className="mb-2 h-8 w-8 animate-spin text-brand-green" />
+                  <p className="text-sm text-gray-400">Processing photo…</p>
+                </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => handlePhotoSelect('after')}
-                  disabled={isPhotoUploadDisabled}
+                  disabled={isPhotoUploadDisabled || photoProcessing !== null}
                   className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed hover:border-gray-600"
                 >
                   <Upload className={`mb-2 h-10 w-10 ${isPhotoUploadDisabled ? 'text-gray-600' : 'text-gray-500'}`} />
@@ -2147,6 +2244,48 @@ function CleanupContent() {
                 />
                 Allow after photo on website and social
               </label>
+            </div>
+
+            {/* Optional short video */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Short video (optional)
+              </label>
+              {optionalVideo && optionalVideoPreview ? (
+                <div className="relative mb-2">
+                  <video
+                    src={optionalVideoPreview}
+                    controls
+                    playsInline
+                    className="h-48 w-full rounded-lg bg-black object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setOptionalVideo(null)}
+                    disabled={isPhotoUploadDisabled}
+                    className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : photoProcessing === 'video' ? (
+                <div className="flex h-32 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900">
+                  <Loader2 className="mb-2 h-6 w-6 animate-spin text-brand-green" />
+                  <p className="text-sm text-gray-400">Checking video…</p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOptionalVideoSelect}
+                  disabled={isPhotoUploadDisabled || photoProcessing !== null}
+                  className="flex h-32 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed hover:border-gray-600"
+                >
+                  <Upload className="mb-2 h-8 w-8 text-gray-500" />
+                  <p className="text-sm text-gray-400">
+                    Add MP4 or MOV, max {MAX_CLEANUP_VIDEO_DURATION_SEC} seconds
+                  </p>
+                </button>
+              )}
             </div>
 
             {/* Location Status */}
@@ -2802,7 +2941,7 @@ function CleanupContent() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
+                    {uploadPhase ?? 'Processing...'}
                   </>
                 ) : (
                   <>
@@ -3017,7 +3156,7 @@ function CleanupContent() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Submitting...
+                    {uploadPhase ?? 'Submitting...'}
                   </>
                 ) : (
                   <>
@@ -3111,12 +3250,12 @@ function CleanupContent() {
             )}
           </div>
 
-          {beforePhoto && afterPhoto && (
+          {beforePhoto && afterPhoto && beforePhotoPreview && afterPhotoPreview && (
             <div className="mb-4 grid grid-cols-2 gap-2">
               <div className="text-left">
                 <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Before</p>
                 <img
-                  src={URL.createObjectURL(beforePhoto)}
+                  src={beforePhotoPreview}
                   alt="Before"
                   className="h-24 w-full rounded-md object-cover"
                 />
@@ -3124,7 +3263,7 @@ function CleanupContent() {
               <div className="text-left">
                 <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">After</p>
                 <img
-                  src={URL.createObjectURL(afterPhoto)}
+                  src={afterPhotoPreview}
                   alt="After"
                   className="h-24 w-full rounded-md object-cover"
                 />

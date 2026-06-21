@@ -30,6 +30,7 @@ import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/me
 import { AlertModal } from '@/components/ui/alert-modal'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
+import { OptionalSubmissionVideo } from '@/components/verifier/OptionalSubmissionVideo'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
@@ -1308,6 +1309,7 @@ export default function VerifierPage() {
                                         </div>
 
                                         <VerifierMlScoreBlock cleanupId={cleanup.id.toString()} />
+                                        <OptionalSubmissionVideo submissionId={cleanup.id.toString()} />
                                         
                                         {/* Impact Report Details */}
                                         {cleanup.hasImpactForm && cleanup.impactFormDataHash && (

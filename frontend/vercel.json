@@ -10,6 +10,9 @@
     },
     "src/app/api/ml-verification/result/route.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/ipfs/upload/route.ts": {
+      "maxDuration": 180
     }
   }
 }

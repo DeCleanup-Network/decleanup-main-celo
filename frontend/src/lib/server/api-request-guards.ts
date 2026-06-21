@@ -3,6 +3,15 @@ import { z } from 'zod'
 
 /** Align with Nginx `client_max_body_size` in VPS_SECURITY_PROTOCOL §2.2 */
 export const MAX_MULTIPART_BODY_BYTES = 12 * 1024 * 1024
+/** Optional cleanup video (MP4/MOV), separate from photo cap. */
+export const MAX_CLEANUP_VIDEO_BYTES = 20 * 1024 * 1024
+
+const ALLOWED_VIDEO_MIME = new Set([
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/x-m4v',
+])
 
 /** JSON POST bodies for verification / config APIs */
 export const MAX_JSON_BODY_BYTES = 256 * 1024
@@ -101,6 +110,16 @@ export function isAllowedCleanupImageMime(file: File): boolean {
   if (t === 'application/octet-stream' || t === '') {
     const name = (file.name || '').toLowerCase()
     return /\.(jpe?g|png|heic|heif|webp)$/.test(name)
+  }
+  return false
+}
+
+export function isAllowedCleanupVideoMime(file: File): boolean {
+  const t = (file.type || '').toLowerCase().trim()
+  if (ALLOWED_VIDEO_MIME.has(t)) return true
+  if (t === 'application/octet-stream' || t === '') {
+    const name = (file.name || '').toLowerCase()
+    return /\.(mp4|mov|webm|m4v)$/.test(name)
   }
   return false
 }

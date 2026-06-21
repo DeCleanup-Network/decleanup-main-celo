@@ -30,6 +30,7 @@ export type CleanupFeedRow = {
   before_photo_cid: string
   after_photo_cid: string
   impact_ipfs_cid: string
+  optional_video_cid: string
   summary: string
   synced_at: string
   created_at: string
@@ -101,6 +102,8 @@ function rowFromDb(data: DbRow): CleanupFeedRow {
     before_photo_cid: data.before_photo_cid ?? '',
     after_photo_cid: data.after_photo_cid ?? '',
     impact_ipfs_cid: data.impact_ipfs_cid ?? '',
+    optional_video_cid:
+      (data as DbRow & { optional_video_cid?: string | null }).optional_video_cid ?? '',
     summary: data.summary ?? '',
     synced_at: data.synced_at,
     created_at: data.created_at,
@@ -135,6 +138,7 @@ function rowToInsert(row: Omit<CleanupFeedRow, 'created_at'>): DbInsert {
     before_photo_cid: row.before_photo_cid,
     after_photo_cid: row.after_photo_cid,
     impact_ipfs_cid: row.impact_ipfs_cid,
+    optional_video_cid: row.optional_video_cid,
     summary: row.summary,
     synced_at: row.synced_at,
   }
