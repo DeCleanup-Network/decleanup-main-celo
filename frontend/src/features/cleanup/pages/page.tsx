@@ -45,6 +45,10 @@ import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
 import {
+  getLocalTodayDateString,
+  isCleanupDateAllowed,
+} from '@/lib/utils/cleanup-date'
+import {
   MAX_CLEANUP_VIDEO_DURATION_SEC,
   validateCleanupVideoFile,
 } from '@/lib/utils/validate-video-for-upload'
@@ -736,7 +740,7 @@ function CleanupContent() {
   const handleOptionalVideoSelect = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'video/mp4,video/quicktime,video/webm,video/*'
+    input.accept = 'video/mp4,video/quicktime,video/*'
     input.onchange = (e) => {
       void (async () => {
         const file = (e.target as HTMLInputElement).files?.[0]
@@ -745,6 +749,19 @@ function CleanupContent() {
         try {
           const check = await validateCleanupVideoFile(file)
           if (!check.ok) {
+            if (check.reason === 'metadata_unavailable') {
+              setConfirmModal({
+                title: 'Add video anyway?',
+                message:
+                  'Safari could not verify how long this clip is. Only continue if it is 10 seconds or shorter.',
+                confirmLabel: 'Add anyway',
+                onConfirm: () => {
+                  setOptionalVideo(file)
+                  setConfirmModal(null)
+                },
+              })
+              return
+            }
             setAlertModal({ message: check.message, variant: 'warning' })
             return
           }
@@ -1096,6 +1113,14 @@ function CleanupContent() {
     }
     
     // Validation already accounts for auto-filled minutes, so use existing validation
+    if (enhancedData.cleanupDate.trim() && !isCleanupDateAllowed(enhancedData.cleanupDate)) {
+      setAlertModal({
+        message: 'Cleanup date cannot be in the future. Use today or an earlier date.',
+        variant: 'warning',
+      })
+      return
+    }
+
     // If user started filling but form is incomplete, don't proceed
     if (validation.hasStartedFilling && !validation.isValid) {
       const missingFields = Object.entries(validation.fields)
@@ -1218,6 +1243,16 @@ function CleanupContent() {
     setMlVerificationStats(null)
     /** Use live validation at submit time — avoids stale `hasImpactForm` state skipping the IPFS hash. */
     const impactFormEligible = validation.hasStartedFilling && validation.isValid
+    const resolvedCleanupDate = enhancedData.cleanupDate.trim() || getLocalTodayDateString()
+    if (!isCleanupDateAllowed(resolvedCleanupDate)) {
+      setAlertModal({
+        title: 'Submission failed',
+        message: 'Cleanup date cannot be in the future. Go back and pick today or an earlier date.',
+        variant: 'error',
+      })
+      setIsSubmitting(false)
+      return
+    }
     try {
       // Upload photos to IPFS (sequential — more reliable on iPhone Safari)
       console.log('Uploading photos to IPFS...')
@@ -1259,8 +1294,7 @@ function CleanupContent() {
             ...(enhancedData.campaignName.trim()
               ? { campaignName: enhancedData.campaignName.trim() }
               : {}),
-            cleanupDate:
-              enhancedData.cleanupDate.trim() || new Date().toISOString().slice(0, 10),
+            cleanupDate: resolvedCleanupDate,
             locationType: enhancedData.locationType,
             area: enhancedData.area,
             areaUnit: enhancedData.areaUnit,
@@ -2458,12 +2492,22 @@ function CleanupContent() {
               <input
                 type="date"
                 value={enhancedData.cleanupDate}
-                onChange={(e) => setEnhancedData({ ...enhancedData, cleanupDate: e.target.value })}
-                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value && !isCleanupDateAllowed(value)) {
+                    setAlertModal({
+                      message: 'Cleanup date cannot be in the future.',
+                      variant: 'warning',
+                    })
+                    return
+                  }
+                  setEnhancedData({ ...enhancedData, cleanupDate: value })
+                }}
+                max={getLocalTodayDateString()}
                 className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white [color-scheme:dark]"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Optional. Leave blank to use today&apos;s date when you submit.
+                Optional. Today or earlier only. Leave blank to use today when you submit.
               </p>
             </div>
 
