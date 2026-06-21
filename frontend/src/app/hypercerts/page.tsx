@@ -22,6 +22,7 @@ import {
   updateRequestWithHypercertId,
   hasOpenHypercertWorkflow,
 } from '@/lib/blockchain/hypercerts/requests'
+import { isAtProtoUiEnabled } from '@/lib/blockchain/hypercerts/atproto';
 
 export default function HypercertsCertificationPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
@@ -496,6 +497,18 @@ export default function HypercertsCertificationPage() {
                       {request.hypercertId && (
                         <div className="text-xs text-brand-green mt-2">
                           ✅ Minted: {request.hypercertId}
+                        </div>
+                      )}
+                      {isAtProtoUiEnabled() && request.atUri && (
+                        <div className="text-xs mt-2">
+                          <a
+                            href={`https://hyperscan.org/hypercert/${encodeURIComponent(request.atUri!)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-green hover:underline"
+                          >
+                            View AT Certificate ↗
+                          </a>
                         </div>
                       )}
                       {request.status === 'APPROVED' && !request.hypercertId && request.status !== 'MINTED' && (

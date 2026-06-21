@@ -72,3 +72,31 @@ export const HYPERCERTS_CONFIG = {
         : process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://celo-sepolia.drpc.org',
   },
 }
+
+// ============================================
+// AT Protocol (Hypercerts v2) configuration
+// ============================================
+
+export function isAtProtoEnabled(): boolean {
+  return process.env.HYPERCERTS_AT_ENABLED === 'true'
+}
+
+export function isAtProtoUiEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_HYPERCERTS_AT_ENABLED === 'true'
+}
+
+export function getAtProtoPdsUrl(): string {
+  return process.env.HYPERCERTS_ATPROTO_PDS_URL || 'https://pds.certified.app'
+}
+
+export function getAtProtoOrgDid(): string {
+  return process.env.HYPERCERTS_ATPROTO_DID || ''
+}
+
+export function getAtProtoHandle(): string {
+  return process.env.HYPERCERTS_ATPROTO_HANDLE || ''
+}
+
+export function getAtProtoAppPassword(): string {
+  return process.env.ATPROTO_APP_PASSWORD || ''
+}

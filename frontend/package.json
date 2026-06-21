@@ -31,8 +31,10 @@
     "support:wallet-reset": "node scripts/reset-user-wallet.mjs"
   },
   "dependencies": {
+    "@atproto/api": "^0.17.7",
     "@auth/prisma-adapter": "^2.11.2",
     "@celo/contractkit": "^10.0.2",
+    "@hypercerts-org/lexicon": "^1.0.0",
     "@hypercerts-org/sdk": "^2.9.1",
     "@prisma/adapter-pg": "^5.22.0",
     "@prisma/client": "^5.22.0",

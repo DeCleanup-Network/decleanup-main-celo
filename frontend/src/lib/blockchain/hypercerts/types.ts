@@ -119,4 +119,8 @@ export interface HypercertRequest {
   reviewedAt?: number
   reviewedBy?: string
   rejectionReason?: string
+  atUri?: string
+  atCid?: string
+  atPublishedAt?: number
+  atPublishError?: string
 }

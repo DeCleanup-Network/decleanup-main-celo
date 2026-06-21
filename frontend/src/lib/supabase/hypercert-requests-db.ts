@@ -39,6 +39,10 @@ function rowToRequest(row: Row): HypercertRequest {
     reviewedAt: row.reviewed_at != null ? Number(row.reviewed_at) : undefined,
     reviewedBy: row.reviewed_by ?? undefined,
     rejectionReason: row.rejection_reason ?? undefined,
+    atUri: row.at_uri ?? undefined,
+    atCid: row.at_cid ?? undefined,
+    atPublishedAt: row.at_published_at ? new Date(row.at_published_at).getTime() / 1000 : undefined,
+    atPublishError: row.at_publish_error ?? undefined,
   }
 }
 
@@ -193,4 +197,47 @@ export async function recordHypercertMint(params: {
 
   if (error) throw new Error(`Failed to record hypercert mint: ${error.message}`)
   return rowToRequest(data as Row)
+}
+
+/**
+ * Persists the ATProto publication result on the request row.
+ * Reuses the private getSupabase() singleton already in this file.
+ */
+export async function recordAtProtoEvidence(
+  requestId: string,
+  result: { atUri: string; atCid: string },
+): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('hypercert_requests')
+    .update({
+      at_uri: result.atUri,
+      at_cid: result.atCid,
+      at_published_at: new Date().toISOString(),
+      at_publish_error: null,
+      at_version: 'lexicon-v1',
+    })
+    .eq('id', requestId)
+
+  if (error) {
+    throw new Error(`Failed to save AT URI: ${error.message}`)
+  }
+}
+
+/**
+ * Persists ATProto publication error for later diagnosis.
+ */
+export async function recordAtProtoError(
+  requestId: string,
+  errorMessage: string,
+): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('hypercert_requests')
+    .update({ at_publish_error: errorMessage })
+    .eq('id', requestId)
+
+  if (error) {
+    console.error(`Failed to save AT error for ${requestId}: ${error.message}`)
+  }
 }
