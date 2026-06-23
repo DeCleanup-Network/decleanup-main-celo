@@ -5,7 +5,7 @@ import {
   buildReviewMessage,
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById, updateHypercertRequestStatus } from '@/lib/supabase/hypercert-requests-db'
-import { isAdminOnChain } from '@/lib/verifier/admin-check'
+import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { isAtProtoEnabled, getAtProtoOrgDid } from '@/lib/blockchain/hypercerts/atproto'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
 import type { AtProtoPublishResult } from '@/lib/blockchain/hypercerts/atproto/types'
@@ -64,10 +64,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Signature verification failed' }, { status: 403 })
     }
 
-    const isAdmin = await isAdminOnChain(reviewer)
-    if (!isAdmin) {
+    const canReview = await canReviewHypercertOnChain(reviewer)
+    if (!canReview) {
       return NextResponse.json(
-        { error: 'Only Submission contract admins can approve or reject Hypercert requests' },
+        { error: 'Only Submission contract verifiers or admins can approve or reject Hypercert requests' },
         { status: 403 }
       )
     }

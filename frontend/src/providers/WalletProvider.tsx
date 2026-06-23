@@ -101,6 +101,8 @@ type WalletContextValue = {
     args: readonly unknown[]
     value?: bigint
   }) => Promise<Hex>
+  /** personal_sign from embedded EOA (Hypercert requests, portfolio endorsements). */
+  signMessageAsEoa: (message: string) => Promise<Hex>
   getReceipt: (userOpHash: Hex) => ReturnType<typeof getClientUserOperationReceipt>
   exportEncryptedBackup: () => EncryptedWalletBlob | null
   downloadEncryptedBackup: (unlockPassword: string) => Promise<void>
@@ -480,6 +482,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [signingSession, extendSigningSession]
   )
 
+  const signMessageAsEoa = useCallback(
+    async (message: string): Promise<Hex> => {
+      const key = privateKeyRef.current
+      if (!key || !isSigningSessionActive(signingSession)) {
+        throw new Error('Unlock your wallet in Account settings to sign.')
+      }
+      extendSigningSession()
+      const { signMessageWithEmbeddedEoa } = await import('@/lib/aa/embedded-eoa-sign')
+      return signMessageWithEmbeddedEoa(key, message)
+    },
+    [signingSession, extendSigningSession]
+  )
+
   const getReceipt = useCallback((userOpHash: Hex) => {
     return getClientUserOperationReceipt(userOpHash)
   }, [])
@@ -775,6 +790,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       sendTransaction,
       getGaslessClient,
       writeContractAsEoa,
+      signMessageAsEoa,
       getReceipt,
       exportEncryptedBackup,
       downloadEncryptedBackup,
@@ -813,6 +829,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       sendTransaction,
       getGaslessClient,
       writeContractAsEoa,
+      signMessageAsEoa,
       getReceipt,
       exportEncryptedBackup,
       downloadEncryptedBackup,

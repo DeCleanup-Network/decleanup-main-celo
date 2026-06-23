@@ -1,15 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAccount, useSignMessage } from 'wagmi'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+import { useHypercertWallet } from '@/hooks/useHypercertWallet'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
-import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contracts'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
@@ -25,14 +24,17 @@ import {
 import { isAtProtoUiEnabled } from '@/lib/blockchain/hypercerts/atproto';
 
 export default function HypercertsCertificationPage() {
-  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
-  const { address: appAddress, showMainApp } = useAppWalletAddress()
-  const { signMessageAsync } = useSignMessage()
+  const { showMainApp } = useAppWalletAddress()
+  const {
+    eoaAddress,
+    eligibilityAddress,
+    canSignMessages,
+    needsUnlock,
+    expectsSponsoredGas,
+    signMessageAsync,
+    getMintOptions,
+  } = useHypercertWallet()
   const chainId = useResolvedChainId()
-  const { submissionOwnerAddress } = useSmartAccountClient()
-  const submissionDataAddress = submissionOwnerAddress as `0x${string}` | undefined
-  const displayAddress = (wagmiConnected ? wagmiAddress : appAddress) as `0x${string}` | undefined
-  const signerAddress = wagmiConnected ? (wagmiAddress as `0x${string}`) : displayAddress
 
   useEffect(() => {
     console.log('🔍 [ChainId Raw]', {
@@ -61,7 +63,7 @@ export default function HypercertsCertificationPage() {
     async function loadData() {
       setLoading(true)
       try {
-        const owner = submissionDataAddress
+        const owner = eligibilityAddress
         if (!owner) {
           setEligibility(null)
           setAggregatedData(null)
@@ -105,7 +107,7 @@ export default function HypercertsCertificationPage() {
           })
 
           const metadataInput = {
-            userAddress: (displayAddress ?? owner) as string,
+            userAddress: (eoaAddress ?? owner) as string,
             cleanups: verifiedCleanups,
             summary: {
               totalCleanups: aggregated.totalCleanups,
@@ -113,11 +115,11 @@ export default function HypercertsCertificationPage() {
               timeframeStart: aggregated.timeframeStart,
               timeframeEnd: aggregated.timeframeEnd,
             },
-            issuer: displayAddress ?? 'DeCleanup Network',
+            issuer: eoaAddress ?? 'DeCleanup Network',
             version: 'v1',
-            impactData: displayAddress
+            impactData: eoaAddress
               ? {
-                  contributors: [displayAddress],
+                  contributors: [eoaAddress],
                 }
               : undefined,
             branding: brandingCids ? {
@@ -145,23 +147,22 @@ export default function HypercertsCertificationPage() {
     }
 
     void loadData()
-  }, [showMainApp, brandingCids, brandingTitle, brandingDescription, submissionDataAddress, displayAddress, chainId])
+  }, [showMainApp, brandingCids, brandingTitle, brandingDescription, eligibilityAddress, eoaAddress, chainId])
 
   useEffect(() => {
-    if (!signerAddress) return
+    if (!eoaAddress) return
     void (async () => {
       const requests = await fetchHypercertRequestsByUser(
-        (displayAddress ?? signerAddress) as string,
-        submissionDataAddress &&
-          displayAddress &&
-          submissionDataAddress.toLowerCase() !== displayAddress.toLowerCase()
-          ? submissionDataAddress
+        eoaAddress,
+        eligibilityAddress &&
+          eligibilityAddress.toLowerCase() !== eoaAddress.toLowerCase()
+          ? eligibilityAddress
           : undefined
       )
       setUserRequests(requests)
       console.log('📋 User Hypercert requests:', requests)
     })()
-  }, [signerAddress, displayAddress, submissionDataAddress, submitResult])
+  }, [eoaAddress, eligibilityAddress, submitResult])
 
   const handleBrandingUpload = async (type: 'logo' | 'banner') => {
     try {
@@ -187,18 +188,22 @@ export default function HypercertsCertificationPage() {
   }
 
   const handleSubmitRequest = async () => {
-    if (!metadata || !signerAddress) return
-    if (!signMessageAsync) {
-      setSubmitResult('Wallet signing is required to submit a Hypercert request.')
+    if (!metadata || !eoaAddress) return
+    if (!canSignMessages) {
+      setSubmitResult(
+        needsUnlock
+          ? 'Unlock your wallet in Account settings to submit a Hypercert request.'
+          : 'Wallet signing is required to submit a Hypercert request.'
+      )
       return
     }
 
     setSubmitResult('Submitting request...')
     try {
       const request = await submitHypercertRequest({
-        requester: signerAddress,
+        requester: eoaAddress,
         metadata,
-        signMessageAsync: async ({ message }) => signMessageAsync({ message }),
+        signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
 
       console.log('✅ Hypercert request submitted:', request)
@@ -217,9 +222,13 @@ export default function HypercertsCertificationPage() {
   }
 
   const handleMintApprovedRequest = async (requestId: string) => {
-    if (!signerAddress) return
-    if (!signMessageAsync) {
-      setSubmitResult('Wallet signing is required to record the mint on the server.')
+    if (!eoaAddress) return
+    if (!canSignMessages) {
+      setSubmitResult(
+        needsUnlock
+          ? 'Unlock your wallet in Account settings to mint your Hypercert.'
+          : 'Wallet signing is required to record the mint on the server.'
+      )
       return
     }
 
@@ -229,20 +238,29 @@ export default function HypercertsCertificationPage() {
       return
     }
 
-    setSubmitResult('Minting Hypercert...')
+    setSubmitResult(
+      expectsSponsoredGas ? 'Minting Hypercert (gas sponsored)…' : 'Minting Hypercert…'
+    )
     try {
       console.log('🪙 Minting approved request:', requestId)
 
-      const result = await mintHypercert(signerAddress, request.metadata)
+      const mintOptions = await getMintOptions()
+      const result = await mintHypercert(eoaAddress, request.metadata, mintOptions)
 
       console.log('✅ Hypercert minted:', result)
 
       await updateRequestWithHypercertId(requestId, result.hypercertId, result.txHash, result.metadataCid, {
-        requester: signerAddress,
-        signMessageAsync: async ({ message }) => signMessageAsync({ message }),
+        requester: eoaAddress,
+        signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
 
-      const updatedRequests = await fetchHypercertRequestsByUser(signerAddress)
+      const updatedRequests = await fetchHypercertRequestsByUser(
+        eoaAddress,
+        eligibilityAddress &&
+          eligibilityAddress.toLowerCase() !== eoaAddress.toLowerCase()
+          ? eligibilityAddress
+          : undefined
+      )
       setUserRequests(updatedRequests)
 
       setSubmitResult(
@@ -307,7 +325,7 @@ export default function HypercertsCertificationPage() {
     )
   }
 
-  const workflowBlocked = displayAddress ? hasOpenHypercertWorkflow(userRequests) : false
+  const workflowBlocked = eoaAddress ? hasOpenHypercertWorkflow(userRequests) : false
   const pendingCount = userRequests.filter((r) => r.status === 'PENDING').length
   const approvedToMintCount = userRequests.filter((r) => r.status === 'APPROVED' && !r.hypercertId).length
   const mintedCount = userRequests.filter((r) => r.status === 'MINTED' || !!r.hypercertId).length
@@ -321,7 +339,7 @@ export default function HypercertsCertificationPage() {
             <>
               Signed in as{' '}
               <span className="font-mono text-foreground">
-                {displayAddress?.slice(0, 6)}…{displayAddress?.slice(-4)}
+                {eoaAddress?.slice(0, 6)}…{eoaAddress?.slice(-4)}
               </span>
               <span className="text-muted-foreground"> · Network </span>
               <span className="font-medium text-foreground">{getNetworkName()}</span>
@@ -336,6 +354,15 @@ export default function HypercertsCertificationPage() {
 
         {/* Workflow status banner */}
         <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+          {needsUnlock && (
+            <p className="mb-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200/90">
+              Unlock your wallet in{' '}
+              <Link href="/wallet" className="font-medium text-brand-yellow underline underline-offset-2">
+                Account settings
+              </Link>{' '}
+              to sign Hypercert requests and mint after approval.
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-0.5 text-[11px] text-yellow-300">
               Pending review: {pendingCount}
@@ -640,9 +667,9 @@ export default function HypercertsCertificationPage() {
               <div className="space-y-1">
                 <div className="font-heading text-2xl uppercase tracking-widest">Cumulative Impact</div>
                 <p className="text-[10px] uppercase tracking-widest font-mono opacity-60">Calculated verified contributions</p>
-                {displayAddress && (
+                {eoaAddress && (
                   <Link
-                    href={`/impact/${displayAddress}`}
+                    href={`/impact/${eoaAddress}`}
                     className="inline-block mt-2 text-[11px] font-sans font-semibold underline underline-offset-2 hover:opacity-80"
                   >
                     Open Impact Portfolio →

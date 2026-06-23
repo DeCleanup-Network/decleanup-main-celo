@@ -2,8 +2,12 @@
  * Hypercert minter (UUPS) per chain. Override with NEXT_PUBLIC_HYPERCERTS_MINTER_UUPS_ADDRESS
  * if Hypercerts rotates deployments or you use a fork.
  *
- * Official deployments: https://www.npmjs.com/package/@hypercerts-org/contracts (see package chain artifacts)
- * or Hypercerts docs. Confirm mainnet address before production launch.
+ * Pimlico paymaster (embedded Google/email mint): add this contract address in the Pimlico
+ * dashboard → Sponsorship Policies → contract allowlist for your Celo / Celo Sepolia policy.
+ * Method: `mintClaim(address,uint256,string,uint8)`. Gas is paid by the user's Safe; the NFT
+ * recipient arg is always their EOA (MetaMask-importable), not the Safe.
+ *
+ * Official deployments: https://www.npmjs.com/package/@hypercerts-org/contracts
  */
 
 const CELO_SEPOLIA_CHAIN_ID = 11142220

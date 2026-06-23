@@ -92,6 +92,8 @@ export default function VerifierPage() {
     addressRef.current = address
     const isAdminUserRef = useRef(false)
     isAdminUserRef.current = isAdminUser
+    const isVerifierUserRef = useRef(false)
+    isVerifierUserRef.current = isVerifierUser
     /** Stale list reads after reject/approve: keep terminal status until the next fetch matches the server. */
     const verifierTerminalPatchRef = useRef<Map<string, VerifierApplicationRow>>(new Map())
 
@@ -100,11 +102,11 @@ export default function VerifierPage() {
     }, [])
 
     useEffect(() => {
-        if (!isAdminUser) {
+        if (!isVerifierUser) {
             setHypercertRequests([])
             setVerifierContext(null)
         }
-    }, [isAdminUser])
+    }, [isVerifierUser])
 
     useEffect(() => {
         if (!address) {
@@ -205,6 +207,7 @@ export default function VerifierPage() {
                 const adminStatus = await isAdminOnChain(addr)
                 if (addressRef.current?.toLowerCase() !== addr.toLowerCase()) return
 
+                isVerifierUserRef.current = true
                 setIsAdminUser(adminStatus)
                 isAdminUserRef.current = adminStatus
                 localStorage.setItem(VERIFIED_VERIFIER_KEY, JSON.stringify({
@@ -219,6 +222,7 @@ export default function VerifierPage() {
             } else {
                 setError(`Address ${addr} is not authorized as a verifier.`)
                 setIsVerifierUser(false)
+                isVerifierUserRef.current = false
                 setIsAdminUser(false)
                 setNeedsSignature(false)
             }
@@ -226,6 +230,7 @@ export default function VerifierPage() {
             console.error('Error verifying against contract:', error)
             setError(`Failed to verify: ${error instanceof Error ? error.message : 'Unknown error'}`)
             setIsVerifierUser(false)
+            isVerifierUserRef.current = false
             setIsAdminUser(false)
             setNeedsSignature(true)
         } finally {
@@ -301,7 +306,7 @@ export default function VerifierPage() {
             }
             setCleanups(submissions)
 
-            if (isAdminUserRef.current) {
+            if (isVerifierUserRef.current) {
                 try {
                     const pending = await fetchHypercertRequestsByStatus('PENDING')
                     console.log('📋 Pending Hypercert requests:', pending.length)
@@ -717,7 +722,7 @@ export default function VerifierPage() {
     }
 
     const handleApproveHypercert = async (requestId: string) => {
-        if (!address || !isAdminUser) return
+        if (!address || !isVerifierUser) return
 
         setProcessingRequestId(requestId)
         setError(null)
@@ -758,7 +763,7 @@ export default function VerifierPage() {
     }
 
     const handleRejectHypercert = async (requestId: string) => {
-        if (!address || !isAdminUser) return
+        if (!address || !isVerifierUser) return
 
         const reason = prompt('Enter rejection reason (optional):')
         
@@ -1113,8 +1118,8 @@ export default function VerifierPage() {
                   </div>
                 ) : null}
 
-                {/* Hypercert queue + impact stats: admins only (same as API) */}
-                {isAdminUser && verifierContext && (
+                {/* Hypercert queue + impact stats: verifiers (same as review API) */}
+                {isVerifierUser && verifierContext && (
                   <div className="mb-6 rounded-xl border border-brand-green/20 bg-card p-6">
                     <div className="mb-4">
                       <h3 className="font-heading text-xl uppercase tracking-wide text-foreground">
@@ -1147,7 +1152,7 @@ export default function VerifierPage() {
                   </div>
                 )}
 
-                {isAdminUser && (
+                {isVerifierUser && (
                 <div className="mb-8">
                     <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Pending Hypercert Requests
