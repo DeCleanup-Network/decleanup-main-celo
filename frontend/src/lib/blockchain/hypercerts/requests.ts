@@ -1,7 +1,7 @@
 import { keccak256, stringToBytes } from 'viem'
 import type { Address } from 'viem'
 import type { HypercertMetadata, HypercertRequest, HypercertRequestStatus } from './types'
-import { buildCreateRequestMessageCompact, buildReviewMessage } from './request-signing'
+import { buildCreateRequestMessageCompact, buildReviewMessage, buildPublishMessage } from './request-signing'
 
 const STORAGE_KEY = 'hypercert_requests'
 
@@ -11,10 +11,12 @@ export function isHypercertPublished(req: HypercertRequest): boolean {
 }
 
 /** True while a request is pending review or approved but not yet published to AT. */
+export function isAwaitingHypercertPublish(req: HypercertRequest): boolean {
+  return (req.status === 'APPROVED' || req.status === 'MINTED') && !isHypercertPublished(req)
+}
+
 export function hasOpenHypercertWorkflow(requests: HypercertRequest[]): boolean {
-  return requests.some(
-    (req) => req.status === 'PENDING' || (req.status === 'APPROVED' && !isHypercertPublished(req))
-  )
+  return requests.some((req) => req.status === 'PENDING' || isAwaitingHypercertPublish(req))
 }
 
 export function countPublishedHypercerts(requests: HypercertRequest[]): number {
@@ -284,4 +286,40 @@ export function clearAllHypercertRequests(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY)
   }
+}
+
+export async function publishApprovedHypercert(params: {
+  requestId: string
+  requester: string
+  signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>
+}): Promise<{ atUri: string; atCid?: string }> {
+  const timestamp = Date.now()
+  const message = buildPublishMessage({
+    requestId: params.requestId,
+    requester: params.requester as Address,
+    timestamp,
+  })
+  const signature = await params.signMessageAsync({ message })
+
+  const res = await fetch('/api/hypercerts/requests/publish', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requestId: params.requestId,
+      requester: params.requester,
+      timestamp,
+      signature,
+    }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.error || 'Failed to publish Hypercert')
+  }
+
+  if (data.request) {
+    writeLocalMirror(mergeUniqueById([data.request as HypercertRequest], readLocalFallback()))
+  }
+
+  return { atUri: data.atUri as string, atCid: data.atCid as string | undefined }
 }

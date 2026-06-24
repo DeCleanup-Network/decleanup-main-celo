@@ -35,7 +35,7 @@ export async function publishHypercertToAtProto(
       return { success: false, error: `Request ${requestId} not found` }
     }
 
-    if (request.status !== 'APPROVED') {
+    if (request.status !== 'APPROVED' && request.status !== 'MINTED') {
       return {
         success: false,
         error: `Request ${requestId} is not approved (status: ${request.status})`,

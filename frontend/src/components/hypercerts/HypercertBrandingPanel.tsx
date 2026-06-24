@@ -23,6 +23,7 @@ type Props = {
   coverUploading: boolean
   coverUploadError?: string | null
   readiness: BrandingReadiness
+  textComplete?: boolean
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   onCoverFileSelect: (file: File | null) => void
@@ -61,6 +62,7 @@ export function HypercertBrandingPanel({
   coverUploading,
   coverUploadError,
   readiness,
+  textComplete = false,
   onTitleChange,
   onDescriptionChange,
   onCoverFileSelect,
@@ -75,7 +77,11 @@ export function HypercertBrandingPanel({
     <section
       className={cn(
         'rounded-3xl border bg-card p-6 sm:p-8',
-        readiness.ready ? 'border-brand-green/40' : 'border-border'
+        readiness.ready
+          ? 'border-brand-green/40'
+          : textComplete
+            ? 'border-brand-green/25'
+            : 'border-border'
       )}
     >
       <div className="mb-6 flex items-center justify-between">
@@ -85,7 +91,11 @@ export function HypercertBrandingPanel({
         <span
           className={cn(
             'h-4 w-4 rounded-full border',
-            readiness.ready ? 'border-brand-green bg-brand-green' : 'border-muted-foreground'
+            readiness.ready
+              ? 'border-brand-green bg-brand-green'
+              : textComplete
+                ? 'border-brand-green/60 bg-brand-green/40'
+                : 'border-muted-foreground'
           )}
           aria-hidden
         />

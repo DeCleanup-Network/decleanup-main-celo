@@ -37,3 +37,17 @@ export function buildReviewMessage(params: {
     `Timestamp: ${params.timestamp}`,
   ].join('\n')
 }
+
+/** Requester signs to publish an approved certificate to Hyperscan (AT Protocol). */
+export function buildPublishMessage(params: {
+  requestId: string
+  requester: Address
+  timestamp: number
+}): string {
+  return [
+    'DeCleanup Hypercert Publish v1',
+    `RequestId: ${params.requestId}`,
+    `Requester: ${params.requester.toLowerCase()}`,
+    `Timestamp: ${params.timestamp}`,
+  ].join('\n')
+}

@@ -2,42 +2,41 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isAddress, verifyMessage, type Address } from 'viem'
 import {
   assertFreshTimestamp,
-  buildReviewMessage,
+  buildPublishMessage,
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById } from '@/lib/supabase/hypercert-requests-db'
-import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { isAtProtoEnabled, getAtProtoOrgDid } from '@/lib/blockchain/hypercerts/atproto'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-type RepublishBody = {
+type PublishBody = {
   requestId: string
-  reviewer: string
+  requester: string
   timestamp: number
   signature: `0x${string}`
 }
 
 /**
- * Re-publishes an approved or minted hypercert to ATProto when the initial
- * publish failed (at_publish_error set, at_uri null).
+ * Requester publishes an approved certificate to Hyperscan (AT Protocol).
+ * Use when auto-publish after verifier approval did not complete.
  */
 export async function POST(request: NextRequest) {
   try {
     if (!isAtProtoEnabled()) {
-      return NextResponse.json({ error: 'ATProto publishing is disabled' }, { status: 503 })
+      return NextResponse.json({ error: 'ATProto publishing is disabled on this server' }, { status: 503 })
     }
 
-    const body = (await request.json()) as RepublishBody
-    const reviewer = body.reviewer?.trim()
+    const body = (await request.json()) as PublishBody
+    const requester = body.requester?.trim()
     const requestId = body.requestId?.trim()
 
     if (!requestId) {
       return NextResponse.json({ error: 'Missing requestId' }, { status: 400 })
     }
-    if (!reviewer || !isAddress(reviewer)) {
-      return NextResponse.json({ error: 'Invalid reviewer address' }, { status: 400 })
+    if (!requester || !isAddress(requester)) {
+      return NextResponse.json({ error: 'Invalid requester address' }, { status: 400 })
     }
     if (!body.signature || !body.timestamp) {
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
@@ -45,15 +44,14 @@ export async function POST(request: NextRequest) {
 
     assertFreshTimestamp(body.timestamp)
 
-    const message = buildReviewMessage({
-      action: 'approve',
+    const message = buildPublishMessage({
       requestId,
-      reviewer: reviewer as Address,
+      requester: requester as Address,
       timestamp: body.timestamp,
     })
 
     const valid = await verifyMessage({
-      address: reviewer as Address,
+      address: requester as Address,
       message,
       signature: body.signature,
     })
@@ -61,17 +59,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Signature verification failed' }, { status: 403 })
     }
 
-    const canReview = await canReviewHypercertOnChain(reviewer)
-    if (!canReview) {
-      return NextResponse.json(
-        { error: 'Only Submission contract verifiers or admins can republish Hypercerts' },
-        { status: 403 }
-      )
-    }
-
     const existing = await getHypercertRequestById(requestId)
     if (!existing) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 })
+    }
+    if (existing.requester.toLowerCase() !== requester.toLowerCase()) {
+      return NextResponse.json({ error: 'Only the requester can publish this Hypercert' }, { status: 403 })
     }
     if (existing.atUri) {
       return NextResponse.json({
@@ -79,11 +72,12 @@ export async function POST(request: NextRequest) {
         alreadyPublished: true,
         atUri: existing.atUri,
         atCid: existing.atCid,
+        request: existing,
       })
     }
     if (existing.status !== 'APPROVED' && existing.status !== 'MINTED') {
       return NextResponse.json(
-        { error: `Request must be approved (status: ${existing.status})` },
+        { error: `Request must be verifier-approved before publishing (status: ${existing.status})` },
         { status: 409 }
       )
     }
@@ -93,14 +87,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 500 })
     }
 
+    const updated = await getHypercertRequestById(requestId)
+
     return NextResponse.json({
       success: true,
       atUri: result.atUri,
       atCid: result.atCid,
+      request: updated,
     })
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'ATProto republish failed' },
+      { error: e instanceof Error ? e.message : 'Hypercert publish failed' },
       { status: 500 }
     )
   }

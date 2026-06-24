@@ -746,7 +746,7 @@ export default function VerifierPage() {
             setActionModal({
                 variant: 'success',
                 title: 'Hypercert approved',
-                message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe certificate will publish to Hyperscan automatically.`,
+                message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can publish from their Hypercerts page. Auto-publish may also run if server AT credentials are configured.`,
             })
             
             // Refresh the data

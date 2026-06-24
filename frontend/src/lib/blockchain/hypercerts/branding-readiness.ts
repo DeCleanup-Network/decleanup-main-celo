@@ -112,16 +112,8 @@ export function evaluateBrandingReadiness(draft: BrandingDraft): BrandingReadine
   const imageOk = Boolean(draft.logoImageCid || draft.bannerImageCid)
 
   const checks: BrandingCheck[] = [
-    {
-      id: 'title',
-      label: `Title (${HYPERCERT_BRANDING_MIN_TITLE}–${HYPERCERT_BRANDING_MAX_TITLE})`,
-      ok: titleOk,
-    },
-    {
-      id: 'description',
-      label: `Description (${HYPERCERT_BRANDING_MIN_DESCRIPTION}–${HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES})`,
-      ok: descriptionOk,
-    },
+    { id: 'title', label: 'Title', ok: titleOk },
+    { id: 'description', label: 'Description', ok: descriptionOk },
     { id: 'image', label: 'Cover image', ok: imageOk },
   ]
 
@@ -133,4 +125,16 @@ export function evaluateBrandingReadiness(draft: BrandingDraft): BrandingReadine
   }
 
   return { ready, checks, hint }
+}
+
+/** Title + description only (cover image still required to submit a request). */
+export function isBrandingTextComplete(draft: Pick<BrandingDraft, 'title' | 'description'>): boolean {
+  const title = draft.title.trim()
+  const description = draft.description.trim()
+  return (
+    title.length >= HYPERCERT_BRANDING_MIN_TITLE &&
+    isHypercertTitleWithinLimit(title) &&
+    countGraphemes(description) >= HYPERCERT_BRANDING_MIN_DESCRIPTION &&
+    isHypercertDescriptionWithinLimit(description)
+  )
 }
