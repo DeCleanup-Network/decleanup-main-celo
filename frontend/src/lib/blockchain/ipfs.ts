@@ -50,14 +50,18 @@ async function getIpfsDiagnosticHint(): Promise<string | null> {
  */
 export async function uploadToIPFS(
   file: File,
-  options?: { pinataKeyvalueType?: string; retries?: number }
+  options?: {
+    pinataKeyvalueType?: string
+    retries?: number
+    walletAddress?: string
+  }
 ): Promise<IPFSUploadResult> {
   const maxAttempts = options?.retries ?? UPLOAD_RETRIES
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      return await uploadToIPFSOnce(file, options?.pinataKeyvalueType)
+      return await uploadToIPFSOnce(file, options?.pinataKeyvalueType, options?.walletAddress)
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
       const retryable =
@@ -74,7 +78,8 @@ export async function uploadToIPFS(
 
 async function uploadToIPFSOnce(
   file: File,
-  pinataKeyvalueType?: string
+  pinataKeyvalueType?: string,
+  walletAddress?: string
 ): Promise<IPFSUploadResult> {
   try {
     // Use API route to avoid CORS issues
@@ -97,20 +102,50 @@ async function uploadToIPFSOnce(
     })
     formData.append('options', pinataBodyOptions)
 
+    const headers: HeadersInit = {}
+    if (walletAddress) {
+      headers['x-wallet-address'] = walletAddress
+    }
+
     // Upload via our API route (avoids CORS)
     const response = await fetch('/api/ipfs/upload', {
       method: 'POST',
       body: formData,
+      headers,
+      credentials: 'include',
       signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
     })
 
+    const responseText = await response.text()
+    let errorData: { error?: string; pinataStatus?: number } = {}
+    if (responseText) {
+      try {
+        errorData = JSON.parse(responseText) as { error?: string; pinataStatus?: number }
+      } catch {
+        errorData = {}
+      }
+    }
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('IPFS upload error:', errorData)
-      const baseMessage = errorData.error || response.statusText || 'Network error'
+      console.error('IPFS upload error:', errorData.error || responseText.slice(0, 200) || response.status)
+      let baseMessage = errorData.error || response.statusText || 'Network error'
+      if (
+        response.status === 403 &&
+        !errorData.error &&
+        (responseText.includes('<!DOCTYPE') || responseText.includes('Security Checkpoint'))
+      ) {
+        baseMessage =
+          'Upload blocked by hosting security (firewall or bot protection). Try another browser or network, or contact support.'
+      } else if (response.status === 403 && !errorData.error) {
+        baseMessage =
+          'Upload forbidden (403). Server may be missing valid Pinata credentials — open /api/ipfs/upload for a diagnostic.'
+      }
       const baseString = String(baseMessage)
       const looksLikePinataAuthIssue =
         response.status === 502 ||
+        response.status === 403 ||
+        errorData.pinataStatus === 401 ||
+        errorData.pinataStatus === 403 ||
         /pinata rejected|invalid api credentials|pinata|credentials/i.test(baseString)
 
       if (looksLikePinataAuthIssue) {
@@ -124,7 +159,7 @@ async function uploadToIPFSOnce(
       throw new Error(`Failed to upload to IPFS: ${baseString}`)
     }
 
-    const data = await response.json()
+    const data = JSON.parse(responseText || '{}') as { hash?: string; url?: string }
     const ipfsHash = data.hash
     const ipfsUrl = data.url
 

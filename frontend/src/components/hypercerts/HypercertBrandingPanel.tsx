@@ -3,7 +3,16 @@
 import { useRef } from 'react'
 import { CheckCircle2, Circle, ImageUp, Loader2 } from 'lucide-react'
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
-import type { BrandingReadiness } from '@/lib/blockchain/hypercerts/branding-readiness'
+import {
+  clampHypercertDescription,
+  clampHypercertTitle,
+  countGraphemes,
+  HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES,
+  HYPERCERT_BRANDING_MAX_TITLE,
+  HYPERCERT_BRANDING_MIN_DESCRIPTION,
+  HYPERCERT_BRANDING_MIN_TITLE,
+  type BrandingReadiness,
+} from '@/lib/blockchain/hypercerts/branding-readiness'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -12,10 +21,36 @@ type Props = {
   coverImageCid?: string
   coverFile: File | null
   coverUploading: boolean
+  coverUploadError?: string | null
   readiness: BrandingReadiness
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   onCoverFileSelect: (file: File | null) => void
+}
+
+function CharacterCounter({
+  current,
+  max,
+  min,
+}: {
+  current: number
+  max: number
+  min?: number
+}) {
+  const atLimit = current >= max
+  const belowMin = min !== undefined && current > 0 && current < min
+
+  return (
+    <span
+      className={cn(
+        'text-[11px] tabular-nums',
+        atLimit ? 'text-red-400' : belowMin ? 'text-muted-foreground' : 'text-muted-foreground'
+      )}
+      aria-live="polite"
+    >
+      {current} / {max}
+    </span>
+  )
 }
 
 export function HypercertBrandingPanel({
@@ -24,6 +59,7 @@ export function HypercertBrandingPanel({
   coverImageCid,
   coverFile,
   coverUploading,
+  coverUploadError,
   readiness,
   onTitleChange,
   onDescriptionChange,
@@ -32,6 +68,8 @@ export function HypercertBrandingPanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewUrl = coverImageCid ? getIPFSUrl(coverImageCid) : null
   const coverStored = Boolean(coverImageCid)
+  const titleLength = title.length
+  const descriptionLength = countGraphemes(description)
 
   return (
     <section
@@ -68,33 +106,56 @@ export function HypercertBrandingPanel({
 
       <div className="space-y-5">
         <div className="space-y-2">
-          <label htmlFor="hypercert-title" className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            Title
-          </label>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="hypercert-title" className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Title
+            </label>
+            <CharacterCounter
+              current={titleLength}
+              max={HYPERCERT_BRANDING_MAX_TITLE}
+              min={HYPERCERT_BRANDING_MIN_TITLE}
+            />
+          </div>
           <input
             id="hypercert-title"
             type="text"
             value={title}
-            onChange={(e) => onTitleChange(e.target.value)}
+            maxLength={HYPERCERT_BRANDING_MAX_TITLE}
+            onChange={(e) => onTitleChange(clampHypercertTitle(e.target.value))}
             placeholder="e.g. Koh Phangan beach cleanup, Q2 2026"
             className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-brand-yellow/50"
           />
+          <p className="text-xs text-muted-foreground">
+            {HYPERCERT_BRANDING_MIN_TITLE}–{HYPERCERT_BRANDING_MAX_TITLE} characters. Shown as your certificate
+            name on Hyperscan.
+          </p>
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="hypercert-description"
-            className="text-[11px] uppercase tracking-widest text-muted-foreground"
-          >
-            Short description
-          </label>
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="hypercert-description"
+              className="text-[11px] uppercase tracking-widest text-muted-foreground"
+            >
+              Short description
+            </label>
+            <CharacterCounter
+              current={descriptionLength}
+              max={HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES}
+              min={HYPERCERT_BRANDING_MIN_DESCRIPTION}
+            />
+          </div>
           <textarea
             id="hypercert-description"
             value={description}
-            onChange={(e) => onDescriptionChange(e.target.value)}
+            onChange={(e) => onDescriptionChange(clampHypercertDescription(e.target.value))}
             placeholder="What impact does this certificate represent?"
             className="h-24 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-brand-yellow/50"
           />
+          <p className="text-xs text-muted-foreground">
+            {HYPERCERT_BRANDING_MIN_DESCRIPTION}–{HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES} characters. Extra
+            text is blocked at the limit.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -123,9 +184,14 @@ export function HypercertBrandingPanel({
             ) : coverFile && coverUploading ? (
               <span className="text-xs text-muted-foreground">{coverFile.name}</span>
             ) : (
-              <span className="text-xs text-muted-foreground">Landscape works best.</span>
+              <span className="text-xs text-muted-foreground">Landscape works best. JPEG or PNG, max 12 MB.</span>
             )}
           </button>
+          {coverUploadError ? (
+            <p className="text-xs text-red-400" role="alert">
+              {coverUploadError}
+            </p>
+          ) : null}
         </div>
       </div>
 

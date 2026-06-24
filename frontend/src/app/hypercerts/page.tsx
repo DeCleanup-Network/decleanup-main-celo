@@ -14,6 +14,7 @@ import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibili
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { buildHypercertMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { uploadToIPFS } from '@/lib/blockchain/ipfs'
+import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
 import {
   submitHypercertRequest,
   fetchHypercertRequestsByUser,
@@ -48,6 +49,7 @@ export default function HypercertsCertificationPage() {
   const [submitResult, setSubmitResult] = useState('')
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverUploading, setCoverUploading] = useState(false)
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
   const [brandingTitle, setBrandingTitle] = useState('')
   const [brandingDescription, setBrandingDescription] = useState('')
   const [brandingCids, setBrandingCids] = useState<{ logoImageCid?: string; bannerImageCid?: string } | null>(
@@ -168,17 +170,24 @@ export default function HypercertsCertificationPage() {
 
   const handleCoverFileSelect = useCallback(async (file: File | null) => {
     setCoverFile(file)
+    setCoverUploadError(null)
     if (!file) return
     setCoverUploading(true)
     try {
-      const result = await uploadToIPFS(file)
+      const ready = await compressImageIfLarge(file)
+      const result = await uploadToIPFS(ready, {
+        pinataKeyvalueType: 'hypercert-cover',
+        walletAddress: eoaAddress ?? eligibilityAddress ?? undefined,
+      })
       setBrandingCids((prev) => ({ ...prev, bannerImageCid: result.hash }))
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cover upload failed.'
+      setCoverUploadError(message)
       console.error('Cover upload failed:', error)
     } finally {
       setCoverUploading(false)
     }
-  }, [])
+  }, [eoaAddress, eligibilityAddress])
 
   const handleSubmitRequest = async () => {
     if (!metadata || !eoaAddress || !canSignMessages) return
@@ -311,6 +320,7 @@ export default function HypercertsCertificationPage() {
             coverImageCid={brandingCids?.bannerImageCid ?? brandingCids?.logoImageCid}
             coverFile={coverFile}
             coverUploading={coverUploading}
+            coverUploadError={coverUploadError}
             readiness={brandingReadiness}
             onTitleChange={setBrandingTitle}
             onDescriptionChange={setBrandingDescription}

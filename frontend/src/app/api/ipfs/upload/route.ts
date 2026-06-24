@@ -357,7 +357,9 @@ export async function GET() {
       pinataReachable === 'failed'
         ? 'Fetch from this server to api.pinata.cloud failed. Fix outbound HTTPS/DNS on the VPS, or Pinata outage.'
         : pinataTestStatus && pinataTestStatus !== 200
-          ? 'Credentials rejected by Pinata or wrong tier — regenerate JWT in Pinata dashboard.'
+          ? pinataTestStatus === 403 || pinataTestStatus === 401
+            ? 'Pinata rejected credentials (403/401). Regenerate PINATA_JWT in Pinata dashboard and set it on this server (Vercel env or VPS .env.local), then restart.'
+            : 'Credentials rejected by Pinata or wrong tier — regenerate JWT in Pinata dashboard.'
           : authMode === 'legacy'
             ? 'Using key+secret. Prefer PINATA_JWT (Bearer) from Pinata API Keys page.'
             : 'JWT accepted by Pinata test endpoint. If POST /api/ipfs/upload still fails, check file size limits or PM2 logs.',

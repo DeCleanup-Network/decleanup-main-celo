@@ -13,6 +13,7 @@ import {
   listHypercertRequestsForPortfolio,
 } from '@/lib/supabase/hypercert-requests-db'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
+import { getBrandingLengthError } from '@/lib/blockchain/hypercerts/branding-readiness'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 
@@ -128,6 +129,14 @@ export async function POST(request: NextRequest) {
     }
     if (!metadata?.name || !metadata?.hypercert) {
       return NextResponse.json({ error: 'Invalid hypercert metadata shape' }, { status: 400 })
+    }
+
+    const brandingLengthError = getBrandingLengthError({
+      title: metadata.branding?.title ?? metadata.name,
+      description: metadata.branding?.description ?? metadata.description ?? '',
+    })
+    if (brandingLengthError) {
+      return NextResponse.json({ error: brandingLengthError }, { status: 400 })
     }
 
     const message = buildCreateRequestMessageCompact({
