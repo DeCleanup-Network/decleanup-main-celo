@@ -26,9 +26,26 @@ export type BrandingReadiness = {
   hint?: string
 }
 
+type GraphemeSegmenter = {
+  segment(input: string): Iterable<{ segment: string }>
+}
+
+function getGraphemeSegmenter(): GraphemeSegmenter | null {
+  const Segmenter = (
+    Intl as typeof Intl & {
+      Segmenter?: new (
+        locales?: string | string[],
+        options?: { granularity?: 'grapheme' }
+      ) => GraphemeSegmenter
+    }
+  ).Segmenter
+  if (!Segmenter) return null
+  return new Segmenter(undefined, { granularity: 'grapheme' })
+}
+
 export function countGraphemes(value: string): number {
-  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  const segmenter = getGraphemeSegmenter()
+  if (segmenter) {
     return [...segmenter.segment(value)].length
   }
   return [...value].length
@@ -39,8 +56,8 @@ export function clampHypercertTitle(value: string): string {
 }
 
 export function clampHypercertDescription(value: string): string {
-  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  const segmenter = getGraphemeSegmenter()
+  if (segmenter) {
     const segments = [...segmenter.segment(value)]
     if (segments.length <= HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES) return value
     return segments

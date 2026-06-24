@@ -169,7 +169,7 @@ async function uploadToIPFSOnce(
 
     return {
       hash: ipfsHash,
-      url: ipfsUrl,
+      url: ipfsUrl ?? getIPFSUrl(ipfsHash),
     }
   } catch (error) {
     console.error('IPFS upload error:', error)
