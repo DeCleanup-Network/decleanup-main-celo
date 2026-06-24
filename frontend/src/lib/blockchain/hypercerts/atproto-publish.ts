@@ -16,7 +16,7 @@ import {
   toStrongRef,
   type StrongRef,
 } from './atproto/client'
-import { getAtProtoOrgDid, isAtProtoEnabled } from './config'
+import { getAtProtoOrgDid, isAtProtoEnabled, getAtProtoConfigError } from './config'
 import type { AtProtoPublishResult } from './atproto/types'
 import type { CleanupPhoto } from './atproto/types'
 
@@ -26,6 +26,11 @@ export async function publishHypercertToAtProto(
 ): Promise<AtProtoPublishResult> {
   if (!isAtProtoEnabled()) {
     return { success: false, error: 'ATProto publishing is disabled' }
+  }
+
+  const configError = getAtProtoConfigError()
+  if (configError) {
+    return { success: false, error: configError }
   }
 
   try {

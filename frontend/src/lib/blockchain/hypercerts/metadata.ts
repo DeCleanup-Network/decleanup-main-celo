@@ -196,7 +196,8 @@ export function buildHypercertMetadata(input: HypercertMetadataInput): Hypercert
       rights: buildRights(input.impactData?.rightsAssignment)
     },
     version: input.version,
-    generated_at: Date.now()
+    generated_at: Date.now(),
+    cleanups: input.cleanups.map((c) => ({ cleanupId: c.cleanupId })),
   }
 }
 

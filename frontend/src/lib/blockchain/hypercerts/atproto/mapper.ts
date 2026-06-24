@@ -1,4 +1,8 @@
 import type { HypercertRequest, HypercertBranding } from '../types'
+import {
+  clampHypercertDescription,
+  clampHypercertTitle,
+} from '../branding-readiness'
 import type { ImpactEntry } from '@/lib/impact/types'
 import type { AtProtoRecords, CleanupPhoto, PublishContext } from './types'
 
@@ -54,7 +58,11 @@ function resolveActivityImage(metadata: Record<string, unknown>): string | undef
   if (logoCid) return `ipfs://${logoCid}`
 
   const image = metadata.image
-  if (typeof image === 'string' && image.startsWith('ipfs://')) {
+  if (
+    typeof image === 'string' &&
+    image.startsWith('ipfs://') &&
+    !image.includes('QmPlaceholder')
+  ) {
     return image
   }
 
@@ -190,16 +198,20 @@ export function mapToAtProtoRecords(context: PublishContext): AtProtoRecords {
   const branding = metadata.branding as HypercertBranding | undefined
   const activityImage = resolveActivityImage(metadata)
 
+  const rawTitle =
+    (typeof metadata.name === 'string' && metadata.name) ||
+    branding?.title ||
+    'DeCleanup Impact Certificate'
+  const rawDescription =
+    (typeof metadata.description === 'string' && metadata.description) ||
+    branding?.description ||
+    'Verified cleanup impact'
+
   const activity = {
     $type: 'org.hypercerts.claim.activity',
-    title:
-      (typeof metadata.name === 'string' && metadata.name) ||
-      branding?.title ||
-      'DeCleanup Impact Certificate',
+    title: clampHypercertTitle(rawTitle.trim()) || 'DeCleanup Impact Certificate',
     shortDescription:
-      (typeof metadata.description === 'string' && metadata.description) ||
-      branding?.description ||
-      'Verified cleanup impact',
+      clampHypercertDescription(rawDescription.trim()) || 'Verified cleanup impact',
     createdAt: new Date().toISOString(),
     workScope: mapWorkScope(request),
     startDate,

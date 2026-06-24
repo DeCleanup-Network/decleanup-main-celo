@@ -5,7 +5,7 @@ import {
   buildPublishMessage,
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById } from '@/lib/supabase/hypercert-requests-db'
-import { isAtProtoEnabled, getAtProtoOrgDid } from '@/lib/blockchain/hypercerts/atproto'
+import { isAtProtoEnabled, getAtProtoOrgDid, getAtProtoConfigError } from '@/lib/blockchain/hypercerts/atproto'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
 
 export const runtime = 'nodejs'
@@ -24,8 +24,9 @@ type PublishBody = {
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isAtProtoEnabled()) {
-      return NextResponse.json({ error: 'ATProto publishing is disabled on this server' }, { status: 503 })
+    const configError = getAtProtoConfigError()
+    if (configError) {
+      return NextResponse.json({ error: configError }, { status: 503 })
     }
 
     const body = (await request.json()) as PublishBody
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
 
     const result = await publishHypercertToAtProto(requestId, getAtProtoOrgDid())
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
+      console.error(`[Hypercert publish] ${requestId}:`, result.error)
+      return NextResponse.json({ error: result.error ?? 'Publish failed' }, { status: 500 })
     }
 
     const updated = await getHypercertRequestById(requestId)
@@ -96,9 +98,18 @@ export async function POST(request: NextRequest) {
       request: updated,
     })
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Hypercert publish failed' },
-      { status: 500 }
-    )
+    const message = e instanceof Error ? e.message : 'Hypercert publish failed'
+    console.error('[Hypercert publish] unhandled:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
+}
+
+/** GET: AT publish env diagnostic (no secrets). */
+export async function GET() {
+  const configError = getAtProtoConfigError()
+  return NextResponse.json({
+    atProtoEnabled: isAtProtoEnabled(),
+    configOk: !configError,
+    hint: configError ?? 'AT Protocol env looks complete. If publish still fails, check server logs for PDS errors.',
+  })
 }

@@ -30,7 +30,7 @@ export function HypercertPublishStep({
         Step 4: Publish to Hyperscan
       </h2>
       <p className="mb-6 text-sm text-muted-foreground">
-        Your request was approved. Sign once to publish your certificate on Hyperscan.
+        Your request was approved. Sign once to authorize publishing your certificate on Hyperscan (AT Protocol).
       </p>
 
       <ul className="space-y-4">
@@ -90,7 +90,9 @@ export function HypercertPublishStep({
       <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
         <span>
-          This publishes your verifier-approved certificate to Hyperscan. No on-chain mint or gas fee is required.
+          Your certificate is stored on-chain via AT Protocol and appears on Hyperscan. You sign a message to
+          confirm — not a Celo transaction — so no CELO gas is charged to your wallet. DeCleanup publishes the
+          record using network AT credentials after you sign.
         </span>
       </p>
 

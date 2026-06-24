@@ -45,3 +45,12 @@ export function getAtProtoHandle(): string {
 export function getAtProtoAppPassword(): string {
   return process.env.ATPROTO_APP_PASSWORD || ''
 }
+
+/** Returns a user-facing error when AT publish env is incomplete. */
+export function getAtProtoConfigError(): string | null {
+  if (!isAtProtoEnabled()) return 'ATProto publishing is disabled (HYPERCERTS_AT_ENABLED is not true).'
+  if (!getAtProtoOrgDid().trim()) return 'HYPERCERTS_ATPROTO_DID is not set on the server.'
+  if (!getAtProtoHandle().trim()) return 'HYPERCERTS_ATPROTO_HANDLE is not set on the server.'
+  if (!getAtProtoAppPassword().trim()) return 'ATPROTO_APP_PASSWORD is not set on the server.'
+  return null
+}

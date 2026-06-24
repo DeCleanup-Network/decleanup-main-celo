@@ -68,6 +68,9 @@ export interface HypercertMetadata {
   // Metadata generation info
   version: string
   generated_at: number
+
+  /** Cleanup submission IDs included in this certificate (for AT publish enrichment). */
+  cleanups?: Array<{ cleanupId: string }>
 }
 
 export interface HypercertMetadataInput {
