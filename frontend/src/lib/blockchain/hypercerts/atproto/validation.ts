@@ -7,6 +7,10 @@ import {
 
 function formatValidationIssues(issues: unknown): string {
   if (issues instanceof Error) return issues.message
+  if (typeof issues === 'object' && issues !== null && 'message' in issues) {
+    const message = (issues as { message: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+  }
   if (typeof issues === 'string') return issues
   try {
     const serialized = JSON.stringify(issues)

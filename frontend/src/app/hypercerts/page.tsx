@@ -23,6 +23,7 @@ import {
   isHypercertPublished,
   isAwaitingHypercertPublish,
   publishApprovedHypercert,
+  cancelHypercertRequest,
 } from '@/lib/blockchain/hypercerts/requests'
 import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
 import { evaluateBrandingReadiness, isBrandingTextComplete } from '@/lib/blockchain/hypercerts/branding-readiness'
@@ -60,6 +61,7 @@ export default function HypercertsCertificationPage() {
   )
   const [userRequests, setUserRequests] = useState<Awaited<ReturnType<typeof fetchHypercertRequestsByUser>>>([])
   const [publishResult, setPublishResult] = useState('')
+  const [cancelPending, setCancelPending] = useState(false)
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0)
 
   const loadUserRequests = useCallback(async () => {
@@ -241,6 +243,26 @@ export default function HypercertsCertificationPage() {
     }
   }
 
+  const handleCancel = async (requestId: string) => {
+    if (!eoaAddress || !canSignMessages || cancelPending) return
+
+    setCancelPending(true)
+    setPublishResult('')
+    try {
+      await cancelHypercertRequest({
+        requestId,
+        requester: eoaAddress,
+        signMessageAsync: async ({ message }) => signMessageAsync(message),
+      })
+      setPublishResult('Request withdrawn. You can submit a new Hypercert.')
+      setRequestsRefreshKey((k) => k + 1)
+    } catch (error) {
+      setPublishResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setCancelPending(false)
+    }
+  }
+
   const homeButton = (
     <Link href="/">
       <Button variant="outline" size="sm" className="gap-2 border-border bg-card font-heading tracking-wider">
@@ -386,6 +408,8 @@ export default function HypercertsCertificationPage() {
             pending={isPublishPending}
             publishResult={publishResult}
             onPublish={(requestId) => void handlePublish(requestId)}
+            onCancel={(requestId) => void handleCancel(requestId)}
+            cancelPending={cancelPending}
           />
 
           {publishedRequests.length > 0 ? (

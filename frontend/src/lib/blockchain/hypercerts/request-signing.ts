@@ -51,3 +51,17 @@ export function buildPublishMessage(params: {
     `Timestamp: ${params.timestamp}`,
   ].join('\n')
 }
+
+/** Requester withdraws an unpublished Hypercert request to submit a new one. */
+export function buildCancelMessage(params: {
+  requestId: string
+  requester: Address
+  timestamp: number
+}): string {
+  return [
+    'DeCleanup Hypercert Cancel v1',
+    `RequestId: ${params.requestId}`,
+    `Requester: ${params.requester.toLowerCase()}`,
+    `Timestamp: ${params.timestamp}`,
+  ].join('\n')
+}

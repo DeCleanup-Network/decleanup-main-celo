@@ -57,7 +57,8 @@ export async function hasOpenHypercertWorkflowForUser(requester: string): Promis
   return rows.some(
     (r) =>
       r.status === 'PENDING' ||
-      (r.status === 'APPROVED' && (r.at_uri == null || r.at_uri === ''))
+      ((r.status === 'APPROVED' || r.status === 'MINTED') &&
+        (r.at_uri == null || r.at_uri === ''))
   )
 }
 
@@ -226,5 +227,40 @@ export async function recordAtProtoError(
 
   if (error) {
     console.error(`Failed to save AT error for ${requestId}: ${error.message}`)
+  }
+}
+
+/** Remove an unpublished request so the requester can start over. */
+export async function deleteUnpublishedHypercertRequest(params: {
+  id: string
+  requester: string
+}): Promise<void> {
+  const { data, error: fetchError } = await getSupabase()
+    .from('hypercert_requests')
+    .select('id,requester,at_uri')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (fetchError) {
+    throw new Error(`Failed to load hypercert request: ${fetchError.message}`)
+  }
+  if (!data) {
+    throw new Error('Request not found')
+  }
+  if (data.requester.toLowerCase() !== params.requester.toLowerCase()) {
+    throw new Error('Only the requester can cancel this Hypercert request')
+  }
+  if (data.at_uri) {
+    throw new Error('Published Hypercerts cannot be cancelled')
+  }
+
+  const { error } = await getSupabase()
+    .from('hypercert_requests')
+    .delete()
+    .eq('id', params.id)
+    .eq('requester', params.requester.toLowerCase())
+
+  if (error) {
+    throw new Error(`Failed to cancel hypercert request: ${error.message}`)
   }
 }

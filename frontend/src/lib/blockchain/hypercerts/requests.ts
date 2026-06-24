@@ -1,7 +1,7 @@
 import { keccak256, stringToBytes } from 'viem'
 import type { Address } from 'viem'
 import type { HypercertMetadata, HypercertRequest, HypercertRequestStatus } from './types'
-import { buildCreateRequestMessageCompact, buildReviewMessage, buildPublishMessage } from './request-signing'
+import { buildCreateRequestMessageCompact, buildReviewMessage, buildPublishMessage, buildCancelMessage } from './request-signing'
 
 const STORAGE_KEY = 'hypercert_requests'
 
@@ -314,7 +314,10 @@ export async function publishApprovedHypercert(params: {
 
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data?.success) {
-    throw new Error(data?.error || 'Failed to publish Hypercert')
+    const parts = [data?.error, data?.previousError ? `Previous: ${data.previousError}` : null].filter(
+      Boolean
+    )
+    throw new Error(parts.join(' ') || 'Failed to publish Hypercert')
   }
 
   if (data.request) {
@@ -322,4 +325,37 @@ export async function publishApprovedHypercert(params: {
   }
 
   return { atUri: data.atUri as string, atCid: data.atCid as string | undefined }
+}
+
+export async function cancelHypercertRequest(params: {
+  requestId: string
+  requester: string
+  signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>
+}): Promise<void> {
+  const timestamp = Date.now()
+  const message = buildCancelMessage({
+    requestId: params.requestId,
+    requester: params.requester as Address,
+    timestamp,
+  })
+  const signature = await params.signMessageAsync({ message })
+
+  const res = await fetch('/api/hypercerts/requests/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requestId: params.requestId,
+      requester: params.requester,
+      timestamp,
+      signature,
+    }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.error || 'Failed to cancel Hypercert request')
+  }
+
+  const remaining = readLocalFallback().filter((r) => r.id !== params.requestId)
+  writeLocalMirror(remaining)
 }

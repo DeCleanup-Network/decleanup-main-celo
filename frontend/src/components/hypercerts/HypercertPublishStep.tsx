@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ExternalLink, Info, Loader2 } from 'lucide-react'
+import { ExternalLink, Loader2 } from 'lucide-react'
 import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
@@ -13,6 +13,8 @@ type Props = {
   pending: boolean
   publishResult?: string
   onPublish: (requestId: string) => void
+  onCancel?: (requestId: string) => void
+  cancelPending?: boolean
 }
 
 export function HypercertPublishStep({
@@ -21,6 +23,8 @@ export function HypercertPublishStep({
   pending,
   publishResult,
   onPublish,
+  onCancel,
+  cancelPending,
 }: Props) {
   if (requests.length === 0) return null
 
@@ -69,10 +73,10 @@ export function HypercertPublishStep({
                   <button
                     type="button"
                     onClick={() => onPublish(request.id)}
-                    disabled={!canSign || pending}
+                    disabled={!canSign || pending || cancelPending}
                     className={cn(
                       'flex w-full items-center justify-center gap-2 rounded-full py-3 font-heading text-lg uppercase tracking-widest transition-all disabled:cursor-not-allowed',
-                      canSign && !pending
+                      canSign && !pending && !cancelPending
                         ? 'border-2 border-brand-green bg-brand-green text-black hover:border-white hover:bg-white'
                         : 'border border-border bg-muted text-muted-foreground opacity-50'
                     )}
@@ -80,6 +84,16 @@ export function HypercertPublishStep({
                     {pending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
                     Publish Hypercert
                   </button>
+                  {onCancel ? (
+                    <button
+                      type="button"
+                      onClick={() => onCancel(request.id)}
+                      disabled={!canSign || pending || cancelPending}
+                      className="mt-2 w-full text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {cancelPending ? 'Withdrawing…' : 'Withdraw and start over'}
+                    </button>
+                  ) : null}
                 </TransactionActionBlock>
               ) : null}
             </li>
@@ -87,13 +101,17 @@ export function HypercertPublishStep({
         })}
       </ul>
 
-      <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span>
-          Your certificate is stored on-chain via AT Protocol and appears on Hyperscan. You sign a message to
-          confirm — not a Celo transaction — so no CELO gas is charged to your wallet. DeCleanup publishes the
-          record using network AT credentials after you sign.
-        </span>
+      <p className="mt-4 text-xs text-muted-foreground">
+        Your certificate is stored on-chain via AT Protocol and appears on{' '}
+        <Link
+          href="https://www.hyperscan.dev"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-brand-green hover:underline"
+        >
+          Hyperscan
+        </Link>
+        .
       </p>
 
       {publishResult && !pending ? (

@@ -52,16 +52,21 @@ export async function publishHypercertToAtProto(
       return { success: true, atUri: request.atUri, atCid: request.atCid }
     }
 
-    // 2. Fetch impact entries and photos
-    const impactEntries = await getImpactEntriesByRequestId(requestId)
+    // 2. Fetch impact entries and photos (best-effort enrichment)
+    let impactEntries: Awaited<ReturnType<typeof getImpactEntriesByRequestId>> = []
     const photos: CleanupPhoto[] = []
-    for (const entry of impactEntries) {
-      const entryPhotos = await getCleanupPhotosBySubmissionId(entry.submissionId)
-      photos.push(...entryPhotos)
+    try {
+      impactEntries = await getImpactEntriesByRequestId(requestId)
+      for (const entry of impactEntries) {
+        const entryPhotos = await getCleanupPhotosBySubmissionId(entry.submissionId)
+        photos.push(...entryPhotos)
+      }
+    } catch (err) {
+      console.warn(`[ATProto] Impact enrichment skipped for ${requestId}:`, err)
     }
 
-    // 3. Map to AT records
-    const orgDid = getAtProtoOrgDid()
+    // 3. Map to AT records — org DID must match AT login (validated in publishActivity)
+    const orgDid = getAtProtoOrgDid().trim()
     const finalVerifierDid = verifierDid || orgDid
 
     const records = mapToAtProtoRecords({

@@ -6,6 +6,7 @@ import {
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById } from '@/lib/supabase/hypercert-requests-db'
 import { isAtProtoEnabled, getAtProtoOrgDid, getAtProtoConfigError } from '@/lib/blockchain/hypercerts/atproto'
+import { testAtProtoConnection } from '@/lib/blockchain/hypercerts/atproto/client'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
 
 export const runtime = 'nodejs'
@@ -86,7 +87,13 @@ export async function POST(request: NextRequest) {
     const result = await publishHypercertToAtProto(requestId, getAtProtoOrgDid())
     if (!result.success) {
       console.error(`[Hypercert publish] ${requestId}:`, result.error)
-      return NextResponse.json({ error: result.error ?? 'Publish failed' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: result.error ?? 'Publish failed',
+          previousError: existing.atPublishError ?? null,
+        },
+        { status: 500 }
+      )
     }
 
     const updated = await getHypercertRequestById(requestId)
@@ -104,12 +111,24 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** GET: AT publish env diagnostic (no secrets). */
+/** GET: AT publish env + PDS login diagnostic (no secrets). */
 export async function GET() {
   const configError = getAtProtoConfigError()
+  const connection = configError ? null : await testAtProtoConnection()
+
   return NextResponse.json({
     atProtoEnabled: isAtProtoEnabled(),
     configOk: !configError,
-    hint: configError ?? 'AT Protocol env looks complete. If publish still fails, check server logs for PDS errors.',
+    configHint: configError,
+    pdsLoginOk: connection?.ok ?? false,
+    pdsLoginError: connection?.error ?? configError,
+    sessionDid: connection?.sessionDid,
+    configuredDid: connection?.configuredDid,
+    didMatch: connection?.didMatch,
+    hint:
+      configError ??
+      (connection?.ok
+        ? 'AT login succeeded. If publish still fails, read the error under the Publish button or POST response body.'
+        : connection?.error ?? 'PDS login failed — fix AT credentials on the server.'),
   })
 }
