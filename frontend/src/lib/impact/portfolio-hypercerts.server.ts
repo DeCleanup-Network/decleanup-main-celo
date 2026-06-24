@@ -8,21 +8,22 @@ import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 function requestToPortfolioRecord(
   req: Awaited<ReturnType<typeof listHypercertRequestsForPortfolio>>[number],
   contributorAddress: Address
-): PortfolioHypercertRecord {
+): PortfolioHypercertRecord | null {
+  if (!req.atUri) return null
   const timeframe = req.metadata?.hypercert?.work_timeframe?.value
   return {
-    hypercertId: req.hypercertId ?? req.id,
-    metadataCid: req.metadataCid ?? '',
-    txHash: req.txHash,
+    requestId: req.id,
+    atUri: req.atUri,
+    title: req.metadata?.name,
     status: req.status,
     workTimeframeStart: timeframe?.[0],
     workTimeframeEnd: timeframe?.[1],
-    mintedAt: req.reviewedAt ?? req.submittedAt,
+    publishedAt: req.atPublishedAt ?? req.reviewedAt ?? req.submittedAt,
     contributorAddress,
   }
 }
 
-/** Option B: load hypercerts by EOA with legacy Safe requester fallback; display contributor as EOA. */
+/** Load published hypercerts by EOA with legacy Safe requester fallback. */
 export async function fetchPortfolioHypercerts(
   eoaAddress: Address,
   legacySmartAccount?: Address | null
@@ -47,7 +48,8 @@ export async function fetchPortfolioHypercerts(
   const out: PortfolioHypercertRecord[] = []
   for (const req of requests) {
     const contributor = await resolveContributor(req.requester)
-    out.push(requestToPortfolioRecord(req, contributor))
+    const record = requestToPortfolioRecord(req, contributor)
+    if (record) out.push(record)
   }
   return out
 }

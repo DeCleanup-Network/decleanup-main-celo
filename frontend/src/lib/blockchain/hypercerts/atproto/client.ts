@@ -69,7 +69,7 @@ export async function publishAttachment(
   const response = await agent.com.atproto.repo.createRecord({
     repo: getAtProtoOrgDid(),
     collection: 'org.hypercerts.context.attachment',
-    record: { ...(record as object), subject: parent } as never,
+    record: { ...(record as object), subjects: [parent] } as never,
   })
   const { uri, cid } = response as unknown as { uri: string; cid: string }
   return { uri, cid }
@@ -84,7 +84,7 @@ export async function publishMeasurement(
   const response = await agent.com.atproto.repo.createRecord({
     repo: getAtProtoOrgDid(),
     collection: 'org.hypercerts.context.measurement',
-    record: { ...(record as object), subject: parent } as never,
+    record: { ...(record as object), subjects: [parent] } as never,
   })
   const { uri, cid } = response as unknown as { uri: string; cid: string }
   return { uri, cid }

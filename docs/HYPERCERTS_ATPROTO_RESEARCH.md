@@ -302,4 +302,12 @@ No contract changes in Phase 1.
 | ATProto community thread | https://discourse.atprotocol.community/t/hypercerts-recognizing-and-rewarding-impact-atproto-implementation/347 |
 | DeCleanup hypercerts code | `frontend/src/lib/blockchain/hypercerts/` |
 
-**Support:** decentralizedcleanup@gmail.com
+Questions worth asking:
+
+Is Celo HypercertMinterUUPS still supported or sunset?
+Recommended path for existing EVM apps (dual-write vs migrate-only)?
+IdentityLink status for Celo wallets?
+Can DeCleanup Network use an org SDS for issued certs?
+How should verifier evaluation map to evaluation lexicon?
+Is there a Celo-specific anchor spec yet?
+Contact: hypercerts.org/contact, strategy memo mentions Ma Earth / Foundation partners.

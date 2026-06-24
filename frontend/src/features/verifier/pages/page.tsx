@@ -739,7 +739,7 @@ export default function VerifierPage() {
       setActionModal({
         variant: 'success',
         title: 'Hypercert approved',
-        message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can mint from the Hypercerts page when ready.`,
+        message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe certificate will publish to Hyperscan automatically.`,
       })
 
       loadHypercertRequests()
@@ -1170,7 +1170,7 @@ export default function VerifierPage() {
                       ) : (
                         <>
                           <CheckCircle className="mr-2 h-4 w-4" />
-                          Approve & Mint
+                          Approve
                         </>
                       )}
                     </Button>

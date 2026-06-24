@@ -37,22 +37,3 @@ export function buildReviewMessage(params: {
     `Timestamp: ${params.timestamp}`,
   ].join('\n')
 }
-
-export function buildMintRecordMessage(params: {
-  requestId: string
-  requester: Address
-  hypercertId: string
-  txHash: string
-  metadataCid: string
-  timestamp: number
-}): string {
-  return [
-    'DeCleanup Hypercert Mint Record v1',
-    `RequestId: ${params.requestId}`,
-    `Requester: ${params.requester.toLowerCase()}`,
-    `HypercertId: ${params.hypercertId}`,
-    `TxHash: ${params.txHash}`,
-    `MetadataCid: ${params.metadataCid}`,
-    `Timestamp: ${params.timestamp}`,
-  ].join('\n')
-}

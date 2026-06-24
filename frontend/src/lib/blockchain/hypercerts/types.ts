@@ -24,6 +24,10 @@ export interface HypercertEligibilityResult {
   reason?: string
   cleanupsCount: number
   reportsCount: number
+  /** Published certificates (AT URI on file) for this wallet. */
+  publishedCount?: number
+  /** Verified cleanups required to unlock the next request. */
+  nextMilestoneCleanups?: number
   testingOverride?: boolean
 }
 

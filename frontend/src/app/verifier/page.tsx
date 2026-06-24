@@ -28,6 +28,7 @@ import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { buildVerifierContext } from '@/lib/blockchain/hypercerts/aggregation'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { AlertModal } from '@/components/ui/alert-modal'
+import { TransactionActionBlock, TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
 import { OptionalSubmissionVideo } from '@/components/verifier/OptionalSubmissionVideo'
@@ -740,14 +741,12 @@ export default function VerifierPage() {
                 throw new Error('Failed to approve request')
             }
             
-            // TODO: In Phase 6, this will call the actual onchain mint function
-            // For now, just update the UI
             console.log('✅ Hypercert request approved:', approvedRequest.id)
             
             setActionModal({
                 variant: 'success',
                 title: 'Hypercert approved',
-                message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can mint from the Hypercerts page when ready.`,
+                message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe certificate will publish to Hyperscan automatically.`,
             })
             
             // Refresh the data
@@ -879,6 +878,7 @@ export default function VerifierPage() {
                                 <span className="text-gray-400">Your address:</span> {address}
                             </p>
                         </div>
+                        <TransactionActionBlock pending={isSigning || loading}>
                         <Button
                             onClick={handleSignIn}
                             disabled={isSigning || loading}
@@ -896,6 +896,7 @@ export default function VerifierPage() {
                                 </>
                             )}
                         </Button>
+                        </TransactionActionBlock>
                     </div>
                 </div>
             </div>
@@ -949,6 +950,9 @@ export default function VerifierPage() {
     const verifiedCleanups = cleanups.filter(c => c.verified)
     const rejectedCleanups = cleanups.filter(c => c.rejected)
 
+    const verifierActionPending =
+      processingId !== null || processingRequestId !== null || processingVerifierAppId !== null
+
     return (
         <div className="min-h-screen bg-background px-4 py-6 sm:py-8">
             <div className="mx-auto max-w-[1200px]">
@@ -977,6 +981,12 @@ export default function VerifierPage() {
                         </Link>
                     }
                 />
+
+                {verifierActionPending ? (
+                  <div className="mb-4">
+                    <TransactionWaitNotice active />
+                  </div>
+                ) : null}
 
                 {/* Stats */}
                 <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">

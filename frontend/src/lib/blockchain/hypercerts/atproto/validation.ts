@@ -5,12 +5,24 @@ import {
   OrgHypercertsContextEvaluation,
 } from '@hypercerts-org/lexicon'
 
+function formatValidationIssues(issues: unknown): string {
+  if (issues instanceof Error) return issues.message
+  if (typeof issues === 'string') return issues
+  try {
+    const serialized = JSON.stringify(issues)
+    if (serialized && serialized !== '{}') return serialized
+  } catch {
+    // fall through
+  }
+  return String(issues)
+}
+
 export class LexiconValidationError extends Error {
   constructor(
     public readonly nsid: string,
     public readonly issues: unknown,
   ) {
-    super(`Lexicon validation failed for ${nsid}: ${JSON.stringify(issues)}`)
+    super(`Lexicon validation failed for ${nsid}: ${formatValidationIssues(issues)}`)
     this.name = 'LexiconValidationError'
   }
 }

@@ -30,6 +30,7 @@ import { notifyVerifierTelegramOfSubmission } from '@/lib/client/notify-verifier
 import { resolveEnsToAddress } from '@/lib/utils/ens'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import type { Address } from 'viem'
 import { normalizeReferrerAddress } from '@/lib/wallet/normalize-referrer-address'
 import {
@@ -2960,6 +2961,10 @@ function CleanupContent() {
               </Link>
             </Button>
           ) : (
+            <TransactionActionBlock
+              pending={isSubmitting || Boolean(uploadPhase)}
+              showHint={validation.hasStartedFilling}
+            >
             <div className="flex gap-4">
               <Button
                 variant="outline"
@@ -2995,6 +3000,7 @@ function CleanupContent() {
                 )}
               </Button>
             </div>
+            </TransactionActionBlock>
           )}
         </div>
       </div>
@@ -3176,6 +3182,7 @@ function CleanupContent() {
               </Link>
             </Button>
           ) : (
+            <TransactionActionBlock pending={isSubmitting || Boolean(uploadPhase)}>
             <div className="flex gap-4">
               <Button
                 variant="outline"
@@ -3210,6 +3217,7 @@ function CleanupContent() {
                 )}
               </Button>
             </div>
+            </TransactionActionBlock>
           )}
         </div>
       </div>

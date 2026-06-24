@@ -1,48 +1,109 @@
-import type { HypercertRequest } from '../types'
+import type { HypercertRequest, HypercertBranding } from '../types'
 import type { ImpactEntry } from '@/lib/impact/types'
 import type { AtProtoRecords, CleanupPhoto, PublishContext } from './types'
+
+const WORK_SCOPE_STRING = 'org.hypercerts.claim.activity#workScopeString'
+const CONTRIBUTOR_IDENTITY = 'org.hypercerts.claim.activity#contributorIdentity'
+const CONTRIBUTOR_ROLE = 'org.hypercerts.claim.activity#contributorRole'
+const DEFS_URI = 'org.hypercerts.defs#uri'
+const CERTIFIED_DID = 'app.certified.defs#did'
+
+function defsUri(uri: string) {
+  return { $type: DEFS_URI, uri }
+}
+
+function certifiedDid(did: string) {
+  return { $type: CERTIFIED_DID, did }
+}
 
 /**
  * Builds a readable workScope string from the request metadata.
  * Uses work_scope.display_value (already formatted by metadata builder).
  */
-function mapWorkScope(request: HypercertRequest): { scope: string; type: 'string' } {
-  const metadata = request.metadata as any
-  const hypercert = metadata.hypercert || {}
-  const displayValue = hypercert.work_scope?.display_value
+function mapWorkScope(request: HypercertRequest) {
+  const metadata = request.metadata as unknown as Record<string, unknown>
+  const hypercert = (metadata.hypercert || {}) as Record<string, unknown>
+  const workScope = hypercert.work_scope as { display_value?: string } | undefined
+  const displayValue = workScope?.display_value
 
-  if (displayValue) {
-    return { scope: `Cleanup / ${displayValue}`, type: 'string' }
+  const scope = displayValue
+    ? `Cleanup / ${displayValue}`
+    : 'Cleanup / Environmental cleanup'
+
+  return { $type: WORK_SCOPE_STRING, scope }
+}
+
+function mapContributors(orgDid: string) {
+  return [
+    {
+      contributorIdentity: { $type: CONTRIBUTOR_IDENTITY, identity: orgDid },
+      contributionDetails: { $type: CONTRIBUTOR_ROLE, role: 'issuer' },
+    },
+  ]
+}
+
+function resolveActivityImage(metadata: Record<string, unknown>): string | undefined {
+  const branding = metadata.branding as
+    | { bannerImageCid?: string; logoImageCid?: string }
+    | undefined
+
+  const bannerCid = branding?.bannerImageCid
+  if (bannerCid) return `ipfs://${bannerCid}`
+
+  const logoCid = branding?.logoImageCid
+  if (logoCid) return `ipfs://${logoCid}`
+
+  const image = metadata.image
+  if (typeof image === 'string' && image.startsWith('ipfs://')) {
+    return image
   }
 
-  return { scope: 'Cleanup / Environmental cleanup', type: 'string' }
+  return undefined
 }
 
-function mapContributors(orgDid: string): Array<{ identity: string; role: string }> {
-  // Phase 1: only the org appears as contributor.
-  // User wallets preserved in attachment metadata until IdentityLink is ready.
-  return [{ identity: orgDid, role: 'issuer' }]
-}
-
-function mapAttachments(photos: CleanupPhoto[], metadataCid?: string): AtProtoRecords['attachments'] {
+function mapAttachments(
+  photos: CleanupPhoto[],
+  metadataCid?: string,
+  branding?: HypercertBranding
+): AtProtoRecords['attachments'] {
   const attachments: AtProtoRecords['attachments'] = photos.map((photo) => ({
     $type: 'org.hypercerts.context.attachment',
     contentType: photo.type === 'evidence' ? 'evidence' : 'report',
     title: `${photo.type} photo`,
-    description: `${photo.type} photo from cleanup`,
-    uri: `ipfs://${photo.cid}`,
-    mimeType: photo.mimeType,
+    shortDescription: `${photo.type} photo from cleanup`,
+    content: [defsUri(`ipfs://${photo.cid}`)],
     createdAt: new Date().toISOString(),
   }))
+
+  if (branding?.bannerImageCid) {
+    attachments.push({
+      $type: 'org.hypercerts.context.attachment',
+      contentType: 'report',
+      title: 'Certificate banner',
+      shortDescription: 'Hypercert branding banner',
+      content: [defsUri(`ipfs://${branding.bannerImageCid}`)],
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  if (branding?.logoImageCid) {
+    attachments.push({
+      $type: 'org.hypercerts.context.attachment',
+      contentType: 'report',
+      title: 'Certificate logo',
+      shortDescription: 'Hypercert branding logo',
+      content: [defsUri(`ipfs://${branding.logoImageCid}`)],
+      createdAt: new Date().toISOString(),
+    })
+  }
 
   if (metadataCid) {
     attachments.push({
       $type: 'org.hypercerts.context.attachment',
       contentType: 'methodology',
       title: 'Hypercert metadata (IPFS)',
-      description: 'Original ERC-1155 metadata JSON',
-      uri: `ipfs://${metadataCid}`,
-      mimeType: 'application/json',
+      shortDescription: 'Original ERC-1155 metadata JSON',
+      content: [defsUri(`ipfs://${metadataCid}`)],
       createdAt: new Date().toISOString(),
     })
   }
@@ -57,10 +118,10 @@ function mapMeasurements(entries: ImpactEntry[]): AtProtoRecords['measurements']
   if (totalWeightKg > 0) {
     measurements.push({
       $type: 'org.hypercerts.context.measurement',
-      name: 'waste_collected_kg',
-      value: totalWeightKg,
+      metric: 'waste_collected_kg',
+      value: String(totalWeightKg),
       unit: 'kg',
-      description: 'Total waste collected',
+      comment: 'Total waste collected',
       createdAt: new Date().toISOString(),
     })
   }
@@ -69,10 +130,10 @@ function mapMeasurements(entries: ImpactEntry[]): AtProtoRecords['measurements']
   if (totalAreaSqm > 0) {
     measurements.push({
       $type: 'org.hypercerts.context.measurement',
-      name: 'area_cleaned_sqm',
-      value: totalAreaSqm,
+      metric: 'area_cleaned_sqm',
+      value: String(totalAreaSqm),
       unit: 'm²',
-      description: 'Total cleaned area',
+      comment: 'Total cleaned area',
       createdAt: new Date().toISOString(),
     })
   }
@@ -81,10 +142,10 @@ function mapMeasurements(entries: ImpactEntry[]): AtProtoRecords['measurements']
   if (totalBags > 0) {
     measurements.push({
       $type: 'org.hypercerts.context.measurement',
-      name: 'bags_collected',
-      value: totalBags,
+      metric: 'bags_collected',
+      value: String(totalBags),
       unit: 'bags',
-      description: 'Total bags of waste',
+      comment: 'Total bags of waste',
       createdAt: new Date().toISOString(),
     })
   }
@@ -93,10 +154,10 @@ function mapMeasurements(entries: ImpactEntry[]): AtProtoRecords['measurements']
   if (totalMinutes > 0) {
     measurements.push({
       $type: 'org.hypercerts.context.measurement',
-      name: 'total_time_minutes',
-      value: totalMinutes,
+      metric: 'total_time_minutes',
+      value: String(totalMinutes),
       unit: 'minutes',
-      description: 'Total cleanup time',
+      comment: 'Total cleanup time',
       createdAt: new Date().toISOString(),
     })
   }
@@ -107,36 +168,47 @@ function mapMeasurements(entries: ImpactEntry[]): AtProtoRecords['measurements']
 function mapEvaluation(verifierDid: string, request: HypercertRequest): AtProtoRecords['evaluation'] {
   return {
     $type: 'org.hypercerts.context.evaluation',
-    author: verifierDid,
+    evaluators: [certifiedDid(verifierDid)],
+    summary: 'Verified by DeCleanup Network',
     createdAt: new Date().toISOString(),
-    status: 'approved',
-    comments: 'Verified by DeCleanup Network',
-    ...(request.metadataCid && { evidenceURI: [`ipfs://${request.metadataCid}`] }),
+    ...(request.metadataCid
+      ? { content: [defsUri(`ipfs://${request.metadataCid}`)] }
+      : {}),
   }
 }
 
 export function mapToAtProtoRecords(context: PublishContext): AtProtoRecords {
   const { request, impactEntries, photos, orgDid, verifierDid } = context
-  const metadata = request.metadata as any
-  const hypercert = metadata.hypercert || {}
+  const metadata = request.metadata as unknown as Record<string, unknown>
+  const hypercert = (metadata.hypercert || {}) as Record<string, unknown>
 
   // work_timeframe.value = [startMs, endMs] (HypercertDimension)
-  const tf: number[] = hypercert.work_timeframe?.value || []
+  const tf = (hypercert.work_timeframe as { value?: number[] } | undefined)?.value || []
   const startDate = tf[0] ? new Date(tf[0]).toISOString() : new Date().toISOString()
   const endDate = tf[1] ? new Date(tf[1]).toISOString() : new Date().toISOString()
 
+  const branding = metadata.branding as HypercertBranding | undefined
+  const activityImage = resolveActivityImage(metadata)
+
   const activity = {
     $type: 'org.hypercerts.claim.activity',
-    title: metadata.name || 'DeCleanup Impact Certificate',
-    shortDescription: metadata.description || 'Verified cleanup impact',
+    title:
+      (typeof metadata.name === 'string' && metadata.name) ||
+      branding?.title ||
+      'DeCleanup Impact Certificate',
+    shortDescription:
+      (typeof metadata.description === 'string' && metadata.description) ||
+      branding?.description ||
+      'Verified cleanup impact',
     createdAt: new Date().toISOString(),
     workScope: mapWorkScope(request),
     startDate,
     endDate,
     contributors: mapContributors(orgDid),
+    ...(activityImage ? { image: defsUri(activityImage) } : {}),
   }
 
-  const attachments = mapAttachments(photos, request.metadataCid)
+  const attachments = mapAttachments(photos, request.metadataCid, branding)
   const measurements = mapMeasurements(impactEntries)
   const evaluation = mapEvaluation(verifierDid, request)
 

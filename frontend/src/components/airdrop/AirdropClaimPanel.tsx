@@ -15,6 +15,7 @@ import { lockedSwitchToRequiredChain } from '@/lib/blockchain/wallet-write-mutex
 import { getAccount } from '@wagmi/core'
 import { formatAddress } from '@/lib/utils/format-address'
 import { Button } from '@/components/ui/button'
+import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import { Loader2, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
@@ -510,6 +511,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   </a>
                 </div>
               )}
+              <TransactionActionBlock pending={claimLoading}>
               <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={() => void handleClaim()}
@@ -576,6 +578,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                 </p>
               ) : null}
               </div>
+              </TransactionActionBlock>
             </div>
           )}
         </section>

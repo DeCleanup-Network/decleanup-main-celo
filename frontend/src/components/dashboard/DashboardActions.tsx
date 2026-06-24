@@ -5,6 +5,7 @@ import { Leaf, Award, Loader2, Clock, Shield, Heart, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { ActionHint } from '@/components/ui/action-hint'
+import { TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
@@ -114,7 +115,7 @@ export function DashboardActions({
                 </ActionHint>
 
                 {cleanupStatus?.canClaim ? (
-                    <ActionHint hint="Get your Impact Product and level-tied rewards">
+                    <ActionHint hint="Get your Impact Product and level-tied rewards. Keep this page open after you tap — your wallet may ask you to approve in a few seconds.">
                         <button
                             type="button"
                             onClick={(e) => {
@@ -167,6 +168,12 @@ export function DashboardActions({
                     </Link>
                 </ActionHint>
             </div>
+
+            {isClaiming ? (
+              <div className="mx-auto mt-3 w-full max-w-lg">
+                <TransactionWaitNotice active />
+              </div>
+            ) : null}
 
             <div className="mx-auto mt-4 w-full max-w-2xl border-t border-border/50 pt-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">

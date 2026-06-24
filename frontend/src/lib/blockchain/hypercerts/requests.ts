@@ -1,28 +1,24 @@
 import { keccak256, stringToBytes } from 'viem'
 import type { Address } from 'viem'
 import type { HypercertMetadata, HypercertRequest, HypercertRequestStatus } from './types'
-import {
-  buildCreateRequestMessageCompact,
-  buildMintRecordMessage,
-  buildReviewMessage,
-} from './request-signing'
+import { buildCreateRequestMessageCompact, buildReviewMessage } from './request-signing'
 
 const STORAGE_KEY = 'hypercert_requests'
 
-function migrateRequest(r: HypercertRequest): HypercertRequest {
-  if (r.hypercertId && r.status === 'APPROVED') {
-    return { ...r, status: 'MINTED' as const }
-  }
-  return r
+/** Certificate is live on AT Protocol (Hyperscan). */
+export function isHypercertPublished(req: HypercertRequest): boolean {
+  return Boolean(req.atUri)
 }
 
-/** True while a request is waiting on verifiers or the user still needs to mint an approved cert. */
+/** True while a request is pending review or approved but not yet published to AT. */
 export function hasOpenHypercertWorkflow(requests: HypercertRequest[]): boolean {
   return requests.some(
-    (req) =>
-      req.status === 'PENDING' ||
-      (req.status === 'APPROVED' && !req.hypercertId)
+    (req) => req.status === 'PENDING' || (req.status === 'APPROVED' && !isHypercertPublished(req))
   )
+}
+
+export function countPublishedHypercerts(requests: HypercertRequest[]): number {
+  return requests.filter(isHypercertPublished).length
 }
 
 function readLocalFallback(): HypercertRequest[] {
@@ -30,7 +26,7 @@ function readLocalFallback(): HypercertRequest[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     const raw: HypercertRequest[] = stored ? JSON.parse(stored) : []
-    return raw.map(migrateRequest)
+    return raw
   } catch {
     return []
   }
@@ -159,7 +155,7 @@ function submitHypercertRequestLocalFallback(requester: string, metadata: Hyperc
   const existing = readLocalFallback().filter((r) => r.requester.toLowerCase() === requester.toLowerCase())
   if (hasOpenHypercertWorkflow(existing)) {
     throw new Error(
-      'Finish your open Hypercert request first: wait for review, mint an approved certificate, or wait for a rejection before submitting a new request.'
+      'Finish your open Hypercert request first: wait for review and AT publication, or wait for a rejection before submitting a new request.'
     )
   }
   const request: HypercertRequest = {
@@ -280,75 +276,6 @@ function rejectHypercertRequestLocal(params: {
   request.reviewedAt = Date.now()
   request.reviewedBy = params.verifierAddress
   request.rejectionReason = params.reason
-  writeLocalMirror(requests)
-  return request
-}
-
-export async function updateRequestWithHypercertId(
-  requestId: string,
-  hypercertId: string,
-  txHash?: string,
-  metadataCid?: string,
-  opts?: {
-    requester: string
-    signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>
-  }
-): Promise<HypercertRequest | null> {
-  if (opts?.requester && opts.signMessageAsync && txHash && metadataCid) {
-    const timestamp = Date.now()
-    const message = buildMintRecordMessage({
-      requestId,
-      requester: opts.requester as Address,
-      hypercertId,
-      txHash,
-      metadataCid,
-      timestamp,
-    })
-    const signature = await opts.signMessageAsync({ message })
-
-    const res = await fetch('/api/hypercerts/requests/mint', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestId,
-        requester: opts.requester,
-        hypercertId,
-        txHash,
-        metadataCid,
-        timestamp,
-        signature,
-      }),
-    })
-
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.success || !data?.request) {
-      if (res.status === 503) {
-        return updateRequestWithHypercertIdLocal(requestId, hypercertId, txHash, metadataCid)
-      }
-      console.error('updateRequestWithHypercertId:', data?.error)
-      return null
-    }
-    const updated = data.request as HypercertRequest
-    writeLocalMirror(mergeUniqueById([updated], readLocalFallback()))
-    return updated
-  }
-
-  return updateRequestWithHypercertIdLocal(requestId, hypercertId, txHash, metadataCid)
-}
-
-function updateRequestWithHypercertIdLocal(
-  requestId: string,
-  hypercertId: string,
-  txHash?: string,
-  metadataCid?: string
-): HypercertRequest | null {
-  const requests = readLocalFallback()
-  const request = requests.find((req) => req.id === requestId)
-  if (!request) return null
-  request.hypercertId = hypercertId
-  request.status = 'MINTED'
-  if (txHash) request.txHash = txHash
-  if (metadataCid) request.metadataCid = metadataCid
   writeLocalMirror(requests)
   return request
 }

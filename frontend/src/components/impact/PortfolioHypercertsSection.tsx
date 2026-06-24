@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ExternalLink, Layers } from 'lucide-react'
 import type { PortfolioHypercertRecord } from '@/lib/impact/public-portfolio-shared'
+import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
 
 type Props = {
   hypercerts: PortfolioHypercertRecord[]
@@ -11,56 +12,40 @@ type Props = {
   timeframeEnd?: number
 }
 
-/** Preview row shown until `hypercerts[]` is wired from API; documents disclosure fields. */
-const PLACEHOLDER_ROW: PortfolioHypercertRecord = {
-  hypercertId: 'bafy…pending',
-  metadataCid: 'bafy…pending',
-  txHash: '0x…pending',
-  status: 'PENDING',
-  workTimeframeStart: undefined,
-  workTimeframeEnd: undefined,
-}
-
-function truncateMiddle(value: string, head = 8, tail = 6): string {
-  if (!value) return '-'
-  if (value.length <= head + tail + 3) return value
-  return `${value.slice(0, head)}...${value.slice(-tail)}`
-}
-
 function formatDate(ms?: number): string {
   if (!ms || !Number.isFinite(ms)) return '-'
   return new Date(ms).toLocaleDateString()
 }
 
-function HypercertTableRow({
-  row,
-  placeholder = false,
-}: {
-  row: PortfolioHypercertRecord
-  placeholder?: boolean
-}) {
+function HypercertTableRow({ row }: { row: PortfolioHypercertRecord }) {
+  const hyperscanUrl = row.atUri ? buildHyperscanHypercertUrl(row.atUri) : null
+
   return (
-    <tr
-      className={
-        placeholder
-          ? 'border-b border-dashed border-border/50 text-muted-foreground/70'
-          : 'border-b border-border/40 last:border-0'
-      }
-    >
-      <td className="px-3 py-2 font-mono">
-        {truncateMiddle(row.hypercertId, 10, 8)}
-        {placeholder ? (
-          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">placeholder</span>
-        ) : null}
+    <tr className="border-b border-border/40 last:border-0">
+      <td className="px-3 py-2">
+        {row.title ?? 'Impact certificate'}
       </td>
-      <td className="px-3 py-2 font-mono">{truncateMiddle(row.metadataCid, 10, 8)}</td>
-      <td className="px-3 py-2 font-mono">
+      <td className="px-3 py-2 font-mono text-[11px]">
         {row.workTimeframeStart && row.workTimeframeEnd
           ? `${formatDate(row.workTimeframeStart)} – ${formatDate(row.workTimeframeEnd)}`
           : '-'}
       </td>
-      <td className="px-3 py-2 font-mono">{row.txHash ? truncateMiddle(row.txHash, 8, 6) : '-'}</td>
-      <td className="px-3 py-2">{row.status}</td>
+      <td className="px-3 py-2">
+        {hyperscanUrl ? (
+          <Link
+            href={hyperscanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-brand-green hover:underline"
+          >
+            Hyperscan
+            <ExternalLink className="h-3 w-3" aria-hidden />
+          </Link>
+        ) : (
+          '-'
+        )}
+      </td>
+      <td className="px-3 py-2">{formatDate(row.publishedAt)}</td>
     </tr>
   )
 }
@@ -73,7 +58,7 @@ export function PortfolioHypercertsSection({
   timeframeStart,
   timeframeEnd,
 }: Props) {
-  const hasMinted = hypercerts.length > 0
+  const hasPublished = hypercerts.length > 0
 
   return (
     <section className="rounded-xl border border-border bg-card p-4">
@@ -84,7 +69,7 @@ export function PortfolioHypercertsSection({
           </p>
           <h2 className="font-heading text-xl tracking-wider">Impact Hypercerts</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Bundled onchain impact records derived from verified cleanups
+            Milestone certificates published on AT Protocol (Hyperscan)
           </p>
         </div>
         <Link
@@ -99,7 +84,7 @@ export function PortfolioHypercertsSection({
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { label: 'Hypercert DCU', value: hypercertsDcu },
-          { label: 'Minted', value: hypercerts.length },
+          { label: 'Published', value: hypercerts.length },
           { label: 'Eligible cleanups', value: verifiedCleanups },
           { label: 'Impact reports', value: verifiedReports },
         ].map((s) => (
@@ -117,28 +102,30 @@ export function PortfolioHypercertsSection({
       ) : null}
 
       <div className="mt-4 overflow-x-auto rounded-md border border-border/60">
-        <table className="w-full min-w-[36rem] text-left text-xs">
+        <table className="w-full min-w-[28rem] text-left text-xs">
           <thead>
             <tr className="border-b border-border/60 text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Hypercert ID</th>
-              <th className="px-3 py-2 font-medium">Metadata CID</th>
+              <th className="px-3 py-2 font-medium">Certificate</th>
               <th className="px-3 py-2 font-medium">Work timeframe</th>
-              <th className="px-3 py-2 font-medium">Mint tx</th>
-              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Hyperscan</th>
+              <th className="px-3 py-2 font-medium">Published</th>
             </tr>
           </thead>
           <tbody>
-            {hasMinted ? (
-              hypercerts.map((h) => <HypercertTableRow key={h.hypercertId} row={h} />)
+            {hasPublished ? (
+              hypercerts.map((h) => <HypercertTableRow key={h.requestId} row={h} />)
             ) : (
-              /* TODO: replace when hypercerts[] is populated from /api/hypercerts + mint index */
-              <HypercertTableRow row={PLACEHOLDER_ROW} placeholder />
+              <tr>
+                <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                  No published Hypercerts yet.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {!hasMinted ? (
+      {!hasPublished ? (
         <div
           className="mt-3 flex items-start gap-3 rounded-md border border-dashed border-border/80 bg-background/30 p-3"
           aria-label="Hypercerts data pending"
@@ -147,9 +134,8 @@ export function PortfolioHypercertsSection({
             <Layers className="h-4 w-4 text-brand-green" aria-hidden />
           </span>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            No hypercerts minted for this portfolio yet. When live, rows above will show real hypercert ID, IPFS metadata CID, work timeframe, and mint transaction, wired from{' '}
-            <code className="font-mono text-[10px] text-foreground/80">data.hypercerts</code> in{' '}
-            <code className="font-mono text-[10px] text-foreground/80">public-portfolio-data.ts</code>.
+            Request a Hypercert from the hub after reaching your cleanup milestone. Approved certificates
+            publish automatically to Hyperscan.
           </p>
         </div>
       ) : null}

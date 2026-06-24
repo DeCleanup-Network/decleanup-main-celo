@@ -36,7 +36,10 @@ export async function publishHypercertToAtProto(
     }
 
     if (request.status !== 'APPROVED') {
-      return { success: false, error: `Request ${requestId} is not approved` }
+      return {
+        success: false,
+        error: `Request ${requestId} is not approved (status: ${request.status})`,
+      }
     }
 
     // Idempotency: if already published, return existing

@@ -4,7 +4,7 @@ import { buildPageMetadata } from '@/lib/seo/metadata'
 export const metadata: Metadata = buildPageMetadata({
   title: 'Hypercerts',
   description:
-    'Bundle verified cleanups into Hypercerts on DeCleanup Rewards and Celo.',
+    'Bundle verified cleanups into Hypercerts on DeCleanup Rewards — published on AT Protocol (Hyperscan).',
   path: '/hypercerts',
 })
 

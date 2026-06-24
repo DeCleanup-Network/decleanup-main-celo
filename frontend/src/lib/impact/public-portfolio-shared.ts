@@ -75,24 +75,22 @@ export type CumulativeImpactMetrics = {
   wasteTypeCounts: Record<string, number>
 }
 
-/** Minted hypercert row for public portfolio disclosure. */
+/** Published hypercert row for public portfolio disclosure. */
 export type PortfolioHypercertRecord = {
-  hypercertId: string
-  metadataCid: string
-  txHash?: string
+  requestId: string
+  atUri?: string
+  title?: string
   status: 'MINTED' | 'APPROVED' | 'PENDING' | 'REJECTED'
   workTimeframeStart?: number
   workTimeframeEnd?: number
-  mintedAt?: number
+  publishedAt?: number
   /** Public contributor identity (EOA); resolved from legacy Safe requester when needed. */
   contributorAddress?: string
 }
 
 /** Shape reference for portfolio hypercert table; not used in production payloads. */
 export const PORTFOLIO_HYPERCERT_PLACEHOLDER: PortfolioHypercertRecord = {
-  hypercertId: 'bafy…pending',
-  metadataCid: 'bafy…pending',
-  txHash: '0x…pending',
+  requestId: 'pending',
   status: 'PENDING',
 }
 

@@ -7,10 +7,14 @@ import {
 } from '@/lib/blockchain/hypercerts/request-signing'
 import {
   hasOpenHypercertWorkflowForUser,
+  countPublishedHypercertsForUser,
   insertHypercertRequest,
   listHypercertRequests,
   listHypercertRequestsForPortfolio,
 } from '@/lib/supabase/hypercert-requests-db'
+import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
+import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
+import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -145,8 +149,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'You already have an open Hypercert request (pending review, approved awaiting mint, etc.).',
+            'You already have an open Hypercert request (pending review or awaiting AT publication).',
         },
+        { status: 409 }
+      )
+    }
+
+    const publishedCount = await countPublishedHypercertsForUser(requester)
+    const summary = extractImpactSummaryFromMetadata(metadata)
+    const eligibility = checkHypercertEligibility({
+      cleanupsCount: Number(summary.totalCleanups) || 0,
+      reportsCount: Number(summary.totalReports) || 0,
+      publishedCount,
+      chainId: REQUIRED_CHAIN_ID,
+    })
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        { error: eligibility.reason ?? 'Not eligible for another Hypercert yet.' },
         { status: 409 }
       )
     }

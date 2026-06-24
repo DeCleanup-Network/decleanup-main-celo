@@ -6,8 +6,6 @@ import type { Address, Hex } from 'viem'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useWallet } from '@/providers/WalletProvider'
-import { isPaymasterConfigured } from '@/lib/blockchain/smart-account'
-import type { MintHypercertOptions } from '@/lib/blockchain/hypercerts/mint-options'
 
 /**
  * Hypercerts identity: always the public EOA (MetaMask-importable).
@@ -19,12 +17,11 @@ export function useHypercertWallet() {
   const {
     address: appAddress,
     isEmbeddedAccount,
-    canTransact,
     embeddedSponsoredSubmit,
     wagmiConnected: appWagmiConnected,
   } = useAppWalletAddress()
-  const { publicWalletAddress, submissionOwnerAddress, expectsSponsoredGas } = useSmartAccountClient()
-  const { signMessageAsEoa, getGaslessClient, writeContractAsEoa, hasActiveSigningSession } = useWallet()
+  const { publicWalletAddress, submissionOwnerAddress } = useSmartAccountClient()
+  const { signMessageAsEoa, hasActiveSigningSession } = useWallet()
 
   const eoaAddress = useMemo((): Address | undefined => {
     if (wagmiConnected && wagmiAddress) return wagmiAddress as Address
@@ -63,33 +60,8 @@ export function useHypercertWallet() {
     ]
   )
 
-  const getMintOptions = useCallback(async (): Promise<MintHypercertOptions> => {
-    const base: MintHypercertOptions = {
-      submissionOwnerAddress: eligibilityAddress,
-    }
-
-    if (isEmbeddedAccount && canTransact) {
-      if (expectsSponsoredGas && isPaymasterConfigured()) {
-        const gaslessClient = await getGaslessClient()
-        if (gaslessClient) {
-          return { ...base, gaslessClient }
-        }
-      }
-      return { ...base, embeddedEoaWrite: writeContractAsEoa }
-    }
-
-    return base
-  }, [
-    eligibilityAddress,
-    isEmbeddedAccount,
-    canTransact,
-    expectsSponsoredGas,
-    getGaslessClient,
-    writeContractAsEoa,
-  ])
-
   const needsUnlock =
-    isEmbeddedAccount && embeddedSponsoredSubmit && !canTransact && Boolean(eoaAddress)
+    isEmbeddedAccount && embeddedSponsoredSubmit && !canSignMessages && Boolean(eoaAddress)
 
   return {
     eoaAddress,
@@ -97,10 +69,7 @@ export function useHypercertWallet() {
     canSignMessages,
     needsUnlock,
     isEmbeddedAccount,
-    expectsSponsoredGas: isEmbeddedAccount && expectsSponsoredGas && isPaymasterConfigured(),
     signMessageAsync,
-    getMintOptions,
-    /** External MetaMask path — no embedded session required for mint if wagmi is connected. */
     usesExternalWallet: appWagmiConnected && !isEmbeddedAccount,
   }
 }

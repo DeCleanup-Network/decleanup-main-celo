@@ -49,16 +49,27 @@ function rowToRequest(row: Row): HypercertRequest {
 export async function hasOpenHypercertWorkflowForUser(requester: string): Promise<boolean> {
   const { data, error } = await getSupabase()
     .from('hypercert_requests')
-    .select('id,status,hypercert_id')
+    .select('id,status,at_uri')
     .eq('requester', requester.toLowerCase())
 
   if (error) throw new Error(`Failed to check open hypercert workflow: ${error.message}`)
-  const rows = (data ?? []) as Pick<Row, 'id' | 'status' | 'hypercert_id'>[]
+  const rows = (data ?? []) as Pick<Row, 'id' | 'status' | 'at_uri'>[]
   return rows.some(
     (r) =>
       r.status === 'PENDING' ||
-      (r.status === 'APPROVED' && (r.hypercert_id == null || r.hypercert_id === ''))
+      (r.status === 'APPROVED' && (r.at_uri == null || r.at_uri === ''))
   )
+}
+
+export async function countPublishedHypercertsForUser(requester: string): Promise<number> {
+  const { data, error } = await getSupabase()
+    .from('hypercert_requests')
+    .select('id,at_uri')
+    .eq('requester', requester.toLowerCase())
+
+  if (error) throw new Error(`Failed to count published hypercerts: ${error.message}`)
+  const rows = (data ?? []) as Pick<Row, 'id' | 'at_uri'>[]
+  return rows.filter((r) => r.at_uri != null && r.at_uri !== '').length
 }
 
 export async function insertHypercertRequest(params: {
@@ -172,30 +183,6 @@ export async function updateHypercertRequestStatus(params: {
     .single()
 
   if (error) throw new Error(`Failed to update hypercert request: ${error.message}`)
-  return rowToRequest(data as Row)
-}
-
-export async function recordHypercertMint(params: {
-  id: string
-  hypercertId: string
-  txHash: string
-  metadataCid: string
-}): Promise<HypercertRequest> {
-  const patch: Database['public']['Tables']['hypercert_requests']['Update'] = {
-    status: 'MINTED',
-    hypercert_id: params.hypercertId,
-    tx_hash: params.txHash,
-    metadata_cid: params.metadataCid,
-  }
-
-  const { data, error } = await getSupabase()
-    .from('hypercert_requests')
-    .update(patch as never)
-    .eq('id', params.id)
-    .select()
-    .single()
-
-  if (error) throw new Error(`Failed to record hypercert mint: ${error.message}`)
   return rowToRequest(data as Row)
 }
 

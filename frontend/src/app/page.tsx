@@ -27,6 +27,7 @@ import {
   type GaslessClient,
 } from '@/lib/blockchain/contracts'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import { CONTRACT_ADDRESSES, MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
@@ -496,6 +497,7 @@ function HomeContent() {
               </p>
             )}
             {showHeroClaimCta && (
+              <TransactionActionBlock pending={isClaiming} className="flex flex-col items-center sm:items-start">
                 <Button
                 type="button"
                 variant="brandYellow"
@@ -515,6 +517,7 @@ function HomeContent() {
                   </>
                 )}
               </Button>
+              </TransactionActionBlock>
             )}
             {showHeroUnderReview && (
               <div

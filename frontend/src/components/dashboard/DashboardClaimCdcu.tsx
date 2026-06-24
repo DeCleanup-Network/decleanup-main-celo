@@ -9,6 +9,7 @@ import { GOVERNANCE_MIN_CDCU } from '@/config/cdcu'
 import { claimCdcu } from '@/lib/blockchain/claim-vault'
 import { formatEther } from 'viem'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 
 const ELIGIBILITY_THRESHOLD = 50
 
@@ -297,6 +298,7 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
                   Multiplier of <span className="font-medium text-brand-green">{multDisplay}x</span> will be applied
                 </p>
               ) : null}
+              <TransactionActionBlock pending={loading}>
               <Button
                 size="sm"
                 variant="outline"
@@ -318,6 +320,7 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
                   'No claimable amount'
                 )}
               </Button>
+              </TransactionActionBlock>
             </>
           ) : (
             <>

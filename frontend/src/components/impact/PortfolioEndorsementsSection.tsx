@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAccount, useSignMessage } from 'wagmi'
 import { Loader2, Quote, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import {
   ENDORSEMENT_LIMITS,
@@ -130,6 +131,7 @@ export function PortfolioEndorsementsSection({
             />
           </label>
           {error ? <p className="text-xs text-red-400">{error}</p> : null}
+          <TransactionActionBlock pending={loading}>
           <Button type="button" size="sm" disabled={loading} onClick={() => void submit()}>
             {loading ? (
               <>
@@ -140,6 +142,7 @@ export function PortfolioEndorsementsSection({
               'Sign endorsement'
             )}
           </Button>
+          </TransactionActionBlock>
         </div>
       ) : null}
 

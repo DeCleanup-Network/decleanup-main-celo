@@ -5,41 +5,41 @@ import { HypercertEligibilityResult } from './types'
 export function checkHypercertEligibility(params: {
   cleanupsCount: number
   reportsCount: number
+  /** How many Hypercerts this user has already published (tiers unlock in multiples of minCleanups). */
+  publishedCount?: number
   chainId?: number
 }): HypercertEligibilityResult {
-  console.log('🔍 [Eligibility Debug]', {
-    chainId: params.chainId,
-    chainIdType: typeof params.chainId,
-    cleanupsCount: params.cleanupsCount,
-    reportsCount: params.reportsCount
-  })
-  
+  const publishedCount = Math.max(0, params.publishedCount ?? 0)
   const relaxed = useRelaxedHypercertThresholds() && isTestingMode(params.chainId)
-  /** Production-style gates unless NEXT_PUBLIC_HYPERCERT_RELAXED_ELIGIBILITY=true */
   const testing = relaxed
-
-  console.log('🔍 [Testing Mode]', {
-    relaxedHypercertThresholds: relaxed,
-    willUse: testing ? 'TESTNET (relaxed) thresholds' : 'PRODUCTION thresholds',
-  })
 
   const thresholds = testing
     ? HYPERCERTS_CONFIG.thresholds.testing
     : HYPERCERTS_CONFIG.thresholds.production
-  
-  console.log('🔍 [Thresholds]', thresholds)
 
-  const eligible =
-    params.cleanupsCount >= thresholds.minCleanups &&
-    params.reportsCount >= thresholds.minReports
+  const nextMilestoneCleanups = thresholds.minCleanups * (publishedCount + 1)
+  const meetsCleanups = params.cleanupsCount >= nextMilestoneCleanups
+  const meetsReports = params.reportsCount >= thresholds.minReports
+  const eligible = meetsCleanups && meetsReports
+
+  let reason: string | undefined
+  if (!eligible) {
+    if (!meetsReports) {
+      reason = `Requires at least ${thresholds.minReports} impact report(s) (you have ${params.reportsCount}).`
+    } else if (publishedCount > 0) {
+      reason = `Hypercert #${publishedCount + 1} unlocks at ${nextMilestoneCleanups} verified cleanups (you have ${params.cleanupsCount}).`
+    } else {
+      reason = `Requires ${nextMilestoneCleanups} verified cleanups and ${thresholds.minReports} impact report(s).`
+    }
+  }
 
   return {
     eligible,
     cleanupsCount: params.cleanupsCount,
     reportsCount: params.reportsCount,
+    publishedCount,
+    nextMilestoneCleanups,
     testingOverride: relaxed ? true : undefined,
-    reason: eligible
-      ? undefined
-      : `Requires ${thresholds.minCleanups} cleanups and ${thresholds.minReports} impact report(s)`,
+    reason,
   }
 }
