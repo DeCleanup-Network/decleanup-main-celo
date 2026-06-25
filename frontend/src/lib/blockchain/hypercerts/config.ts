@@ -30,7 +30,7 @@ export function isAtProtoUiEnabled(): boolean {
   return process.env.NEXT_PUBLIC_HYPERCERTS_AT_ENABLED === 'true'
 }
 
-const DEFAULT_AT_PDS_URL = 'https://pds.certified.app'
+const DEFAULT_AT_PDS_URL = 'https://certified.one'
 
 function stripEnvQuotes(value: string): string {
   const trimmed = value.trim()
@@ -78,7 +78,7 @@ export function getAtProtoPdsUrlConfigError(): string | null {
   if (stripped && /^(true|false)$/i.test(stripped)) {
     return (
       'HYPERCERTS_ATPROTO_PDS_URL is set to "true" or "false". ' +
-      'That is a boolean flag mistake — set it to the PDS URL: https://pds.certified.app'
+      'That is a boolean flag mistake — set it to the PDS URL: https://certified.one'
     )
   }
 
@@ -89,14 +89,14 @@ export function getAtProtoPdsUrlConfigError(): string | null {
       return 'HYPERCERTS_ATPROTO_PDS_URL must use http or https.'
     }
     if (!url.hostname || url.hostname === 'true' || url.hostname === 'false') {
-      return 'HYPERCERTS_ATPROTO_PDS_URL must be a real PDS host (https://pds.certified.app).'
+      return 'HYPERCERTS_ATPROTO_PDS_URL must be a real PDS host (https://certified.one).'
     }
     if (raw && normalized === DEFAULT_AT_PDS_URL && stripped !== DEFAULT_AT_PDS_URL) {
-      return `HYPERCERTS_ATPROTO_PDS_URL looks invalid ("${stripped}"). Use https://pds.certified.app`
+      return `HYPERCERTS_ATPROTO_PDS_URL looks invalid ("${stripped}"). Use https://certified.one`
     }
     return null
   } catch {
-    return 'HYPERCERTS_ATPROTO_PDS_URL is not a valid URL (use https://pds.certified.app).'
+    return 'HYPERCERTS_ATPROTO_PDS_URL is not a valid URL (use https://certified.one).'
   }
 }
 

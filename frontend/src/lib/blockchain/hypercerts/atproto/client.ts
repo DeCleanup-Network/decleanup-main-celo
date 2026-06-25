@@ -65,7 +65,7 @@ function createAtpAgent(): AtpAgent {
   } catch (err) {
     throw new Error(
       `AT Protocol PDS URL is invalid (${pdsUrl}): ${formatAtProtoError(err)}. ` +
-        'Set HYPERCERTS_ATPROTO_PDS_URL to https://pds.certified.app (include https://).'
+        'Set HYPERCERTS_ATPROTO_PDS_URL to https://certified.one (include https://).'
     )
   }
 }
