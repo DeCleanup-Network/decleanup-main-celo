@@ -12,12 +12,10 @@ type Props = {
 }
 
 export function HypercertRequestStep({ canRequest, pending, submitResult, onRequest }: Props) {
-  const showSuccess = submitResult && !submitResult.startsWith('Error') && !pending
-
   return (
     <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
       <h2 className="mb-6 font-heading text-2xl uppercase tracking-wider text-foreground sm:text-3xl">
-        Step 3: Request Hypercert
+        Step 3: Submit Hypercert
       </h2>
 
       <TransactionActionBlock pending={pending} showHint={false}>
@@ -39,14 +37,9 @@ export function HypercertRequestStep({ canRequest, pending, submitResult, onRequ
 
       <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span>Data from impact reports filled will flow into your certificate metadata.</span>
+        <span>Saves your certificate details. Publish to Hyperscan in Step 4.</span>
       </p>
 
-      {showSuccess ? (
-        <p className="mt-4 text-xs text-brand-green" role="status">
-          {submitResult}
-        </p>
-      ) : null}
       {submitResult?.startsWith('Error') ? (
         <p className="mt-4 text-xs text-red-400" role="alert">
           {submitResult}

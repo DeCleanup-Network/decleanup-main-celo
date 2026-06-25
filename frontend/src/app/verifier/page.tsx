@@ -1438,7 +1438,6 @@ export default function VerifierPage() {
                     title={actionModal.title}
                     message={actionModal.message}
                     variant={actionModal.variant}
-                    autoCloseMs={actionModal.variant === 'success' ? 3000 : undefined}
                 />
             )}
         </div>

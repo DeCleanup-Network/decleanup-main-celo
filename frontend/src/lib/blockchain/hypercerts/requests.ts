@@ -157,14 +157,14 @@ function submitHypercertRequestLocalFallback(requester: string, metadata: Hyperc
   const existing = readLocalFallback().filter((r) => r.requester.toLowerCase() === requester.toLowerCase())
   if (hasOpenHypercertWorkflow(existing)) {
     throw new Error(
-      'Finish your open Hypercert request first: wait for review and AT publication, or wait for a rejection before submitting a new request.'
+      'Finish your open Hypercert first: publish to Hyperscan or withdraw it before submitting a new request.'
     )
   }
   const request: HypercertRequest = {
     id: `${Date.now()}-${requester.slice(0, 8)}`,
     requester,
     metadata,
-    status: 'PENDING',
+    status: 'APPROVED',
     submittedAt: Date.now(),
   }
   const requests = [...readLocalFallback(), request]

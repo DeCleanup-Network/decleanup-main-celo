@@ -34,7 +34,7 @@ export function HypercertPublishStep({
         Step 4: Publish to Hyperscan
       </h2>
       <p className="mb-6 text-sm text-muted-foreground">
-        Your request was approved. Sign once to authorize publishing your certificate on Hyperscan (AT Protocol).
+        Sign once to save your certificate, then publish on Hyperscan in Step 4.
       </p>
 
       <ul className="space-y-4">
@@ -114,11 +114,8 @@ export function HypercertPublishStep({
         .
       </p>
 
-      {publishResult && !pending ? (
-        <p
-          className={cn('mt-4 text-xs', publishResult.startsWith('Error') ? 'text-red-400' : 'text-brand-green')}
-          role={publishResult.startsWith('Error') ? 'alert' : 'status'}
-        >
+      {publishResult && !pending && publishResult.startsWith('Error') ? (
+        <p className="mt-4 text-xs text-red-400" role="alert">
           {publishResult}
         </p>
       ) : null}

@@ -35,6 +35,8 @@ import { HypercertBrandingPanel } from '@/components/hypercerts/HypercertBrandin
 import { HypercertRequestStep } from '@/components/hypercerts/HypercertRequestStep'
 import { HypercertPublishStep } from '@/components/hypercerts/HypercertPublishStep'
 import { HypercertCertificateCard } from '@/components/hypercerts/HypercertCertificateCard'
+import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
+import type { HypercertMetadata } from '@/lib/blockchain/hypercerts/types'
 
 export default function HypercertsCertificationPage() {
   const { showMainApp } = useAppWalletAddress()
@@ -63,6 +65,11 @@ export default function HypercertsCertificationPage() {
   const [publishResult, setPublishResult] = useState('')
   const [cancelPending, setCancelPending] = useState(false)
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0)
+  const [actionModal, setActionModal] = useState<{
+    title: string
+    message: string
+    variant: AlertModalVariant
+  } | null>(null)
 
   const loadUserRequests = useCallback(async () => {
     if (!eoaAddress) return
@@ -217,11 +224,22 @@ export default function HypercertsCertificationPage() {
         metadata,
         signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
-      setSubmitResult(
-        `Request submitted. ID ${request.id.slice(0, 8)}… Pending verifier review.`
-      )
+      setSubmitResult('')
+      setActionModal({
+        title: 'Hypercert submitted',
+        message:
+          `Your certificate is saved.\n\nRequest ID: ${request.id}\n\nGo to Step 4 to publish on Hyperscan.`,
+        variant: 'success',
+      })
+      setRequestsRefreshKey((k) => k + 1)
     } catch (error) {
-      setSubmitResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      const message = error instanceof Error ? error.message : String(error)
+      setSubmitResult('')
+      setActionModal({
+        title: 'Submit failed',
+        message,
+        variant: 'error',
+      })
     }
   }
 
@@ -236,10 +254,21 @@ export default function HypercertsCertificationPage() {
         requester: eoaAddress,
         signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
-      setPublishResult(`Published to Hyperscan. ${result.atUri.slice(0, 32)}…`)
+      setPublishResult('')
+      setActionModal({
+        title: 'Published on Hyperscan',
+        message: `Your certificate is live.\n\n${result.atUri}`,
+        variant: 'success',
+      })
       setRequestsRefreshKey((k) => k + 1)
     } catch (error) {
-      setPublishResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      const message = error instanceof Error ? error.message : String(error)
+      setPublishResult('')
+      setActionModal({
+        title: 'Publish failed',
+        message,
+        variant: 'error',
+      })
     }
   }
 
@@ -254,10 +283,21 @@ export default function HypercertsCertificationPage() {
         requester: eoaAddress,
         signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
-      setPublishResult('Request withdrawn. You can submit a new Hypercert.')
+      setPublishResult('')
+      setActionModal({
+        title: 'Request withdrawn',
+        message: 'You can configure a new certificate and submit again.',
+        variant: 'info',
+      })
       setRequestsRefreshKey((k) => k + 1)
     } catch (error) {
-      setPublishResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      const message = error instanceof Error ? error.message : String(error)
+      setPublishResult('')
+      setActionModal({
+        title: 'Withdraw failed',
+        message,
+        variant: 'error',
+      })
     } finally {
       setCancelPending(false)
     }
@@ -318,9 +358,21 @@ export default function HypercertsCertificationPage() {
     [brandingTitle, brandingDescription]
   )
 
+  const submittedBrandingReadiness = useMemo(() => {
+    const open = userRequests.find((r) => !isHypercertPublished(r))
+    if (!open?.metadata) return null
+    const meta = open.metadata as HypercertMetadata
+    return evaluateBrandingReadiness({
+      title: meta.branding?.title ?? meta.name ?? '',
+      description: meta.branding?.description ?? meta.description ?? '',
+      logoImageCid: meta.branding?.logoImageCid,
+      bannerImageCid: meta.branding?.bannerImageCid,
+    })
+  }, [userRequests])
+
   const hasCleanups = (eligibility?.cleanupsCount ?? 0) > 0
   const aggregateComplete = hasCleanups
-  const configureComplete = brandingTextComplete
+  const configureComplete = brandingReadiness.ready || submittedBrandingReadiness?.ready === true
   const requestComplete = pendingCount > 0 || publishingCount > 0 || publishedCount > 0
   const publishedComplete = publishedCount > 0
 
@@ -331,13 +383,18 @@ export default function HypercertsCertificationPage() {
   const flowSteps = [
     { number: '01', title: 'Aggregate', description: 'Verified cleanups' },
     { number: '02', title: 'Configure', description: 'Certificate details' },
-    { number: '03', title: 'Request', description: 'Verifier review' },
+    { number: '03', title: 'Submit', description: 'Save certificate' },
     { number: '04', title: 'Published', description: 'Hyperscan live' },
   ].map((step, i) => ({
     ...step,
     completed: stepCompleted[i],
     active: i === activeStepIndex,
   }))
+
+  const displayBrandingReadiness =
+    submittedBrandingReadiness?.ready && !brandingReadiness.ready
+      ? submittedBrandingReadiness
+      : brandingReadiness
 
   const canRequestHypercert =
     Boolean(eligibility?.eligible) &&
@@ -355,7 +412,7 @@ export default function HypercertsCertificationPage() {
       <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
         <DeCleanupPageHero
           programWord="HYPERCERTS"
-          description="Request a verifier-backed impact certificate published to Hyperscan."
+          description="Build and publish your impact certificate on Hyperscan."
           trailing={homeButton}
         />
 
@@ -386,8 +443,8 @@ export default function HypercertsCertificationPage() {
             coverFile={coverFile}
             coverUploading={coverUploading}
             coverUploadError={coverUploadError}
-            readiness={brandingReadiness}
-            textComplete={brandingTextComplete}
+            readiness={displayBrandingReadiness}
+            textComplete={brandingTextComplete || submittedBrandingReadiness?.ready === true}
             onTitleChange={setBrandingTitle}
             onDescriptionChange={setBrandingDescription}
             onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
@@ -459,6 +516,17 @@ export default function HypercertsCertificationPage() {
           <HypercertPoweredBy />
         </div>
       </div>
+
+      {actionModal ? (
+        <AlertModal
+          isOpen
+          onClose={() => setActionModal(null)}
+          title={actionModal.title}
+          message={actionModal.message}
+          variant={actionModal.variant}
+          closeOnBackdropClick={false}
+        />
+      ) : null}
     </div>
   )
 }

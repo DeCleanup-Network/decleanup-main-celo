@@ -874,7 +874,6 @@ function HomeContent() {
           }
           message={claimModal.message}
           variant={claimModal.variant}
-          autoCloseMs={claimModal.variant === 'success' ? 12000 : undefined}
           closeOnBackdropClick={claimModal.variant !== 'success'}
         />
       )}

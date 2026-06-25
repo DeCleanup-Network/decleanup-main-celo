@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'You already have an open Hypercert request (pending review or awaiting AT publication).',
+            'You already have an open Hypercert (awaiting Hyperscan publication). Withdraw it first or publish it.',
         },
         { status: 409 }
       )

@@ -78,12 +78,13 @@ export async function insertHypercertRequest(params: {
   requester: string
   metadata: HypercertMetadata
   submittedAt: number
+  status?: HypercertRequest['status']
 }): Promise<HypercertRequest> {
   const insert = {
     id: params.id,
     requester: params.requester.toLowerCase(),
     metadata: params.metadata as unknown as Json,
-    status: 'PENDING',
+    status: params.status ?? 'APPROVED',
     submitted_at: params.submittedAt,
   }
 
