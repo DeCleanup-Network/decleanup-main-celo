@@ -74,17 +74,25 @@ export function getAtProtoPdsUrl(): string {
 
 export function getAtProtoPdsUrlConfigError(): string | null {
   const raw = process.env.HYPERCERTS_ATPROTO_PDS_URL?.trim()
+  const stripped = raw ? stripEnvQuotes(raw) : ''
+  if (stripped && /^(true|false)$/i.test(stripped)) {
+    return (
+      'HYPERCERTS_ATPROTO_PDS_URL is set to "true" or "false". ' +
+      'That is a boolean flag mistake — set it to the PDS URL: https://pds.certified.app'
+    )
+  }
+
   const normalized = getAtProtoPdsUrl()
   try {
     const url = new URL(normalized)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return 'HYPERCERTS_ATPROTO_PDS_URL must use http or https.'
     }
-    if (!url.hostname) {
-      return 'HYPERCERTS_ATPROTO_PDS_URL must include a hostname (https://pds.certified.app).'
+    if (!url.hostname || url.hostname === 'true' || url.hostname === 'false') {
+      return 'HYPERCERTS_ATPROTO_PDS_URL must be a real PDS host (https://pds.certified.app).'
     }
-    if (raw && normalized === DEFAULT_AT_PDS_URL && raw !== DEFAULT_AT_PDS_URL) {
-      return `HYPERCERTS_ATPROTO_PDS_URL looks invalid ("${raw}"). Use https://pds.certified.app`
+    if (raw && normalized === DEFAULT_AT_PDS_URL && stripped !== DEFAULT_AT_PDS_URL) {
+      return `HYPERCERTS_ATPROTO_PDS_URL looks invalid ("${stripped}"). Use https://pds.certified.app`
     }
     return null
   } catch {
