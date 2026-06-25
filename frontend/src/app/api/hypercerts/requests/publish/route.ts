@@ -122,6 +122,7 @@ export async function GET() {
     configHint: configError,
     pdsLoginOk: connection?.ok ?? false,
     pdsLoginError: connection?.error ?? configError,
+    pdsUrl: connection?.pdsUrl,
     sessionDid: connection?.sessionDid,
     configuredDid: connection?.configuredDid,
     didMatch: connection?.didMatch,

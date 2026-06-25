@@ -58,12 +58,24 @@ function resolveRepoDid(agent: AtpAgent): string {
   return sessionDid
 }
 
+function createAtpAgent(): AtpAgent {
+  const pdsUrl = getAtProtoPdsUrl()
+  try {
+    return new AtpAgent({ service: pdsUrl })
+  } catch (err) {
+    throw new Error(
+      `AT Protocol PDS URL is invalid (${pdsUrl}): ${formatAtProtoError(err)}. ` +
+        'Set HYPERCERTS_ATPROTO_PDS_URL to https://pds.certified.app (include https://).'
+    )
+  }
+}
+
 async function getAgent(): Promise<AtpAgent> {
   if (agentInstance) return agentInstance
   if (loginPromise) return loginPromise
 
   loginPromise = (async () => {
-    const agent = new AtpAgent({ service: getAtProtoPdsUrl() })
+    const agent = createAtpAgent()
     try {
       await agent.login({
         identifier: getAtProtoHandle(),
@@ -92,7 +104,7 @@ export async function testAtProtoConnection(): Promise<AtProtoConnectionStatus> 
   const pdsUrl = getAtProtoPdsUrl()
 
   try {
-    const agent = new AtpAgent({ service: pdsUrl })
+    const agent = createAtpAgent()
     await agent.login({
       identifier: handle,
       password: getAtProtoAppPassword(),
