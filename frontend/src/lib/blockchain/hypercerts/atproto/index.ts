@@ -4,4 +4,5 @@ export {
   isAtProtoUiEnabled,
   getAtProtoOrgDid,
   getAtProtoConfigError,
+  getAtProtoPdsUrl,
 } from '../config'
