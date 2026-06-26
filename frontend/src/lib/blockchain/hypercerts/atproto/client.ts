@@ -1,9 +1,9 @@
-import { AtpAgent } from '@atproto/api'
+import { Agent, CredentialSession } from '@atproto/api'
 import {
   getAtProtoAppPassword,
   getAtProtoHandle,
+  getAtProtoLoginService,
   getAtProtoOrgDid,
-  getAtProtoPdsUrl,
 } from '../config'
 import {
   validateActivity,
@@ -12,11 +12,16 @@ import {
   validateMeasurement,
 } from './validation'
 
-let agentInstance: AtpAgent | null = null
-let loginPromise: Promise<AtpAgent> | null = null
+let agentInstance: Agent | null = null
+let loginPromise: Promise<Agent> | null = null
 
 export type AtProtoConnectionStatus = {
   ok: boolean
+  /** Handle-resolver / login entry point (e.g. bsky.social for Bluesky accounts). */
+  loginService: string
+  /** Account home PDS after login (from session). */
+  homePdsUrl?: string
+  /** @deprecated Use loginService */
   pdsUrl: string
   handle: string
   configuredDid: string
@@ -41,7 +46,7 @@ function formatAtProtoError(err: unknown): string {
   return String(err)
 }
 
-function resolveRepoDid(agent: AtpAgent): string {
+function resolveRepoDid(agent: Agent): string {
   const sessionDid = agent.did?.trim()
   if (!sessionDid) {
     throw new Error('AT Protocol session has no DID after login')
@@ -58,37 +63,34 @@ function resolveRepoDid(agent: AtpAgent): string {
   return sessionDid
 }
 
-function createAtpAgent(): AtpAgent {
-  const pdsUrl = getAtProtoPdsUrl()
+async function loginAgent(): Promise<Agent> {
+  const loginService = getAtProtoLoginService()
+  const session = new CredentialSession(new URL(loginService))
   try {
-    return new AtpAgent({ service: pdsUrl })
+    await session.login({
+      identifier: getAtProtoHandle(),
+      password: getAtProtoAppPassword(),
+    })
   } catch (err) {
     throw new Error(
-      `AT Protocol PDS URL is invalid (${pdsUrl}): ${formatAtProtoError(err)}. ` +
-        'Set HYPERCERTS_ATPROTO_PDS_URL to https://certified.one (include https://).'
+      `AT Protocol login failed (${loginService}): ${formatAtProtoError(err)}. ` +
+        'Use an app password for the configured handle (not your account login password).'
     )
   }
+
+  const agent = new Agent(session)
+  resolveRepoDid(agent)
+  return agent
 }
 
-async function getAgent(): Promise<AtpAgent> {
+async function getAgent(): Promise<Agent> {
   if (agentInstance) return agentInstance
   if (loginPromise) return loginPromise
 
-  loginPromise = (async () => {
-    const agent = createAtpAgent()
-    try {
-      await agent.login({
-        identifier: getAtProtoHandle(),
-        password: getAtProtoAppPassword(),
-      })
-    } catch (err) {
-      throw new Error(`AT Protocol login failed: ${formatAtProtoError(err)}`)
-    }
-
-    resolveRepoDid(agent)
+  loginPromise = loginAgent().then((agent) => {
     agentInstance = agent
     return agent
-  })()
+  })
 
   try {
     return await loginPromise
@@ -101,21 +103,25 @@ async function getAgent(): Promise<AtpAgent> {
 export async function testAtProtoConnection(): Promise<AtProtoConnectionStatus> {
   const configuredDid = getAtProtoOrgDid().trim()
   const handle = getAtProtoHandle().trim()
-  const pdsUrl = getAtProtoPdsUrl()
+  const loginService = getAtProtoLoginService()
 
   try {
-    const agent = createAtpAgent()
-    await agent.login({
+    const session = new CredentialSession(new URL(loginService))
+    await session.login({
       identifier: handle,
       password: getAtProtoAppPassword(),
     })
+    const agent = new Agent(session)
     const sessionDid = agent.did?.trim()
     const didMatch = Boolean(sessionDid && configuredDid && sessionDid === configuredDid)
+    const homePdsUrl = session.pdsUrl?.href
 
     if (!sessionDid) {
       return {
         ok: false,
-        pdsUrl,
+        loginService,
+        pdsUrl: loginService,
+        homePdsUrl,
         handle,
         configuredDid,
         error: 'Login succeeded but session returned no DID',
@@ -125,7 +131,9 @@ export async function testAtProtoConnection(): Promise<AtProtoConnectionStatus> 
     if (configuredDid && !didMatch) {
       return {
         ok: false,
-        pdsUrl,
+        loginService,
+        pdsUrl: loginService,
+        homePdsUrl,
         handle,
         configuredDid,
         sessionDid,
@@ -136,11 +144,21 @@ export async function testAtProtoConnection(): Promise<AtProtoConnectionStatus> 
       }
     }
 
-    return { ok: true, pdsUrl, handle, configuredDid: configuredDid || sessionDid, sessionDid, didMatch: true }
+    return {
+      ok: true,
+      loginService,
+      pdsUrl: loginService,
+      homePdsUrl,
+      handle,
+      configuredDid: configuredDid || sessionDid,
+      sessionDid,
+      didMatch: true,
+    }
   } catch (err) {
     return {
       ok: false,
-      pdsUrl,
+      loginService,
+      pdsUrl: loginService,
       handle,
       configuredDid,
       error: formatAtProtoError(err),

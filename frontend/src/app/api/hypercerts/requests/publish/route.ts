@@ -5,7 +5,7 @@ import {
   buildPublishMessage,
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById } from '@/lib/supabase/hypercert-requests-db'
-import { isAtProtoEnabled, getAtProtoOrgDid, getAtProtoConfigError, getAtProtoPdsUrl } from '@/lib/blockchain/hypercerts/atproto'
+import { isAtProtoEnabled, getAtProtoOrgDid, getAtProtoConfigError, getAtProtoLoginService } from '@/lib/blockchain/hypercerts/atproto'
 import { testAtProtoConnection } from '@/lib/blockchain/hypercerts/atproto/client'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
 
@@ -120,7 +120,9 @@ export async function GET() {
     atProtoEnabled: isAtProtoEnabled(),
     configOk: !configError,
     configHint: configError,
-    pdsUrl: getAtProtoPdsUrl(),
+    loginService: connection?.loginService ?? getAtProtoLoginService(),
+    homePdsUrl: connection?.homePdsUrl,
+    pdsUrl: connection?.loginService ?? getAtProtoLoginService(),
     pdsLoginOk: connection?.ok ?? false,
     pdsLoginError: connection?.error ?? configError,
     sessionDid: connection?.sessionDid,

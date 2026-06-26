@@ -30,7 +30,10 @@ export function isAtProtoUiEnabled(): boolean {
   return process.env.NEXT_PUBLIC_HYPERCERTS_AT_ENABLED === 'true'
 }
 
-const DEFAULT_AT_PDS_URL = 'https://certified.one'
+/** Bluesky handle resolver — works for accounts on any federated PDS. */
+const DEFAULT_BSKY_RESOLVER = 'https://bsky.social'
+/** Certified production ePDS — for `*.certified.one` handles only. */
+const DEFAULT_CERTIFIED_PDS = 'https://certified.one'
 
 function stripEnvQuotes(value: string): string {
   const trimmed = value.trim()
@@ -44,10 +47,10 @@ function stripEnvQuotes(value: string): string {
 }
 
 /** Ensures a valid absolute URL for @atproto/api (requires http(s) scheme + hostname). */
-export function normalizeAtProtoPdsUrl(raw?: string): string {
+export function normalizeAtProtoServiceUrl(raw?: string): string | null {
   const trimmed = stripEnvQuotes(raw ?? '')
   if (!trimmed || trimmed === 'https://' || trimmed === 'http://') {
-    return DEFAULT_AT_PDS_URL
+    return null
   }
 
   const candidate = /^https?:\/\//i.test(trimmed)
@@ -57,47 +60,71 @@ export function normalizeAtProtoPdsUrl(raw?: string): string {
   try {
     const parsed = new URL(candidate)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return DEFAULT_AT_PDS_URL
+      return null
     }
     if (!parsed.hostname) {
-      return DEFAULT_AT_PDS_URL
+      return null
     }
     return candidate
   } catch {
-    return DEFAULT_AT_PDS_URL
-  }
-}
-
-export function getAtProtoPdsUrl(): string {
-  return normalizeAtProtoPdsUrl(process.env.HYPERCERTS_ATPROTO_PDS_URL)
-}
-
-export function getAtProtoPdsUrlConfigError(): string | null {
-  const raw = process.env.HYPERCERTS_ATPROTO_PDS_URL?.trim()
-  const stripped = raw ? stripEnvQuotes(raw) : ''
-  if (stripped && /^(true|false)$/i.test(stripped)) {
-    return (
-      'HYPERCERTS_ATPROTO_PDS_URL is set to "true" or "false". ' +
-      'That is a boolean flag mistake — set it to the PDS URL: https://certified.one'
-    )
-  }
-
-  const normalized = getAtProtoPdsUrl()
-  try {
-    const url = new URL(normalized)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return 'HYPERCERTS_ATPROTO_PDS_URL must use http or https.'
-    }
-    if (!url.hostname || url.hostname === 'true' || url.hostname === 'false') {
-      return 'HYPERCERTS_ATPROTO_PDS_URL must be a real PDS host (https://certified.one).'
-    }
-    if (raw && normalized === DEFAULT_AT_PDS_URL && stripped !== DEFAULT_AT_PDS_URL) {
-      return `HYPERCERTS_ATPROTO_PDS_URL looks invalid ("${stripped}"). Use https://certified.one`
-    }
     return null
-  } catch {
-    return 'HYPERCERTS_ATPROTO_PDS_URL is not a valid URL (use https://certified.one).'
   }
+}
+
+/**
+ * AT login / handle-resolver entry point for CredentialSession.
+ * Bluesky handles use bsky.social (resolves to the account home PDS).
+ * `*.certified.one` handles use certified.one. Override with HYPERCERTS_ATPROTO_LOGIN_SERVICE.
+ */
+export function getAtProtoLoginService(): string {
+  const explicit = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_LOGIN_SERVICE)
+  if (explicit) return explicit
+
+  const handle = getAtProtoHandle().trim().toLowerCase()
+  if (handle.endsWith('.certified.one')) {
+    return DEFAULT_CERTIFIED_PDS
+  }
+
+  // Legacy env: only honor when it matches the handle's home (avoid Bluesky + certified.one mismatch).
+  const legacyPds = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_PDS_URL)
+  if (legacyPds && handle.endsWith('.certified.one') && legacyPds.includes('certified')) {
+    return legacyPds
+  }
+
+  return DEFAULT_BSKY_RESOLVER
+}
+
+/** @deprecated Use getAtProtoLoginService — kept for diagnostic backward compatibility. */
+export function getAtProtoPdsUrl(): string {
+  return getAtProtoLoginService()
+}
+
+function getAtProtoServiceUrlConfigError(envKey: string, raw?: string): string | null {
+  const stripped = raw ? stripEnvQuotes(raw.trim()) : ''
+  if (!stripped) return null
+  if (/^(true|false)$/i.test(stripped)) {
+    return `${envKey} is set to "true" or "false". Use a URL like https://bsky.social or https://certified.one.`
+  }
+  const normalized = normalizeAtProtoServiceUrl(stripped)
+  if (!normalized) {
+    return `${envKey} is not a valid URL (use https://bsky.social, https://certified.one, or https://dev.certified.app).`
+  }
+  return null
+}
+
+export function getAtProtoLoginServiceConfigError(): string | null {
+  return (
+    getAtProtoServiceUrlConfigError(
+      'HYPERCERTS_ATPROTO_LOGIN_SERVICE',
+      process.env.HYPERCERTS_ATPROTO_LOGIN_SERVICE,
+    ) ??
+    getAtProtoServiceUrlConfigError('HYPERCERTS_ATPROTO_PDS_URL', process.env.HYPERCERTS_ATPROTO_PDS_URL)
+  )
+}
+
+/** @deprecated Use getAtProtoLoginServiceConfigError */
+export function getAtProtoPdsUrlConfigError(): string | null {
+  return getAtProtoLoginServiceConfigError()
 }
 
 export function getAtProtoOrgDid(): string {
@@ -115,8 +142,8 @@ export function getAtProtoAppPassword(): string {
 /** Returns a user-facing error when AT publish env is incomplete. */
 export function getAtProtoConfigError(): string | null {
   if (!isAtProtoEnabled()) return 'ATProto publishing is disabled (HYPERCERTS_AT_ENABLED is not true).'
-  const pdsError = getAtProtoPdsUrlConfigError()
-  if (pdsError) return pdsError
+  const loginServiceError = getAtProtoLoginServiceConfigError()
+  if (loginServiceError) return loginServiceError
   if (!getAtProtoOrgDid().trim()) return 'HYPERCERTS_ATPROTO_DID is not set on the server.'
   if (!getAtProtoHandle().trim()) return 'HYPERCERTS_ATPROTO_HANDLE is not set on the server.'
   if (!getAtProtoAppPassword().trim()) return 'ATPROTO_APP_PASSWORD is not set on the server.'
