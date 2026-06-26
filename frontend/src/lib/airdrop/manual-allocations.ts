@@ -73,6 +73,12 @@ const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',
   },
+  {
+    walletAddress: '0x6aD87d0b36d3449d7c844051d92115f087867D85',
+    amountCdcu: '250',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
+  },
 ] as const
 
 /** Other manual rows (not in Giveth list). Giveth addresses override via map merge order. */
