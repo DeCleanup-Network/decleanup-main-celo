@@ -73,22 +73,19 @@ export function normalizeAtProtoServiceUrl(raw?: string): string | null {
 
 /**
  * AT login / handle-resolver entry point for CredentialSession.
- * Bluesky handles use bsky.social (resolves to the account home PDS).
- * `*.certified.one` handles use certified.one. Override with HYPERCERTS_ATPROTO_LOGIN_SERVICE.
+ * Explicit env wins; otherwise inferred from handle suffix.
+ * @see https://docs.hypercerts.org/reference/certified-pdss
  */
 export function getAtProtoLoginService(): string {
-  const explicit = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_LOGIN_SERVICE)
-  if (explicit) return explicit
+  const loginService = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_LOGIN_SERVICE)
+  if (loginService) return loginService
+
+  const pdsUrl = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_PDS_URL)
+  if (pdsUrl) return pdsUrl
 
   const handle = getAtProtoHandle().trim().toLowerCase()
   if (handle.endsWith('.certified.one')) {
     return DEFAULT_CERTIFIED_PDS
-  }
-
-  // Legacy env: only honor when it matches the handle's home (avoid Bluesky + certified.one mismatch).
-  const legacyPds = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_PDS_URL)
-  if (legacyPds && handle.endsWith('.certified.one') && legacyPds.includes('certified')) {
-    return legacyPds
   }
 
   return DEFAULT_BSKY_RESOLVER

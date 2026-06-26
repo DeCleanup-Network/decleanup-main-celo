@@ -11,6 +11,7 @@ import {
   validateEvaluation,
   validateMeasurement,
 } from './validation'
+import { hydrateActivityCoverImage } from './activity-cover'
 
 let agentInstance: Agent | null = null
 let loginPromise: Promise<Agent> | null = null
@@ -187,14 +188,18 @@ function extractCreateRecordResult(response: unknown): { uri: string; cid: strin
 export async function publishActivity(
   record: unknown,
 ): Promise<{ uri: string; cid: string }> {
-  validateActivity(record)
   const agent = await getAgent()
+  const hydrated =
+    record && typeof record === 'object'
+      ? await hydrateActivityCoverImage(agent, record as Record<string, unknown>)
+      : record
+  validateActivity(hydrated)
   const repo = resolveRepoDid(agent)
   try {
     const response = await agent.com.atproto.repo.createRecord({
       repo,
       collection: 'org.hypercerts.claim.activity',
-      record: record as never,
+      record: hydrated as never,
     })
     return extractCreateRecordResult(response)
   } catch (err) {
