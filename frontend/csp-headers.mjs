@@ -114,3 +114,15 @@ export const SECURITY_HEADERS = [
   },
   { key: 'X-XSS-Protection', value: '0' },
 ]
+
+/** Production-only HSTS (skipped in local dev over HTTP). */
+export function getSecurityHeaders(isDev) {
+  if (isDev) return SECURITY_HEADERS
+  return [
+    ...SECURITY_HEADERS,
+    {
+      key: 'Strict-Transport-Security',
+      value: 'max-age=31536000; includeSubDomains',
+    },
+  ]
+}

@@ -23,6 +23,8 @@ type Props = {
   coverUploading: boolean
   coverUploadError?: string | null
   readiness: BrandingReadiness
+  /** Step complete (saved on a prior or published request). */
+  complete?: boolean
   textComplete?: boolean
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
@@ -62,6 +64,7 @@ export function HypercertBrandingPanel({
   coverUploading,
   coverUploadError,
   readiness,
+  complete = false,
   textComplete = false,
   onTitleChange,
   onDescriptionChange,
@@ -77,7 +80,7 @@ export function HypercertBrandingPanel({
     <section
       className={cn(
         'rounded-3xl border bg-card p-6 sm:p-8',
-        readiness.ready
+        complete || readiness.ready
           ? 'border-brand-green/40'
           : textComplete
             ? 'border-brand-green/25'
@@ -88,17 +91,17 @@ export function HypercertBrandingPanel({
         <h2 className="font-heading text-2xl uppercase tracking-wider text-foreground sm:text-3xl">
           Step 2: Certificate details
         </h2>
-        <span
-          className={cn(
-            'h-4 w-4 rounded-full border',
-            readiness.ready
-              ? 'border-brand-green bg-brand-green'
-              : textComplete
-                ? 'border-brand-green/60 bg-brand-green/40'
-                : 'border-muted-foreground'
-          )}
-          aria-hidden
-        />
+        {complete || readiness.ready ? (
+          <CheckCircle2 className="h-5 w-5 text-brand-green" aria-hidden />
+        ) : (
+          <span
+            className={cn(
+              'h-4 w-4 rounded-full border',
+              textComplete ? 'border-brand-green/60 bg-brand-green/40' : 'border-muted-foreground'
+            )}
+            aria-hidden
+          />
+        )}
       </div>
 
       <ul className="mb-6 flex flex-wrap gap-4 rounded-xl border border-border/80 bg-background/40 p-3">

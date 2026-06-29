@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { checkUpstashRateLimit } from '@/lib/server/upstash-rate-limit'
 
 type Bucket = {
   count: number
@@ -64,5 +65,40 @@ export function tooManyRequestsResponse(resetAt: number): Response {
       },
     }
   )
+}
+
+type RateLimitResult = { ok: true } | { ok: false; response: Response }
+
+/**
+ * Global rate limit (Upstash when configured, else in-memory per instance).
+ * Use on unauthenticated write endpoints (claims, hypercerts, verifier apply).
+ */
+export async function enforceApiRateLimit(params: {
+  request: NextRequest
+  scope: string
+  maxRequests: number
+  windowMs: number
+  walletAddress?: string | null
+}): Promise<RateLimitResult> {
+  const key = `${getRateLimitKey(params.request, params.walletAddress ?? null)}:${params.scope}`
+
+  const upstash = await checkUpstashRateLimit({
+    key,
+    maxRequests: params.maxRequests,
+    windowMs: params.windowMs,
+  })
+
+  const result =
+    upstash ??
+    checkInMemoryRateLimit({
+      key,
+      maxRequests: params.maxRequests,
+      windowMs: params.windowMs,
+    })
+
+  if (!result.ok) {
+    return { ok: false, response: tooManyRequestsResponse(result.resetAt) }
+  }
+  return { ok: true }
 }
 

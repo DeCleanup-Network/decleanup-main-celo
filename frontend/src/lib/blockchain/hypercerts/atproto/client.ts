@@ -11,7 +11,7 @@ import {
   validateEvaluation,
   validateMeasurement,
 } from './validation'
-import { hydrateActivityCoverImage } from './activity-cover'
+import { coerceActivityRecordBlobRefs, hydrateActivityCoverImage } from './activity-cover'
 
 let agentInstance: Agent | null = null
 let loginPromise: Promise<Agent> | null = null
@@ -193,13 +193,17 @@ export async function publishActivity(
     record && typeof record === 'object'
       ? await hydrateActivityCoverImage(agent, record as Record<string, unknown>)
       : record
-  validateActivity(hydrated)
+  const publishable =
+    hydrated && typeof hydrated === 'object'
+      ? coerceActivityRecordBlobRefs(hydrated as Record<string, unknown>)
+      : hydrated
+  validateActivity(publishable)
   const repo = resolveRepoDid(agent)
   try {
     const response = await agent.com.atproto.repo.createRecord({
       repo,
       collection: 'org.hypercerts.claim.activity',
-      record: hydrated as never,
+      record: publishable as never,
     })
     return extractCreateRecordResult(response)
   } catch (err) {

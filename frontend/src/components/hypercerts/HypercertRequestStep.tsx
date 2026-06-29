@@ -37,7 +37,7 @@ export function HypercertRequestStep({ canRequest, pending, submitResult, onRequ
 
       <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span>Saves your certificate details. Publish to Hyperscan in Step 4.</span>
+        <span>Sends your certificate to a verifier for review. After approval it publishes to Hyperscan automatically.</span>
       </p>
 
       {submitResult?.startsWith('Error') ? (

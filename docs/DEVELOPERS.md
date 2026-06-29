@@ -319,8 +319,21 @@ Base: `https://dapp.decleanup.net`. Unless noted, routes require an authenticate
 | Route | Auth | Purpose |
 |-------|------|---------|
 | `GET/POST /api/hypercerts/requests` | Session | List/create requests |
-| `POST /api/hypercerts/requests/review` | Admin | Review |
-| `POST /api/hypercerts/requests/mint` | Session | Mint flow |
+| `POST /api/hypercerts/requests/review` | Verifier | Approve/reject; **auto-publishes to ATProto on approve** when enabled |
+| `POST /api/hypercerts/requests/atproto-publish` | Verifier | Retry failed publish, or `force: true` to re-publish (cover fix) |
+| `POST /api/hypercerts/requests/publish` | Session | Requester retry + AT login diagnostic (GET) |
+| `POST /api/hypercerts/requests/mint` | Session | Legacy Celo minter flow |
+
+Bundle verified cleanups into Hypercert certificates. Production path: **AT Protocol publish → Hyperscan** after verifier approval.  
+Code map: **`docs/HYPERCERTS.md`**, product flow: **`docs/hypercerts-and-impact.md`**.
+
+| Item | Location |
+|------|----------|
+| Eligibility | `frontend/src/lib/blockchain/hypercerts/eligibility.ts` |
+| UI | `/hypercerts` |
+| AT publish | `atproto-publish.ts`, `atproto/client.ts` |
+| Publish notification | `HypercertPublishedNotifier.tsx` |
+| DCU bonus (legacy mint) | `DCURewardManager.claimHypercertReward` |
 
 ### IPFS & uploads
 
@@ -377,14 +390,15 @@ cd frontend && npm run airdrop:sync-giveth-donors
 
 ## Hypercerts
 
-Bundle verified cleanups into Hypercert certificates on Celo.  
+Bundle verified cleanups into Hypercert certificates. Production publishing uses **AT Protocol** (Hyperscan) after verifier approval; legacy Celo minter optional.  
 Code map: **`docs/HYPERCERTS.md`**, product flow: **`docs/hypercerts-and-impact.md`**.
 
 | Item | Location |
 |------|----------|
 | Eligibility | `frontend/src/lib/blockchain/hypercerts/eligibility.ts` |
-| UI | `/hypercerts`, `/create-hypercert` |
-| DCU bonus | `DCURewardManager.claimHypercertReward` |
+| UI | `/hypercerts` |
+| AT publish | `frontend/src/lib/blockchain/hypercerts/atproto-publish.ts` |
+| DCU bonus (legacy mint) | `DCURewardManager.claimHypercertReward` |
 
 ---
 

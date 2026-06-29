@@ -16,6 +16,8 @@ import {
   REQUIRED_CHAIN_NAME,
   REQUIRED_RPC_URL,
 } from '@/lib/blockchain/chain-constants'
+import { enforceApiRateLimit } from '@/lib/server/rate-limit'
+import { apiErrorMessage, isProduction, logApiError } from '@/lib/server/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -216,11 +218,23 @@ async function getOnchainVerifierMetrics(address: string): Promise<VerifierMetri
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceApiRateLimit({
+    request,
+    scope: 'verifier-apply',
+    maxRequests: 10,
+    windowMs: 60_000,
+  })
+  if (!limited.ok) return limited.response
+
   if (!verifierApplyStorageConfigured()) {
     return NextResponse.json(
       {
-        error: 'Verifier applications storage is not configured',
-        hint: 'Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local (server-side service role, not the anon key). Apply the verifier_applications migration in Supabase if the table is missing.',
+        error: 'Verifier applications are temporarily unavailable',
+        ...(isProduction()
+          ? {}
+          : {
+              hint: 'Configure Supabase server credentials and apply verifier_applications migration.',
+            }),
       },
       { status: 503 }
     )
@@ -309,31 +323,25 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('Error in POST /api/verifier/apply:', error)
+    logApiError('verifier/apply POST', error)
     const message = error instanceof Error ? error.message : String(error)
     const isMissingSupabase = message.includes('Missing Supabase server credentials')
     const isCreateFailure = message.startsWith('Failed to create application:')
     if (isMissingSupabase) {
       return NextResponse.json(
-        {
-          error: message,
-          hint: 'Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.',
-        },
+        { error: 'Verifier applications are temporarily unavailable' },
         { status: 503 }
       )
     }
     if (isCreateFailure) {
       return NextResponse.json(
-        {
-          error: 'Could not save verifier application',
-          hint: message.replace(/^Failed to create application:\s*/, ''),
-        },
+        { error: 'Could not save verifier application' },
         { status: 502 }
       )
     }
     return NextResponse.json(
       {
-        error: 'Internal server error',
+        error: apiErrorMessage(error, 'Internal server error'),
         ...(process.env.NODE_ENV === 'development' ? { detail: message } : {}),
       },
       { status: 500 }

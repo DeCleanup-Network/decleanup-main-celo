@@ -52,6 +52,20 @@ export function buildPublishMessage(params: {
   ].join('\n')
 }
 
+/** Verifier re-publishes an approved certificate (e.g. cover smallImage fix). */
+export function buildRepublishMessage(params: {
+  requestId: string
+  reviewer: Address
+  timestamp: number
+}): string {
+  return [
+    'DeCleanup Hypercert Republish v1',
+    `RequestId: ${params.requestId}`,
+    `Reviewer: ${params.reviewer.toLowerCase()}`,
+    `Timestamp: ${params.timestamp}`,
+  ].join('\n')
+}
+
 /** Requester withdraws an unpublished Hypercert request to submit a new one. */
 export function buildCancelMessage(params: {
   requestId: string

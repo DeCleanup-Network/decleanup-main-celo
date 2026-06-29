@@ -21,6 +21,7 @@
  */
 
 import { getCleanupDetails, getCleanupCounter, getCleanupDetailsAt, getCleanupCounterAt } from '@/lib/blockchain/contracts'
+import { isExcludedSubmissionId } from '@/lib/submission/excluded-ids'
 import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
 import { parseCoordsFromContractRaw } from './coords-from-contract'
 import { ImpactEntry, ImpactIndexCache } from './types'
@@ -91,7 +92,9 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
       .map((result) => (result as PromiseFulfilledResult<any>).value)
       .filter(
         (submission) =>
-          submission.verified === true && submission.rejected !== true
+          submission.verified === true &&
+          submission.rejected !== true &&
+          !isExcludedSubmissionId(submission.id)
       )
     
     console.log(`✅ Filtered to ${approvedSubmissions.length} approved submissions`)
@@ -104,6 +107,7 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
     const normalizedEntries = entries
       .filter((entry): entry is ImpactEntry => entry !== null)
       .map(normalizeEntry)
+      .filter((entry) => !isExcludedSubmissionId(entry.submissionId))
     
     const expiresAt = now + CACHE_TTL_MINUTES * 60 * 1000
     cachedIndex = {
@@ -147,10 +151,18 @@ export async function buildImpactIndexAt(submissionAddress: Address): Promise<Im
   const approvedSubmissions = submissions
     .filter((result) => result.status === 'fulfilled')
     .map((result) => (result as PromiseFulfilledResult<any>).value)
-    .filter((submission) => submission.verified === true && submission.rejected !== true)
+    .filter(
+      (submission) =>
+        submission.verified === true &&
+        submission.rejected !== true &&
+        !isExcludedSubmissionId(submission.id)
+    )
 
   const entries = await resolveIPFSDataWithConcurrency(approvedSubmissions, IPFS_PARALLEL_LIMIT)
-  return entries.filter((entry): entry is ImpactEntry => entry !== null).map(normalizeEntry)
+  return entries
+    .filter((entry): entry is ImpactEntry => entry !== null)
+    .map(normalizeEntry)
+    .filter((entry) => !isExcludedSubmissionId(entry.submissionId))
 }
 
 export function legacyFeedSubmissionId(submissionId: string): string {

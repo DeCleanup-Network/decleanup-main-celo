@@ -43,7 +43,7 @@ export function ConfirmModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative mx-4 w-full max-w-md rounded-lg border-2 border-brand-green bg-gray-900 p-6 shadow-2xl">
+      <div className="relative mx-4 w-full max-w-lg rounded-lg border-2 border-brand-green bg-gray-900 p-6 shadow-2xl">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
@@ -61,7 +61,7 @@ export function ConfirmModal({
             {title}
           </h2>
         )}
-        <p className="mb-6 whitespace-pre-wrap text-center text-sm text-gray-300 leading-relaxed">
+        <p className="mb-6 min-w-0 whitespace-pre-wrap break-words text-left text-sm text-gray-300 leading-relaxed">
           {message}
         </p>
         <div className="flex gap-3">

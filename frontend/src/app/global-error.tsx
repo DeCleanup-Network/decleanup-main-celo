@@ -26,7 +26,9 @@ export default function GlobalError({
             Critical Error
           </h2>
           <p className="mb-4 text-sm text-gray-400">
-            {error.message || 'A critical error occurred'}
+            {process.env.NODE_ENV === 'development'
+              ? error.message || 'A critical error occurred'
+              : 'A critical error occurred. Please try again or return home.'}
           </p>
           {error.digest && (
             <p className="mb-4 text-xs text-gray-500 font-mono">

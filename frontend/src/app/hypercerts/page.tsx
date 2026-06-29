@@ -22,7 +22,6 @@ import {
   countPublishedHypercerts,
   isHypercertPublished,
   isAwaitingHypercertPublish,
-  publishApprovedHypercert,
   cancelHypercertRequest,
 } from '@/lib/blockchain/hypercerts/requests'
 import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
@@ -62,7 +61,6 @@ export default function HypercertsCertificationPage() {
     null
   )
   const [userRequests, setUserRequests] = useState<Awaited<ReturnType<typeof fetchHypercertRequestsByUser>>>([])
-  const [publishResult, setPublishResult] = useState('')
   const [cancelPending, setCancelPending] = useState(false)
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0)
   const [actionModal, setActionModal] = useState<{
@@ -114,7 +112,19 @@ export default function HypercertsCertificationPage() {
         }
 
         const validChainId = chainId === 11142220 || chainId === 42220 ? chainId : 11142220
-        const publishedCount = countPublishedHypercerts(userRequests)
+
+        let requests = userRequests
+        if (eoaAddress) {
+          requests = await fetchHypercertRequestsByUser(
+            eoaAddress,
+            eligibilityAddress && eligibilityAddress.toLowerCase() !== eoaAddress.toLowerCase()
+              ? eligibilityAddress
+              : undefined
+          )
+          setUserRequests(requests)
+        }
+
+        const publishedCount = countPublishedHypercerts(requests)
 
         const eligibilityResult = checkHypercertEligibility({
           cleanupsCount: verifiedCleanups.length,
@@ -176,21 +186,22 @@ export default function HypercertsCertificationPage() {
     eligibilityAddress,
     eoaAddress,
     chainId,
-    userRequests.length,
+    requestsRefreshKey,
   ])
 
   useEffect(() => {
     void loadUserRequests()
-  }, [loadUserRequests, submitResult, publishResult, requestsRefreshKey])
+  }, [loadUserRequests, submitResult, requestsRefreshKey])
 
   const awaitingPublishCount = userRequests.filter(isAwaitingHypercertPublish).length
+  const pendingReviewCount = userRequests.filter((r) => r.status === 'PENDING').length
   useEffect(() => {
-    if (!eoaAddress || awaitingPublishCount === 0) return
+    if (!eoaAddress || (awaitingPublishCount === 0 && pendingReviewCount === 0)) return
     const interval = setInterval(() => {
       setRequestsRefreshKey((k) => k + 1)
     }, 10_000)
     return () => clearInterval(interval)
-  }, [eoaAddress, awaitingPublishCount])
+  }, [eoaAddress, awaitingPublishCount, pendingReviewCount])
 
   const handleCoverFileSelect = useCallback(async (file: File | null) => {
     setCoverFile(file)
@@ -228,7 +239,7 @@ export default function HypercertsCertificationPage() {
       setActionModal({
         title: 'Hypercert submitted',
         message:
-          `Your certificate is saved.\n\nRequest ID: ${request.id}\n\nGo to Step 4 to publish on Hyperscan.`,
+          `Your certificate request was submitted.\n\nRequest ID: ${request.id}\n\nA verifier will review it. After approval, it publishes to Hyperscan automatically.`,
         variant: 'success',
       })
       setRequestsRefreshKey((k) => k + 1)
@@ -243,47 +254,16 @@ export default function HypercertsCertificationPage() {
     }
   }
 
-  const handlePublish = async (requestId: string) => {
-    if (!eoaAddress || !canSignMessages) return
-
-    setPublishResult('')
-    setPublishResult('Publishing to Hyperscan...')
-    try {
-      const result = await publishApprovedHypercert({
-        requestId,
-        requester: eoaAddress,
-        signMessageAsync: async ({ message }) => signMessageAsync(message),
-      })
-      setPublishResult('')
-      setActionModal({
-        title: 'Published on Hyperscan',
-        message: `Your certificate is live.\n\n${result.atUri}`,
-        variant: 'success',
-      })
-      setRequestsRefreshKey((k) => k + 1)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setPublishResult('')
-      setActionModal({
-        title: 'Publish failed',
-        message,
-        variant: 'error',
-      })
-    }
-  }
-
   const handleCancel = async (requestId: string) => {
     if (!eoaAddress || !canSignMessages || cancelPending) return
 
     setCancelPending(true)
-    setPublishResult('')
     try {
       await cancelHypercertRequest({
         requestId,
         requester: eoaAddress,
         signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
-      setPublishResult('')
       setActionModal({
         title: 'Request withdrawn',
         message: 'You can configure a new certificate and submit again.',
@@ -292,7 +272,6 @@ export default function HypercertsCertificationPage() {
       setRequestsRefreshKey((k) => k + 1)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setPublishResult('')
       setActionModal({
         title: 'Withdraw failed',
         message,
@@ -336,7 +315,6 @@ export default function HypercertsCertificationPage() {
   const publishedCount = countPublishedHypercerts(userRequests)
   const publishedRequests = userRequests.filter(isHypercertPublished)
   const activeRequests = userRequests.filter((r) => !isHypercertPublished(r))
-  const awaitingPublishRequests = userRequests.filter(isAwaitingHypercertPublish)
 
   const brandingReadiness = useMemo(
     () =>
@@ -370,9 +348,30 @@ export default function HypercertsCertificationPage() {
     })
   }, [userRequests])
 
+  const publishedBrandingReadiness = useMemo(() => {
+    const published = userRequests.find(isHypercertPublished)
+    if (!published?.metadata) return null
+    const meta = published.metadata as HypercertMetadata
+    return evaluateBrandingReadiness({
+      title: meta.branding?.title ?? meta.name ?? '',
+      description: meta.branding?.description ?? meta.description ?? '',
+      logoImageCid: meta.branding?.logoImageCid,
+      bannerImageCid: meta.branding?.bannerImageCid,
+    })
+  }, [userRequests])
+
+  const publishedCoverCid = useMemo(() => {
+    const published = userRequests.find(isHypercertPublished)
+    const branding = (published?.metadata as HypercertMetadata | undefined)?.branding
+    return branding?.bannerImageCid ?? branding?.logoImageCid
+  }, [userRequests])
+
   const hasCleanups = (eligibility?.cleanupsCount ?? 0) > 0
-  const aggregateComplete = hasCleanups
-  const configureComplete = brandingReadiness.ready || submittedBrandingReadiness?.ready === true
+  const aggregateComplete = Boolean(eligibility?.eligible)
+  const configureComplete =
+    brandingReadiness.ready ||
+    submittedBrandingReadiness?.ready === true ||
+    publishedBrandingReadiness?.ready === true
   const requestComplete = pendingCount > 0 || publishingCount > 0 || publishedCount > 0
   const publishedComplete = publishedCount > 0
 
@@ -383,7 +382,7 @@ export default function HypercertsCertificationPage() {
   const flowSteps = [
     { number: '01', title: 'Aggregate', description: 'Verified cleanups' },
     { number: '02', title: 'Configure', description: 'Certificate details' },
-    { number: '03', title: 'Submit', description: 'Save certificate' },
+    { number: '03', title: 'Submit', description: 'Verifier review' },
     { number: '04', title: 'Published', description: 'Hyperscan live' },
   ].map((step, i) => ({
     ...step,
@@ -392,9 +391,11 @@ export default function HypercertsCertificationPage() {
   }))
 
   const displayBrandingReadiness =
-    submittedBrandingReadiness?.ready && !brandingReadiness.ready
-      ? submittedBrandingReadiness
-      : brandingReadiness
+    brandingReadiness.ready
+      ? brandingReadiness
+      : submittedBrandingReadiness?.ready
+        ? submittedBrandingReadiness
+        : publishedBrandingReadiness ?? brandingReadiness
 
   const canRequestHypercert =
     Boolean(eligibility?.eligible) &&
@@ -404,8 +405,9 @@ export default function HypercertsCertificationPage() {
     !needsUnlock
 
   const isTransactionPending = submitResult === 'Submitting request...'
-  const isPublishPending = publishResult === 'Publishing to Hyperscan...'
-  const showRequestStep = pendingCount > 0 || awaitingPublishRequests.length === 0
+  const showRequestStep = !workflowBlocked && Boolean(eligibility?.eligible)
+  const showNextMilestoneHint =
+    publishedComplete && !workflowBlocked && !eligibility?.eligible && Boolean(eligibility?.reason)
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
@@ -431,6 +433,8 @@ export default function HypercertsCertificationPage() {
             loading={loading}
             cleanupsCount={eligibility?.cleanupsCount ?? 0}
             reportsCount={eligibility?.reportsCount ?? 0}
+            nextMilestoneCleanups={eligibility?.nextMilestoneCleanups ?? 10}
+            eligible={Boolean(eligibility?.eligible)}
             timeframeStart={aggregatedData?.timeframeStart}
             timeframeEnd={aggregatedData?.timeframeEnd}
             complete={aggregateComplete}
@@ -439,16 +443,36 @@ export default function HypercertsCertificationPage() {
           <HypercertBrandingPanel
             title={brandingTitle}
             description={brandingDescription}
-            coverImageCid={brandingCids?.bannerImageCid ?? brandingCids?.logoImageCid}
+            coverImageCid={
+              brandingCids?.bannerImageCid ??
+              brandingCids?.logoImageCid ??
+              publishedCoverCid
+            }
             coverFile={coverFile}
             coverUploading={coverUploading}
             coverUploadError={coverUploadError}
             readiness={displayBrandingReadiness}
-            textComplete={brandingTextComplete || submittedBrandingReadiness?.ready === true}
+            complete={configureComplete}
+            textComplete={
+              brandingTextComplete ||
+              submittedBrandingReadiness?.ready === true ||
+              publishedBrandingReadiness?.ready === true
+            }
             onTitleChange={setBrandingTitle}
             onDescriptionChange={setBrandingDescription}
             onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
           />
+
+          {showNextMilestoneHint ? (
+            <section className="rounded-3xl border border-brand-green/30 bg-brand-green/5 p-6 sm:p-8">
+              <h2 className="mb-2 font-heading text-lg uppercase tracking-wider text-foreground">
+                Certificate published
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Your Hypercert is live on Hyperscan. {eligibility?.reason}
+              </p>
+            </section>
+          ) : null}
 
           {showRequestStep ? (
             <HypercertRequestStep
@@ -460,11 +484,8 @@ export default function HypercertsCertificationPage() {
           ) : null}
 
           <HypercertPublishStep
-            requests={awaitingPublishRequests}
+            requests={activeRequests}
             canSign={canSignMessages && !needsUnlock}
-            pending={isPublishPending}
-            publishResult={publishResult}
-            onPublish={(requestId) => void handlePublish(requestId)}
             onCancel={(requestId) => void handleCancel(requestId)}
             cancelPending={cancelPending}
           />
@@ -495,7 +516,11 @@ export default function HypercertsCertificationPage() {
                   >
                     <span className="text-muted-foreground">{request.id.slice(0, 8)}…</span>
                     <span className="text-xs uppercase text-muted-foreground">
-                      {isAwaitingHypercertPublish(request) ? 'Ready to publish' : request.status}
+                      {request.status === 'PENDING'
+                        ? 'Pending review'
+                        : isAwaitingHypercertPublish(request)
+                          ? 'Publishing'
+                          : request.status}
                     </span>
                     {request.atUri ? (
                       <Link

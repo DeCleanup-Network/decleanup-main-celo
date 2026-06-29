@@ -62,9 +62,15 @@ Settings and recovery: **`/wallet`** (smart account settings). User-facing walkt
 
 ### Hypercerts
 
-Implemented end-to-end for eligible users (metadata → IPFS → minter contract). Overview: **`docs/HYPERCERTS.md`**. Product pipeline: **`docs/hypercerts-and-impact.md`**.
+Impact certificates for eligible users: aggregate verified cleanups → IPFS assets → **AT Protocol publish** (Hyperscan) when enabled; optional legacy Celo minter + DCU bonus.
 
-Both embedded and external users can open **`/hypercerts`** when signed in; eligibility reads use the **submission owner** address (smart account for embedded users).
+| Doc | Role |
+|-----|------|
+| **`docs/HYPERCERTS.md`** | Code map, env, user flow |
+| **`docs/hypercerts-and-impact.md`** | Product pipeline |
+| **`docs/HYPERCERTS_ATPROTO_RESEARCH.md`** | Protocol direction and migration notes |
+
+Entry point in the app: **`/hypercerts`** (dashboard cabinet, same row as Leaderboard and Verifier). Eligibility reads use the **submission owner** address (smart account for embedded users). Verifier approval triggers server-side publish; users are notified via modal on next visit.
 
 ### Recyclables + impact reports
 

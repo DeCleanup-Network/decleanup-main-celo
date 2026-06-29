@@ -84,7 +84,7 @@ export function AlertModal({
         closeOnBackdropClick && e.target === e.currentTarget && onClose()
       }
     >
-      <div className={`relative mx-4 w-full max-w-md rounded-lg border-2 ${style.borderClass} bg-gray-900 p-6 shadow-2xl`}>
+      <div className={`relative mx-4 w-full max-w-lg rounded-lg border-2 ${style.borderClass} bg-gray-900 p-6 shadow-2xl`}>
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
@@ -104,11 +104,11 @@ export function AlertModal({
         )}
         {message != null && (
           typeof message === 'string' ? (
-            <p className="mb-6 whitespace-pre-wrap text-center text-sm text-gray-300 leading-relaxed">
+            <p className="mb-6 min-w-0 whitespace-pre-wrap break-words text-left text-sm text-gray-300 leading-relaxed">
               {message}
             </p>
           ) : (
-            <div className="mb-6 text-center text-sm text-gray-300 leading-relaxed">
+            <div className="mb-6 min-w-0 break-words text-left text-sm text-gray-300 leading-relaxed">
               {message}
             </div>
           )

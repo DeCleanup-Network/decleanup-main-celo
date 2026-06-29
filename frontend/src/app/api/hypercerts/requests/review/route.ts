@@ -8,7 +8,6 @@ import { getHypercertRequestById, updateHypercertRequestStatus } from '@/lib/sup
 import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { isAtProtoEnabled, getAtProtoOrgDid } from '@/lib/blockchain/hypercerts/atproto'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
-import type { AtProtoPublishResult } from '@/lib/blockchain/hypercerts/atproto/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -92,23 +91,26 @@ export async function POST(request: NextRequest) {
       rejectionReason: body.action === 'reject' ? body.reason : undefined,
     })
 
-    // ATProto publish (best-effort, does not block response)
+    // Publish to Hyperscan when verifier approves (server AT credentials).
+    let publishWarning: string | undefined
     if (isAtProtoEnabled() && nextStatus === 'APPROVED') {
       const verifierDid = getAtProtoOrgDid()
-      publishHypercertToAtProto(requestId, verifierDid)
-        .then((result: AtProtoPublishResult) => {
-          if (!result.success) {
-            console.error(`[ATProto] Publish failed for ${requestId}: ${result.error}`)
-          } else {
-            console.log(`[ATProto] Published ${requestId} -> ${result.atUri}`)
-          }
-        })
-        .catch((err: unknown) => {
-          console.error(`[ATProto] Exception for ${requestId}:`, err)
-        })
+      const result = await publishHypercertToAtProto(requestId, verifierDid)
+      if (!result.success) {
+        console.error(`[ATProto] Publish failed for ${requestId}: ${result.error}`)
+        publishWarning = result.error ?? 'AT Protocol publish failed after approval.'
+      } else {
+        console.log(`[ATProto] Published ${requestId} -> ${result.atUri}`)
+      }
     }
 
-    return NextResponse.json({ success: true, request: updated })
+    const latest = await getHypercertRequestById(requestId)
+
+    return NextResponse.json({
+      success: true,
+      request: latest ?? updated,
+      publishWarning,
+    })
   } catch (e) {
     if (isMissingTableError(e)) {
       return NextResponse.json(

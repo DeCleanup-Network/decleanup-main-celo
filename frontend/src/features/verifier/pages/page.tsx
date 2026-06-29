@@ -724,22 +724,28 @@ export default function VerifierPage() {
     try {
       console.log('Approving Hypercert request:', requestId)
 
-      const approvedRequest = await approveHypercertRequest({
+      const result = await approveHypercertRequest({
         requestId,
         verifierAddress: address,
         signMessageAsync,
       })
 
-      if (!approvedRequest) {
+      if (!result) {
         throw new Error('Failed to approve request')
       }
 
-      console.log('✅ Hypercert request approved:', approvedRequest.id)
+      console.log('✅ Hypercert request approved:', result.request.id)
+
+      const publishNote = result.publishWarning
+        ? `\n\nPublish note: ${result.publishWarning}`
+        : result.request.atUri
+          ? `\n\nLive on Hyperscan.`
+          : ''
 
       setActionModal({
         variant: 'success',
         title: 'Hypercert approved',
-        message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can publish from their Hypercerts page. Auto-publish may also run if server AT credentials are configured.`,
+        message: `Hypercert request approved.${publishNote}\n\nRequest ID: ${requestId}`,
       })
 
       loadHypercertRequests()

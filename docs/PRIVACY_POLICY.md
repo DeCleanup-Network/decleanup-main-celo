@@ -3,9 +3,7 @@
 **Effective date:** April 23, 2026  
 **Operator:** DeCleanup Network (“DeCleanup”, “we”, “us”, “our”).
 
----
-
-**Not legal advice.** This policy is a **template** for engineering teams. Have **qualified privacy counsel** review it before production, especially if you serve EU/UK users (GDPR), California residents (CPRA), or children.
+This policy has been **reviewed by qualified privacy counsel** for the DeCleanup Rewards platform. Contact counsel before material changes if your user base, data flows, or jurisdictions change.
 
 ---
 
@@ -24,7 +22,7 @@ Depending on how you use the Service, we may process:
 | **Passkeys (optional)** | WebAuthn credential ids and public keys stored to verify unlock; biometric data stays on your device. |
 | **Cleanup submissions** | Photos, descriptions, locations, optional impact or recyclables forms - typically uploaded to **IPFS** or similar storage via our servers. |
 | **Technical logs** | IP address, user agent, timestamps, error logs, API rate-limit counters. |
-| **Account / application data** | If you use verifier onboarding or similar features backed by **Supabase** (or another DB): application status, reviewer notes you provide, email if you supply it. |
+| **Account / application data** | If you use verifier onboarding, Hypercert requests, or similar features backed by **Supabase** (or another DB): application status, certificate request metadata, publish status, reviewer notes you provide, email if you supply it. |
 | **Communications** | Messages you send to support channels. |
 
 We do **not** intentionally collect private keys or seed phrases. Encrypted wallet backups you download stay **on your device** unless you choose to store them elsewhere. **Never share your seed phrase, backup file, or signing password** with anyone claiming to be support.
@@ -51,6 +49,21 @@ We may share information with:
 - **Law enforcement or regulators** when required by law or to protect rights and safety.
 
 We **do not sell personal information** as traditionally defined (no money for personal rows). If you use ad-tech that constitutes “sale” or “sharing” under US state law, **update this section** and offer required opt-outs.
+
+## 5a. Where we store and process data
+
+Personal data may be processed in the following regions and services:
+
+| Provider | Purpose | Region (as configured) |
+|----------|---------|------------------------|
+| **Supabase** | Database (verifier applications, hypercert requests, impact portfolios, auth-related tables) | **US East (Ohio) — `us-east-2`** |
+| **Vercel** | Web application hosting and serverless API routes | **US East — `iad1` (Washington, D.C.)** |
+| **Pinata** | IPFS pinning for cleanup photos and metadata | Per your Pinata account (check Pinata dashboard) |
+| **Resend** | Transactional email (magic links, notifications) | Per Resend account region |
+| **Celo RPC providers** | Onchain reads and transaction broadcast | Distributed; onchain data is public |
+| **Self-hosted VPS** (if used) | ML verification, IPFS upload proxy, or legacy hosting | Per your VPS provider and region |
+
+Onchain wallet activity and IPFS-pinned content may be replicated globally and remain publicly accessible outside our control.
 
 ## 6. International transfers (global audience)
 

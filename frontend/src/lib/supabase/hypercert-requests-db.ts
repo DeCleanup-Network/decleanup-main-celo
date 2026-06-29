@@ -84,7 +84,7 @@ export async function insertHypercertRequest(params: {
     id: params.id,
     requester: params.requester.toLowerCase(),
     metadata: params.metadata as unknown as Json,
-    status: params.status ?? 'APPROVED',
+    status: params.status ?? 'PENDING',
     submitted_at: params.submittedAt,
   }
 

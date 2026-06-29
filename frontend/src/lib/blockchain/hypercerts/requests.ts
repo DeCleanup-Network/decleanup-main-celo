@@ -1,7 +1,7 @@
 import { keccak256, stringToBytes } from 'viem'
 import type { Address } from 'viem'
 import type { HypercertMetadata, HypercertRequest, HypercertRequestStatus } from './types'
-import { buildCreateRequestMessageCompact, buildReviewMessage, buildPublishMessage, buildCancelMessage } from './request-signing'
+import { buildCreateRequestMessageCompact, buildReviewMessage, buildPublishMessage, buildCancelMessage, buildRepublishMessage } from './request-signing'
 
 const STORAGE_KEY = 'hypercert_requests'
 
@@ -157,14 +157,14 @@ function submitHypercertRequestLocalFallback(requester: string, metadata: Hyperc
   const existing = readLocalFallback().filter((r) => r.requester.toLowerCase() === requester.toLowerCase())
   if (hasOpenHypercertWorkflow(existing)) {
     throw new Error(
-      'Finish your open Hypercert first: publish to Hyperscan or withdraw it before submitting a new request.'
+      'You already have an open Hypercert (pending verifier review or publishing). Withdraw it first or wait until it is live on Hyperscan.',
     )
   }
   const request: HypercertRequest = {
     id: `${Date.now()}-${requester.slice(0, 8)}`,
     requester,
     metadata,
-    status: 'APPROVED',
+    status: 'PENDING',
     submittedAt: Date.now(),
   }
   const requests = [...readLocalFallback(), request]
@@ -172,11 +172,16 @@ function submitHypercertRequestLocalFallback(requester: string, metadata: Hyperc
   return request
 }
 
+export type HypercertReviewResult = {
+  request: HypercertRequest
+  publishWarning?: string
+}
+
 export async function approveHypercertRequest(params: {
   requestId: string
   verifierAddress: string
   signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>
-}): Promise<HypercertRequest | null> {
+}): Promise<HypercertReviewResult | null> {
   const timestamp = Date.now()
   const message = buildReviewMessage({
     action: 'approve',
@@ -201,14 +206,74 @@ export async function approveHypercertRequest(params: {
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data?.success || !data?.request) {
     if (res.status === 503) {
-      return approveHypercertRequestLocal(params)
+      const local = approveHypercertRequestLocal(params)
+      return local ? { request: local } : null
     }
     console.error('approveHypercertRequest:', data?.error)
     return null
   }
   const updated = data.request as HypercertRequest
   writeLocalMirror(mergeUniqueById([updated], readLocalFallback()))
-  return updated
+  return {
+    request: updated,
+    publishWarning: typeof data.publishWarning === 'string' ? data.publishWarning : undefined,
+  }
+}
+
+export type HypercertRepublishResult = {
+  atUri: string
+  atCid?: string
+  republished: boolean
+  previousAtUri?: string
+}
+
+/** Verifier re-publishes to AT (e.g. smallImage cover fix). Requires force=true when already published. */
+export async function republishHypercertRequest(params: {
+  requestId: string
+  verifierAddress: string
+  force?: boolean
+  signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>
+}): Promise<HypercertRepublishResult | null> {
+  const timestamp = Date.now()
+  const force = params.force === true
+  const message = force
+    ? buildRepublishMessage({
+        requestId: params.requestId,
+        reviewer: params.verifierAddress as Address,
+        timestamp,
+      })
+    : buildReviewMessage({
+        action: 'approve',
+        requestId: params.requestId,
+        reviewer: params.verifierAddress as Address,
+        timestamp,
+      })
+  const signature = await params.signMessageAsync({ message })
+
+  const res = await fetch('/api/hypercerts/requests/atproto-publish', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requestId: params.requestId,
+      reviewer: params.verifierAddress,
+      timestamp,
+      signature,
+      force,
+    }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data?.success || !data?.atUri) {
+    console.error('republishHypercertRequest:', data?.error)
+    return null
+  }
+
+  return {
+    atUri: data.atUri as string,
+    atCid: data.atCid as string | undefined,
+    republished: Boolean(data.republished),
+    previousAtUri: typeof data.previousAtUri === 'string' ? data.previousAtUri : undefined,
+  }
 }
 
 function approveHypercertRequestLocal(params: {

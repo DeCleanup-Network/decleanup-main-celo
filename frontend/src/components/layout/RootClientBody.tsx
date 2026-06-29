@@ -5,6 +5,8 @@ import { NetworkChecker } from '@/components/network/NetworkChecker'
 import { Header } from '@/components/layout/Header'
 import { SiteFooterLinks } from '@/components/layout/SiteFooterLinks'
 import { RootErrorBoundary } from '@/components/RootErrorBoundary'
+import { ChunkLoadRecovery } from '@/components/ChunkLoadRecovery'
+import { HypercertPublishedNotifier } from '@/components/hypercerts/HypercertPublishedNotifier'
 import { useAutoSwitchToAppChain } from '@/hooks/useAutoSwitchToAppChain'
 import { usePathname } from 'next/navigation'
 import type { State } from 'wagmi'
@@ -31,6 +33,8 @@ export default function RootClientBody({
   return (
     <RootErrorBoundary>
       <Providers wagmiInitialState={wagmiInitialState}>
+        <ChunkLoadRecovery />
+        <HypercertPublishedNotifier />
         <AutoSwitchToAppChain />
         <NetworkChecker />
         <Header />

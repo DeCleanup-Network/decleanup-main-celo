@@ -20,9 +20,15 @@ import { getAtProtoOrgDid, isAtProtoEnabled, getAtProtoConfigError } from './con
 import type { AtProtoPublishResult } from './atproto/types'
 import type { CleanupPhoto } from './atproto/types'
 
+export type PublishHypercertToAtProtoOptions = {
+  /** Create a new activity record even when at_uri is already set (e.g. smallImage cover fix). */
+  force?: boolean
+}
+
 export async function publishHypercertToAtProto(
   requestId: string,
   verifierDid?: string,
+  options?: PublishHypercertToAtProtoOptions,
 ): Promise<AtProtoPublishResult> {
   if (!isAtProtoEnabled()) {
     return { success: false, error: 'ATProto publishing is disabled' }
@@ -47,8 +53,8 @@ export async function publishHypercertToAtProto(
       }
     }
 
-    // Idempotency: if already published, return existing
-    if (request.atUri) {
+    // Idempotency: if already published, return existing unless force republish
+    if (request.atUri && !options?.force) {
       return { success: true, atUri: request.atUri, atCid: request.atCid }
     }
 

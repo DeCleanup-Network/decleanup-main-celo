@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isAddress, verifyMessage, type Address } from 'viem'
 import {
   assertFreshTimestamp,
+  buildRepublishMessage,
   buildReviewMessage,
 } from '@/lib/blockchain/hypercerts/request-signing'
 import { getHypercertRequestById } from '@/lib/supabase/hypercert-requests-db'
@@ -17,11 +18,14 @@ type RepublishBody = {
   reviewer: string
   timestamp: number
   signature: `0x${string}`
+  /** When true, creates a new AT activity (e.g. smallImage cover) even if at_uri exists. */
+  force?: boolean
 }
 
 /**
- * Re-publishes an approved or minted hypercert to ATProto when the initial
- * publish failed (at_publish_error set, at_uri null).
+ * Re-publishes an approved or minted hypercert to ATProto.
+ * - Default: only when initial publish failed (at_uri null).
+ * - force=true: verifier creates a new activity record (cover fix, schema updates).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +36,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as RepublishBody
     const reviewer = body.reviewer?.trim()
     const requestId = body.requestId?.trim()
+    const force = body.force === true
 
     if (!requestId) {
       return NextResponse.json({ error: 'Missing requestId' }, { status: 400 })
@@ -45,12 +50,18 @@ export async function POST(request: NextRequest) {
 
     assertFreshTimestamp(body.timestamp)
 
-    const message = buildReviewMessage({
-      action: 'approve',
-      requestId,
-      reviewer: reviewer as Address,
-      timestamp: body.timestamp,
-    })
+    const message = force
+      ? buildRepublishMessage({
+          requestId,
+          reviewer: reviewer as Address,
+          timestamp: body.timestamp,
+        })
+      : buildReviewMessage({
+          action: 'approve',
+          requestId,
+          reviewer: reviewer as Address,
+          timestamp: body.timestamp,
+        })
 
     const valid = await verifyMessage({
       address: reviewer as Address,
@@ -73,7 +84,7 @@ export async function POST(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 })
     }
-    if (existing.atUri) {
+    if (!force && existing.atUri) {
       return NextResponse.json({
         success: true,
         alreadyPublished: true,
@@ -88,13 +99,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await publishHypercertToAtProto(requestId, getAtProtoOrgDid())
+    const previousUri = existing.atUri
+    const result = await publishHypercertToAtProto(requestId, getAtProtoOrgDid(), { force })
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
+      republished: force && Boolean(previousUri),
+      previousAtUri: previousUri ?? null,
       atUri: result.atUri,
       atCid: result.atCid,
     })

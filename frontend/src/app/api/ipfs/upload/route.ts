@@ -3,6 +3,8 @@ import type { Agent } from 'undici'
 import { Agent as UndiciAgent } from 'undici'
 import { convertHeicToJpegIfNeeded } from '@/lib/server/convert-heic-for-pinata'
 import { checkInMemoryRateLimit, getRateLimitKey, tooManyRequestsResponse } from '@/lib/server/rate-limit'
+import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
+import { rejectOpsDiagnosticUnlessAuthorized } from '@/lib/server/ops-diagnostic-guard'
 import {
   MAX_CLEANUP_VIDEO_BYTES,
   MAX_MULTIPART_BODY_BYTES,
@@ -41,16 +43,10 @@ function getPinataUploadHeaders(): HeadersInit | null {
     return { Authorization: `Bearer ${jwt}` }
   }
 
-  const apiKey = (
-    process.env.PINATA_API_KEY ||
-    process.env.NEXT_PUBLIC_PINATA_API_KEY ||
-    ''
-  ).trim()
+  const apiKey = (process.env.PINATA_API_KEY || '').trim()
   const secret = (
     process.env.PINATA_SECRET_KEY ||
     process.env.PINATA_SECRET_API_KEY ||
-    process.env.NEXT_PUBLIC_PINATA_SECRET_KEY ||
-    process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY ||
     ''
   ).trim()
 
@@ -277,31 +273,39 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: unknown) {
     const err = error as NodeJS.ErrnoException & { cause?: { code?: string; message?: string } }
+    logApiError('IPFS upload', error)
     const msg = err?.message || String(error)
     const causeCode = err?.cause?.code || err?.code
-    console.error('IPFS upload API error:', msg, { code: causeCode, cause: err?.cause })
 
-    let userMessage = msg
-    if (msg.includes('fetch failed') || msg.includes('Network') || causeCode) {
-      if (causeCode === 'ENOTFOUND') {
-        userMessage =
-          'Server cannot resolve api.pinata.cloud (DNS). On the VPS run: getent hosts api.pinata.cloud — fix DNS or outbound rules.'
-      } else if (causeCode === 'ECONNREFUSED' || causeCode === 'ECONNRESET') {
-        userMessage =
-          'Server connection to Pinata was refused or reset. Check VPS firewall / outbound HTTPS (443) to api.pinata.cloud.'
-      } else if (causeCode === 'ETIMEDOUT' || causeCode === 'UND_ERR_CONNECT_TIMEOUT') {
-        userMessage =
-          'Server timed out connecting to Pinata. Check VPS network, firewall, or try again.'
-      } else {
-        userMessage =
-          'Server could not reach Pinata (upload runs on the VPS, not your phone). Ensure this host can access https://api.pinata.cloud and PINATA_JWT is set in the server .env / PM2 env. Open GET /api/ipfs/upload on this host for a diagnostic.'
+    if (process.env.NODE_ENV === 'development') {
+      let userMessage = msg
+      if (msg.includes('fetch failed') || msg.includes('Network') || causeCode) {
+        if (causeCode === 'ENOTFOUND') {
+          userMessage =
+            'Server cannot resolve api.pinata.cloud (DNS). On the VPS run: getent hosts api.pinata.cloud — fix DNS or outbound rules.'
+        } else if (causeCode === 'ECONNREFUSED' || causeCode === 'ECONNRESET') {
+          userMessage =
+            'Server connection to Pinata was refused or reset. Check VPS firewall / outbound HTTPS (443) to api.pinata.cloud.'
+        } else if (causeCode === 'ETIMEDOUT' || causeCode === 'UND_ERR_CONNECT_TIMEOUT') {
+          userMessage =
+            'Server timed out connecting to Pinata. Check VPS network, firewall, or try again.'
+        } else {
+          userMessage =
+            'Server could not reach Pinata. Ensure this host can access https://api.pinata.cloud and PINATA_JWT is set.'
+        }
+      } else if (msg.includes('API keys')) {
+        userMessage = 'Pinata API keys not configured on the server.'
       }
-    } else if (msg.includes('API keys')) {
-      userMessage =
-        'Pinata API keys not configured. Set PINATA_JWT (or legacy key+secret) on the server — see GET /api/ipfs/upload diagnostic.'
+      return NextResponse.json(
+        { error: userMessage, code: causeCode ? String(causeCode) : undefined },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ error: userMessage, code: causeCode ? String(causeCode) : undefined }, { status: 500 })
+    return NextResponse.json(
+      { error: apiErrorMessage(error, 'Upload failed. Please try again later.') },
+      { status: 500 }
+    )
   }
 }
 
@@ -309,7 +313,10 @@ export async function POST(request: NextRequest) {
  * GET: whether this server process sees Pinata env (no secrets returned).
  * Open in browser: https://YOUR_HOST/api/ipfs/upload
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const blocked = rejectOpsDiagnosticUnlessAuthorized(request)
+  if (blocked) return blocked
+
   const headers = getPinataUploadHeaders()
   if (!headers) {
     return NextResponse.json({

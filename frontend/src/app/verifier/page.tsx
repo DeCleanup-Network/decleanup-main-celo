@@ -33,6 +33,7 @@ import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
 import { OptionalSubmissionVideo } from '@/components/verifier/OptionalSubmissionVideo'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
+import { filterExcludedSubmissionIds } from '@/lib/submission/excluded-ids'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -305,7 +306,7 @@ export default function VerifierPage() {
                     console.warn(`Failed to fetch cleanup ${id}`, err)
                 }
             }
-            setCleanups(submissions)
+            setCleanups(filterExcludedSubmissionIds(submissions, (s) => s.id))
 
             if (isVerifierUserRef.current) {
                 try {
@@ -731,22 +732,28 @@ export default function VerifierPage() {
             console.log('Approving Hypercert request:', requestId)
             
             // Approve the request
-            const approvedRequest = await approveHypercertRequest({
+            const result = await approveHypercertRequest({
                 requestId,
                 verifierAddress: address,
                 signMessageAsync: signMessageForWallet,
             })
             
-            if (!approvedRequest) {
+            if (!result) {
                 throw new Error('Failed to approve request')
             }
             
-            console.log('✅ Hypercert request approved:', approvedRequest.id)
+            console.log('✅ Hypercert request approved:', result.request.id)
+            
+            const publishNote = result.publishWarning
+              ? `\n\nPublish note: ${result.publishWarning}`
+              : result.request.atUri
+                ? `\n\nLive on Hyperscan.`
+                : ''
             
             setActionModal({
                 variant: 'success',
                 title: 'Hypercert approved',
-                message: `Hypercert request approved.\n\nRequest ID: ${requestId}\n\nThe requester can publish from their Hypercerts page. Auto-publish may also run if server AT credentials are configured.`,
+                message: `Hypercert request approved.${publishNote}\n\nRequest ID: ${requestId}`,
             })
             
             // Refresh the data

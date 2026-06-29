@@ -251,12 +251,16 @@ export default function UserGuidePage() {
               <div>
                 <h3 className="font-heading mb-2 text-base font-semibold text-white">Hypercerts</h3>
                 <p>
-                  Hypercerts summarize your verified impact across multiple cleanups into a single on-chain
-                  attestation. To mint one: open the Hypercerts page, check your eligibility, submit a request, and
-                  mint after verifier approval.
+                  Hypercerts summarize your verified impact across multiple cleanups into a published
+                  certificate. Open the Hypercerts hub from the dashboard, check eligibility, submit a request, and
+                  wait for verifier approval — DeCleanup publishes the certificate to Hyperscan when approved.
                 </p>
                 <p className="mt-2">
                   <ExternalLink href="https://hypercerts.org/">Learn more about Hypercerts</ExternalLink>
+                  {' · '}
+                  <Link href="/hypercerts" className="text-brand-green underline underline-offset-2 hover:text-brand-green/90">
+                    Open Hypercerts hub
+                  </Link>
                 </p>
               </div>
               <div>

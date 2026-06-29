@@ -794,6 +794,7 @@ function HomeContent() {
               <DashboardActions
                 address={address || ''}
                 userImpactLevel={rewardStats.userLevel}
+                hypercertEligibility={hypercertEligibility}
                 cleanupStatus={cleanupStatus || null}
                 claimFeeInfo={claimFeeInfo}
                 onClaim={handleClaimImpactLevel}
@@ -806,27 +807,6 @@ function HomeContent() {
 
         <DashboardVerifierExtras />
 
-        {hypercertEligibility?.isEligible && (
-          <div className="rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
-            <Heart className="mb-2 h-5 w-5 text-brand-yellow" aria-hidden />
-            <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">
-              Hypercert
-              {hypercertEligibility.testingOverride && (
-                <span className="ml-2 text-xs font-normal text-brand-yellow/70">(Test mode)</span>
-              )}
-            </h3>
-            <Link href="/hypercerts" className="block">
-              <Button
-                size="sm"
-                className="h-8 w-full gap-1 bg-brand-yellow text-xs text-black hover:bg-brand-yellow/90"
-              >
-                <Heart className="h-3 w-3" />
-                Open Hypercerts certification
-              </Button>
-            </Link>
-            <p className="mt-2 text-[11px] text-muted-foreground">Minting runs from approved requests in the certification panel.</p>
-          </div>
-        )}
         <div className="mt-2 grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 sm:mt-4">
           <Link href="/leaderboard" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
@@ -848,7 +828,13 @@ function HomeContent() {
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
               <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
               <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">HYPERCERTS</h3>
-              <p className="text-xs text-muted-foreground">Impact certification</p>
+              <p className="text-xs text-muted-foreground">
+                {hypercertEligibility?.isEligible
+                  ? 'Ready to request certificate'
+                  : hypercertEligibility
+                    ? `${hypercertEligibility.cleanupsCount}/${hypercertEligibility.nextMilestoneCleanups} verified cleanups`
+                    : 'Impact certification'}
+              </p>
             </div>
           </Link>
         </div>
@@ -1055,8 +1041,8 @@ function HomeContent() {
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">6. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">10 DCU</strong> for every ten verified cleanups when you create a
-                  Hypercert (impact certificate).
+                  Earn <strong className="text-foreground">10 DCU</strong> for every ten verified cleanups when you publish an
+                  impact certificate via the Hypercerts hub (verifier approval required).
                 </p>
               </div>
             </div>

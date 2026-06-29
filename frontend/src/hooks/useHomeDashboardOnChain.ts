@@ -124,7 +124,7 @@ type Params = {
 /**
  * Home dashboard on-chain data with phased loading:
  * - Phase 1 (immediate): status, rewards summary, level, claim fee — hero + REWARDS card
- * - Phase 2 (idle or breakdown open): submission details, verifier DCU, contributor stats, hypercert
+ * - Phase 2 (idle or breakdown open): submission details, verifier DCU, contributor stats
  * - Phase 3 (async): Impact Product IPFS metadata
  */
 export function useHomeDashboardOnChain({
@@ -141,10 +141,11 @@ export function useHomeDashboardOnChain({
   const submissionOwner = onchainOwnerAddress ?? submissionOwnerAddress
   const [cleanupStatus, setCleanupStatus] = useState<HomeCleanupStatus | null>(null)
   const [hypercertEligibility, setHypercertEligibility] = useState<{
-    cleanupCount: number
-    hypercertCount: number
     isEligible: boolean
-    testingOverride?: boolean
+    cleanupsCount: number
+    reportsCount: number
+    nextMilestoneCleanups: number
+    reason?: string
   } | null>(null)
   const [rewardStats, setRewardStats] = useState<HomeRewardStats>(EMPTY_REWARD_STATS)
   const [impactProduct, setImpactProduct] = useState<ImpactProductDisplayState>(EMPTY_IMPACT_PRODUCT)
@@ -211,9 +212,10 @@ export function useHomeDashboardOnChain({
 
         setHypercertEligibility({
           isEligible: eligibilityResult.eligible,
-          cleanupCount: eligibilityResult.cleanupsCount,
-          hypercertCount: 0,
-          testingOverride: eligibilityResult.testingOverride,
+          cleanupsCount: eligibilityResult.cleanupsCount,
+          reportsCount: eligibilityResult.reportsCount,
+          nextMilestoneCleanups: eligibilityResult.nextMilestoneCleanups ?? 10,
+          reason: eligibilityResult.reason,
         })
 
         setRewardStats(

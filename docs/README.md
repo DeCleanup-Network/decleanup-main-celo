@@ -13,8 +13,8 @@
 | **`ML_VERIFICATION_ARCHITECTURE.md`** | Optional GPU / ML pre-screening |
 | **`PUBLIC_IMPACT_API.md`** | Landing page read API (feed + global stats) |
 | **`TELEGRAM_VERIFIER_BOT.md`** | Verifier Telegram notifications |
-| **`hypercerts-and-impact.md`** | Impact forms → Hypercert pipeline |
-| **`HYPERCERTS.md`** | Hypercerts code map |
+| **`hypercerts-and-impact.md`** | Impact forms → Hypercert pipeline (product) |
+| **`HYPERCERTS.md`** | Hypercerts code map, env, and publish flow (engineering) |
 | **`HYPERCERTS_ATPROTO_RESEARCH.md`** | AT Protocol migration research and next steps |
 | **`TERMS_OF_SERVICE.md`** | Terms (`/terms`) |
 | **`PRIVACY_POLICY.md`** | Privacy (`/privacy`) |

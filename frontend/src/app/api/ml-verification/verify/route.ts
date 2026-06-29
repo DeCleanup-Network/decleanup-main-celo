@@ -257,8 +257,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           service: 'ML Verification (Vercel proxy)',
-          error: e instanceof Error ? e.message : 'Upstream unreachable',
-          backend: proxy.origin,
+          error: process.env.NODE_ENV === 'development' && e instanceof Error ? e.message : 'Upstream unreachable',
           timestamp: Date.now(),
         },
         { status: 502 }
@@ -269,8 +268,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     service: 'ML Verification API',
     mlVerificationEnabled: true,
-    gpuServiceUrl: GPU_SERVICE_URL,
-    uploadDir: UPLOAD_DIR,
+    ...(process.env.NODE_ENV === 'development'
+      ? { gpuServiceUrl: GPU_SERVICE_URL, uploadDir: UPLOAD_DIR }
+      : {}),
     timestamp: Date.now(),
   })
 }

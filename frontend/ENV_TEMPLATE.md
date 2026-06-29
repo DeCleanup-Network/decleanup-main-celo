@@ -127,7 +127,8 @@ CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
 # Apply: frontend/supabase/migrations/20260530_create_cleanup_feed.sql
 #         frontend/supabase/migrations/20260603_cleanup_feed_place_name.sql
 IMPACT_SYNC_SECRET=
-# Reverse geocoding for feed (OpenStreetMap Nominatim, ~1 req/s during sync). Default on.
+# Hide submission IDs from verifier UI + public feed (on-chain unchanged). Default: 1,2,4
+# IMPACT_EXCLUDED_SUBMISSION_IDS=1,2,4 (OpenStreetMap Nominatim, ~1 req/s during sync). Default on.
 # IMPACT_REVERSE_GEOCODING_ENABLED=false
 # NOMINATIM_USER_AGENT=DeCleanupRewards/1.0 (https://dapp.decleanup.net; contact: you@example.com)
 # NOMINATIM_ACCEPT_LANGUAGE=en
@@ -148,10 +149,22 @@ IMPACT_SYNC_SECRET=
 # ML_PROXY_SHARED_SECRET=
 
 # ============================================
-# Hypercerts
+# Hypercerts (AT Protocol / Hyperscan)
 # ============================================
 NEXT_PUBLIC_HYPERCERTS_NETWORK=celo
 # NEXT_PUBLIC_HYPERCERTS_MINTER_UUPS_ADDRESS=
+
+# HYPERCERTS_AT_ENABLED=true
+# NEXT_PUBLIC_HYPERCERTS_AT_ENABLED=true
+# HYPERCERTS_ATPROTO_HANDLE=decleanup.bsky.social
+# ATPROTO_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+# HYPERCERTS_ATPROTO_DID=did:plc:...
+# Login service must match the account home PDS (any federated PDS is valid):
+#   Bluesky → https://bsky.social (or omit; auto-detects from handle)
+#   *.certified.one → https://certified.one
+#   Staging → HYPERCERTS_ATPROTO_LOGIN_SERVICE=https://dev.certified.app
+# HYPERCERTS_ATPROTO_PDS_URL=https://bsky.social
+# HYPERCERTS_ATPROTO_LOGIN_SERVICE=https://bsky.social
 
 # ============================================
 # Telegram (optional verifier alerts)

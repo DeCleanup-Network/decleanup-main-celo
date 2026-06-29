@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { type Address, isAddress, parseEther } from 'viem'
 import { CLAIM_CATEGORY, signClaimVaultClaim } from '@/lib/cdcu/claim-signing'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
@@ -10,6 +10,8 @@ import {
   hasAirdropClaimed,
   setAirdropPending,
 } from '@/lib/airdrop/store'
+import { enforceApiRateLimit } from '@/lib/server/rate-limit'
+import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 
 const MAX_EXPIRY_SECONDS = 7 * 24 * 60 * 60
 
@@ -20,7 +22,7 @@ function normalizePrivateKey(raw: string | undefined): `0x${string}` | undefined
   return `0x${trimmed}` as `0x${string}`
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const privateKey = normalizePrivateKey(process.env.CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY)
     const claimVaultAddress = process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS as Address | undefined
@@ -31,6 +33,16 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}))
     const recipient = (body?.recipient ?? '').trim()
+
+    const limited = await enforceApiRateLimit({
+      request,
+      scope: 'airdrop-claim',
+      maxRequests: 15,
+      windowMs: 60_000,
+      walletAddress: recipient || null,
+    })
+    if (!limited.ok) return limited.response
+
     if (!isAddress(recipient)) {
       return NextResponse.json({ error: 'Invalid or missing recipient address' }, { status: 400 })
     }
@@ -84,8 +96,9 @@ export async function POST(request: Request) {
       s: signed.s,
     })
   } catch (e) {
+    logApiError('airdrop/claim-request', e)
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Claim request failed' },
+      { error: apiErrorMessage(e, 'Claim request failed') },
       { status: 500 }
     )
   }

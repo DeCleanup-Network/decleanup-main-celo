@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { ExternalLink, Loader2 } from 'lucide-react'
-import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { cn } from '@/lib/utils'
@@ -10,19 +9,13 @@ import { cn } from '@/lib/utils'
 type Props = {
   requests: HypercertRequest[]
   canSign: boolean
-  pending: boolean
-  publishResult?: string
-  onPublish: (requestId: string) => void
-  onCancel?: (requestId: string) => void
   cancelPending?: boolean
+  onCancel?: (requestId: string) => void
 }
 
 export function HypercertPublishStep({
   requests,
   canSign,
-  pending,
-  publishResult,
-  onPublish,
   onCancel,
   cancelPending,
 }: Props) {
@@ -31,16 +24,20 @@ export function HypercertPublishStep({
   return (
     <section className="rounded-3xl border border-brand-green/30 bg-card p-6 sm:p-8">
       <h2 className="mb-2 font-heading text-2xl uppercase tracking-wider text-foreground sm:text-3xl">
-        Step 4: Publish to Hyperscan
+        Step 4: Verifier review &amp; publish
       </h2>
       <p className="mb-6 text-sm text-muted-foreground">
-        Sign once to save your certificate, then publish on Hyperscan in Step 4.
+        A DeCleanup verifier approves your request. On approval, your certificate is published to
+        Hyperscan automatically — you do not need to publish it yourself.
       </p>
 
       <ul className="space-y-4">
         {requests.map((request) => {
           const title = request.metadata?.branding?.title || request.metadata?.name || 'Hypercert'
           const hyperscanUrl = request.atUri ? buildHyperscanHypercertUrl(request.atUri) : null
+          const isPendingReview = request.status === 'PENDING'
+          const isPublishing =
+            (request.status === 'APPROVED' || request.status === 'MINTED') && !request.atUri
 
           return (
             <li key={request.id} className="rounded-2xl border border-border bg-background/40 p-4">
@@ -62,39 +59,37 @@ export function HypercertPublishStep({
                 ) : null}
               </div>
 
-              {request.atPublishError ? (
-                <p className="mb-3 text-xs text-amber-400" role="status">
-                  Last publish attempt failed: {request.atPublishError}
+              {isPendingReview ? (
+                <p className="text-sm text-muted-foreground">
+                  Waiting for verifier review. You will be notified when it is approved and published.
                 </p>
               ) : null}
 
-              {!request.atUri ? (
-                <TransactionActionBlock pending={pending} showHint={false}>
-                  <button
-                    type="button"
-                    onClick={() => onPublish(request.id)}
-                    disabled={!canSign || pending || cancelPending}
-                    className={cn(
-                      'flex w-full items-center justify-center gap-2 rounded-full py-3 font-heading text-lg uppercase tracking-widest transition-all disabled:cursor-not-allowed',
-                      canSign && !pending && !cancelPending
-                        ? 'border-2 border-brand-green bg-brand-green text-black hover:border-white hover:bg-white'
-                        : 'border border-border bg-muted text-muted-foreground opacity-50'
-                    )}
-                  >
-                    {pending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
-                    Publish Hypercert
-                  </button>
-                  {onCancel ? (
-                    <button
-                      type="button"
-                      onClick={() => onCancel(request.id)}
-                      disabled={!canSign || pending || cancelPending}
-                      className="mt-2 w-full text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {cancelPending ? 'Withdrawing…' : 'Withdraw and start over'}
-                    </button>
-                  ) : null}
-                </TransactionActionBlock>
+              {isPublishing ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-green" aria-hidden />
+                  Approved — publishing to Hyperscan…
+                </p>
+              ) : null}
+
+              {request.atPublishError ? (
+                <p className="mb-3 text-xs text-amber-400" role="status">
+                  Publish issue (verifier will retry): {request.atPublishError}
+                </p>
+              ) : null}
+
+              {!request.atUri && onCancel ? (
+                <button
+                  type="button"
+                  onClick={() => onCancel(request.id)}
+                  disabled={!canSign || cancelPending}
+                  className={cn(
+                    'mt-3 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline',
+                    'disabled:cursor-not-allowed disabled:opacity-50'
+                  )}
+                >
+                  {cancelPending ? 'Withdrawing…' : 'Withdraw request'}
+                </button>
               ) : null}
             </li>
           )
@@ -102,7 +97,7 @@ export function HypercertPublishStep({
       </ul>
 
       <p className="mt-4 text-xs text-muted-foreground">
-        Your certificate is stored on-chain via AT Protocol and appears on{' '}
+        Published certificates appear on{' '}
         <Link
           href="https://www.hyperscan.dev"
           target="_blank"
@@ -113,12 +108,6 @@ export function HypercertPublishStep({
         </Link>
         .
       </p>
-
-      {publishResult && !pending && publishResult.startsWith('Error') ? (
-        <p className="mt-4 text-xs text-red-400" role="alert">
-          {publishResult}
-        </p>
-      ) : null}
     </section>
   )
 }

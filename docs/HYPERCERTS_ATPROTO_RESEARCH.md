@@ -27,9 +27,9 @@
 
 Hypercerts **redesigned in 2025–2026**. The canonical hypercert is no longer “mint an ERC-1155 on EVM first.” It is a **graph of ATProto lexicon records** (`org.hypercerts.claim.activity` + measurements, evidence, rights, evaluations) stored in user or org repositories, with **optional on-chain anchoring** for ownership and funding.
 
-**DeCleanup today** still uses the **old path**: IPFS metadata + `HypercertMinterUUPS.mintClaim()` on Celo via `@hypercerts-org/sdk` v2.9.1, plus `claimHypercertReward` on `DCURewardManager`.
+**DeCleanup today** publishes impact certificates via **AT Protocol** when enabled (verifier-approved requests → org PDS → Hyperscan). Legacy **Celo minter** code (`@hypercerts-org/sdk` v2.9.1) remains for optional on-chain mint and `claimHypercertReward` DCU bonuses.
 
-**Next move:** migrate **certificate publishing** to AT lexicons (dual-write first), while keeping the current Celo `mintClaim` + `claimHypercertReward` path until IdentityLink and on-chain anchor specs are clear.
+**Next move:** extend AT records (locations, rights), sync portfolio from `at://` URIs, and evaluate optional on-chain anchor when IdentityLink matures.
 
 ---
 
@@ -52,18 +52,20 @@ Hypercerts **redesigned in 2025–2026**. The canonical hypercert is no longer �
 
 ---
 
-## What DeCleanup uses today
+## What DeCleanup uses today (June 2026)
 
 | Piece | Location |
 |-------|----------|
-| SDK (EVM) | `@hypercerts-org/sdk` ^2.9.1 |
-| Mint | `hypercerts-minting.ts` → `mintClaim` on Celo minter |
-| Metadata | `hypercerts/metadata.ts` — ERC-1155 + dimension schema |
-| Config | `hypercerts/config.ts` — Celo mainnet `0x16bA53B74c234C870c61EFC04cD418B8f2865959` |
-| UX | `/hypercerts` — request → admin approve → user mint |
-| Reward | `DCURewardManager.claimHypercertReward` (DCU ledger bonus) |
+| Primary publish (prod) | `atproto-publish.ts` → `org.hypercerts.claim.*` on org PDS → Hyperscan |
+| AT client | `atproto/client.ts` — `@atproto/api` + org app password |
+| Metadata / mapping | `hypercerts/metadata.ts`, `atproto/mapper.ts` |
+| Config | `hypercerts/config.ts` — AT env + optional Celo minter `0x16bA53B74c234C870c61EFC04cD418B8f2865959` |
+| UX | `/hypercerts` — request → verifier approve → **server auto-publish** |
+| Notifications | `HypercertPublishedNotifier.tsx` — one-time modal with Hyperscan link |
+| Legacy EVM mint | `hypercerts-minting.ts` → `mintClaim` on Celo (optional) |
+| Reward | `DCURewardManager.claimHypercertReward` (DCU ledger bonus when mint path used) |
 
-This is **v0.1 EVM**. It works for Celo DCU bonuses but is **not** the protocol direction Hypercerts is investing in for 2026.
+**Production default:** AT-only publish when `HYPERCERTS_AT_ENABLED=true`. Celo minter remains for optional dual-write / DCU bonus until IdentityLink and anchor specs mature.
 
 ---
 

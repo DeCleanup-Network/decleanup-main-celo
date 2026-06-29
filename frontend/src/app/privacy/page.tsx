@@ -20,7 +20,9 @@ export default function PrivacyPage() {
           </Link>
         </p>
         <h1 className="mb-2 font-heading text-3xl tracking-wide text-brand-green sm:text-4xl">Privacy Policy</h1>
-        <p className="mb-8 text-sm text-muted-foreground">Effective April 23, 2026 · DeCleanup Network</p>
+        <p className="mb-8 text-sm text-muted-foreground">
+          Effective April 23, 2026 · DeCleanup Network · Reviewed by privacy counsel
+        </p>
 
         <article className="space-y-8 text-sm leading-relaxed text-muted-foreground sm:text-base">
           <section>
@@ -71,7 +73,33 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">4. Retention and Security</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">4. Where Your Data Is Stored</h2>
+            <p className="mb-3">
+              We use infrastructure providers to operate the platform. Primary storage locations include:
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                <strong className="text-foreground">Supabase</strong> (database) — US East (Ohio), region code{' '}
+                <code className="text-xs">us-east-2</code>
+              </li>
+              <li>
+                <strong className="text-foreground">Vercel</strong> (web app and API hosting) — US East (
+                <code className="text-xs">iad1</code>, Washington D.C.)
+              </li>
+              <li>
+                <strong className="text-foreground">Pinata</strong> (IPFS pinning) — per Pinata account configuration
+              </li>
+              <li>
+                <strong className="text-foreground">Resend</strong> (email) — per Resend account configuration
+              </li>
+            </ul>
+            <p className="mt-3">
+              Blockchain and IPFS content may be replicated globally and remain publicly accessible.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">5. Retention and Security</h2>
             <p>
               We retain personal data for as long as necessary to support platform operations and satisfy legal
               obligations. Data is deleted or anonymized when retention is no longer required. Please be aware that
@@ -81,7 +109,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">5. Your Rights</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">6. Your Rights</h2>
             <p>
               Depending on your jurisdiction, you may have rights to access, correct, delete, restrict the processing
               of, or receive a portable copy of your personal data. To exercise any of these rights, contact us using
@@ -91,7 +119,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">6. Children</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">7. Children</h2>
             <p>
               DeCleanup Rewards is not directed at children under the age of 13. We do not knowingly collect personal
               data from children.
@@ -99,7 +127,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">7. International Data Transfers</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. International Data Transfers</h2>
             <p>
               Your data may be processed in jurisdictions outside your country of residence. Where legally required, we
               apply appropriate transfer mechanisms to ensure adequate protection of personal data.
@@ -107,7 +135,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. Policy Updates</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">9. Policy Updates</h2>
             <p>
               We may update this Privacy Policy from time to time. The revised effective date will be reflected at the
               top of this page.
@@ -115,7 +143,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">9. Contact</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">10. Contact</h2>
             <p>
               <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-green hover:underline">
                 {PRIVACY_EMAIL}

@@ -1,4 +1,4 @@
-import { buildContentSecurityPolicy, SECURITY_HEADERS } from './csp-headers.mjs'
+import { buildContentSecurityPolicy, getSecurityHeaders } from './csp-headers.mjs'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -45,7 +45,7 @@ const nextConfig = {
             key: "Cross-Origin-Opener-Policy",
             value: "same-origin-allow-popups",
           },
-          ...SECURITY_HEADERS,
+          ...getSecurityHeaders(isDev),
           {
             key: "Content-Security-Policy",
             value: buildContentSecurityPolicy(isDev),

@@ -31,6 +31,8 @@ Copy **`frontend/ENV_TEMPLATE.md`** → `frontend/.env.local`. For mainnet local
 |-----|--------|
 | [`docs/README.md`](docs/README.md) | Full index |
 | [`docs/system-architecture.md`](docs/system-architecture.md) | End-to-end architecture |
+| [`docs/HYPERCERTS.md`](docs/HYPERCERTS.md) | Hypercerts code map and AT publish flow |
+| [`docs/hypercerts-and-impact.md`](docs/hypercerts-and-impact.md) | Impact forms → Hypercert pipeline |
 | [`docs/deployment-plan.md`](docs/deployment-plan.md) | Vercel / mainnet release checklist |
 | [`docs/VPS_DEPLOYMENT.md`](docs/VPS_DEPLOYMENT.md) | VPS + ML enablement |
 | [`docs/PUBLIC_IMPACT_API.md`](docs/PUBLIC_IMPACT_API.md) | Landing page feed API |

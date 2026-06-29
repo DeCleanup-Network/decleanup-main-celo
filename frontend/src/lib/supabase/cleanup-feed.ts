@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
+import { getExcludedSubmissionIds, isExcludedSubmissionId } from '@/lib/submission/excluded-ids'
 
 export type CleanupFeedRow = {
   submission_id: string
@@ -165,18 +166,29 @@ export async function listCleanupFeed(params: {
   offset: number
 }): Promise<{ items: CleanupFeedRow[]; total: number }> {
   const { chainId, limit, offset } = params
+  const excluded = getExcludedSubmissionIds()
 
-  const { count, error: countError } = await getSupabase()
+  let countQuery = getSupabase()
     .from('cleanup_feed')
     .select('*', { count: 'exact', head: true })
     .eq('chain_id', chainId)
+  for (const id of excluded) {
+    countQuery = countQuery.neq('submission_id', id)
+  }
+
+  const { count, error: countError } = await countQuery
 
   if (countError) throw new Error(`Failed to count cleanup feed: ${countError.message}`)
 
-  const { data, error } = await getSupabase()
+  let listQuery = getSupabase()
     .from('cleanup_feed')
     .select('*')
     .eq('chain_id', chainId)
+  for (const id of excluded) {
+    listQuery = listQuery.neq('submission_id', id)
+  }
+
+  const { data, error } = await listQuery
     .order('verified_at', { ascending: false, nullsFirst: false })
     .order('submitted_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1)
@@ -201,6 +213,22 @@ export async function upsertCleanupFeedRows(
 
   if (error) throw new Error(`Failed to upsert cleanup feed: ${error.message}`)
   return rows.length
+}
+
+export async function deleteCleanupFeedRows(
+  chainId: number,
+  submissionIds: string[]
+): Promise<number> {
+  if (submissionIds.length === 0) return 0
+
+  const { error, count } = await getSupabase()
+    .from('cleanup_feed')
+    .delete({ count: 'exact' })
+    .eq('chain_id', chainId)
+    .in('submission_id', submissionIds)
+
+  if (error) throw new Error(`Failed to delete cleanup feed rows: ${error.message}`)
+  return count ?? 0
 }
 
 export async function updateRecyclablesMeta(params: {
@@ -237,7 +265,7 @@ export async function getCleanupFeedGlobalStats(chainId: number): Promise<{
   const { data, error } = await getSupabase()
     .from('cleanup_feed')
     .select(
-      'weight_kg, area_sqm, bags, duration_minutes, has_recyclables, recyclables_amount_kg, waste_types, location_type, location_label'
+      'submission_id, weight_kg, area_sqm, bags, duration_minutes, has_recyclables, recyclables_amount_kg, waste_types, location_type, location_label'
     )
     .eq('chain_id', chainId)
 
@@ -245,6 +273,7 @@ export async function getCleanupFeedGlobalStats(chainId: number): Promise<{
 
   const rows = (data ?? []) as Pick<
     DbRow,
+    | 'submission_id'
     | 'weight_kg'
     | 'area_sqm'
     | 'bags'
@@ -265,7 +294,11 @@ export async function getCleanupFeedGlobalStats(chainId: number): Promise<{
   let cleanupsWithRecyclables = 0
   let totalRecyclablesKg = 0
 
+  let totalCleanups = 0
+
   for (const row of rows) {
+    if (isExcludedSubmissionId(row.submission_id ?? '')) continue
+    totalCleanups += 1
     totalWeightKg += row.weight_kg ?? 0
     totalAreaSqm += row.area_sqm ?? 0
     totalBags += row.bags ?? 0
@@ -287,7 +320,7 @@ export async function getCleanupFeedGlobalStats(chainId: number): Promise<{
     .slice(0, 10)
 
   return {
-    totalCleanups: rows.length,
+    totalCleanups,
     totalWeightKg,
     totalAreaSqm,
     totalBags,

@@ -16,6 +16,8 @@ import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibili
 import { getBrandingLengthError } from '@/lib/blockchain/hypercerts/branding-readiness'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { enforceApiRateLimit } from '@/lib/server/rate-limit'
+import { apiErrorMessage, isProduction, logApiError } from '@/lib/server/api-error'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -73,19 +75,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         requests: [],
-        warning: 'hypercert_requests table not migrated yet',
+        ...(isProduction()
+          ? {}
+          : { warning: 'hypercert_requests table not migrated yet' }),
       })
     }
     if (isRlsError(e) || isMissingSupabaseServerCreds(e)) {
       return NextResponse.json({
         success: true,
         requests: [],
-        warning:
-          'Hypercert requests DB unavailable (missing SUPABASE_SERVICE_ROLE_KEY or RLS). List is empty until server env is fixed.',
+        ...(isProduction()
+          ? {}
+          : {
+              warning:
+                'Hypercert requests DB unavailable (missing server credentials or RLS).',
+            }),
       })
     }
+    logApiError('hypercerts/requests GET', e)
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Failed to list requests' },
+      { error: apiErrorMessage(e, 'Failed to list requests') },
       { status: 500 }
     )
   }
@@ -103,6 +112,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CreateBody
     const requester = body.requester?.trim()
+
+    const limited = await enforceApiRateLimit({
+      request,
+      scope: 'hypercert-create',
+      maxRequests: 20,
+      windowMs: 60_000,
+      walletAddress: requester,
+    })
+    if (!limited.ok) return limited.response
 
     if (!requester || !isAddress(requester)) {
       return NextResponse.json({ error: 'Invalid requester' }, { status: 400 })
@@ -158,7 +176,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'You already have an open Hypercert (awaiting Hyperscan publication). Withdraw it first or publish it.',
+            'You already have an open Hypercert (pending verifier review or publishing). Withdraw it first or wait until it is live on Hyperscan.',
         },
         { status: 409 }
       )
@@ -199,15 +217,13 @@ export async function POST(request: NextRequest) {
     }
     if (isRlsError(e)) {
       return NextResponse.json(
-        {
-          error:
-            'Hypercert requests DB is blocked by RLS for this server key. Use SUPABASE_SERVICE_ROLE_KEY on the server for /api/hypercerts/requests.',
-        },
+        { error: 'Hypercert requests service is temporarily unavailable' },
         { status: 503 }
       )
     }
+    logApiError('hypercerts/requests POST', e)
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Failed to create request' },
+      { error: apiErrorMessage(e, 'Failed to create request') },
       { status: 500 }
     )
   }

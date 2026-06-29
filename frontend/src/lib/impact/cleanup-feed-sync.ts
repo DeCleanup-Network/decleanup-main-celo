@@ -21,8 +21,10 @@ import {
 import {
   getCleanupFeedRow,
   upsertCleanupFeedRows,
+  deleteCleanupFeedRows,
   type CleanupFeedRow,
 } from '@/lib/supabase/cleanup-feed'
+import { getExcludedSubmissionIds, isExcludedSubmissionId } from '@/lib/submission/excluded-ids'
 import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
 
@@ -189,6 +191,7 @@ export async function syncCleanupFeedFromChain(): Promise<{
   const rows: Omit<CleanupFeedRow, 'created_at'>[] = []
 
   for (const entry of entries) {
+    if (isExcludedSubmissionId(entry.submissionId)) continue
     const existing = await getCleanupFeedRow(REQUIRED_CHAIN_ID, entry.submissionId)
     const legacyReadAt =
       legacyAddress && isLegacyFeedSubmissionId(entry.submissionId) ? legacyAddress : undefined
@@ -196,6 +199,10 @@ export async function syncCleanupFeedFromChain(): Promise<{
   }
 
   const synced = await upsertCleanupFeedRows(rows)
+  const excluded = getExcludedSubmissionIds()
+  if (excluded.length > 0) {
+    await deleteCleanupFeedRows(REQUIRED_CHAIN_ID, excluded)
+  }
   const legacyCount = entries.filter((e) => isLegacyFeedSubmissionId(e.submissionId)).length
   return {
     synced,

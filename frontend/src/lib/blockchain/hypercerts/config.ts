@@ -73,8 +73,17 @@ export function normalizeAtProtoServiceUrl(raw?: string): string | null {
 
 /**
  * AT login / handle-resolver entry point for CredentialSession.
- * Explicit env wins; otherwise inferred from handle suffix.
- * @see https://docs.hypercerts.org/reference/certified-pdss
+ *
+ * Hypercerts supports publishing from **any** AT Protocol PDS — the login service must
+ * match where your org handle authenticates (home PDS), not a single vendor:
+ *   Bluesky handle  → https://bsky.social (or omit; auto-detects)
+ *   *.certified.one → https://certified.one
+ *   Staging         → HYPERCERTS_ATPROTO_LOGIN_SERVICE=https://dev.certified.app
+ *
+ * Keep HYPERCERTS_ATPROTO_PDS_URL when it documents your intended login/PDS — do not remove
+ * it just because you use a Bluesky account; set it to https://bsky.social if you want explicit config.
+ *
+ * @see https://docs.hypercerts.org/reference/certified-services
  */
 export function getAtProtoLoginService(): string {
   const loginService = normalizeAtProtoServiceUrl(process.env.HYPERCERTS_ATPROTO_LOGIN_SERVICE)

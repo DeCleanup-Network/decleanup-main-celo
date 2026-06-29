@@ -16,6 +16,13 @@ interface DashboardActionsProps {
     address: string
     /** Current Impact Product level (0-10). At max level, submit cleanup is locked. */
     userImpactLevel?: number
+    hypercertEligibility?: {
+        isEligible: boolean
+        cleanupsCount: number
+        reportsCount: number
+        nextMilestoneCleanups: number
+        reason?: string
+    } | null
     cleanupStatus: {
         hasPendingCleanup: boolean
         canClaim: boolean
@@ -43,6 +50,7 @@ function stepClass(active: boolean, done?: boolean) {
 export function DashboardActions({
     address,
     userImpactLevel = 0,
+    hypercertEligibility,
     cleanupStatus,
     onClaim,
     isClaiming,
@@ -62,7 +70,12 @@ export function DashboardActions({
         cleanupStatus.hasPendingCleanup === true &&
         cleanupStatus.canClaim !== true
 
-    const hypercertHighlighted = userImpactLevel > 0 && userImpactLevel % 10 === 0
+    const hypercertHighlighted = Boolean(hypercertEligibility?.isEligible)
+    const hypercertHint = hypercertEligibility?.isEligible
+        ? 'Advanced documentation of your action with Hypercert impact certificate'
+        : hypercertEligibility
+          ? `Requires ${hypercertEligibility.nextMilestoneCleanups} verified cleanups and at least 1 impact report (${hypercertEligibility.cleanupsCount}/${hypercertEligibility.nextMilestoneCleanups} cleanups)`
+          : 'Advanced documentation of your action with Hypercert impact certificate'
     const verifierHighlighted = !showVerifierFeatures && !!eligibility?.eligible
 
     const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
@@ -161,7 +174,7 @@ export function DashboardActions({
                     </ActionHint>
                 )}
 
-                <ActionHint hint="Advanced documentation of your action with Hypercert impact certificate">
+                <ActionHint hint={hypercertHint}>
                     <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
                         <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         Impact certificate

@@ -8,6 +8,8 @@ import { getHypercertRequestById } from '@/lib/supabase/hypercert-requests-db'
 import { isAtProtoEnabled, getAtProtoOrgDid, getAtProtoConfigError, getAtProtoLoginService } from '@/lib/blockchain/hypercerts/atproto'
 import { testAtProtoConnection } from '@/lib/blockchain/hypercerts/atproto/client'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
+import { rejectOpsDiagnosticUnlessAuthorized } from '@/lib/server/ops-diagnostic-guard'
+import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -105,14 +107,18 @@ export async function POST(request: NextRequest) {
       request: updated,
     })
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Hypercert publish failed'
-    console.error('[Hypercert publish] unhandled:', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    logApiError('hypercerts/publish POST', e)
+    return NextResponse.json(
+      { error: apiErrorMessage(e, 'Hypercert publish failed') },
+      { status: 500 }
+    )
   }
 }
 
-/** GET: AT publish env + PDS login diagnostic (no secrets). */
-export async function GET() {
+/** GET: AT publish env + PDS login diagnostic (ops only in production). */
+export async function GET(request: NextRequest) {
+  const blocked = rejectOpsDiagnosticUnlessAuthorized(request)
+  if (blocked) return blocked
   const configError = getAtProtoConfigError()
   const connection = configError ? null : await testAtProtoConnection()
 

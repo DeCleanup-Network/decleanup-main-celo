@@ -1,10 +1,12 @@
 import type { Agent } from '@atproto/api'
+import { BlobRef } from '@atproto/lexicon'
 import { getIpfsGatewayBases, normalizeIpfsCid } from '@/lib/utils/ipfs-fetch-gateways'
 import { isAllowedIpfsFetchHost } from '@/lib/utils/ipfs-fetch-allowed'
 
 const SMALL_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
-const SMALL_IMAGE_TYPE = 'org.hypercerts.defs#smallImage'
+export const SMALL_IMAGE_LEXICON_TYPE = 'org.hypercerts.defs#smallImage'
+const SMALL_IMAGE_TYPE = SMALL_IMAGE_LEXICON_TYPE
 
 function sniffImageMime(bytes: Uint8Array): string {
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg'
@@ -100,6 +102,48 @@ function extractIpfsCidFromActivityImage(image: unknown): string | undefined {
   return cid && !cid.includes('QmPlaceholder') ? cid : undefined
 }
 
+/** Normalize upload/API blob values to the BlobRef class lexicon validators expect. */
+export function coerceBlobRef(value: unknown): BlobRef | null {
+  if (!value) return null
+  if (value instanceof BlobRef) return value
+
+  let json: unknown = value
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toJSON' in value &&
+    typeof (value as { toJSON: unknown }).toJSON === 'function'
+  ) {
+    json = (value as { toJSON: () => unknown }).toJSON()
+  }
+
+  return BlobRef.asBlobRef(json)
+}
+
+/**
+ * Hypercerts lexicon blob fields require BlobRef instances (not plain JSON).
+ * Coerce smallImage.image before validateRecord / createRecord.
+ */
+export function coerceActivityRecordBlobRefs(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const image = record.image
+  if (!image || typeof image !== 'object') return record
+  const typed = image as { $type?: string; image?: unknown }
+  if (typed.$type !== SMALL_IMAGE_TYPE) return record
+
+  const coerced = coerceBlobRef(typed.image)
+  if (!coerced) return record
+
+  return {
+    ...record,
+    image: {
+      $type: SMALL_IMAGE_TYPE,
+      image: coerced,
+    },
+  }
+}
+
 /**
  * Upload cover art to the login PDS and return org.hypercerts.defs#smallImage for activity.image.
  */
@@ -110,9 +154,10 @@ export async function buildActivitySmallImage(
   const { bytes, mime } = await fetchIpfsImageBytes(ipfsCid)
   const blob = new Blob([Buffer.from(bytes)], { type: mime })
   const upload = await agent.uploadBlob(blob)
+  const blobRef = upload.data.blob
   return {
     $type: SMALL_IMAGE_TYPE,
-    image: upload.data.blob,
+    image: blobRef,
   }
 }
 
@@ -126,7 +171,10 @@ export async function hydrateActivityCoverImage(
 ): Promise<Record<string, unknown>> {
   const image = record.image
   if (image && typeof image === 'object' && (image as { $type?: string }).$type === SMALL_IMAGE_TYPE) {
-    return record
+    const inner = (image as { image?: unknown }).image
+    if (inner instanceof BlobRef || BlobRef.asBlobRef(inner)) {
+      return record
+    }
   }
 
   const cid = extractIpfsCidFromActivityImage(image)

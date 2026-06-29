@@ -4,6 +4,11 @@ import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, Home } from 'lucide-react'
 import Link from 'next/link'
+import {
+  chunkLoadErrorMessage,
+  isChunkLoadError,
+  reloadOnceForStaleChunk,
+} from '@/lib/utils/chunk-load-error'
 
 export default function Error({
   error,
@@ -12,10 +17,20 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const staleChunk = isChunkLoadError(error)
+
   useEffect(() => {
-    // Log the error to an error reporting service
     console.error('Application error:', error)
-  }, [error])
+    if (staleChunk) reloadOnceForStaleChunk()
+  }, [error, staleChunk])
+
+  const handleRetry = () => {
+    if (staleChunk) {
+      window.location.reload()
+      return
+    }
+    reset()
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -25,7 +40,11 @@ export default function Error({
           Something went wrong!
         </h2>
         <p className="mb-4 text-sm text-gray-400">
-          {error.message || 'An unexpected error occurred'}
+          {staleChunk
+            ? chunkLoadErrorMessage()
+            : process.env.NODE_ENV === 'development'
+              ? error.message || 'An unexpected error occurred'
+              : 'An unexpected error occurred. Please try again or return home.'}
         </p>
         {error.digest && (
           <p className="mb-4 text-xs text-gray-500 font-mono">
@@ -33,11 +52,8 @@ export default function Error({
           </p>
         )}
         <div className="flex gap-3 justify-center">
-          <Button
-            onClick={reset}
-            className=""
-          >
-            Try again
+          <Button onClick={handleRetry}>
+            {staleChunk ? 'Refresh page' : 'Try again'}
           </Button>
           <Link href="/">
             <Button

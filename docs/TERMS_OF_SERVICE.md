@@ -19,7 +19,7 @@ By accessing or using the Service (including connecting a wallet, submitting a c
 The Service provides interfaces and APIs for:
 
 - Submitting environmental cleanup evidence (for example photos, locations, optional forms) and interacting with **smart contracts on Celo** (for example `Submission`, `DCURewardManager`, `ImpactProductNFT`, **`$cDCU` / ClaimVault** as deployed for your environment).
-- Optional features such as verifier workflows, leaderboards, Hypercerts-related flows, and machine-learning assistance **where enabled**.
+- Optional features such as verifier workflows, leaderboards, **Hypercerts** (impact certificates; see §6a when enabled), and machine-learning assistance **where enabled**.
 
 The Service is provided **as-is** and may change, pause, or end at any time.
 
@@ -54,6 +54,15 @@ You retain ownership of content you submit, but you grant DeCleanup a **non-excl
 
 You represent you have the rights needed to grant the above license for your submissions.
 
+## 6a. Hypercerts (impact certificates)
+
+When enabled, the Service may let eligible users **request** an impact certificate (Hypercert) summarizing verified cleanups. **Verifier approval is required** before publication. DeCleanup may publish certificate data using the **AT Protocol** and third-party indexers (for example **Hyperscan**). Published certificates may include titles, descriptions, aggregated impact metrics, and media you submitted or licensed for display.
+
+- Certificates are **attestations of verified activity**, not securities, cash, or guarantees of funding.
+- Publication may make certificate metadata **publicly readable** on AT Protocol infrastructure and indexers outside DeCleanup’s control.
+- DeCleanup may modify, suspend, or discontinue Hypercert features; already-published records on third-party systems may persist.
+- Technical details: **`docs/HYPERCERTS.md`** and **`docs/hypercerts-and-impact.md`** in the repository.
+
 ## 7. Points, tokens, rewards, and governance
 
 - **DCU / participation metrics** recorded onchain are **not** necessarily cash, securities, or a promise of future value.
@@ -64,7 +73,7 @@ Nothing on the Service is an offer to sell or solicitation to buy any financial 
 
 ## 8. Third-party services
 
-The Service may rely on **wallet providers**, **RPC hosts**, **IPFS / pinning**, **hosting**, **analytics**, **Supabase** or other databases, **ML / GPU** endpoints, and **block explorers**. Their terms and privacy practices apply to your use of those services.
+The Service may rely on **wallet providers**, **RPC hosts**, **IPFS / pinning**, **hosting**, **analytics**, **Supabase** or other databases, **ML / GPU** endpoints, **AT Protocol / PDS** hosts, **Hyperscan** and other Hypercerts indexers, and **block explorers**. Their terms and privacy practices apply to your use of those services.
 
 ## 9. Disclaimers
 

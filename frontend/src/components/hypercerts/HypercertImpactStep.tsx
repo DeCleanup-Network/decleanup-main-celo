@@ -7,6 +7,8 @@ type Props = {
   loading: boolean
   cleanupsCount: number
   reportsCount: number
+  nextMilestoneCleanups?: number
+  eligible?: boolean
   timeframeStart?: number
   timeframeEnd?: number
   complete: boolean
@@ -16,6 +18,8 @@ export function HypercertImpactStep({
   loading,
   cleanupsCount,
   reportsCount,
+  nextMilestoneCleanups = 10,
+  eligible = false,
   timeframeStart,
   timeframeEnd,
   complete,
@@ -59,6 +63,12 @@ export function HypercertImpactStep({
             <p className="mt-4 text-xs text-muted-foreground">
               {new Date(timeframeStart).toLocaleDateString()} to{' '}
               {new Date(timeframeEnd).toLocaleDateString()}
+            </p>
+          ) : null}
+          {!eligible && !loading ? (
+            <p className="mt-4 text-xs text-muted-foreground">
+              {cleanupsCount}/{nextMilestoneCleanups} verified cleanups and at least 1 impact report required for your
+              next certificate.
             </p>
           ) : null}
         </>

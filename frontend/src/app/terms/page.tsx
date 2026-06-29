@@ -36,8 +36,9 @@ export default function TermsPage() {
             <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">2. Description of Service</h2>
             <p>
               DeCleanup Rewards provides interfaces for interacting with DeCleanup-related smart contracts deployed on
-              the Celo blockchain. Functionality includes cleanup submissions, reward distribution, Impact Products, and
-              optional $cDCU token claims via ClaimVault, subject to deployment configuration. Features may be modified,
+              the Celo blockchain. Functionality includes cleanup submissions, reward distribution, Impact Products,
+              optional Hypercerts (impact certificates published after verifier approval, when enabled), and optional
+              $cDCU token claims via ClaimVault, subject to deployment configuration. Features may be modified,
               suspended, or discontinued at any time.
             </p>
           </section>
@@ -97,8 +98,9 @@ export default function TermsPage() {
             <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. Third-Party Services</h2>
             <p>
               DeCleanup Rewards depends on third-party infrastructure including wallet providers, Celo RPC endpoints,
-              IPFS pinning services, hosting providers, database services, and optional machine learning services. Your
-              use of those services is subject to their respective terms and policies.
+              IPFS pinning services, hosting providers, database services, optional machine learning services, AT
+              Protocol hosts, and Hypercerts indexers such as Hyperscan. Your use of those services is subject to their
+              respective terms and policies.
             </p>
           </section>
 

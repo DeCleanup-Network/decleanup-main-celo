@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/server/api-request-guards'
 import { checkInMemoryRateLimit } from '@/lib/server/rate-limit'
+import { rejectOpsDiagnosticUnlessAuthorized } from '@/lib/server/ops-diagnostic-guard'
 import {
   CONTRACT_ADDRESSES,
   REQUIRED_CHAIN_ID,
@@ -38,13 +39,15 @@ function tooManyRequests(resetAt: number) {
   )
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const blocked = rejectOpsDiagnosticUnlessAuthorized(request)
+  if (blocked) return blocked
+
   return NextResponse.json({
     configured: isTelegramNotifierConfigured(),
     chainId: REQUIRED_CHAIN_ID,
     chainName: REQUIRED_CHAIN_NAME,
     submissionContract: CONTRACT_ADDRESSES.VERIFICATION || null,
-    hint: 'Set TELEGRAM_BOT_TOKEN and TELEGRAM_VERIFIER_CHAT_ID on the server.',
   })
 }
 
