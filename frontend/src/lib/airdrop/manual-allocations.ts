@@ -87,8 +87,20 @@ const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
   },
 ] as const
 
+const COMMUNITY_ALLOCATIONS: readonly AirdropAllocation[] = [
+  {
+    walletAddress: '0x4E9dD8389F25f2797Dfc3E0aFE761A1F2D638b7E',
+    amountCdcu: '250',
+    category: 'community',
+    label: 'Community, $cDCU airdrop',
+  },
+] as const
+
 /** Other manual rows (not in Giveth list). Giveth addresses override via map merge order. */
-const OTHER_MANUAL_ALLOCATIONS: readonly AirdropAllocation[] = [...PAST_CONTRIBUTOR_ALLOCATIONS] as const
+const OTHER_MANUAL_ALLOCATIONS: readonly AirdropAllocation[] = [
+  ...PAST_CONTRIBUTOR_ALLOCATIONS,
+  ...COMMUNITY_ALLOCATIONS,
+] as const
 
 /**
  * Temporary manual list until CSV import is ready.
