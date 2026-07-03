@@ -38,6 +38,22 @@ export async function forwardMlVerifyPost(bodyText: string): Promise<Response> {
   })
 }
 
+export async function forwardMlRescorePost(bodyText: string): Promise<Response> {
+  const { origin, secret } = getMlBackendProxyConfig()
+  if (!origin || !secret) {
+    throw new Error('ML backend proxy not configured')
+  }
+  return fetch(`${origin}/api/ml-verification/rescore`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-ml-proxy-secret': secret,
+    },
+    body: bodyText,
+    signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+  })
+}
+
 export async function forwardMlResultGet(cleanupId: string): Promise<Response> {
   const { origin, secret } = getMlBackendProxyConfig()
   if (!origin || !secret) {

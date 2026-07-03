@@ -84,12 +84,14 @@ module.exports = {
       ML_VERIFICATION_ENABLED: getEnv('ML_VERIFICATION_ENABLED', 'true'),
       GPU_INFERENCE_SERVICE_URL: getEnv('GPU_INFERENCE_SERVICE_URL', 'http://127.0.0.1:8000'),
       GPU_SHARED_SECRET: getEnv('GPU_SHARED_SECRET', ''),
+      ML_HEIC_PYTHON: getEnv('ML_HEIC_PYTHON', '/var/www/decleanup/gpu-inference-service/.venv/bin/python'),
       // Same value as Vercel; required on ml host when locking ingress. Do NOT set ML_BACKEND_ORIGIN here.
       ML_PROXY_SHARED_SECRET: getEnv('ML_PROXY_SHARED_SECRET', ''),
       
       // File Upload Configuration
       UPLOAD_DIR: getEnv('UPLOAD_DIR', '/var/www/decleanup/uploads'),
-      PUBLIC_URL_BASE: getEnv('PUBLIC_URL_BASE', 'http://207.180.203.243:3000'),
+      // Use loopback when Next.js and GPU share the VPS (GPU fetches photos via this URL).
+      PUBLIC_URL_BASE: getEnv('PUBLIC_URL_BASE', 'http://127.0.0.1:3000'),
       
       // Pinata (for IPFS uploads) — PINATA_JWT preferred per Pinata pinFileToIPFS docs
       PINATA_JWT: getEnv('PINATA_JWT', ''),

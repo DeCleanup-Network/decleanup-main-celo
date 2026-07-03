@@ -65,12 +65,21 @@ ML is **off by default**. Set on the host that runs `POST /api/ml-verification/v
 VPS_SSH=deploy@207.180.203.243 ./scripts/vps/deploy-gpu-inference-pm2.sh
 ```
 
-On VPS, create `gpu-inference-service/.env.gpu`:
+**Install TACO litter weights** (recommended — replaces default `yolov8n.pt`):
+
+```bash
+VPS_SSH=deploy@207.180.203.243 ./scripts/vps/install-taco-model.sh
+# Heavier / more accurate: TACO_VARIANT=m ./scripts/vps/install-taco-model.sh
+```
+
+Weights source: [jeremy-rico/litter-detection](https://github.com/jeremy-rico/litter-detection) (`runs/detect/train/yolov8n_100epochs/weights/best.pt`).
+
+On VPS, create `gpu-inference-service/.env.gpu` (or let the install script write it):
 
 ```bash
 SHARED_SECRET=<same as GPU_SHARED_SECRET on frontend>
-MODEL_PATH=yolov8n.pt
-MODEL_VERSION=yolov8n-v1
+MODEL_PATH=yolov8-taco.pt
+MODEL_VERSION=yolov8-taco-n-100epochs-v1
 HOST=127.0.0.1
 PORT=8000
 ```
@@ -84,14 +93,36 @@ ML_VERIFICATION_ENABLED=true
 GPU_INFERENCE_SERVICE_URL=http://127.0.0.1:8000
 GPU_SHARED_SECRET=<matches inference service>
 UPLOAD_DIR=/var/www/decleanup/uploads
-PUBLIC_URL_BASE=https://dapp.decleanup.net
+# Loopback when Next.js + GPU share the VPS (GPU downloads photos from this URL):
+PUBLIC_URL_BASE=http://127.0.0.1:3000
 ```
 
 Then rebuild and restart:
 
 ```bash
-./scripts/vps/reload-pm2-stacks.sh
+./scripts/vps/deploy-ml-verification-to-vps.sh
+# or: ./scripts/vps/reload-pm2-stacks.sh
 ```
+
+### 4.2.1 iPhone HEIC photos + rescore
+
+Mobile uploads are often **HEIC** on IPFS. The verify route normalizes to JPEG via **sharp** (requires `libheif` on the VPS).
+
+If verify ran before deploy, or photos were saved as HEIC with a `.jpg` name, **re-score without re-downloading IPFS**:
+
+```bash
+curl -X POST "http://127.0.0.1:3000/api/ml-verification/rescore" \
+  -H "Content-Type: application/json" \
+  -d '{"submissionId":"ml-dry-run-015"}'
+```
+
+Full dry-run (verify → rescore):
+
+```bash
+./scripts/vps/ml-dry-run.sh ml-dry-run-017
+```
+
+**Do not** call `/verify` twice on the same submission ID — it re-fetches IPFS and overwrites stored photos.
 
 ### 4.3 Vercel UI + VPS ML (split deploy)
 
@@ -148,7 +179,10 @@ pm2 status
 | Script | Purpose |
 |--------|---------|
 | `scripts/vps/rsync-frontend-to-vps.sh` | Deploy frontend |
+| `scripts/vps/deploy-ml-verification-to-vps.sh` | Deploy ML routes + libheif + rebuild |
+| `scripts/vps/ml-dry-run.sh` | Verify + rescore dry-run on VPS |
 | `scripts/vps/deploy-gpu-inference-pm2.sh` | Deploy GPU service |
+| `scripts/vps/install-taco-model.sh` | Download TACO weights + restart `decleanup-gpu` |
 | `scripts/vps/reload-pm2-stacks.sh` | Restart PM2 after env/ecosystem changes |
 | `scripts/vps/apply-nginx-security-gate.sh` | Rate limits + upload caps |
 | `scripts/vps/harden-sshd.sh` | Disable password SSH |

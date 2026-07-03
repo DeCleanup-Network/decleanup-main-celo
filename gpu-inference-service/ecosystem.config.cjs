@@ -54,8 +54,8 @@ module.exports = {
       max_restarts: 10,
       env: {
         NODE_ENV: 'production',
-        MODEL_PATH: fileEnv.MODEL_PATH || 'best.pt',
-        MODEL_VERSION: fileEnv.MODEL_VERSION || 'sharktide-waste',
+        MODEL_PATH: fileEnv.MODEL_PATH || 'yolov8-taco.pt',
+        MODEL_VERSION: fileEnv.MODEL_VERSION || 'yolov8-taco-n-100epochs-v1',
         PORT: fileEnv.PORT || '8000',
         HOST: fileEnv.HOST || '127.0.0.1',
         SHARED_SECRET: fileEnv.SHARED_SECRET || process.env.SHARED_SECRET || '',

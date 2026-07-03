@@ -18,6 +18,18 @@ from PIL import Image
 import io
 import numpy as np
 
+try:
+    from pi_heif import register_heif_opener
+
+    register_heif_opener()
+except ImportError:
+    try:
+        from pillow_heif import register_heif_opener
+
+        register_heif_opener()
+    except ImportError:
+        pass
+
 from ultralytics import YOLO
 
 # Configure logging
@@ -60,10 +72,14 @@ SHARED_SECRET = os.getenv("SHARED_SECRET", "")  # For request validation
 # Note: These are example URLs - actual model files may be at different locations
 # Recommended: Download manually from the repos listed in README
 MODEL_URLS = {
-    # TACO fine-tuned (check releases for actual URL)
-    "yolov8-taco": "https://github.com/jeremy-rico/litter-detection/releases/download/v1.0/yolov8-taco.pt",
-    # waste-detection (check HuggingFace model files for actual URL)
-    "yolov8-waste": "https://huggingface.co/sharktide/waste-detection/resolve/main/best.pt",
+    # TACO fine-tuned — weights committed in jeremy-rico/litter-detection runs/
+    "yolov8-taco": (
+        "https://raw.githubusercontent.com/jeremy-rico/litter-detection/master/"
+        "runs/detect/train/yolov8n_100epochs/weights/best.pt"
+    ),
+    # waste-detection (HuggingFace; file lives under weights/)
+    "yolov8-waste": "https://huggingface.co/sharktide/waste-detection/resolve/main/weights/best.pt",
+    "best": "https://huggingface.co/sharktide/waste-detection/resolve/main/weights/best.pt",
 }
 
 # Request/Response models
@@ -167,13 +183,29 @@ def download_image(image_url: str) -> Image.Image:
     try:
         response = requests.get(image_url, timeout=30)
         response.raise_for_status()
-        
-        image = Image.open(io.BytesIO(response.content))
-        
+        content = response.content
+
+        try:
+            image = Image.open(io.BytesIO(content))
+            image.load()
+        except Exception as primary_err:
+            logger.warning(f"PIL open failed ({primary_err}); trying HEIF fallback")
+            try:
+                try:
+                    from pi_heif import register_heif_opener as _reg
+                except ImportError:
+                    from pillow_heif import register_heif_opener as _reg
+
+                _reg()
+                image = Image.open(io.BytesIO(content))
+                image.load()
+            except Exception as heif_err:
+                raise primary_err from heif_err
+
         # Convert to RGB if needed
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        
+
         return image
     except Exception as e:
         logger.error(f"Failed to download image from {image_url}: {e}")

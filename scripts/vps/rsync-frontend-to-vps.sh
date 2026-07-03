@@ -6,7 +6,7 @@
 # Prereq: checkout the branch you want live (e.g. main).
 #
 set -euo pipefail
-REMOTE_DIR="${VPS_FRONTEND:-/var/www/decleanup/frontend}"
+REMOTE_DIR="${VPS_FRONTEND:-}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 if [[ -n "${VPS_SSH:-}" ]]; then
@@ -21,6 +21,21 @@ else
   SSH_TARGET="root@207.180.203.243"
 fi
 
+if [[ -z "$REMOTE_DIR" ]]; then
+  echo "Detecting Next.js app directory on ${SSH_TARGET}..."
+  REMOTE_DIR="$(ssh "$SSH_TARGET" bash -s <<'DETECT'
+set -euo pipefail
+for d in /var/www/decleanup/frontend/frontend /var/www/decleanup/frontend; do
+  if [[ -f "$d/package.json" ]] && grep -q '"build"' "$d/package.json" 2>/dev/null; then
+    echo "$d"
+    exit 0
+  fi
+done
+echo /var/www/decleanup/frontend
+DETECT
+)"
+fi
+
 echo "Local:  $ROOT/frontend/"
 echo "Remote: ${SSH_TARGET}:${REMOTE_DIR}/"
 echo "Rsync (excludes node_modules, .next, .git)..."
@@ -28,6 +43,8 @@ rsync -avz \
   --exclude node_modules \
   --exclude .next \
   --exclude .git \
+  --exclude uploads \
+  --exclude var \
   "$ROOT/frontend/" \
   "${SSH_TARGET}:${REMOTE_DIR}/"
 

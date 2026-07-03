@@ -1,14 +1,11 @@
 /**
  * ML Verification API Endpoint (VPS Backend)
  * Orchestrates photo storage, GPU inference, and verification scoring
- * 
+ *
  * POST /api/ml-verification/verify
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
 import { runFullVerification } from '@/lib/dmrv/gpu-verification'
 import { checkInMemoryRateLimit, getRateLimitKey, tooManyRequestsResponse } from '@/lib/server/rate-limit'
 import { mlVerifyBodySchema, parseJsonBody } from '@/lib/server/api-request-guards'
@@ -16,79 +13,24 @@ import { resolveUploadDir } from '@/lib/server/resolve-upload-dir'
 import { getMlBackendProxyConfig, forwardMlVerifyPost } from '@/lib/server/ml-backend-proxy'
 import { rejectUnauthorizedMlIngress } from '@/lib/server/ml-ingress'
 import { isMlVerificationEnabled } from '@/lib/server/ml-verification-enabled'
+import {
+  downloadAndStoreFromIpfs,
+  writeMlVerificationResult,
+} from '@/lib/server/ml-verification-photos'
 
 export const dynamic = 'force-dynamic'
 
-/** IPFS gateway fetch when pulling CIDs for ML pipeline */
-const IPFS_GATEWAY_FETCH_TIMEOUT_MS = 90_000
-
-// Configuration
 const UPLOAD_DIR = resolveUploadDir()
-const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE || 'http://localhost:3000'
 const GPU_SERVICE_URL = process.env.GPU_INFERENCE_SERVICE_URL || 'http://localhost:8000'
 const GPU_SHARED_SECRET = process.env.GPU_SHARED_SECRET || ''
 
-// Log configuration on startup (for debugging)
 if (process.env.NODE_ENV !== 'production' || process.env.DEBUG === 'true') {
   console.log('[ML Verification] Configuration:', {
     gpuServiceUrl: GPU_SERVICE_URL,
     hasSharedSecret: !!GPU_SHARED_SECRET,
     uploadDir: UPLOAD_DIR,
-    publicUrlBase: PUBLIC_URL_BASE,
+    publicUrlBase: process.env.PUBLIC_URL_BASE || 'http://localhost:3000',
   })
-}
-
-/**
- * Store photo on VPS filesystem
- */
-async function storePhoto(
-  submissionId: string,
-  phase: 'before' | 'after',
-  imageBuffer: Buffer
-): Promise<string> {
-  // Create submission directory
-  const submissionDir = join(UPLOAD_DIR, submissionId)
-  if (!existsSync(submissionDir)) {
-    await mkdir(submissionDir, { recursive: true })
-  }
-  
-  // Save photo
-  const filename = `${phase}.jpg`
-  const filepath = join(submissionDir, filename)
-  await writeFile(filepath, imageBuffer)
-  
-  // Return public URL (use API route to serve images)
-  const publicUrl = `${PUBLIC_URL_BASE}/api/uploads/${submissionId}/${filename}`
-  return publicUrl
-}
-
-/**
- * Download image from IPFS and store on VPS
- */
-async function downloadAndStore(
-  submissionId: string,
-  phase: 'before' | 'after',
-  ipfsCid: string
-): Promise<string> {
-  // Fetch from IPFS
-  const ipfsGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/'
-  // Clean CID: remove ipfs:// prefix, query params, and fragment identifiers
-  // Consistent with frontend/src/lib/dmrv/ipfs.ts
-  const cleanCid = ipfsCid.replace(/^ipfs:\/\//, '').split('?')[0].split('#')[0]
-  const ipfsUrl = `${ipfsGateway}${cleanCid}`
-
-  const response = await fetch(ipfsUrl, {
-    signal: AbortSignal.timeout(IPFS_GATEWAY_FETCH_TIMEOUT_MS),
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image from IPFS: ${response.status}`)
-  }
-  
-  const imageBuffer = Buffer.from(await response.arrayBuffer())
-  
-  // Store on VPS
-  const publicUrl = await storePhoto(submissionId, phase, imageBuffer)
-  return publicUrl
 }
 
 export async function POST(request: NextRequest) {
@@ -138,67 +80,46 @@ export async function POST(request: NextRequest) {
     }
 
     const { submissionId, beforeImageCid, afterImageCid } = body
-    
+
     console.log(`[ML Verification] Processing submission ${submissionId}...`)
-    
-    // Download and store photos on VPS
+
     console.log(`[ML Verification] Downloading and storing photos...`)
     const [beforeImageUrl, afterImageUrl] = await Promise.all([
-      downloadAndStore(submissionId, 'before', beforeImageCid),
-      downloadAndStore(submissionId, 'after', afterImageCid),
+      downloadAndStoreFromIpfs(submissionId, 'before', beforeImageCid, UPLOAD_DIR),
+      downloadAndStoreFromIpfs(submissionId, 'after', afterImageCid, UPLOAD_DIR),
     ])
-    
+
     console.log(`[ML Verification] Photos stored: before=${beforeImageUrl}, after=${afterImageUrl}`)
-    
-    // Validate that images are different
+
     if (beforeImageCid === afterImageCid) {
       console.warn(`[ML Verification] ⚠️ WARNING: Before and after images have the same IPFS CID: ${beforeImageCid}`)
-      console.warn(`[ML Verification] This means the same image was uploaded twice. AI verification will likely reject this.`)
     }
-    
-    // Run full verification (calls GPU service)
+
     const verificationResult = await runFullVerification(
       submissionId,
       beforeImageUrl,
       afterImageUrl
     )
-    
-    // Log detailed results for debugging
+
     console.log(`[ML Verification] Detailed results:`, {
       beforeCount: verificationResult.beforeInference.objectCount,
       afterCount: verificationResult.afterInference.objectCount,
       delta: verificationResult.score.delta,
       score: verificationResult.score.score,
       verdict: verificationResult.score.verdict,
-      beforeConfidence: verificationResult.beforeInference.meanConfidence,
-      afterConfidence: verificationResult.afterInference.meanConfidence,
     })
-    
-    // Store result for verifier dashboard access
+
     try {
-      const resultFile = join(UPLOAD_DIR, submissionId, 'ml_result.json')
-      const resultDir = join(UPLOAD_DIR, submissionId)
-      if (!existsSync(resultDir)) {
-        await mkdir(resultDir, { recursive: true })
-      }
-      await writeFile(resultFile, JSON.stringify({
+      await writeMlVerificationResult(
         submissionId,
-        score: verificationResult.score,
-        hash: verificationResult.hash,
-        beforeInference: verificationResult.beforeInference,
-        afterInference: verificationResult.afterInference,
-        imageUrls: {
-          before: beforeImageUrl,
-          after: afterImageUrl,
-        },
-        timestamp: Date.now(),
-      }, null, 2))
+        verificationResult,
+        { before: beforeImageUrl, after: afterImageUrl },
+        UPLOAD_DIR
+      )
     } catch (storeError) {
       console.warn('[ML Verification] Failed to store result file:', storeError)
-      // Don't fail the request if storage fails
     }
-    
-    // Return result with hash for onchain storage
+
     return NextResponse.json({
       submissionId,
       score: verificationResult.score,
@@ -210,10 +131,9 @@ export async function POST(request: NextRequest) {
         after: afterImageUrl,
       },
     })
-    
   } catch (error) {
     console.error('[ML Verification] Error:', error)
-    
+
     return NextResponse.json(
       {
         error: 'Verification failed',
@@ -224,7 +144,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Health check
 export async function GET(request: NextRequest) {
   const ingress = rejectUnauthorizedMlIngress(request)
   if (ingress) return ingress

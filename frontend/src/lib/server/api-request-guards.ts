@@ -157,6 +157,15 @@ export const mlVerifyBodySchema = z.object({
   address: z.string().max(128).optional(),
 })
 
+export const mlRescoreBodySchema = z.object({
+  submissionId: z.coerce.string().min(1).max(256),
+  /** When false, skip HEIC→JPEG rewrite (photos already normalized). Default true. */
+  normalizePhotos: z.boolean().optional(),
+  walletAddress: z.string().max(128).optional(),
+  wallet: z.string().max(128).optional(),
+  address: z.string().max(128).optional(),
+})
+
 const pinataMetadataValue = z.union([
   z.string(),
   z.number(),
