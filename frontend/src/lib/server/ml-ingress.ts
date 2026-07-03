@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getMlBackendProxyConfig } from '@/lib/server/ml-backend-proxy'
 
 /**
- * On the ML host (ml.decleanup.net), require x-ml-proxy-secret when ML_PROXY_SHARED_SECRET is set.
- * Omit the env on a dev-only VPS to allow local testing without the header.
+ * On the ML host (ml.decleanup.net / VPS), require x-ml-proxy-secret when ML_PROXY_SHARED_SECRET is set.
+ * On Vercel (ML_BACKEND_ORIGIN set), skip — the dapp receives public verify requests and adds the
+ * header when forwarding server-to-server to the ML host.
  */
 export function rejectUnauthorizedMlIngress(request: NextRequest): NextResponse | null {
+  if (getMlBackendProxyConfig().enabled) {
+    return null
+  }
   const expected = process.env.ML_PROXY_SHARED_SECRET?.trim()
   if (!expected) {
     return null
