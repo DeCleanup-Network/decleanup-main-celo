@@ -344,7 +344,7 @@ function HomeContent() {
   }
 
   if (!mounted) {
-    return <div className="min-h-screen bg-background" />
+    return <div className="flex flex-1 bg-background" />
   }
 
   // Do not block the guest hero while NextAuth checks session (avoids Google-only modal on every reload).
@@ -361,8 +361,8 @@ function HomeContent() {
   // Hero before login — full DeCleanup app only after /login (Google, email, wallet)
   if (!showMainApp) {
     return (
-      <div className="flex min-h-[calc(100dvh-5rem)] flex-col bg-background">
-        <main className="container mx-auto flex flex-1 min-h-0 flex-col items-center justify-center px-4 py-2 sm:py-4">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="container mx-auto flex flex-1 flex-col items-center justify-center px-4 py-6 sm:py-8">
           <div className="w-full max-w-3xl space-y-4 sm:space-y-5 text-center">
             {/* Hero Heading: less space above/below */}
             <div className="space-y-2">
@@ -397,7 +397,7 @@ function HomeContent() {
                 : 'Connect your wallet to start cleaning'}
             </p>
           </div>
-        </main>
+        </div>
 
         <PastContributorAirdropStrip variant="prelogin" />
 

@@ -308,8 +308,6 @@
   /* Brand mark — animated gradient; solid fallback avoids flash before clip paints */
   .gradient-text {
     display: inline-block;
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
     background: linear-gradient(
       100deg,
       #58b12f 0%,
