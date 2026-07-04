@@ -64,10 +64,19 @@ export async function authenticatePasskey(): Promise<string> {
   const optionsJson = await optionsRes.json()
   if (!optionsRes.ok) throw new Error(optionsJson.error ?? 'Failed to start passkey authentication')
 
+  const rawOptions = optionsJson.options as PublicKeyCredentialRequestOptionsJSON
+  const platformOptions: PublicKeyCredentialRequestOptionsJSON = {
+    ...rawOptions,
+    allowCredentials: rawOptions.allowCredentials?.map((cred) => ({
+      ...cred,
+      transports: ['internal'],
+    })),
+  }
+
   let assertion
   try {
     assertion = await startAuthentication({
-      optionsJSON: optionsJson.options as PublicKeyCredentialRequestOptionsJSON,
+      optionsJSON: platformOptions,
     })
   } catch (e) {
     throw new Error(formatWebAuthnError(e))

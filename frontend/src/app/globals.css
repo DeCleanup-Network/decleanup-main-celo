@@ -308,6 +308,8 @@
   /* Brand mark — animated gradient; solid fallback avoids flash before clip paints */
   .gradient-text {
     display: inline-block;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
     background: linear-gradient(
       100deg,
       #58b12f 0%,
@@ -325,6 +327,18 @@
     animation: gradient-text-flow 7s ease-in-out infinite;
   }
 
+  /* iOS Safari: background-clip:text can render a gradient bar with invisible glyphs */
+  @supports (-webkit-touch-callout: none) {
+    .gradient-text {
+      -webkit-text-fill-color: #58b12f;
+      color: #58b12f;
+      background: none;
+      -webkit-background-clip: unset;
+      background-clip: unset;
+      animation: none;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .gradient-text {
       animation: none;
@@ -332,6 +346,16 @@
       background-size: 100% 100%;
       background-position: 50% 50%;
       -webkit-text-fill-color: transparent;
+    }
+
+    @supports (-webkit-touch-callout: none) {
+      .gradient-text {
+        -webkit-text-fill-color: #58b12f;
+        color: #58b12f;
+        background: none;
+        -webkit-background-clip: unset;
+        background-clip: unset;
+      }
     }
   }
 

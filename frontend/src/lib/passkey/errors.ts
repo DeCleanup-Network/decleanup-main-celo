@@ -9,6 +9,15 @@ export function formatWebAuthnError(err: unknown): string {
   const lower = message.toLowerCase()
 
   if (
+    lower.includes('qr') ||
+    lower.includes('cross-device') ||
+    lower.includes('hybrid') ||
+    lower.includes('external authenticator')
+  ) {
+    return 'Use Face ID on this phone, not a QR code. Enter your wallet passcode below, or enable Face ID / Touch ID again in Account settings on this device.'
+  }
+
+  if (
     lower.includes('operation-specific reason') ||
     lower.includes('notallowederror') ||
     lower.includes('not allowed') ||

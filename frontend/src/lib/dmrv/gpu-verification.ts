@@ -15,6 +15,9 @@
  */
 
 import { createHash } from 'crypto'
+import { existsSync } from 'fs'
+import { join } from 'path'
+import { resolveUploadDir } from '@/lib/server/resolve-upload-dir'
 
 const DEFAULT_INFER_PATH = '/infer'
 const INFER_TIMEOUT_MS = 120_000
@@ -100,18 +103,29 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n))
 }
 
+/** When GPU and Next.js share a host, pass filesystem paths to skip HTTP image fetch. */
+function resolveLocalImagePath(submissionId: string, phase: 'before' | 'after'): string | undefined {
+  const filename = `${phase}.jpg`
+  const filepath = join(resolveUploadDir(), submissionId, filename)
+  if (!existsSync(filepath)) return undefined
+  return filepath
+}
+
 /**
  * Ask GPU service /infer to run YOLO on an image reachable at imageUrl (service downloads it).
  */
 export async function inferImage(
   submissionId: string,
   phase: 'before' | 'after',
-  imageUrl: string
+  imageUrl: string,
+  localPath?: string
 ): Promise<{ objectCount: number; meanConfidence: number }> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
   }
+
+  const resolvedLocal = localPath ?? resolveLocalImagePath(submissionId, phase)
 
   const inferRes = await fetch(getInferUrl(), {
     method: 'POST',
@@ -120,6 +134,7 @@ export async function inferImage(
       submissionId,
       imageUrl,
       phase,
+      ...(resolvedLocal ? { localPath: resolvedLocal } : {}),
     }),
     signal: AbortSignal.timeout(INFER_TIMEOUT_MS),
   })
@@ -146,6 +161,17 @@ export function computeVerificationScore(
   const beforeCount = before.objectCount
   const afterCount = after.objectCount
   const delta = beforeCount - afterCount
+
+  // Model saw nothing in either photo — inconclusive, not a rejection
+  if (beforeCount === 0 && afterCount === 0) {
+    return {
+      delta: 0,
+      score: 0,
+      verdict: 'pending',
+      confidenceVariance: 0,
+      isStable: true,
+    }
+  }
 
   const maxDelta = 50
 

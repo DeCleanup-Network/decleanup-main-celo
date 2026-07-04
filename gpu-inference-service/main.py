@@ -67,6 +67,20 @@ model: Optional[YOLO] = None
 MODEL_PATH = os.getenv("MODEL_PATH", "")  # Empty = use default YOLOv8
 MODEL_VERSION = os.getenv("MODEL_VERSION", "yolov8n-default")
 SHARED_SECRET = os.getenv("SHARED_SECRET", "")  # For request validation
+INFER_CONF = float(os.getenv("INFER_CONF", "0.10"))
+INFER_IMGSZ = int(os.getenv("INFER_IMGSZ", "1280"))
+
+# COCO + TACO / litter labels we treat as waste (case-insensitive substring match)
+WASTE_CLASS_KEYWORDS = (
+    "trash", "waste", "garbage", "litter", "plastic", "bottle", "bag", "paper",
+    "cardboard", "can", "cup", "wrapper", "foil", "styrofoam", "metal", "glass",
+    "cigarette", "straw", "container", "packaging", "debris", "rubbish",
+)
+
+
+def is_waste_class(class_name: str) -> bool:
+    name = (class_name or "").lower()
+    return any(kw in name for kw in WASTE_CLASS_KEYWORDS)
 
 # Model download URLs (for auto-download if not present)
 # Note: These are example URLs - actual model files may be at different locations
@@ -87,6 +101,7 @@ class InferenceRequest(BaseModel):
     submissionId: str = Field(..., description="Unique submission identifier")
     imageUrl: str = Field(..., description="URL to download image from")
     phase: str = Field(..., description="'before' or 'after'", pattern="^(before|after)$")
+    localPath: Optional[str] = Field(None, description="Optional VPS-local path (skips HTTP download)")
 
 class DetectedObject(BaseModel):
     class_name: str = Field(..., description="Detected class name", alias="class")
@@ -211,6 +226,26 @@ def download_image(image_url: str) -> Image.Image:
         logger.error(f"Failed to download image from {image_url}: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to download image: {str(e)}")
 
+
+def load_image_from_local(local_path: str) -> Image.Image:
+    """Load image from VPS filesystem (same host as Next.js uploads)."""
+    resolved = os.path.realpath(local_path)
+    if not os.path.isfile(resolved):
+        raise HTTPException(status_code=400, detail=f"Local image not found: {local_path}")
+    try:
+        image = Image.open(resolved)
+        image.load()
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        if image.size[0] < 32 or image.size[1] < 32:
+            raise HTTPException(status_code=400, detail="Image too small for inference")
+        return image
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to read local image {local_path}: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to read local image: {str(e)}")
+
 def validate_request(authorization: Optional[str] = Header(None)):
     """Validate request using shared secret"""
     if not SHARED_SECRET:
@@ -252,18 +287,21 @@ async def run_inference(
     logger.info(f"Processing inference request: submissionId={request.submissionId}, phase={request.phase}")
     
     try:
-        # Download image
-        logger.info(f"Downloading image from {request.imageUrl}...")
-        image = download_image(request.imageUrl)
+        # Prefer local path when colocated with Next.js (avoids HTTP fetch failures)
+        if request.localPath:
+            logger.info(f"Loading image from local path {request.localPath}...")
+            image = load_image_from_local(request.localPath)
+        else:
+            logger.info(f"Downloading image from {request.imageUrl}...")
+            image = download_image(request.imageUrl)
         
         # Run inference
         logger.info("Running YOLOv8 inference...")
-        # Lower confidence threshold to detect more objects (was 0.25, now 0.15)
-        # This helps detect smaller or less obvious waste items
-        results = model.predict(image, verbose=False, conf=0.15)  # Confidence threshold
+        results = model.predict(image, verbose=False, conf=INFER_CONF, imgsz=INFER_IMGSZ)
         
         # Parse results
         detected_objects: List[DetectedObject] = []
+        all_objects: List[DetectedObject] = []
         
         if len(results) > 0 and results[0].boxes is not None:
             boxes = results[0].boxes
@@ -282,11 +320,22 @@ async def run_inference(
                 width = x2 - x
                 height = y2 - y
                 
-                detected_objects.append(DetectedObject(
+                obj = DetectedObject(
                     class_name=class_name,
                     confidence=confidence,
                     bbox=[float(x), float(y), float(width), float(height)]
-                ))
+                )
+                all_objects.append(obj)
+                if is_waste_class(class_name):
+                    detected_objects.append(obj)
+
+        # If waste filter removed everything but raw detections exist (generic COCO model), keep all
+        if not detected_objects and all_objects:
+            logger.info(
+                f"No waste-class matches; using all {len(all_objects)} detections "
+                f"(classes: {[o.class_name for o in all_objects[:8]]})"
+            )
+            detected_objects = all_objects
         
         # Calculate statistics
         object_count = len(detected_objects)

@@ -16,13 +16,12 @@ export async function POST() {
       return NextResponse.json({ error: 'No passkeys registered' }, { status: 404 })
     }
 
+    // Prefer on-device Face ID / Touch ID — hybrid transport opens QR / cross-device on iOS Safari.
     const options = await generateAuthenticationOptions({
       rpID: getWebAuthnRpId(),
       allowCredentials: credentials.map((c) => ({
         id: c.credentialID,
-        transports:
-          (c.transports as ('ble' | 'cable' | 'hybrid' | 'internal' | 'nfc' | 'smart-card' | 'usb')[] | null) ??
-          ['internal', 'hybrid'],
+        transports: ['internal'],
       })),
       userVerification: 'required',
     })
