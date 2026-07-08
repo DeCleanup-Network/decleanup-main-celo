@@ -59,9 +59,55 @@ PORT=8000
 # Detection tuning (passed through ecosystem.config.cjs; defaults shown):
 INFER_CONF=0.10
 INFER_IMGSZ=1280
+# Optional SAHI tiled inference (see Scoring & detection notes below):
+INFER_TILED=false
+INFER_TILE=768
+INFER_TILE_OVERLAP=0.2
+INFER_TILE_MAXDIM=2400
 ```
 
 `ecosystem.config.cjs` only injects the env keys it lists — after changing `.env.gpu`, use `pm2 delete decleanup-gpu && pm2 start ecosystem.config.cjs && pm2 save` (plain `restart` keeps the old env).
+
+The Next.js host also reads scoring thresholds from its `.env.local`:
+
+```bash
+ML_VERIFICATION_AUTO_THRESHOLD=0.35   # score ≥ this → approved
+ML_VERIFICATION_REVIEW_THRESHOLD=0.15 # score ≥ this → pending; below with no reduction → rejected
+```
+
+---
+
+## Scoring
+
+The score is the **fraction of detected "before" litter that is gone in "after"**:
+`score = (beforeCount - afterCount) / beforeCount`, clamped to 0..1. It compares the same
+detector against itself on the two photos, so it stays meaningful even when the model
+under-counts a busy field. It deliberately does **not** fold in the detector's absolute
+confidence (litter models sit at ~0.1–0.2, which would cap every real cleanup below approval).
+
+| Condition | Verdict |
+|-----------|---------|
+| `beforeCount === 0` | pending (nothing to judge) |
+| `score ≥ AUTO_THRESHOLD` (0.35) | approved |
+| `score ≥ REVIEW_THRESHOLD` (0.15) | pending |
+| below, litter unchanged/removed | pending |
+| below, litter increased (`delta < 0`) | rejected |
+
+`computeVerificationScore` in `frontend/src/lib/dmrv/gpu-verification.ts`. Human verifiers
+still make the final onchain decision.
+
+### Detection & resolution (why not just "detect everything")
+
+Litter models miss small/distant objects. Two levers:
+
+- **Input resolution is the ceiling.** The client compresses uploads to ≤2048px
+  (`compress-image-for-upload.ts`), and forwarded/messaging copies can be ~1280px. At that
+  size distant litter is a few pixels and is physically unresolvable — the reduction-ratio
+  score is the pragmatic answer (a real cleanup passes regardless of absolute count).
+- **SAHI tiled inference** (`INFER_TILED=true`) slices the image into overlapping tiles and
+  merges detections. It only helps on genuinely high-resolution photos; on ~1280px inputs it
+  found *fewer* objects in testing, so it ships **off by default**. Enable it only after
+  confirming the pipeline ingests full-resolution images, and re-test before/after counts.
 
 ---
 
