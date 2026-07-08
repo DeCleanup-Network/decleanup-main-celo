@@ -23,6 +23,8 @@ GET /api/ml-verification/result?cleanupId=…  (verifier UI)
 
 Human verifiers always approve/reject onchain. ML does not auto-approve submissions.
 
+**Client resilience:** the cleanup success screen sends `POST /verify` with a 150s abort timeout; if that call fails, times out, or returns without a score, it polls `GET /result?cleanupId=` every 12s for up to ~4.5 min (the ML host keeps processing and writes `ml_result.json` even when the original request was dropped, e.g. by the serverless proxy window).
+
 ---
 
 ## Enable
@@ -54,7 +56,12 @@ Inference service (`.env.gpu`):
 SHARED_SECRET=<same as GPU_SHARED_SECRET>
 HOST=127.0.0.1
 PORT=8000
+# Detection tuning (passed through ecosystem.config.cjs; defaults shown):
+INFER_CONF=0.10
+INFER_IMGSZ=1280
 ```
+
+`ecosystem.config.cjs` only injects the env keys it lists — after changing `.env.gpu`, use `pm2 delete decleanup-gpu && pm2 start ecosystem.config.cjs && pm2 save` (plain `restart` keeps the old env).
 
 ---
 
@@ -68,7 +75,7 @@ PORT=8000
 | GPU `/infer` | POST | YOLOv8 detections (internal) |
 | GPU `/health` | GET | Liveness |
 
-Legacy route **`/api/dmrv/verify`** remains for older integrations; new code uses **`/api/ml-verification/verify`**.
+The legacy `/api/dmrv/verify` route and its mock HuggingFace pipeline were removed; all code uses **`/api/ml-verification/verify`**.
 
 ---
 
@@ -86,3 +93,6 @@ Legacy route **`/api/dmrv/verify`** remains for older integrations; new code use
 | GPU timeout | `pm2 logs decleanup-gpu`; `curl localhost:8000/health` |
 | No result in verifier UI | Same deployment wrote `UPLOAD_DIR`; or proxy secret mismatch |
 | 401 on ml host | `ML_PROXY_SHARED_SECRET` / `x-ml-proxy-secret` |
+| `objectCount: 0` everywhere | Deployed `gpu-inference-service/main.py` older than repo (sync + `pip install -r requirements.txt`, then delete+start PM2); old code ran 640px inference |
+| `/health` shows `yolov8n-default` or port 8000 "stolen" after restarts | A legacy root systemd unit `gpu-inference.service` used to race PM2 for the port (removed 2026-07-07, unit file archived in `/var/www/decleanup/artifacts/`). It must stay disabled — PM2 under user `deploy` owns the GPU service |
+| Next.js ignores changed `.env.local` value | PM2 injects env captured at app creation and it wins over `.env.local`; run `VAR=value pm2 restart decleanup --update-env && pm2 save` |

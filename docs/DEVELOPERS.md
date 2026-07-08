@@ -349,7 +349,6 @@ Code map: **`docs/HYPERCERTS.md`**, product flow: **`docs/hypercerts-and-impact.
 |-------|------|---------|
 | `POST /api/ml-verification/verify` | Session | Trigger GPU/local ML |
 | `GET /api/ml-verification/result` | Session | Poll result |
-| `POST /api/dmrv/verify` | Internal | DMRV hook |
 
 ### Other
 

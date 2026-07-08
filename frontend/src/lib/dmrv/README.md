@@ -5,7 +5,7 @@ Implementation for ML pre-screening lives here. Product flow and deployment: **`
 | Module | Role |
 |--------|------|
 | `gpu-verification.ts` | Orchestrates GPU calls + scoring |
-| `ml-integration.ts` | Client helper → `/api/ml-verification/verify` |
-| `integration.ts` | Legacy → `/api/dmrv/verify` |
+| `ml-integration.ts` | Pipeline orchestration helper (currently unused) |
+| `onchain-hash.ts` | Store verification hash onchain (currently unused) |
 
 Active API: **`POST /api/ml-verification/verify`**.

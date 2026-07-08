@@ -134,20 +134,6 @@ export function isAllowedPinataJsonFile(file: File): boolean {
   return false
 }
 
-export const dmrvVerifyBodySchema = z.object({
-  submissionId: z.coerce.string().min(1).max(256),
-  beforeImageCid: z.string().min(1).max(512),
-  afterImageCid: z.string().min(1).max(512),
-  gps: z.object({
-    latitude: z.number().finite(),
-    longitude: z.number().finite(),
-  }),
-  timestamp: z.number().finite(),
-  walletAddress: z.string().max(128).optional(),
-  wallet: z.string().max(128).optional(),
-  address: z.string().max(128).optional(),
-})
-
 export const mlVerifyBodySchema = z.object({
   submissionId: z.coerce.string().min(1).max(256),
   beforeImageCid: z.string().min(1).max(512),

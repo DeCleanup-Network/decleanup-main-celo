@@ -143,7 +143,6 @@ Implement lightweight in-memory limiter for:
 
 - `/api/ipfs/upload`
 - `/api/ml-verification/verify`
-- `/api/dmrv/verify`
 - any RPC proxy endpoints
 
 Use key = IP + wallet address (if available), short window (e.g., 1 min) + burst cap.

@@ -82,7 +82,27 @@ MODEL_PATH=yolov8-taco.pt
 MODEL_VERSION=yolov8-taco-n-100epochs-v1
 HOST=127.0.0.1
 PORT=8000
+# Detection tuning (defaults shown); passed to the process via ecosystem.config.cjs
+INFER_CONF=0.10
+INFER_IMGSZ=1280
 ```
+
+**Updating the GPU service on the VPS.** The service runs from `/var/www/decleanup/gpu-inference-service` (a copy, not the git checkout). After pulling new code:
+
+```bash
+rsync -av --exclude=.env.gpu --exclude='*.pt' --exclude=.venv --exclude=venv --exclude=__pycache__ \
+  /var/www/decleanup/frontend/gpu-inference-service/ /var/www/decleanup/gpu-inference-service/
+chown -R deploy:deploy /var/www/decleanup/gpu-inference-service
+# as deploy:
+.venv/bin/pip install -r requirements.txt
+pm2 delete decleanup-gpu && pm2 start ecosystem.config.cjs && pm2 save
+```
+
+Plain `pm2 restart` does not reload `ecosystem.config.cjs`/`.env.gpu` — always delete + start after env or config changes.
+
+**Boot persistence.** PM2 process lists are per Linux user: `decleanup` (Next.js) runs under `root`, `decleanup-gpu` under `deploy`. Each needs its own systemd resurrect unit; for deploy run as root once: `pm2 startup systemd -u deploy --hp /home/deploy`, then `pm2 save` as deploy.
+
+**Warning (removed 2026-07-07):** a legacy root systemd unit `gpu-inference.service` (Restart=always, empty `MODEL_PATH`, its own secret) used to race PM2 for port 8000 and serve `yolov8n-default` — this was the historical "orphan process on 8000". It is disabled and archived in `/var/www/decleanup/artifacts/cleanup-20260707/`; do not re-enable it.
 
 ### 4.2 Frontend / ML backend env
 
@@ -93,9 +113,12 @@ ML_VERIFICATION_ENABLED=true
 GPU_INFERENCE_SERVICE_URL=http://127.0.0.1:8000
 GPU_SHARED_SECRET=<matches inference service>
 UPLOAD_DIR=/var/www/decleanup/uploads
-# Loopback when Next.js + GPU share the VPS (GPU downloads photos from this URL):
-PUBLIC_URL_BASE=http://127.0.0.1:3000
+# Public origin of this ML host — stored in ml_result.json imageUrls, so it must be
+# reachable off-server. The GPU service reads photos via localPath, not this URL.
+PUBLIC_URL_BASE=https://ml.decleanup.net
 ```
+
+Note: PM2 injects env captured when the app was first registered, and those values win over `.env.local`. To change a value like `PUBLIC_URL_BASE`, run `PUBLIC_URL_BASE=... pm2 restart decleanup --update-env && pm2 save`.
 
 Then rebuild and restart:
 
