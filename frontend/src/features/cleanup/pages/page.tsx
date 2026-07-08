@@ -2230,6 +2230,9 @@ function CleanupContent() {
             <p className="text-sm text-gray-400">
               Before/after photos with location. JPEG, JPG, or HEIC, max 10 MB each. Optional video up to {MAX_CLEANUP_VIDEO_DURATION_SEC}s.
             </p>
+            <p className="mt-2 text-xs text-gray-500">
+              For the best AI pre-screening: use clear, well-lit photos taken close to the litter. Blurry or very distant shots make the litter hard to detect.
+            </p>
           </div>
 
           <div className="mb-6 space-y-6">
