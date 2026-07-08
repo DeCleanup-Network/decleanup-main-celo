@@ -14,7 +14,7 @@ import { getMlBackendProxyConfig, forwardMlVerifyPost } from '@/lib/server/ml-ba
 import { rejectUnauthorizedMlIngress } from '@/lib/server/ml-ingress'
 import { isMlVerificationEnabled } from '@/lib/server/ml-verification-enabled'
 import {
-  downloadAndStoreFromIpfs,
+  downloadAndStoreBothFromIpfs,
   writeMlVerificationResult,
 } from '@/lib/server/ml-verification-photos'
 
@@ -84,10 +84,12 @@ export async function POST(request: NextRequest) {
     console.log(`[ML Verification] Processing submission ${submissionId}...`)
 
     console.log(`[ML Verification] Downloading and storing photos...`)
-    const [beforeImageUrl, afterImageUrl] = await Promise.all([
-      downloadAndStoreFromIpfs(submissionId, 'before', beforeImageCid, UPLOAD_DIR),
-      downloadAndStoreFromIpfs(submissionId, 'after', afterImageCid, UPLOAD_DIR),
-    ])
+    const { before: beforeImageUrl, after: afterImageUrl } = await downloadAndStoreBothFromIpfs(
+      submissionId,
+      beforeImageCid,
+      afterImageCid,
+      UPLOAD_DIR
+    )
 
     console.log(`[ML Verification] Photos stored: before=${beforeImageUrl}, after=${afterImageUrl}`)
 

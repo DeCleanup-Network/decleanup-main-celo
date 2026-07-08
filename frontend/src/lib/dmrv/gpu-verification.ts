@@ -41,6 +41,8 @@ export interface VerificationResult {
     confidenceVariance?: number
     isStable?: boolean
   }
+  /** GPU /health model_version that produced this result (audit: detect silent model fallback). */
+  modelVersion?: string
   hash: string
 }
 
@@ -52,6 +54,8 @@ interface RawInferPayload {
   objectCount?: number
   mean_confidence?: number
   meanConfidence?: number
+  model_version?: string
+  modelVersion?: string
   objects?: unknown[]
   detections?: unknown[]
 }
@@ -73,7 +77,11 @@ function getAuthHeaders(): HeadersInit {
   return { Authorization: `Bearer ${secret}` }
 }
 
-function parseInferResponse(data: unknown): { objectCount: number; meanConfidence: number } {
+function parseInferResponse(data: unknown): {
+  objectCount: number
+  meanConfidence: number
+  modelVersion?: string
+} {
   if (!data || typeof data !== 'object') {
     return { objectCount: 0, meanConfidence: 0 }
   }
@@ -94,9 +102,16 @@ function parseInferResponse(data: unknown): { objectCount: number; meanConfidenc
       : typeof o.meanConfidence === 'number'
         ? o.meanConfidence
         : 0
+  const modelVersion =
+    typeof o.model_version === 'string'
+      ? o.model_version
+      : typeof o.modelVersion === 'string'
+        ? o.modelVersion
+        : undefined
   return {
     objectCount: Math.max(0, Math.floor(objectCount)),
     meanConfidence: clamp01(meanConfidence),
+    ...(modelVersion ? { modelVersion } : {}),
   }
 }
 
@@ -121,7 +136,7 @@ export async function inferImage(
   phase: 'before' | 'after',
   imageUrl: string,
   localPath?: string
-): Promise<{ objectCount: number; meanConfidence: number }> {
+): Promise<{ objectCount: number; meanConfidence: number; modelVersion?: string }> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
@@ -229,26 +244,6 @@ export function hashVerificationResult(result: VerificationResult, submissionId?
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex')
 }
 
-function stubPending(submissionId: string, reason: string): VerificationResult {
-  console.warn('[GPU Verification] Falling back to pending:', reason)
-  const result: VerificationResult = {
-    beforeInference: { objectCount: 0, meanConfidence: 0 },
-    afterInference: { objectCount: 0, meanConfidence: 0 },
-    score: {
-      delta: 0,
-      score: 0,
-      verdict: 'pending',
-    },
-    hash: '',
-  }
-  result.hash = hashVerificationResult(result, submissionId)
-  return result
-}
-
-/**
- * Run full verification: two inference calls + scoring + hash.
- * On GPU/network errors, returns a pending result so the API route can still respond 200.
- */
 function scoreThresholdsFromEnv(): ScoreThresholds {
   const parse = (raw: string | undefined): number | undefined => {
     if (!raw) return undefined
@@ -262,6 +257,14 @@ function scoreThresholdsFromEnv(): ScoreThresholds {
   }
 }
 
+/**
+ * Run full verification: two inference calls + scoring + hash.
+ *
+ * A genuine "model saw no litter" (both counts 0) is a real, scored pending result.
+ * Infrastructure failures (GPU down, auth, timeout, unreachable image) THROW instead —
+ * the caller returns an error status and does not persist a zeroed ml_result.json, so
+ * outages stay visible and the client keeps polling for the real result.
+ */
 export async function runFullVerification(
   submissionId: string,
   beforeImageUrl: string,
@@ -289,6 +292,7 @@ export async function runFullVerification(
         meanConfidence: afterInference.meanConfidence,
       },
       score: scoreBlock,
+      modelVersion: beforeInference.modelVersion ?? afterInference.modelVersion,
       hash: '',
     }
 
@@ -297,7 +301,7 @@ export async function runFullVerification(
     return result
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[GPU Verification] Inference or scoring failed:', message)
-    return stubPending(submissionId, message)
+    console.error('[GPU Verification] Inference failed (surfacing as error):', message)
+    throw err instanceof Error ? err : new Error(message)
   }
 }
