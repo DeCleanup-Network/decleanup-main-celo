@@ -35,6 +35,8 @@ export interface VerificationResult {
     delta: number
     score: number
     verdict: 'approved' | 'rejected' | 'pending'
+    /** Fraction of detected "before" litter that is gone in "after" (0..1). */
+    reductionRatio?: number
     /** Present when computed (debug / transparency). */
     confidenceVariance?: number
     isStable?: boolean
@@ -148,70 +150,69 @@ export async function inferImage(
   return parseInferResponse(json)
 }
 
+export interface ScoreThresholds {
+  /** score ≥ this → approved. Default 0.5 (at least half the detected litter removed). */
+  autoThreshold?: number
+  /** score ≥ this → pending; below it with no reduction → rejected. Default 0.15. */
+  reviewThreshold?: number
+}
+
 /**
  * Product scoring (see docs/ML_VERIFICATION_ARCHITECTURE.md).
- * Aligns with PR #29 stability rules, then maps to API verdicts:
- * AUTO_VERIFIED → approved, NEEDS_REVIEW → pending, REJECTED → rejected.
+ *
+ * The score is the fraction of detected "before" litter that is gone in "after"
+ * (`(before - after) / before`). This compares the same detector against itself on
+ * the two photos, so it stays meaningful even when the model under-counts a busy field
+ * (distant/small litter is routinely missed — see SAHI tiling in the GPU service). It
+ * deliberately does NOT fold in the detector's absolute confidence, which for litter
+ * models sits at ~0.1-0.2 and would otherwise cap every real cleanup below "approved".
+ *
+ * Verdicts map to the API: approved / pending / rejected. Thresholds are tunable via
+ * ML_VERIFICATION_AUTO_THRESHOLD / ML_VERIFICATION_REVIEW_THRESHOLD (wired in
+ * runFullVerification). Human verifiers still make the final onchain decision.
  */
 export function computeVerificationScore(
   before: { objectCount: number; meanConfidence: number },
   after: { objectCount: number; meanConfidence: number },
-  impactDataBoost = 0
+  thresholds: ScoreThresholds = {}
 ): VerificationScore {
+  const autoThreshold = clamp01(thresholds.autoThreshold ?? 0.5)
+  const reviewThreshold = clamp01(thresholds.reviewThreshold ?? 0.15)
+
   const beforeCount = before.objectCount
   const afterCount = after.objectCount
   const delta = beforeCount - afterCount
+  const confidenceVariance = Math.abs(before.meanConfidence - after.meanConfidence)
 
-  // Model saw nothing in either photo — inconclusive, not a rejection
-  if (beforeCount === 0 && afterCount === 0) {
+  // Detector saw no litter in the "before" photo — it cannot judge a cleanup it never
+  // saw, so hand it to the human verifier rather than guessing from the "after" alone.
+  if (beforeCount === 0) {
     return {
-      delta: 0,
+      delta,
       score: 0,
       verdict: 'pending',
-      confidenceVariance: 0,
+      reductionRatio: 0,
+      confidenceVariance,
       isStable: true,
     }
   }
 
-  const maxDelta = 50
+  const reductionRatio = Math.max(-1, Math.min(1, delta / beforeCount))
+  const score = clamp01(reductionRatio)
 
-  let normalizedTrashDelta: number
-  if (delta < 0) {
-    normalizedTrashDelta = Math.max(delta / maxDelta, -0.3)
-    normalizedTrashDelta = (normalizedTrashDelta + 0.3) / 1.3
-  } else {
-    normalizedTrashDelta = Math.min(Math.max(delta / maxDelta, 0), 1.0)
-  }
-
-  const meanConfidence = (before.meanConfidence + after.meanConfidence) / 2
-  let rawScore = meanConfidence * 0.5 + normalizedTrashDelta * 0.5
-  const boost = clamp01(impactDataBoost)
-  rawScore = clamp01(rawScore + boost)
-
-  const confidenceVariance = Math.abs(before.meanConfidence - after.meanConfidence)
-  const isStable = confidenceVariance < 0.15
-
-  let internal: 'AUTO_VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED'
-  if (rawScore >= 0.6) internal = 'AUTO_VERIFIED'
-  else if (rawScore >= 0.3) internal = 'NEEDS_REVIEW'
-  else internal = 'REJECTED'
-
-  if (internal === 'AUTO_VERIFIED' && !isStable && delta >= 0) {
-    internal = 'NEEDS_REVIEW'
-  }
-  if (internal === 'REJECTED' && delta > 0) {
-    internal = 'NEEDS_REVIEW'
-  }
-
-  const verdict: VerificationScore['verdict'] =
-    internal === 'AUTO_VERIFIED' ? 'approved' : internal === 'NEEDS_REVIEW' ? 'pending' : 'rejected'
+  let verdict: VerificationScore['verdict']
+  if (score >= autoThreshold) verdict = 'approved'
+  else if (score >= reviewThreshold) verdict = 'pending'
+  // Below the review bar: only call it "rejected" when litter actually increased.
+  else verdict = delta < 0 ? 'rejected' : 'pending'
 
   return {
     delta,
-    score: rawScore,
+    score,
     verdict,
+    reductionRatio,
     confidenceVariance,
-    isStable,
+    isStable: true,
   }
 }
 
@@ -248,21 +249,35 @@ function stubPending(submissionId: string, reason: string): VerificationResult {
  * Run full verification: two inference calls + scoring + hash.
  * On GPU/network errors, returns a pending result so the API route can still respond 200.
  */
+function scoreThresholdsFromEnv(): ScoreThresholds {
+  const parse = (raw: string | undefined): number | undefined => {
+    if (!raw) return undefined
+    // Tolerate an inline "# comment" that some .env loaders leave attached.
+    const n = Number(raw.trim().split(/\s+/)[0])
+    return Number.isFinite(n) ? n : undefined
+  }
+  return {
+    autoThreshold: parse(process.env.ML_VERIFICATION_AUTO_THRESHOLD),
+    reviewThreshold: parse(process.env.ML_VERIFICATION_REVIEW_THRESHOLD),
+  }
+}
+
 export async function runFullVerification(
   submissionId: string,
   beforeImageUrl: string,
-  afterImageUrl: string,
-  options?: { impactDataBoost?: number }
+  afterImageUrl: string
 ): Promise<VerificationResult> {
-  const boost = options?.impactDataBoost ?? 0
-
   try {
     const [beforeInference, afterInference] = await Promise.all([
       inferImage(submissionId, 'before', beforeImageUrl),
       inferImage(submissionId, 'after', afterImageUrl),
     ])
 
-    const scoreBlock = computeVerificationScore(beforeInference, afterInference, boost)
+    const scoreBlock = computeVerificationScore(
+      beforeInference,
+      afterInference,
+      scoreThresholdsFromEnv()
+    )
 
     const result: VerificationResult = {
       beforeInference: {
