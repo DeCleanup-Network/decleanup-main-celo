@@ -1532,43 +1532,105 @@ function CleanupContent() {
           setMlVerificationLoading(false)
         } else {
           void (async () => {
+            const submissionIdStr = cleanupId.toString()
+            let settled = false
+
+            const applyMlPayload = (
+              mlData: MlScorePayload & { mlVerificationDisabled?: boolean },
+            ): boolean => {
+              if (settled) return true
+              if (mlData.mlVerificationDisabled) {
+                setMlVerificationSummary(
+                  'Automated photo checks are off. Human verifiers will still review your submission.',
+                )
+                setMlVerificationStats(null)
+                settled = true
+                return true
+              }
+              const stats = parseMlScore(mlData)
+              if (!stats) return false
+              setMlVerificationSummary(userFacingMlSummary(mlData, 'ok'))
+              setMlVerificationStats(stats)
+              settled = true
+              return true
+            }
+
+            // The verify POST can outlive the serverless window on slow inference, but the
+            // ML host still finishes and writes ml_result.json — so before giving up we poll
+            // the result endpoint, which serves that file once it exists.
+            const pollMlResult = async () => {
+              const POLL_INTERVAL_MS = 12_000
+              const MAX_POLLS = 22 // ~4.5 minutes
+              let serverErrors = 0
+              for (let attempt = 0; attempt < MAX_POLLS && !settled; attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+                if (settled) return
+                try {
+                  const pollResponse = await fetch(
+                    `/api/ml-verification/result?cleanupId=${encodeURIComponent(submissionIdStr)}`,
+                  )
+                  if (!pollResponse.ok) {
+                    serverErrors++
+                    if (serverErrors > 3) break
+                    continue
+                  }
+                  serverErrors = 0
+                  const pollData = (await pollResponse.json()) as MlScorePayload & {
+                    mlVerificationDisabled?: boolean
+                    hasResult?: boolean
+                  }
+                  if (applyMlPayload(pollData)) return
+                  // hasResult:false → still processing; keep polling
+                } catch (pollError) {
+                  console.warn('[ML Verification] result poll failed:', pollError)
+                  serverErrors++
+                  if (serverErrors > 3) break
+                }
+              }
+              if (!settled) {
+                settled = true
+                setMlVerificationSummary(userFacingMlSummary(null, 'http_error'))
+                setMlVerificationStats(null)
+              }
+            }
+
             try {
-              console.log('[ML Verification] Triggering AI verification for cleanup:', cleanupId.toString())
-              const mlVerificationResponse = await fetch('/api/ml-verification/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  submissionId: cleanupId.toString(),
-                  beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
-                  afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
-                  gps: { latitude: location.lat, longitude: location.lng },
-                  timestamp: Date.now(),
-                }),
-              })
+              console.log('[ML Verification] Triggering AI verification for cleanup:', submissionIdStr)
+              const verifyController = new AbortController()
+              const verifyTimeout = setTimeout(() => verifyController.abort(), 150_000)
+              let mlVerificationResponse: Response
+              try {
+                mlVerificationResponse = await fetch('/api/ml-verification/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    submissionId: submissionIdStr,
+                    beforeImageCid: beforeHash.hash.replace(/^ipfs:\/\//, ''),
+                    afterImageCid: afterHash.hash.replace(/^ipfs:\/\//, ''),
+                    gps: { latitude: location.lat, longitude: location.lng },
+                    timestamp: Date.now(),
+                  }),
+                  signal: verifyController.signal,
+                })
+              } finally {
+                clearTimeout(verifyTimeout)
+              }
               if (mlVerificationResponse.ok) {
                 const mlData = (await mlVerificationResponse.json()) as MlScorePayload & {
                   mlVerificationDisabled?: boolean
                 }
                 console.log('[ML Verification] Result:', mlData)
-                if (mlData.mlVerificationDisabled) {
-                  setMlVerificationSummary(
-                    'Automated photo checks are off. Human verifiers will still review your submission.',
-                  )
-                  setMlVerificationStats(null)
-                } else {
-                  setMlVerificationSummary(userFacingMlSummary(mlData, 'ok'))
-                  setMlVerificationStats(parseMlScore(mlData))
+                if (!applyMlPayload(mlData)) {
+                  await pollMlResult()
                 }
               } else {
                 const errText = await mlVerificationResponse.text()
                 console.warn('[ML Verification] API returned:', mlVerificationResponse.status, errText)
-                setMlVerificationSummary(userFacingMlSummary(null, 'http_error'))
-                setMlVerificationStats(null)
+                await pollMlResult()
               }
             } catch (mlError) {
               console.warn('[ML Verification] AI verification error (non-critical):', mlError)
-              setMlVerificationSummary(userFacingMlSummary(null, 'exception'))
-              setMlVerificationStats(null)
+              await pollMlResult()
             } finally {
               setMlVerificationLoading(false)
             }
