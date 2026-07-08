@@ -58,6 +58,8 @@ module.exports = {
         MODEL_VERSION: fileEnv.MODEL_VERSION || 'yolov8-taco-n-100epochs-v1',
         PORT: fileEnv.PORT || '8000',
         HOST: fileEnv.HOST || '127.0.0.1',
+        INFER_CONF: fileEnv.INFER_CONF || '0.10',
+        INFER_IMGSZ: fileEnv.INFER_IMGSZ || '1280',
         SHARED_SECRET: fileEnv.SHARED_SECRET || process.env.SHARED_SECRET || '',
       },
     },
