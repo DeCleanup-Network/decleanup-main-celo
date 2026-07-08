@@ -82,6 +82,95 @@ def is_waste_class(class_name: str) -> bool:
     name = (class_name or "").lower()
     return any(kw in name for kw in WASTE_CLASS_KEYWORDS)
 
+
+# --- Tiled (SAHI) inference ---------------------------------------------------
+# Litter models miss small/distant objects in a wide field. SAHI slices the image
+# into overlapping tiles, runs the model per tile, and merges — recovering the
+# background litter a single full-frame pass drops. Opt-in via INFER_TILED=true.
+INFER_TILED = os.getenv("INFER_TILED", "false").strip().lower() in ("1", "true", "yes", "on")
+INFER_TILE = int(os.getenv("INFER_TILE", "768"))
+INFER_TILE_OVERLAP = float(os.getenv("INFER_TILE_OVERLAP", "0.2"))
+# Downscale the long edge before tiling so a 12MP phone photo doesn't explode into
+# dozens of CPU tiles. 0 disables the cap.
+INFER_TILE_MAXDIM = int(os.getenv("INFER_TILE_MAXDIM", "2400"))
+
+_sahi_model = None
+
+
+def _get_sahi_model():
+    """Lazily wrap the configured weights in a SAHI detection model (built once)."""
+    global _sahi_model
+    if _sahi_model is not None:
+        return _sahi_model
+    from sahi import AutoDetectionModel
+
+    weights = MODEL_PATH if (MODEL_PATH and os.path.exists(MODEL_PATH)) else "yolov8n.pt"
+    last_err = None
+    for model_type in ("ultralytics", "yolov8"):
+        try:
+            _sahi_model = AutoDetectionModel.from_pretrained(
+                model_type=model_type,
+                model_path=weights,
+                confidence_threshold=INFER_CONF,
+                device="cpu",
+            )
+            logger.info(
+                f"SAHI tiled inference ready (model_type={model_type}, tile={INFER_TILE}, "
+                f"overlap={INFER_TILE_OVERLAP}, maxdim={INFER_TILE_MAXDIM})"
+            )
+            return _sahi_model
+        except Exception as e:  # noqa: BLE001 - try the next SAHI model_type alias
+            last_err = e
+    raise RuntimeError(f"Failed to initialize SAHI model: {last_err}")
+
+
+def run_detections(image: Image.Image) -> List[dict]:
+    """Return raw detections as dicts {class_name, confidence, bbox:[x,y,w,h]}.
+
+    Uses SAHI tiled inference when INFER_TILED is set, else a single full-frame pass.
+    """
+    detections: List[dict] = []
+
+    if INFER_TILED:
+        from sahi.predict import get_sliced_prediction
+
+        rgb = image.convert("RGB")
+        if INFER_TILE_MAXDIM > 0 and max(rgb.size) > INFER_TILE_MAXDIM:
+            scale = INFER_TILE_MAXDIM / max(rgb.size)
+            rgb = rgb.resize((max(1, int(rgb.width * scale)), max(1, int(rgb.height * scale))))
+        result = get_sliced_prediction(
+            np.array(rgb),
+            _get_sahi_model(),
+            slice_height=INFER_TILE,
+            slice_width=INFER_TILE,
+            overlap_height_ratio=INFER_TILE_OVERLAP,
+            overlap_width_ratio=INFER_TILE_OVERLAP,
+            verbose=0,
+        )
+        for op in result.object_prediction_list:
+            x1, y1, x2, y2 = op.bbox.to_xyxy()
+            detections.append({
+                "class_name": op.category.name,
+                "confidence": float(op.score.value),
+                "bbox": [float(x1), float(y1), float(x2 - x1), float(y2 - y1)],
+            })
+        return detections
+
+    results = model.predict(image, verbose=False, conf=INFER_CONF, imgsz=INFER_IMGSZ)
+    if len(results) > 0 and results[0].boxes is not None:
+        boxes = results[0].boxes
+        for i in range(len(boxes)):
+            class_id = int(boxes.cls[i])
+            class_name = model.names[class_id] if hasattr(model, "names") else f"class_{class_id}"
+            xyxy = boxes.xyxy[i].cpu().numpy()
+            x, y, x2, y2 = xyxy
+            detections.append({
+                "class_name": class_name,
+                "confidence": float(boxes.conf[i]),
+                "bbox": [float(x), float(y), float(x2 - x), float(y2 - y)],
+            })
+    return detections
+
 # Model download URLs (for auto-download if not present)
 # Note: These are example URLs - actual model files may be at different locations
 # Recommended: Download manually from the repos listed in README
@@ -295,39 +384,23 @@ async def run_inference(
             logger.info(f"Downloading image from {request.imageUrl}...")
             image = download_image(request.imageUrl)
         
-        # Run inference
-        logger.info("Running YOLOv8 inference...")
-        results = model.predict(image, verbose=False, conf=INFER_CONF, imgsz=INFER_IMGSZ)
-        
+        # Run inference (tiled via SAHI when INFER_TILED, else single full-frame pass)
+        logger.info(f"Running inference (tiled={INFER_TILED})...")
+        raw_detections = run_detections(image)
+
         # Parse results
         detected_objects: List[DetectedObject] = []
         all_objects: List[DetectedObject] = []
-        
-        if len(results) > 0 and results[0].boxes is not None:
-            boxes = results[0].boxes
-            
-            for i in range(len(boxes)):
-                # Get class name
-                class_id = int(boxes.cls[i])
-                class_name = model.names[class_id] if hasattr(model, 'names') else f"class_{class_id}"
-                
-                # Get confidence
-                confidence = float(boxes.conf[i])
-                
-                # Get bounding box (xyxy format -> convert to xywh)
-                xyxy = boxes.xyxy[i].cpu().numpy()
-                x, y, x2, y2 = xyxy
-                width = x2 - x
-                height = y2 - y
-                
-                obj = DetectedObject(
-                    class_name=class_name,
-                    confidence=confidence,
-                    bbox=[float(x), float(y), float(width), float(height)]
-                )
-                all_objects.append(obj)
-                if is_waste_class(class_name):
-                    detected_objects.append(obj)
+
+        for det in raw_detections:
+            obj = DetectedObject(
+                class_name=det["class_name"],
+                confidence=det["confidence"],
+                bbox=det["bbox"],
+            )
+            all_objects.append(obj)
+            if is_waste_class(det["class_name"]):
+                detected_objects.append(obj)
 
         # If waste filter removed everything but raw detections exist (generic COCO model), keep all
         if not detected_objects and all_objects:
