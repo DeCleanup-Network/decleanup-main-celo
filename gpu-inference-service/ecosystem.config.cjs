@@ -63,6 +63,7 @@ module.exports = {
         INFER_TILED: fileEnv.INFER_TILED || 'false',
         INFER_TILE: fileEnv.INFER_TILE || '768',
         INFER_TILE_OVERLAP: fileEnv.INFER_TILE_OVERLAP || '0.2',
+        INFER_TILE_MINDIM: fileEnv.INFER_TILE_MINDIM || '1600',
         INFER_TILE_MAXDIM: fileEnv.INFER_TILE_MAXDIM || '2400',
         SHARED_SECRET: fileEnv.SHARED_SECRET || process.env.SHARED_SECRET || '',
       },

@@ -608,7 +608,8 @@ export default function VerifierPage() {
         setProcessingId(id)
         setError(null)
         try {
-            // Default level 1 for now, could add UI to select level
+            // Level arg is inert on Celo: verifyCleanup() calls Submission.approveSubmission(id),
+            // which ignores level. The user's Impact Product level is set when they mint/upgrade.
             console.log('Starting verification for submission:', id.toString())
             const txHash = await verifyCleanup(id, 1)
             console.log('Verification successful, transaction hash:', txHash)

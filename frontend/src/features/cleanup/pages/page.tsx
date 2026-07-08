@@ -693,6 +693,11 @@ function CleanupContent() {
     return () => URL.revokeObjectURL(url)
   }, [optionalVideo])
 
+  // Advisory: photos whose long edge is below this get a soft "upload a bigger original"
+  // hint (the AI pre-screening detects far more litter on full-resolution photos).
+  const LOW_RES_HINT_PX = 1200
+  const [lowResPhoto, setLowResPhoto] = useState(false)
+
   const handlePhotoSelect = (type: 'before' | 'after' | 'recyclables' | 'recyclablesReceipt') => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -732,6 +737,16 @@ function CleanupContent() {
           setRecyclablesPhoto(ready)
         } else if (type === 'recyclablesReceipt') {
           setRecyclablesReceipt(ready)
+        }
+        // Non-blocking resolution hint for the AI pre-screening (before/after only).
+        if (type === 'before' || type === 'after') {
+          try {
+            const bmp = await createImageBitmap(ready)
+            if (Math.max(bmp.width, bmp.height) < LOW_RES_HINT_PX) setLowResPhoto(true)
+            bmp.close()
+          } catch {
+            /* dimension check is best-effort */
+          }
         }
       })()
     }
@@ -2233,6 +2248,11 @@ function CleanupContent() {
             <p className="mt-2 text-xs text-gray-500">
               For the best AI pre-screening: use clear, well-lit photos taken close to the litter. Blurry or very distant shots make the litter hard to detect.
             </p>
+            {lowResPhoto && (
+              <p className="mt-2 text-xs text-amber-400">
+                One of your photos is low-resolution. For a full AI assessment, upload a larger original (about 1200px or more on the long side). You can still submit — a human verifier reviews every cleanup.
+              </p>
+            )}
           </div>
 
           <div className="mb-6 space-y-6">

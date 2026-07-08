@@ -93,6 +93,11 @@ INFER_TILE_OVERLAP = float(os.getenv("INFER_TILE_OVERLAP", "0.2"))
 # Downscale the long edge before tiling so a 12MP phone photo doesn't explode into
 # dozens of CPU tiles. 0 disables the cap.
 INFER_TILE_MAXDIM = int(os.getenv("INFER_TILE_MAXDIM", "2400"))
+# Tile only when the image is large enough to benefit. Small/forwarded photos
+# (e.g. ~1280px messenger copies) are hurt by tiling (objects get split across
+# tiles), so below this long-edge threshold we fall back to a single full-frame
+# pass. This makes INFER_TILED safe to enable globally.
+INFER_TILE_MINDIM = int(os.getenv("INFER_TILE_MINDIM", "1600"))
 
 _sahi_model = None
 
@@ -131,7 +136,10 @@ def run_detections(image: Image.Image) -> List[dict]:
     """
     detections: List[dict] = []
 
-    if INFER_TILED:
+    # Adaptive: only tile large images; small ones do better full-frame.
+    use_tiling = INFER_TILED and max(image.size) >= INFER_TILE_MINDIM
+
+    if use_tiling:
         from sahi.predict import get_sliced_prediction
 
         rgb = image.convert("RGB")
