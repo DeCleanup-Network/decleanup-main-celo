@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
-import { join } from 'path'
+import { join, sep } from 'path'
 import { existsSync } from 'fs'
 import { resolveUploadDir } from '@/lib/server/resolve-upload-dir'
 
@@ -17,10 +17,11 @@ export async function GET(
 ) {
   try {
     const filePath = join(UPLOAD_DIR, ...params.path)
-    
-    // Security: ensure path is within uploads directory
-    const resolvedPath = join(UPLOAD_DIR, ...params.path)
-    if (!resolvedPath.startsWith(UPLOAD_DIR)) {
+
+    // Security: ensure the resolved path stays inside the uploads directory.
+    // Compare with a trailing separator so a sibling dir like `uploads-evil` cannot
+    // pass a bare startsWith('.../uploads') prefix check.
+    if (filePath !== UPLOAD_DIR && !filePath.startsWith(UPLOAD_DIR + sep)) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
     }
     

@@ -134,8 +134,15 @@ export function isAllowedPinataJsonFile(file: File): boolean {
   return false
 }
 
+/** submissionId is used as an on-disk directory name — restrict to the same safe charset as the photo-serving route to block path traversal. */
+export const mlSubmissionId = z
+  .coerce.string()
+  .min(1)
+  .max(256)
+  .regex(/^[a-zA-Z0-9-_]+$/, 'submissionId may only contain letters, numbers, dashes and underscores')
+
 export const mlVerifyBodySchema = z.object({
-  submissionId: z.coerce.string().min(1).max(256),
+  submissionId: mlSubmissionId,
   beforeImageCid: z.string().min(1).max(512),
   afterImageCid: z.string().min(1).max(512),
   walletAddress: z.string().max(128).optional(),
@@ -144,7 +151,7 @@ export const mlVerifyBodySchema = z.object({
 })
 
 export const mlRescoreBodySchema = z.object({
-  submissionId: z.coerce.string().min(1).max(256),
+  submissionId: mlSubmissionId,
   /** When false, skip HEIC→JPEG rewrite (photos already normalized). Default true. */
   normalizePhotos: z.boolean().optional(),
   walletAddress: z.string().max(128).optional(),
