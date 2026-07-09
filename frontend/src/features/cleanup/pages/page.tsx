@@ -1389,7 +1389,7 @@ function CleanupContent() {
         const combinedRecyclablesSubmit =
           isAtomicContractTxEnabled() && hasRecyclables && !!recyclablesPhotoHash
 
-        const { submissionId: cleanupId, txHash: submitTxHash } = await submitCleanup(
+        const { submissionId: cleanupId, txHash: submitTxHash, confirmed } = await submitCleanup(
           beforeHash.hash,
           afterHash.hash,
           location.lat,
@@ -1407,6 +1407,22 @@ function CleanupContent() {
             : submitOpts
         )
         
+
+        // Rare recovery path: the tx landed but we couldn't read the id (transient RPC), or the
+        // receipt itself couldn't be confirmed. Show success/pending and skip the id-dependent
+        // steps — never a false "submission failed".
+        if (cleanupId === null) {
+          setIsSubmitting(false)
+          setStep('review')
+          setAlertModal({
+            title: 'Cleanup submitted',
+            message: confirmed
+              ? 'Your cleanup was submitted and is pending verification. It may take a moment to appear in your history.'
+              : `Your cleanup was submitted. We couldn't confirm it instantly. Check the transaction on the block explorer; verification will proceed once it's confirmed.`,
+            variant: confirmed ? 'success' : 'warning',
+          })
+          return
+        }
 
         console.log('✅ Cleanup submitted with ID:', cleanupId.toString())
         notifyVerifierTelegramOfSubmission({

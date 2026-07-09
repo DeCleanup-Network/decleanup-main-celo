@@ -449,8 +449,11 @@ const SUBMISSION_ABI = [
 ] as const
 
 export type SubmitCleanupResult = {
-  submissionId: bigint
+  /** null when the tx landed but the id couldn't be read (transient RPC); still a success/pending, not a failure. */
+  submissionId: bigint | null
   txHash: `0x${string}`
+  /** true when the receipt confirmed status success; false when the tx was broadcast but the receipt couldn't be confirmed. */
+  confirmed: boolean
 }
 
 export async function submitCleanup(
@@ -499,6 +502,9 @@ export async function submitCleanup(
   const useCombinedRecyclablesSubmit =
     isAtomicContractTxEnabled() && recyclablesPhoto.length > 0
 
+  // Declared here (not inside try) so it survives into the catch for graceful recovery.
+  let hash: `0x${string}` | undefined
+
   try {
     const submissionCountBefore = await readContract(getConfig(), {
       chainId: REQUIRED_CHAIN_ID,
@@ -539,8 +545,6 @@ export async function submitCleanup(
       gasless: !!options?.gaslessClient,
     })
 
-    let hash: `0x${string}`
-
     if (options?.gaslessClient) {
       const data = encodeFunctionData({
         abi: SUBMISSION_ABI,
@@ -564,22 +568,37 @@ export async function submitCleanup(
       hash = await lockedWriteContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
     }
 
-    await waitForOnChainConfirmation(hash, gasless)
-
-    const submissionCountAfter = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
-      abi: SUBMISSION_ABI,
-      functionName: 'submissionCount',
-    })
-
-    const submissionId = (submissionCountAfter as bigint) - 1n
-
-    if (submissionId === undefined || submissionId === null) {
-      throw new Error('Failed to get submission ID from transaction')
+    // Confirm the receipt. If the receipt can't be fetched (transient RPC/timeout), the tx was
+    // still broadcast — surface it as pending rather than a hard failure.
+    let receipt
+    try {
+      receipt = await waitForOnChainConfirmation(hash, gasless)
+    } catch (waitError) {
+      console.warn('Receipt wait failed; treating as pending:', waitError)
+      return { submissionId: null, txHash: hash, confirmed: false }
+    }
+    // A reverted transaction is a REAL failure.
+    if (receipt && receipt.status !== 'success') {
+      throw new Error(`Transaction reverted on-chain (hash: ${hash}). Please try again.`)
     }
 
-    return { submissionId, txHash: hash }
+    // Receipt confirmed success. Read the id; if that hits a transient RPC error, still return
+    // success with a null id (the submission is on-chain) instead of a false failure.
+    try {
+      const submissionCountAfter = await readContract(getConfig(), {
+        chainId: REQUIRED_CHAIN_ID,
+        address: SUBMISSION_ADDRESS,
+        abi: SUBMISSION_ABI,
+        functionName: 'submissionCount',
+      })
+      const submissionId = (submissionCountAfter as bigint) - 1n
+      if (submissionId >= 0n) {
+        return { submissionId, txHash: hash, confirmed: true }
+      }
+    } catch (idError) {
+      console.warn(`Cleanup confirmed (hash: ${hash}) but id lookup failed:`, idError)
+    }
+    return { submissionId: null, txHash: hash, confirmed: true }
   } catch (error: any) {
     console.error('Error submitting cleanup:', error)
     let errorMessage = 'Unknown error'
