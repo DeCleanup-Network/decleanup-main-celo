@@ -6,6 +6,25 @@ This project adheres to Semantic Versioning.
 
 ---
 
+## [ML pipeline hardening, adaptive AI & submit reliability] - 2026-07
+
+Fixed the ML pre-screening pipeline end-to-end, rewrote scoring, added adaptive tiled inference for large photos, and stopped false "submission failed" errors.
+
+### ML verification pipeline
+- **Root cause of "0 detections":** the VPS ran a 3-month-old copy of `gpu-inference-service/main.py` — repo fixes never reached the running process. Resynced; installed `pi-heif` for iPhone HEIC. A stray root `systemd` unit (`gpu-inference.service`) was racing PM2 for port 8000 and serving the default model — disabled and archived. See `docs/VPS_DEPLOYMENT.md`, `docs/ML_VERIFICATION_ARCHITECTURE.md`.
+- **Scoring rewritten** (`frontend/src/lib/dmrv/gpu-verification.ts`): `score = (beforeCount − afterCount) / beforeCount` (fraction of litter removed) instead of detector confidence, so a genuine cleanup can reach `approved`. Thresholds via `ML_VERIFICATION_AUTO_THRESHOLD` / `REVIEW_THRESHOLD`.
+- **Adaptive tiled inference (SAHI)** (`gpu-inference-service/main.py`): photos with long side ≥ `INFER_TILE_MINDIM` (1600px) are tiled, smaller ones run full-frame. Measured 3→9 detections on real full-size photos, no regression on 1280px, ~2s/photo. Enabled on VPS (`INFER_TILED=true`).
+- **Robustness** (`frontend/src/lib/server/ml-verification-photos.ts`): IPFS retry + fallback gateway, atomic before/after writes, honest infra errors instead of silent `pending`; path-traversal guard on ML routes.
+- **Client** (`frontend/src/features/cleanup/pages/page.tsx`): verify timeout + result polling so the success screen shows the AI score even if the initial request drops; low-resolution upload hint.
+- Removed the dead legacy DMRV pipeline (~1000 lines).
+
+### Submit reliability
+- **False "submission failed"** (`frontend/src/lib/blockchain/contracts.ts`, `frontend/src/features/cleanup/pages/page.tsx`): `submitCleanup` now gates on `receipt.status === 'success'` (a revert is a real failure) and, when the tx is confirmed but a transient RPC error blocks reading the submission id, returns a pending/confirmed result (null id) instead of throwing "Failed to submit cleanup". The page shows a submitted/pending state and skips id-dependent steps.
+
+### Ops
+- Verified the full on-chain flow on Celo mainnet (submit → approve → mint Impact Product NFT).
+- PM2 log rotation on the VPS (`pm2-logrotate`, 10MB × 7, daily) and systemd persistence for the `deploy` PM2 (GPU service) so it survives reboot.
+
 ## [$cDCU Claim UX, Unlock & Governance 250] - 2026-03
 
 Claim flow fixes, simpler copy, unlock endpoint, and governance threshold set to 250 $cDCU.
