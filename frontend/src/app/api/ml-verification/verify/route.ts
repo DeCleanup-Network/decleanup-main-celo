@@ -17,6 +17,8 @@ import {
   downloadAndStoreBothFromIpfs,
   writeMlVerificationResult,
 } from '@/lib/server/ml-verification-photos'
+import { isTelegramNotifierConfigured } from '@/lib/server/telegram-config'
+import { notifyVerifiersOfNewSubmission } from '@/lib/server/telegram-submission-notify'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +44,16 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) return parsed.response
 
     const body = parsed.data
+
+    // Backup Telegram alert: client notify is fire-and-forget and often dropped on
+    // mobile after long AA/gasless UserOps. Dedup table prevents double messages.
+    if (isTelegramNotifierConfigured() && /^\d+$/.test(String(body.submissionId))) {
+      void notifyVerifiersOfNewSubmission({
+        submissionId: String(body.submissionId),
+      }).catch((err) =>
+        console.warn('[ML Verification] telegram backup notify failed:', err)
+      )
+    }
 
     if (!isMlVerificationEnabled()) {
       return NextResponse.json({

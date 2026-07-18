@@ -1,5 +1,12 @@
-import { Address, formatEther, createPublicClient, http } from 'viem'
-import { encodeFunctionData } from 'viem'
+import {
+  Address,
+  formatEther,
+  createPublicClient,
+  http,
+  encodeFunctionData,
+  parseEventLogs,
+  type TransactionReceipt,
+} from 'viem'
 import { readContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
 import { lockedWriteContract } from '@/lib/blockchain/wallet-write-mutex'
 import { REQUIRED_RPC_URL } from './chain-constants'
@@ -143,7 +150,7 @@ async function waitForOnChainConfirmation(
   hash: `0x${string}`,
   gasless: boolean,
   opts?: { gaslessTimeoutMs?: number }
-) {
+): Promise<TransactionReceipt> {
   if (gasless) {
     const { waitForGaslessUserOperationConfirmation } = await import(
       '@/lib/smart-account/wait-user-op'
@@ -165,6 +172,34 @@ async function waitForOnChainConfirmation(
     hash,
     ...TX_WAIT_OPTS,
   })
+}
+
+const SUBMISSION_CREATED_EVENT_ABI = [
+  {
+    type: 'event',
+    name: 'SubmissionCreated',
+    inputs: [
+      { name: 'submissionId', type: 'uint256', indexed: true },
+      { name: 'submitter', type: 'address', indexed: true },
+      { name: 'dataURI', type: 'string', indexed: false },
+      { name: 'timestamp', type: 'uint256', indexed: false },
+    ],
+  },
+] as const
+
+/** Prefer SubmissionCreated log over submissionCount-1 (stale RPC after AA UserOps). */
+function submissionIdFromReceipt(receipt: TransactionReceipt): bigint | null {
+  try {
+    const logs = parseEventLogs({
+      abi: SUBMISSION_CREATED_EVENT_ABI,
+      eventName: 'SubmissionCreated',
+      logs: receipt.logs,
+    })
+    const id = logs[0]?.args?.submissionId
+    return typeof id === 'bigint' ? id : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -506,13 +541,6 @@ export async function submitCleanup(
   let hash: `0x${string}` | undefined
 
   try {
-    const submissionCountBefore = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
-      abi: SUBMISSION_ABI,
-      functionName: 'submissionCount',
-    })
-
     const baseArgs = [
       dataURI,
       beforeHash,
@@ -579,12 +607,22 @@ export async function submitCleanup(
     }
     // A reverted transaction is a REAL failure.
     if (receipt && receipt.status !== 'success') {
-      throw new Error(`Transaction reverted on-chain (hash: ${hash}). Please try again.`)
+      throw new Error(
+        `Transaction reverted on-chain (hash: ${receipt.transactionHash}). Please try again.`
+      )
     }
 
-    // Receipt confirmed success. Read the id; if that hits a transient RPC error, still return
-    // success with a null id (the submission is on-chain) instead of a false failure.
+    const txHash = receipt.transactionHash
+
+    // Prefer SubmissionCreated log (reliable after AA UserOps); fall back to count-1.
     try {
+      const fromEvent = submissionIdFromReceipt(receipt)
+      if (fromEvent != null && fromEvent >= 0n) {
+        return { submissionId: fromEvent, txHash, confirmed: true }
+      }
+      console.warn(
+        '[submitCleanup] SubmissionCreated log missing; falling back to submissionCount - 1'
+      )
       const submissionCountAfter = await readContract(getConfig(), {
         chainId: REQUIRED_CHAIN_ID,
         address: SUBMISSION_ADDRESS,
@@ -593,12 +631,12 @@ export async function submitCleanup(
       })
       const submissionId = (submissionCountAfter as bigint) - 1n
       if (submissionId >= 0n) {
-        return { submissionId, txHash: hash, confirmed: true }
+        return { submissionId, txHash, confirmed: true }
       }
     } catch (idError) {
-      console.warn(`Cleanup confirmed (hash: ${hash}) but id lookup failed:`, idError)
+      console.warn(`Cleanup confirmed (hash: ${txHash}) but id lookup failed:`, idError)
     }
-    return { submissionId: null, txHash: hash, confirmed: true }
+    return { submissionId: null, txHash, confirmed: true }
   } catch (error: any) {
     console.error('Error submitting cleanup:', error)
     let errorMessage = 'Unknown error'

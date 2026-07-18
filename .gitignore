@@ -167,3 +167,9 @@ docs/hypercerts/Estrutura Final (v1 – Test Milestone).md
 docs/hypercerts/HYPERCERTS_IMPLEMENTATION_GUIDE_FOR_IDE_AI.md
 docs/hypercerts/Implementação técnica hypercerts.md
 docs/hypercerts/Plano de implementação hypercerts.md
+
+# ML dev handoff (secrets + password zip — never commit)
+handoff/ml-verification-dev-pack/04-SECRETS.env
+handoff/ml-verification-dev-pack-*.zip
+handoff/.ml-handoff-staging/
+handoff/.ml-handoff-zip-password.txt

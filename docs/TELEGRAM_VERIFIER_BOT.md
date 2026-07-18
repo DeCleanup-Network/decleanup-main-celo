@@ -7,7 +7,8 @@ When a user successfully submits a cleanup onchain, verifiers get a message in a
 ```
 User submits cleanup (onchain tx confirms)
     ↓
-Frontend → POST /api/telegram/submission-created { submissionId }
+Frontend → POST /api/telegram/submission-created { submissionId, txHash }
+    + backup: POST /api/ml-verification/verify also triggers notify (deduped)
     ↓
 Server reads Submission.getSubmissionDetails (must be Pending)
     ↓
@@ -16,7 +17,7 @@ Dedup check (Supabase telegram_submission_notifications)
 Telegram Bot API → TELEGRAM_VERIFIER_CHAT_ID
 ```
 
-No long-running bot process is required. The app uses Telegram’s HTTP API from a Next.js API route.
+**Embedded / gasless wallets:** submission ID is taken from the `SubmissionCreated` event in the mined tx receipt (not `submissionCount - 1`), and the real transaction hash (not UserOp hash) is passed to Telegram. The client uses `keepalive` fetch + extra retries because mobile Safari often cancels requests after long AA confirms.
 
 ## One-time setup
 
@@ -98,6 +99,7 @@ Each alert includes:
 | `telegram_error: bot was blocked` | Re-add bot to the group |
 | `already_notified` | Normal on retry; dedup table already has this submission id |
 | `not_pending` | Submission already approved/rejected; no alert sent |
+| Embedded wallet submit, no Telegram | Fixed: event-log submission ID + keepalive notify + ML-route backup; redeploy frontend |
 
 ## Security notes
 

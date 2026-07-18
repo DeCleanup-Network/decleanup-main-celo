@@ -1,10 +1,13 @@
 /**
  * Fire-and-forget: ask the server to ping the verifier Telegram channel
  * after a successful onchain cleanup submission.
+ *
+ * Embedded / AA submits are slower and mobile Safari often cancels in-flight
+ * fetches if the tab backgrounds — use keepalive + more retries.
  */
 
-const CLIENT_RETRIES = 3
-const CLIENT_RETRY_DELAY_MS = 2_000
+const CLIENT_RETRIES = 5
+const CLIENT_RETRY_DELAY_MS = 2_500
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -26,6 +29,8 @@ async function postSubmissionNotify(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    // Survive tab backgrounding / navigation on mobile (esp. after long AA UserOps)
+    keepalive: true,
   })
 
   const data = (await res.json().catch(() => ({}))) as NotifyResponse
@@ -34,15 +39,19 @@ async function postSubmissionNotify(
     throw new Error(data.detail || data.reason || `HTTP ${res.status}`)
   }
 
+  if (data.sent === true) return
+
   if (data.skipped || data.sent === false) {
     const retryable =
-      data.reason === 'not_found' && attempt < CLIENT_RETRIES - 1
+      attempt < CLIENT_RETRIES - 1 &&
+      (data.reason === 'not_found' ||
+        data.reason === 'not_pending' ||
+        data.reason === 'telegram_error')
     if (retryable) {
       await sleep(CLIENT_RETRY_DELAY_MS * (attempt + 1))
       return postSubmissionNotify(body, attempt + 1)
     }
     console.warn('[notifyVerifierTelegram] alert not sent:', data)
-    return
   }
 }
 

@@ -85,8 +85,8 @@ const publicClient = createPublicClient({
   transport: http(REQUIRED_RPC_URL),
 })
 
-const READ_RETRIES = 4
-const READ_RETRY_DELAY_MS = 1_500
+const READ_RETRIES = 6
+const READ_RETRY_DELAY_MS = 2_000
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
