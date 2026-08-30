@@ -32,8 +32,10 @@ import { TransactionActionBlock, TransactionWaitNotice } from '@/components/ui/t
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
 import { OptionalSubmissionVideo } from '@/components/verifier/OptionalSubmissionVideo'
+import { TrashAthleteVerifierSection } from '@/components/verifier/TrashAthleteVerifierSection'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 import { filterExcludedSubmissionIds } from '@/lib/submission/excluded-ids'
+import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
 
@@ -82,6 +84,7 @@ export default function VerifierPage() {
     const [processingId, setProcessingId] = useState<bigint | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [hypercertRequests, setHypercertRequests] = useState<HypercertRequest[]>([])
+    const [trashAthleteChallenges, setTrashAthleteChallenges] = useState<TrashAthleteChallenge[]>([])
     const [verifierContext, setVerifierContext] = useState<any>(null)
     const [isSigning, setIsSigning] = useState(false)
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
@@ -317,9 +320,27 @@ export default function VerifierPage() {
                 } catch (reqError) {
                     console.error('Error loading Hypercert requests:', reqError)
                 }
+                try {
+                    if (addressRef.current) {
+                        const taRes = await fetch(
+                            `/api/trash-athlete/challenges?status=PENDING&reviewer=${encodeURIComponent(addressRef.current)}`,
+                            { cache: 'no-store' }
+                        )
+                        const taData = await taRes.json().catch(() => ({}))
+                        if (taRes.ok && Array.isArray(taData.challenges)) {
+                            setTrashAthleteChallenges(taData.challenges)
+                        } else {
+                            setTrashAthleteChallenges([])
+                        }
+                    }
+                } catch (taError) {
+                    console.error('Error loading Trash Athlete challenges:', taError)
+                    setTrashAthleteChallenges([])
+                }
             } else {
                 setHypercertRequests([])
                 setVerifierContext(null)
+                setTrashAthleteChallenges([])
             }
         } catch (error) {
             console.error('Error fetching cleanups:', error)
@@ -1168,6 +1189,22 @@ export default function VerifierPage() {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {isVerifierUser && address && (
+                  <TrashAthleteVerifierSection
+                    challenges={trashAthleteChallenges}
+                    reviewerAddress={address as Address}
+                    signMessage={async (message) =>
+                      (await signMessageForWallet({ message })) as `0x${string}`
+                    }
+                    onChanged={() => {
+                      void fetchCleanups()
+                    }}
+                    onNotify={({ variant, title, message }) =>
+                      setActionModal({ variant, title, message })
+                    }
+                  />
                 )}
 
                 {isVerifierUser && (

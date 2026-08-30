@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Leaf, Award, Loader2, Clock, Shield, Heart, Check } from 'lucide-react'
+import { Leaf, Award, Loader2, Clock, Shield, Heart, Check, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { ActionHint } from '@/components/ui/action-hint'
@@ -113,6 +113,16 @@ export function DashboardActions({
                         </span>
                     </ActionHint>
                 )}
+
+                <ActionHint hint="Global cleanup games: share your social post link for verifier review">
+                    <Link
+                        href="/cleanup/trash-athlete"
+                        className={stepClass(walletReady)}
+                    >
+                        <Trophy className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        Submit Trash Athlete Challenge
+                    </Link>
+                </ActionHint>
 
                 <ActionHint
                     hint={

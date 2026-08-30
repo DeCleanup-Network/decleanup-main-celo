@@ -267,6 +267,71 @@ export interface Database {
         }
         Relationships: []
       }
+      trash_athlete_challenges: {
+        Row: {
+          id: string
+          user_id: string | null
+          wallet_address: string
+          email: string | null
+          username: string
+          social_profile_url: string
+          notes: string | null
+          status: string
+          submitted_at: number
+          reviewed_at: number | null
+          reviewed_by: string | null
+          rejection_reason: string | null
+          bonus_cdcu_amount: number
+          bonus_cdcu_claimed: boolean
+          bonus_cdcu_claim_tx: string | null
+          level_target: number
+          dcu_points_amount: number
+          level_grant_status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          user_id?: string | null
+          wallet_address: string
+          email?: string | null
+          username: string
+          social_profile_url: string
+          notes?: string | null
+          status?: string
+          submitted_at: number
+          reviewed_at?: number | null
+          reviewed_by?: string | null
+          rejection_reason?: string | null
+          bonus_cdcu_amount?: number
+          bonus_cdcu_claimed?: boolean
+          bonus_cdcu_claim_tx?: string | null
+          level_target?: number
+          dcu_points_amount?: number
+          level_grant_status?: string
+        }
+        Update: {
+          user_id?: string | null
+          wallet_address?: string
+          email?: string | null
+          username?: string
+          social_profile_url?: string
+          notes?: string | null
+          status?: string
+          submitted_at?: number
+          reviewed_at?: number | null
+          reviewed_by?: string | null
+          rejection_reason?: string | null
+          bonus_cdcu_amount?: number
+          bonus_cdcu_claimed?: boolean
+          bonus_cdcu_claim_tx?: string | null
+          level_target?: number
+          dcu_points_amount?: number
+          level_grant_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hypercert_requests: {
         Row: {
           id: string
