@@ -658,6 +658,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const local = await loadEncryptedWallet(uid)
 
         let server: {
+          ok?: boolean
           hasWallet?: boolean
           gaslessEnabled?: boolean
           eoaAddress?: string
@@ -674,6 +675,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           if (!serverRes.ok && serverRes.status !== 401) {
             console.warn('[WalletProvider] /api/aa/wallet:', server.error ?? serverRes.status)
           }
+          // Only treat hasWallet:false as authoritative on HTTP 200.
+          if (!serverRes.ok) {
+            server = { ...server, ok: false }
+          } else if (server.ok !== true) {
+            server = { ...server, ok: true }
+          }
         } catch (e) {
           console.warn('[WalletProvider] wallet API unreachable:', e)
         }
@@ -683,12 +690,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setGaslessEnabled(Boolean(server.gaslessEnabled))
 
         if (local) {
-          applyRecord(local, false)
-          setIsPasskeyEnabled(hasPasskeyUnlockRecord(uid))
-          if (server.hasWallet && server.smartAccountAddress) {
-            setBalance(server.balance ?? null)
+          // Admin/support reset deletes the server row but leaves ciphertext on this device.
+          // Only trust a successful JSON reply with hasWallet: false (not network/API failures).
+          const serverConfirmedNoWallet = server.ok === true && server.hasWallet === false
+          if (serverConfirmedNoWallet) {
+            clearPasskeyUnlockRecord(uid)
+            await clearWallet(uid)
+            localRecordRef.current = null
+            setIsPasskeyEnabled(false)
+            setEoaAddress(null)
+            setSmartAccountAddress(null)
+            setChainId(null)
+            setBalance(null)
+          } else {
+            applyRecord(local, false)
+            setIsPasskeyEnabled(hasPasskeyUnlockRecord(uid))
+            if (server.hasWallet && server.smartAccountAddress) {
+              setBalance(server.balance ?? null)
+            }
+            return
           }
-          return
         }
 
         if (server.hasWallet && server.encryptedBlob && server.eoaAddress && server.smartAccountAddress) {

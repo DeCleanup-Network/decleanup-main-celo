@@ -86,16 +86,6 @@ export async function POST(request: NextRequest) {
     const username = String(body?.username ?? '').trim()
     const socialProfileUrl = String(body?.socialProfileUrl ?? body?.social_profile_url ?? '').trim()
     const notes = String(body?.notes ?? '').trim()
-    const walletAddress = String(body?.walletAddress ?? body?.wallet_address ?? '').trim()
-
-    const limited = await enforceApiRateLimit({
-      request,
-      scope: 'trash-athlete-submit',
-      maxRequests: 8,
-      windowMs: 60_000,
-      walletAddress: walletAddress || null,
-    })
-    if (!limited.ok) return limited.response
 
     if (!username || username.length < 2 || username.length > 64) {
       return NextResponse.json({ error: 'Username must be 2–64 characters' }, { status: 400 })
@@ -109,10 +99,9 @@ export async function POST(request: NextRequest) {
     if (notes.length > 2000) {
       return NextResponse.json({ error: 'Notes too long (max 2000 characters)' }, { status: 400 })
     }
-    if (!walletAddress || !isAddress(walletAddress)) {
-      return NextResponse.json({ error: 'Valid wallet address required' }, { status: 400 })
-    }
 
+    // Identity comes from the session — never require the client-reported address to match
+    // (EOA vs smart account, or stale local ciphertext after a support reset).
     const wallet = await findWalletMetadata(userId)
     if (!wallet) {
       return NextResponse.json(
@@ -121,16 +110,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const allowed = new Set([
-      wallet.smartAccountAddress.toLowerCase(),
-      wallet.address.toLowerCase(),
-    ])
-    if (!allowed.has(walletAddress.toLowerCase())) {
-      return NextResponse.json(
-        { error: 'Wallet does not match your signed-in account' },
-        { status: 403 }
-      )
-    }
+    const limited = await enforceApiRateLimit({
+      request,
+      scope: 'trash-athlete-submit',
+      maxRequests: 8,
+      windowMs: 60_000,
+      walletAddress: wallet.smartAccountAddress,
+    })
+    if (!limited.ok) return limited.response
 
     if (await hasOpenTrashAthleteForWallet(wallet.smartAccountAddress)) {
       return NextResponse.json(

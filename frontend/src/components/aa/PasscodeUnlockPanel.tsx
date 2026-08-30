@@ -39,6 +39,7 @@ export function PasscodeUnlockPanel({
     isPasskeyEnabled,
     passkeyLoading,
     refreshPasskeyStatus,
+    resetWalletAccess,
     error,
   } = useWallet()
   const [passcode, setPasscode] = useState('')
@@ -46,6 +47,7 @@ export function PasscodeUnlockPanel({
   const [legacyPassword, setLegacyPassword] = useState('')
   const [duration, setDuration] = useState<SessionDurationId>(getPreferredSessionDuration())
   const [pending, setPending] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
   const [platformAvailable, setPlatformAvailable] = useState(false)
@@ -287,6 +289,39 @@ export function PasscodeUnlockPanel({
       {(error && !localError) || localError ? (
         <p className="text-center text-sm text-red-400">{localError ?? error}</p>
       ) : null}
+
+      <div className="rounded-lg border border-gray-800 bg-gray-900/40 px-3 py-3 text-center">
+        <p className="text-[11px] leading-relaxed text-gray-500">
+          Forgot your {WALLET_PASSCODE_LOWER}? After support resets your account, this device may still ask for the
+          old code. Create a new wallet here — previous onchain activity stays on the old address.
+        </p>
+        <button
+          type="button"
+          disabled={pending || resetting || passkeyLoading}
+          className="mt-2 text-xs font-medium text-brand-green underline disabled:opacity-50"
+          onClick={() => {
+            const ok = window.confirm(
+              `Create a new wallet on this account? You will set a new ${WALLET_PASSCODE_LOWER}. Cleanups and $cDCU on the old address are not moved.`
+            )
+            if (!ok) return
+            setResetting(true)
+            setLocalError(null)
+            void resetWalletAccess()
+              .then(() => {
+                clearUnlockAttempts()
+                setPasscode('')
+                setLegacyPassword('')
+                onSuccess?.()
+              })
+              .catch((err) => {
+                setLocalError(err instanceof Error ? err.message : 'Could not reset wallet')
+              })
+              .finally(() => setResetting(false))
+          }}
+        >
+          {resetting ? 'Creating new wallet…' : 'Forgot passcode — create new wallet'}
+        </button>
+      </div>
     </div>
   )
 }

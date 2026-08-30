@@ -8,6 +8,7 @@ import { Loader2, Trophy, ExternalLink, CheckCircle2 } from 'lucide-react'
 import { BackButton } from '@/components/layout/BackButton'
 import { Button } from '@/components/ui/button'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+import { useWallet } from '@/providers/WalletProvider'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import {
   TRASH_ATHLETE_BONUS_CDCU,
@@ -22,7 +23,8 @@ export default function TrashAthleteChallengePage() {
   const router = useRouter()
   const aaEnabled = isAaAuthEnabledClient()
   const { data: session, status: sessionStatus } = useSession()
-  const { address, showMainApp, walletReady } = useAppWalletAddress()
+  const { address, showMainApp, walletReady, walletPhase } = useAppWalletAddress()
+  const { smartAccountAddress } = useWallet()
 
   const [username, setUsername] = useState('')
   const [socialProfileUrl, setSocialProfileUrl] = useState('')
@@ -33,6 +35,8 @@ export default function TrashAthleteChallengePage() {
   const [loadingMine, setLoadingMine] = useState(true)
 
   const signedIn = aaEnabled ? Boolean(session?.user) : showMainApp
+  const hasWallet = Boolean(smartAccountAddress || address)
+  const canSubmitForm = walletReady && hasWallet && walletPhase !== 'no-wallet' && walletPhase !== 'loading'
 
   useEffect(() => {
     if (sessionStatus === 'loading') return
@@ -64,7 +68,7 @@ export default function TrashAthleteChallengePage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!address) {
+    if (!canSubmitForm) {
       setError('Wallet not ready. Finish account setup first.')
       return
     }
@@ -77,7 +81,6 @@ export default function TrashAthleteChallengePage() {
           username,
           socialProfileUrl,
           notes,
-          walletAddress: address,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -197,7 +200,7 @@ export default function TrashAthleteChallengePage() {
 
       {!pending && !approvedUnclaimed && (!latest || latest.status === 'REJECTED') ? (
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
-          {!walletReady ? (
+          {!canSubmitForm ? (
             <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
               Finish wallet setup (passcode / Face ID) so rewards can go to your account.
             </p>
@@ -258,7 +261,7 @@ export default function TrashAthleteChallengePage() {
             </p>
           ) : null}
 
-          <Button type="submit" disabled={submitting || !walletReady} className="w-full">
+          <Button type="submit" disabled={submitting || !canSubmitForm} className="w-full">
             {submitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
