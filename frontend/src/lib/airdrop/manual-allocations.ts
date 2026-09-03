@@ -85,6 +85,12 @@ const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
     category: 'past_contributor',
     label: 'Past contributor, $cDCU airdrop',
   },
+  {
+    walletAddress: '0xba3982536f79090d4d68cd14e1b7d15ff1014030',
+    amountCdcu: '350',
+    category: 'past_contributor',
+    label: 'Past contributor, $cDCU airdrop',
+  },
 ] as const
 
 const COMMUNITY_ALLOCATIONS: readonly AirdropAllocation[] = [
