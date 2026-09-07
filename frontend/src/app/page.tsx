@@ -53,6 +53,7 @@ import {
 import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
 import { AirdropPendingBanner } from '@/components/airdrop/AirdropPendingBanner'
 import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributorAirdropStrip'
+import { TrashAthletePromoBanner } from '@/components/trash-athlete/TrashAthletePromoBanner'
 import { WalletReadyCard } from '@/components/aa/WalletReadyCard'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { useWallet } from '@/providers/WalletProvider'
@@ -460,6 +461,7 @@ function HomeContent() {
           </div>
         )}
         <AirdropPendingBanner />
+        <TrashAthletePromoBanner />
         {/* HERO — primary CTA first */}
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
