@@ -187,7 +187,7 @@ try {
 
   if (!confirm) {
     console.log('\nDry run only. Re-run with --confirm to delete wallet + passkeys for this user.')
-    console.log('User must sign in again and set a new wallet passkey (new smart account address).')
+    console.log('User must sign in again and set a new account passcode (new smart account address).')
     process.exit(0)
   }
 
@@ -199,7 +199,7 @@ try {
   await client.query('COMMIT')
 
   console.log('\nOK: Wallet reset complete for', userEmail || userId)
-  console.log('Tell the user to sign in at dapp.decleanup.net, create a new wallet passkey, and note the new smart account address.')
+  console.log('Tell the user to sign in at dapp.decleanup.net, create a new account passcode, and note the new smart account address.')
   console.log('Old address', walletRow.smartAccountAddress, 'remains onchain; cleanups there are not moved.')
 } catch (e) {
   try {

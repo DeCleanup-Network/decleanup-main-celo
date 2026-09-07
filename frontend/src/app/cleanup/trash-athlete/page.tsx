@@ -114,7 +114,7 @@ export default function TrashAthleteChallengePage() {
           {TRASH_ATHLETE_LABEL}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Sign in with email, then submit your social post link. A verifier checks your photos on socials.
+          Sign in with email to share your 30-day Trash Athlete result after you finish the challenge.
         </p>
         <Button asChild className="mt-6">
           <Link href="/login?callbackUrl=/cleanup/trash-athlete">Sign in with email</Link>
@@ -134,9 +134,11 @@ export default function TrashAthleteChallengePage() {
             {TRASH_ATHLETE_LABEL}
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Post your cleanup on socials, then share the link here. After a verifier confirms your photos,
-            you unlock Impact Product level {TRASH_ATHLETE_TARGET_LEVEL}, {TRASH_ATHLETE_DCU_POINTS} DCU,
-            plus {TRASH_ATHLETE_BONUS_CDCU} $cDCU bonus.
+            How to participate: every day for a month remove one piece of litter from environment, post it
+            on socials with hashtags #TrashMob2026MMDD, #GlobalCleanupGamesOrg and #DeCleanupNetwork. After
+            30 days complete, share your result in a form below. After the verification process, you pass
+            through {TRASH_ATHLETE_TARGET_LEVEL} levels of DeCleanup Network and receive additional reward of{' '}
+            {TRASH_ATHLETE_BONUS_CDCU} $cDCU.
           </p>
         </div>
       </div>
@@ -202,7 +204,7 @@ export default function TrashAthleteChallengePage() {
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           {!canSubmitForm ? (
             <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-              Finish wallet setup (passcode / Face ID) so rewards can go to your account.
+              Finish wallet setup (account passcode / Face ID) so rewards can go to your account.
             </p>
           ) : null}
 
@@ -236,7 +238,7 @@ export default function TrashAthleteChallengePage() {
               className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none ring-brand-green/40 focus:ring-2"
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Instagram, TikTok, X, Facebook, etc. — where your cleanup photos are visible.
+              Instagram, TikTok, X, Facebook, etc. where your cleanup photos are visible.
             </p>
           </div>
 
@@ -261,6 +263,16 @@ export default function TrashAthleteChallengePage() {
             </p>
           ) : null}
 
+          <a
+            href="https://globalcleanupgames.org/untitled-176"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-green hover:underline"
+          >
+            More about Trash Athlete Challenge
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          </a>
+
           <Button type="submit" disabled={submitting || !canSubmitForm} className="w-full">
             {submitting ? (
               <>
@@ -268,7 +280,7 @@ export default function TrashAthleteChallengePage() {
                 Submitting…
               </>
             ) : (
-              'Submit Trash Athlete Challenge'
+              'Submit Trash Athlete completion'
             )}
           </Button>
         </form>

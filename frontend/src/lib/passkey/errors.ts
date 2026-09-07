@@ -14,7 +14,7 @@ export function formatWebAuthnError(err: unknown): string {
     lower.includes('hybrid') ||
     lower.includes('external authenticator')
   ) {
-    return 'Use Face ID on this phone, not a QR code. Enter your wallet passcode below, or enable Face ID / Touch ID again in Account settings on this device.'
+    return 'Use Face ID on this phone, not a QR code. Enter your account passcode below, or enable Face ID / Touch ID again in Account settings on this device.'
   }
 
   if (
@@ -27,7 +27,7 @@ export function formatWebAuthnError(err: unknown): string {
     lower.includes('user denied') ||
     lower.includes('request is not allowed')
   ) {
-    return 'Face ID / Touch ID did not complete. Try again, use Safari or Chrome on this device, or unlock with your wallet passkey instead.'
+    return 'Face ID / Touch ID did not complete. Try again, use Safari or Chrome on this device, or unlock with your account passcode instead.'
   }
 
   if (
@@ -42,11 +42,11 @@ export function formatWebAuthnError(err: unknown): string {
   }
 
   if (lower.includes('no passkeys registered') || lower.includes('passkey unlock not configured')) {
-    return 'Face ID / Touch ID is not set up on this device yet. Enable it below with your wallet passkey, or unlock with your passkey.'
+    return 'Face ID / Touch ID is not set up on this device yet. Enable it below with your account passcode, or unlock with your passcode.'
   }
 
   if (lower.includes('timeout') || lower.includes('timed out')) {
-    return 'Biometrics timed out. Try again or use your wallet passkey.'
+    return 'Biometrics timed out. Try again or use your account passcode.'
   }
 
   return message

@@ -12,6 +12,8 @@ import {
 import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { enforceApiRateLimit } from '@/lib/server/rate-limit'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
+import { isTelegramNotifierConfigured } from '@/lib/server/telegram-config'
+import { notifyVerifiersOfTrashAthleteChallenge } from '@/lib/server/telegram-trash-athlete-notify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -140,6 +142,21 @@ export async function POST(request: NextRequest) {
       socialProfileUrl,
       notes: notes || null,
     })
+
+    if (isTelegramNotifierConfigured()) {
+      try {
+        const notify = await notifyVerifiersOfTrashAthleteChallenge(challenge)
+        if (!notify.sent) {
+          console.warn(
+            '[trash-athlete/challenges] telegram notify skipped:',
+            notify.reason,
+            notify.detail ?? ''
+          )
+        }
+      } catch (err) {
+        console.warn('[trash-athlete/challenges] telegram notify failed (non-fatal):', err)
+      }
+    }
 
     return NextResponse.json({ success: true, challenge })
   } catch (e) {

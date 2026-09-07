@@ -2,15 +2,17 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { NumericPasscodePad } from '@/components/aa/NumericPasscodePad'
 import { useWallet } from '@/providers/WalletProvider'
 import { isPasskeySupported, isPlatformAuthenticatorAvailable } from '@/lib/passkey/config-client'
-import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
+import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
+import { isValidWalletPasscode } from '@/lib/client-wallet/passcode'
 import { formatWebAuthnError } from '@/lib/passkey/errors'
 
 type Props = {
-  /** Required when wallet is locked — confirms the user knows their unlock password. */
+  /** Required when wallet is locked — confirms the user knows their unlock passcode. */
   requirePassword?: boolean
-  /** Use immediately after wallet setup (password already verified). */
+  /** Use immediately after wallet setup (passcode already verified). */
   presetPassword?: string
   onEnabled?: () => void
   /** Hide intro paragraph when parent already shows it. */
@@ -24,14 +26,14 @@ export function EnablePasskey({
   hideIntro = false,
 }: Props) {
   const { registerPasskey, isPasskeyEnabled, passkeyLoading } = useWallet()
-  const [password, setPassword] = useState('')
+  const [passcode, setPasscode] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!isPasskeySupported()) {
     return (
       <p className="text-sm text-gray-400">
-        Biometric unlock is not supported in this browser. Use your {WALLET_PASSKEY_LOWER} instead.
+        Biometric unlock is not supported in this browser. Use your {WALLET_PASSCODE_LOWER} instead.
       </p>
     )
   }
@@ -44,61 +46,66 @@ export function EnablePasskey({
     )
   }
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const enable = async (unlockPassword: string) => {
     setError(null)
     setPending(true)
     try {
       const available = await isPlatformAuthenticatorAvailable()
       if (!available) {
-        throw new Error('No platform authenticator found. Try Safari/Chrome on a device with biometrics.')
+        throw new Error('No platform authenticator found. Try Safari on a device with biometrics.')
       }
-      const unlockPassword = presetPassword ?? password
       if (!unlockPassword) {
-        throw new Error(`Enter ${WALLET_PASSKEY_POSSESSIVE} to enable biometrics.`)
+        throw new Error(`Enter your ${WALLET_PASSCODE_LOWER} to enable biometrics.`)
+      }
+      if (!presetPassword && !isValidWalletPasscode(unlockPassword)) {
+        throw new Error(`Use your 6-digit ${WALLET_PASSCODE_LOWER}.`)
       }
       await registerPasskey(unlockPassword)
-      setPassword('')
+      setPasscode('')
       onEnabled?.()
     } catch (err) {
       setError(formatWebAuthnError(err))
+      setPasscode('')
     } finally {
       setPending(false)
     }
   }
 
+  const needsPad = requirePassword && !presetPassword
+  const canEnable = Boolean(presetPassword) || isValidWalletPasscode(passcode)
+
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <div className="space-y-4">
       {!hideIntro && (
         <p className="text-sm text-gray-400">
-          Optional: unlock on this device without typing your {WALLET_PASSKEY_LOWER} each time. Your private key never
-          leaves this device. You still need your {WALLET_PASSKEY_LOWER} on a new phone after Google sign-in.
+          Unlock on this device without needing your {WALLET_PASSCODE_LOWER} each time.
         </p>
       )}
 
-      {requirePassword && !presetPassword && (
-        <label className="block space-y-1">
-          <span className="text-sm text-gray-400">Confirm {WALLET_PASSKEY_LOWER}</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white"
-            required
-          />
-        </label>
+      {needsPad && (
+        <NumericPasscodePad
+          value={passcode}
+          onChange={(v) => {
+            setPasscode(v)
+            setError(null)
+          }}
+          title={`Confirm with ${WALLET_PASSCODE_LOWER}`}
+          error={error}
+          disabled={pending || passkeyLoading}
+        />
       )}
 
       <Button
-        type="submit"
-        disabled={pending || passkeyLoading}
+        type="button"
+        disabled={pending || passkeyLoading || !canEnable}
         variant="outline"
         className="w-full border-white/10 text-foreground"
+        onClick={() => void enable(presetPassword ?? passcode)}
       >
-        {pending ? 'Enabling biometrics…' : 'Enable Face ID / Touch ID'}
+        {pending || passkeyLoading ? 'Enabling biometrics…' : 'Enable Face ID / Touch ID'}
       </Button>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-    </form>
+      {!needsPad && error ? <p className="text-sm text-red-400">{error}</p> : null}
+    </div>
   )
 }

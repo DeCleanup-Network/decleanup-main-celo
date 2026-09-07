@@ -51,6 +51,7 @@ import {
 } from '@/lib/utils/cleanup-date'
 import {
   MAX_CLEANUP_VIDEO_DURATION_SEC,
+  normalizeCleanupVideoFile,
   validateCleanupVideoFile,
 } from '@/lib/utils/validate-video-for-upload'
 import type { HypercertRightsPresetId } from '@/lib/blockchain/hypercerts/rights-presets'
@@ -756,20 +757,22 @@ function CleanupContent() {
   const handleOptionalVideoSelect = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'video/mp4,video/quicktime,video/*'
+    // video/* first — some Android pickers ignore the dialog when only specific types are listed.
+    input.accept = 'video/*,video/mp4,video/quicktime'
     input.onchange = (e) => {
       void (async () => {
-        const file = (e.target as HTMLInputElement).files?.[0]
-        if (!file) return
+        const raw = (e.target as HTMLInputElement).files?.[0]
+        if (!raw) return
+        const file = normalizeCleanupVideoFile(raw)
         setPhotoProcessing('video')
         try {
           const check = await validateCleanupVideoFile(file)
           if (!check.ok) {
-            if (check.reason === 'metadata_unavailable') {
+            if (check.reason === 'metadata_unavailable' || check.reason === 'invalid_duration') {
               setConfirmModal({
                 title: 'Add video anyway?',
                 message:
-                  'Safari could not verify how long this clip is. Only continue if it is 10 seconds or shorter.',
+                  'This browser could not verify how long this clip is. Only continue if it is 10 seconds or shorter.',
                 confirmLabel: 'Add anyway',
                 onConfirm: () => {
                   setOptionalVideo(file)
@@ -790,22 +793,22 @@ function CleanupContent() {
     input.click()
   }
 
-  const saveOptionalVideoMeta = (submissionId: string, videoFile: File) => {
-    void (async () => {
-      try {
-        const uploaded = await uploadToIPFS(videoFile, { pinataKeyvalueType: 'cleanup-video' })
-        await fetch('/api/impact/cleanup-media', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            submissionId,
-            optionalVideoCid: uploaded.hash,
-          }),
-        })
-      } catch (err) {
-        console.warn('[cleanup-video] Failed to attach optional video (non-fatal):', err)
-      }
-    })()
+  const saveOptionalVideoMeta = async (submissionId: string, videoFile: File) => {
+    const uploaded = await uploadToIPFS(normalizeCleanupVideoFile(videoFile), {
+      pinataKeyvalueType: 'cleanup-video',
+    })
+    const res = await fetch('/api/impact/cleanup-media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        submissionId,
+        optionalVideoCid: uploaded.hash,
+      }),
+    })
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      throw new Error(data.error || 'Could not attach video to submission')
+    }
   }
 
   const getLocation = () => {
@@ -1199,7 +1202,7 @@ function CleanupContent() {
       setAlertModal({
         title: aaEnabled ? 'Unlock wallet' : 'Connect wallet',
         message: aaEnabled
-          ? 'Unlock your smart wallet (wallet passkey or Face ID) before submitting.'
+          ? 'Unlock your smart wallet (account passcode or Face ID) before submitting.'
           : 'Connect your wallet before submitting a cleanup.',
         variant: 'warning',
       })
@@ -1496,7 +1499,18 @@ function CleanupContent() {
         setCleanupId(cleanupId)
 
         if (optionalVideo) {
-          saveOptionalVideoMeta(cleanupId.toString(), optionalVideo)
+          try {
+            await saveOptionalVideoMeta(cleanupId.toString(), optionalVideo)
+          } catch (videoErr) {
+            console.warn('[cleanup-video] Failed to attach optional video (non-fatal):', videoErr)
+            const videoMsg =
+              videoErr instanceof Error ? videoErr.message : 'Video upload failed'
+            setAlertModal({
+              title: 'Video upload failed',
+              message: `Your cleanup was submitted, but the optional video could not be attached.\n\nSubmission ID: ${cleanupId.toString()}\n\n${videoMsg}\n\nUse an MP4/MOV under 10 seconds and 20 MB, then contact support if this keeps happening.`,
+              variant: 'warning',
+            })
+          }
         }
         
         // Store cleanup ID for verification checking (EOA + onchain submitter keys)
@@ -2261,14 +2275,6 @@ function CleanupContent() {
             <p className="text-sm text-gray-400">
               Before/after photos with location. JPEG, JPG, or HEIC, max 10 MB each. Optional video up to {MAX_CLEANUP_VIDEO_DURATION_SEC}s.
             </p>
-            <p className="mt-3">
-              <Link
-                href="/cleanup/trash-athlete"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-green hover:underline"
-              >
-                Or submit Trash Athlete Challenge (social post link)
-              </Link>
-            </p>
             <p className="mt-2 text-xs text-gray-500">
               For the best AI pre-screening: use clear, well-lit photos taken close to the litter. Blurry or very distant shots make the litter hard to detect.
             </p>
@@ -2426,7 +2432,7 @@ function CleanupContent() {
                 >
                   <Upload className="mb-2 h-8 w-8 text-gray-500" />
                   <p className="text-sm text-gray-400">
-                    Add MP4 or MOV, max {MAX_CLEANUP_VIDEO_DURATION_SEC} seconds
+                    Add MP4 or MOV, max {MAX_CLEANUP_VIDEO_DURATION_SEC}s / 20 MB
                   </p>
                 </button>
               )}

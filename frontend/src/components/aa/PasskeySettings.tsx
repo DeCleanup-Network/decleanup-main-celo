@@ -8,7 +8,7 @@ import { fetchPasskeyStatus, removePasskey } from '@/lib/passkey/client-api'
 import { clearPasskeyUnlockRecord } from '@/lib/client-wallet/passkey-unlock'
 import { useSession } from 'next-auth/react'
 import { isPasskeySupported } from '@/lib/passkey/config-client'
-import { BIOMETRIC_UNLOCK_LOWER, WALLET_PASSKEY, WALLET_PASSKEY_LOWER } from '@/lib/client-wallet/copy'
+import { BIOMETRIC_UNLOCK_LOWER, WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
 
 export function PasskeySettings() {
   const { data: session } = useSession()
@@ -45,7 +45,7 @@ export function PasskeySettings() {
 
   const removeAll = async () => {
     if (!userId) return
-    if (!window.confirm(`Remove ${BIOMETRIC_UNLOCK_LOWER}? You will need your ${WALLET_PASSKEY_LOWER} to unlock.`))
+    if (!window.confirm(`Remove ${BIOMETRIC_UNLOCK_LOWER}? You will need your ${WALLET_PASSCODE_LOWER} to unlock.`))
       return
     setRemoving(true)
     setError(null)
@@ -64,7 +64,7 @@ export function PasskeySettings() {
     return (
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 px-5 py-4">
         <p className="text-sm text-gray-400">
-          Face ID / Touch ID is not available here. {WALLET_PASSKEY} unlock still works.
+          Face ID / Touch ID is not available here. Account passcode unlock still works.
         </p>
       </div>
     )
@@ -95,8 +95,7 @@ export function PasskeySettings() {
       </summary>
       <div className="space-y-4 border-t border-gray-800 px-5 pb-5 pt-3">
         <p className="text-sm text-gray-400">
-          Optional: use Face ID / Touch ID on this device so you do not need to type your {WALLET_PASSKEY_LOWER}{' '}
-          each time you submit or claim.
+          Unlock on this device without needing your {WALLET_PASSCODE_LOWER} each time.
         </p>
         {open && loading ? (
           <p className="text-sm text-gray-400">Loading…</p>
@@ -106,7 +105,7 @@ export function PasskeySettings() {
               <p className="text-xs text-gray-500">{credentials.length} device(s) registered</p>
             ) : null}
 
-            {!isPasskeyEnabled && <EnablePasskey onEnabled={() => void load()} />}
+            {!isPasskeyEnabled && <EnablePasskey hideIntro onEnabled={() => void load()} />}
 
             {(serverCount > 0 || isPasskeyEnabled) && (
               <Button

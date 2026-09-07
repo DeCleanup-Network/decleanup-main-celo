@@ -4,18 +4,13 @@ import dynamic from 'next/dynamic'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import Link from 'next/link'
 import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
 import { Button } from '@/components/ui/button'
 import { WalletStatusCard } from '@/components/aa/WalletStatusCard'
 import { PendingPasswordSettings } from '@/components/aa/PendingPasswordSettings'
 import { UnlockSigningForm } from '@/components/aa/UnlockSigningForm'
 import { WalletSessionBar } from '@/components/aa/WalletSessionBar'
-import { WalletLostAccessContactCard } from '@/components/aa/WalletLostAccessContactCard'
-import { AccountSetupIntro } from '@/components/aa/AccountSetupIntro'
-import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
 import { useAaWallet } from '@/hooks/useAaWallet'
-import { useAccountSetupComplete } from '@/hooks/useAccountSetupComplete'
 import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
@@ -40,7 +35,6 @@ export default function AccountSettingsPage() {
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { isConnected: wagmiConnected } = useAccount()
   const { signOutAll, disconnecting: signingOut } = useSignOutAll()
-  const { setupComplete } = useAccountSetupComplete(phase)
 
   useEffect(() => {
     if (!aaEnabled) return
@@ -79,9 +73,6 @@ export default function AccountSettingsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-heading text-2xl tracking-wider text-white sm:text-3xl">Account settings</h1>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm" className="border-white/10 text-muted-foreground">
-              <Link href="/guide#embedded-wallet">How it works</Link>
-            </Button>
             {phase === 'unlocked' && (
               <Button
                 variant="outline"
@@ -108,13 +99,9 @@ export default function AccountSettingsPage() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {phase === 'server-only' && (
-        <div className="space-y-4">
-          {!setupComplete && <AccountSetupIntro />}
-          <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
-            Your wallet is linked to this account, but encrypted wallet data is missing from the server.
-            Email support@decleanup.net from your sign-in address so the team can help.
-          </div>
-          <WalletLostAccessContactCard />
+        <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
+          Your wallet is linked to this account, but encrypted wallet data is missing from this device.
+          Email support@decleanup.net from your sign-in address so the team can help.
         </div>
       )}
 
@@ -124,8 +111,6 @@ export default function AccountSettingsPage() {
 
       {showWalletDetails && (
         <>
-          {!setupComplete && phase !== 'pending-password' && <AccountSetupIntro />}
-
           {phase === 'pending-password' && <PendingPasswordSettings />}
 
           <WalletStatusCard wallet={wallet} loading={loading} />
@@ -133,16 +118,8 @@ export default function AccountSettingsPage() {
           {phase === 'unlocked' && <WalletSessionBar />}
           {phase === 'locked' && <UnlockSigningForm />}
 
-          {phase !== 'pending-password' && !setupComplete && (
-            <p className="text-sm text-gray-400">
-              Optional: enable Face ID / Touch ID below so you are not asked for your {WALLET_PASSCODE_LOWER}{' '}
-              every time you submit or claim.
-            </p>
-          )}
-
-          <PasskeySettings />
+          {phase !== 'pending-password' && <PasskeySettings />}
           {(phase === 'locked' || phase === 'unlocked') && <MetamaskExportSection />}
-          <WalletLostAccessContactCard />
         </>
       )}
     </div>

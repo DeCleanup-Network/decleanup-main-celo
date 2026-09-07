@@ -621,7 +621,7 @@ useEffect(() => {
                 setClaimModal({
                   variant: 'error',
                   message:
-                    'Unlock your wallet passkey in Account settings to claim (gasless), then try again.',
+                    'Unlock your account passcode in Account settings to claim (gasless), then try again.',
                 })
                 return
               }
@@ -629,7 +629,7 @@ useEffect(() => {
                 setClaimModal({
                   variant: 'error',
                   message:
-                    'Unlock your wallet passkey in Account settings to claim (gasless), then try again.',
+                    'Unlock your account passcode in Account settings to claim (gasless), then try again.',
                 })
                 return
               }

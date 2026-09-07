@@ -4,7 +4,7 @@ import { UnlockWallet } from '@/components/aa/UnlockWallet'
 import { useWallet } from '@/providers/WalletProvider'
 import { WALLET_PASSKEY } from '@/lib/client-wallet/copy'
 
-/** Multi-device restore: server-synced wallet, unlock with wallet passkey. */
+/** Multi-device restore: server-synced wallet, unlock with account passcode. */
 export function RestoreDeviceWallet() {
   const { isNewDevice } = useWallet()
 

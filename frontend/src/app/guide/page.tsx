@@ -51,8 +51,8 @@ const SUBMIT_STEPS = [
 
 const WALLET_SECURITY_STEPS = [
   'Go to Account Settings and sign in with the same Google account you used in DeCleanup Rewards.',
-  'Create a 6-digit wallet passcode. Confirm it, then optionally enable Face ID, Touch ID, or Windows Hello.',
-  'On a new phone or browser, sign in with the same account and enter your wallet passcode to unlock.',
+  'Create a 6-digit account passcode. Confirm it, then optionally enable Face ID, Touch ID, or Windows Hello.',
+  'On a new phone or browser, sign in with the same account and enter your account passcode to unlock.',
   'Optional: when you are ready, export your signer key to MetaMask. That is your own backup if you forget the app passkey later.',
 ] as const
 
@@ -341,7 +341,7 @@ export default function UserGuidePage() {
             </ol>
 
             <div className="mb-5 rounded-lg border border-white/[0.08] bg-background/40 px-4 py-3 text-sm text-white/60">
-              Forgot your wallet passcode? If you exported your signer key to MetaMask, connect MetaMask from the home
+              Forgot your account passcode? If you exported your signer key to MetaMask, connect MetaMask from the home
               page. Otherwise email support@decleanup.net for a team reset (new onchain address; old cleanups stay on
               the previous address).
             </div>
@@ -358,7 +358,7 @@ export default function UserGuidePage() {
                 <p>
                   In Account Settings, unlock your wallet and open Back up to MetaMask. Reveal the signer private
                   key and import it in MetaMask. Your DeCleanup smart account address stays the same; MetaMask holds
-                  the signing key. If you forget the app wallet passkey later, connect MetaMask from the home page
+                  the signing key. If you forget the app account passcode later, connect MetaMask from the home page
                   instead of using Google unlock.
                 </p>
                 <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-100">

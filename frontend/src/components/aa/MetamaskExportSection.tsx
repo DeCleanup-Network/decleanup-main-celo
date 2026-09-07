@@ -3,14 +3,13 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { NumericPasscodePad } from '@/components/aa/NumericPasscodePad'
 import { useWallet } from '@/providers/WalletProvider'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
-import { WALLET_PASSKEY, WALLET_PASSKEY_LOWER, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
-
-const CELO_MAINNET_RPC = 'https://forno.celo.org'
+import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
+import { isValidWalletPasscode } from '@/lib/client-wallet/passcode'
 
 /**
- * Optional signer-key export to MetaMask — user's own backup if they forget the app wallet passkey later.
+ * Optional signer-key export to an external crypto wallet.
  */
 export function MetamaskExportSection() {
   const {
@@ -20,7 +19,7 @@ export function MetamaskExportSection() {
     hasActiveSigningSession,
   } = useWallet()
   const [open, setOpen] = useState(false)
-  const [password, setPassword] = useState('')
+  const [passcode, setPasscode] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [revealedKey, setRevealedKey] = useState<string | null>(null)
@@ -28,21 +27,27 @@ export function MetamaskExportSection() {
 
   const unlocked = hasActiveSigningSession
 
-  const revealKey = async () => {
+  const revealKey = async (password?: string) => {
     setError(null)
     setRevealedKey(null)
     if (needsSigningPassword) {
-      setError(`Set ${WALLET_PASSKEY_POSSESSIVE} first.`)
+      setError(`Set your ${WALLET_PASSCODE_LOWER} first.`)
+      return
+    }
+    const unlockPassword = password ?? passcode
+    if (!unlocked && !isValidWalletPasscode(unlockPassword)) {
+      setError(`Enter your 6-digit ${WALLET_PASSCODE_LOWER}.`)
       return
     }
     setPending(true)
     try {
-      const key = unlocked ? decryptForExportInSession() : await decryptForExport(password)
+      const key = unlocked ? decryptForExportInSession() : await decryptForExport(unlockPassword)
       setRevealedKey(key)
       setShowKey(false)
-      setPassword('')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Incorrect ${WALLET_PASSKEY_LOWER}.`)
+      setPasscode('')
+    } catch {
+      setError(`Incorrect ${WALLET_PASSCODE_LOWER}.`)
+      setPasscode('')
     } finally {
       setPending(false)
     }
@@ -57,10 +62,8 @@ export function MetamaskExportSection() {
         aria-expanded={open}
       >
         <div>
-          <h2 className="text-base font-semibold text-white">Back up to MetaMask (optional)</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Export your signing key for MetaMask, gardens.fund, and $cDCU airdrops. Same address as Account settings.
-          </p>
+          <h2 className="text-base font-semibold text-white">Back up to external wallet</h2>
+          <p className="mt-1 text-sm text-gray-400">Export your signing key to your crypto wallet</p>
         </div>
         {open ? (
           <ChevronUp className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
@@ -70,41 +73,33 @@ export function MetamaskExportSection() {
       </button>
 
       {open ? (
-        <div className="space-y-4 border-t border-gray-800 px-4 pb-4 pt-4 text-sm text-gray-400">
-          <p>
-            Google sign-in already syncs your wallet. Import this key in MetaMask on a device you trust (Settings →
-            Import account → Private Key). Use that address on gardens.fund and for airdrop whitelist checks. It matches
-            your wallet address in Account settings.
-          </p>
-          <p className="text-xs text-gray-500">
-            Forgot the app {WALLET_PASSKEY_LOWER}? Connect the same MetaMask account from the home page instead of
-            Google unlock.
-          </p>
-
+        <div className="space-y-4 border-t border-gray-800 px-4 pb-4 pt-4">
           {!revealedKey ? (
             <>
               {!unlocked && (
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={`${WALLET_PASSKEY}…`}
-                  className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white"
+                <NumericPasscodePad
+                  value={passcode}
+                  onChange={(v) => {
+                    setPasscode(v)
+                    setError(null)
+                  }}
+                  onComplete={(v) => void revealKey(v)}
+                  title={`Confirm ${WALLET_PASSCODE_LOWER}`}
+                  error={error}
+                  disabled={pending}
                 />
               )}
-              {unlocked ? (
-                <p className="text-sm text-brand-green">Wallet unlocked. Reveal without typing your passkey again.</p>
-              ) : null}
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={pending || (!unlocked && !password)}
-                className="border-white/10 text-foreground"
+                disabled={pending || (!unlocked && !isValidWalletPasscode(passcode))}
+                className="w-full border-white/10 text-foreground"
                 onClick={() => void revealKey()}
               >
-                Reveal private key
+                {pending ? 'Revealing…' : 'Reveal private key'}
               </Button>
+              {unlocked && error ? <p className="text-xs text-red-400">{error}</p> : null}
             </>
           ) : (
             <div className="relative">
@@ -125,11 +120,6 @@ export function MetamaskExportSection() {
               </button>
             </div>
           )}
-
-          <p className="font-mono text-xs text-gray-500">
-            Celo RPC: {CELO_MAINNET_RPC} · Chain ID: {REQUIRED_CHAIN_ID}
-          </p>
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
         </div>
       ) : null}
     </div>

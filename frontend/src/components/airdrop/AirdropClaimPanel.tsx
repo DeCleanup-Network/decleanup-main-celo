@@ -239,7 +239,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       if (isEmbeddedAccount) {
         if (!hasActiveSigningSession) {
           setError(
-            'Unlock your wallet passkey in Account settings first, or connect MetaMask with CELO to pay gas for this claim.'
+            'Unlock your account passcode in Account settings first, or connect MetaMask with CELO to pay gas for this claim.'
           )
           return
         }

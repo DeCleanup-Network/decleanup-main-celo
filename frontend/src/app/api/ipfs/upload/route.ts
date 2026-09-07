@@ -11,6 +11,7 @@ import {
   isAllowedCleanupImageMime,
   isAllowedCleanupVideoMime,
   isAllowedPinataJsonFile,
+  normalizeCleanupVideoFile,
   pinataMetadataJsonSchema,
   pinataOptionsJsonSchema,
   rejectIfContentLengthExceeds,
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
         type: file.type || 'application/json',
       })
     } else if (isVideoUpload) {
-      fileForPinata = file
+      fileForPinata = normalizeCleanupVideoFile(file)
     } else {
       try {
         fileForPinata = await convertHeicToJpegIfNeeded(file)

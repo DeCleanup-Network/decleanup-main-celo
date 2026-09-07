@@ -61,8 +61,8 @@ export function WalletPasscodeSetupWizard({ onComplete, showSessionDuration = fa
             setStep('confirm')
             setConfirm('')
           }}
-          title="Create wallet passcode"
-          subtitle="Choose 6 digits. Not your Google password or phone lock screen."
+          title="Create your account passcode"
+          subtitle="Pick 6 digits. Required step for your first submit or claim."
           error={error}
           disabled={pending}
         />
@@ -94,7 +94,6 @@ export function WalletPasscodeSetupWizard({ onComplete, showSessionDuration = fa
           void savePasscode(v)
         }}
         title="Confirm passcode"
-        subtitle="Enter the same 6 digits again."
         error={error}
         disabled={pending}
       />

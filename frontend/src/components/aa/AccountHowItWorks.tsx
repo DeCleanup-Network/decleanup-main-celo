@@ -27,7 +27,7 @@ export function AccountHowItWorks() {
           ) : null}
         </p>
         <p>
-          <span className="font-medium text-gray-300">Wallet passkey</span> is yours alone. Required on every new
+          <span className="font-medium text-gray-300">Account passcode</span> is yours alone. Required on every new
           device after sign-in. Face ID is optional on this device only.
         </p>
         <p>

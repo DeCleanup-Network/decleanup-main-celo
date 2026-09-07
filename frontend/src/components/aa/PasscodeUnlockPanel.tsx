@@ -14,7 +14,9 @@ import {
   recordFailedUnlockAttempt,
 } from '@/lib/client-wallet/unlock-attempts'
 import { hasPasskeyUnlockRecord } from '@/lib/client-wallet/passkey-unlock'
-import { WALLET_PASSCODE, WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
+import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
+
+const SUPPORT_EMAIL = 'support@decleanup.net'
 
 type Props = {
   onSuccess?: () => void
@@ -39,15 +41,10 @@ export function PasscodeUnlockPanel({
     isPasskeyEnabled,
     passkeyLoading,
     refreshPasskeyStatus,
-    resetWalletAccess,
-    error,
   } = useWallet()
   const [passcode, setPasscode] = useState('')
-  const [legacyMode, setLegacyMode] = useState(false)
-  const [legacyPassword, setLegacyPassword] = useState('')
   const [duration, setDuration] = useState<SessionDurationId>(getPreferredSessionDuration())
   const [pending, setPending] = useState(false)
-  const [resetting, setResetting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
   const [platformAvailable, setPlatformAvailable] = useState(false)
@@ -100,12 +97,10 @@ export function PasscodeUnlockPanel({
       await unlock(password, duration)
       clearUnlockAttempts()
       setPasscode('')
-      setLegacyPassword('')
       onSuccess?.()
     } catch {
       const next = recordFailedUnlockAttempt()
       setPasscode('')
-      setLegacyPassword('')
       if (next.locked) {
         setLocalError(`Too many attempts. Wait ${next.lockoutSeconds}s.`)
         setLockoutSeconds(next.lockoutSeconds)
@@ -151,7 +146,7 @@ export function PasscodeUnlockPanel({
 
   useEffect(() => {
     if (!autoPromptBiometric || !biometricReady || !passkeyReady) return
-    if (!biometricEnabled || !platformAvailable || legacyMode || biometricSetup) return
+    if (!biometricEnabled || !platformAvailable || biometricSetup) return
     if (pending || passkeyLoading || lockoutSeconds > 0) return
     if (autoPromptedRef.current) return
     autoPromptedRef.current = true
@@ -162,7 +157,6 @@ export function PasscodeUnlockPanel({
     passkeyReady,
     biometricEnabled,
     platformAvailable,
-    legacyMode,
     biometricSetup,
     pending,
     passkeyLoading,
@@ -179,7 +173,7 @@ export function PasscodeUnlockPanel({
 
   return (
     <div className={compact ? 'space-y-3' : 'space-y-4'}>
-      {showBiometric && !legacyMode && (
+      {showBiometric && (
         <Button
           type="button"
           disabled={pending || passkeyLoading || locked}
@@ -206,122 +200,44 @@ export function PasscodeUnlockPanel({
         <SigningSessionDurationField duration={duration} onDurationChange={setDuration} compact={compact} />
       )}
 
-      {legacyMode ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void tryUnlock(legacyPassword)
-          }}
-          className="space-y-3"
-        >
-          <label className="block space-y-1">
-            <span className="text-xs text-gray-400">{WALLET_PASSCODE}</span>
-            <input
-              type="password"
-              value={legacyPassword}
-              onChange={(e) => setLegacyPassword(e.target.value)}
-              autoComplete="current-password"
-              className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white"
-              disabled={locked || pending}
-            />
-          </label>
-          <Button type="submit" disabled={pending || locked || !legacyPassword} className="w-full">
-            {pending ? 'Unlocking…' : 'Unlock'}
-          </Button>
-          <button
-            type="button"
-            className="w-full text-xs text-gray-500 underline"
-            onClick={() => {
-              setLegacyMode(false)
-              setLegacyPassword('')
-              setLocalError(null)
-            }}
-          >
-            Use 6-digit passcode
-          </button>
-        </form>
-      ) : (
-        <>
-          <NumericPasscodePad
-            value={passcode}
-            onChange={setPasscode}
-            onComplete={(v) => {
-              if (biometricSetup && !biometricEnabled) {
-                void tryEnableBiometricAndUnlock(v)
-                return
-              }
-              void tryUnlock(v)
-            }}
-            title={biometricSetup ? 'Enable biometrics' : 'Enter passcode'}
-            subtitle={biometricSubtitle}
-            error={localError}
-            disabled={pending || locked}
-          />
-          {biometricSetup && !biometricEnabled ? (
-            <button
-              type="button"
-              className="mx-auto block text-xs text-gray-500 underline"
-              onClick={() => {
-                setBiometricSetup(false)
-                setPasscode('')
-                setLocalError(null)
-              }}
-            >
-              Use passcode only
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="mx-auto block text-xs text-gray-500 underline"
-              onClick={() => {
-                setLegacyMode(true)
-                setPasscode('')
-                setBiometricSetup(false)
-                setLocalError(null)
-              }}
-            >
-              Using longer passcode?
-            </button>
-          )}
-        </>
-      )}
+      <NumericPasscodePad
+        value={passcode}
+        onChange={setPasscode}
+        onComplete={(v) => {
+          if (biometricSetup && !biometricEnabled) {
+            void tryEnableBiometricAndUnlock(v)
+            return
+          }
+          void tryUnlock(v)
+        }}
+        title={biometricSetup ? 'Enable biometrics' : 'Enter passcode'}
+        subtitle={biometricSubtitle}
+        error={localError}
+        disabled={pending || locked}
+      />
 
-      {(error && !localError) || localError ? (
-        <p className="text-center text-sm text-red-400">{localError ?? error}</p>
-      ) : null}
-
-      <div className="rounded-lg border border-gray-800 bg-gray-900/40 px-3 py-3 text-center">
-        <p className="text-[11px] leading-relaxed text-gray-500">
-          Forgot your {WALLET_PASSCODE_LOWER}? After support resets your account, this device may still ask for the
-          old code. Create a new wallet here — previous onchain activity stays on the old address.
-        </p>
+      {biometricSetup && !biometricEnabled ? (
         <button
           type="button"
-          disabled={pending || resetting || passkeyLoading}
-          className="mt-2 text-xs font-medium text-brand-green underline disabled:opacity-50"
+          className="mx-auto block text-xs text-gray-500 underline"
           onClick={() => {
-            const ok = window.confirm(
-              `Create a new wallet on this account? You will set a new ${WALLET_PASSCODE_LOWER}. Cleanups and $cDCU on the old address are not moved.`
-            )
-            if (!ok) return
-            setResetting(true)
+            setBiometricSetup(false)
+            setPasscode('')
             setLocalError(null)
-            void resetWalletAccess()
-              .then(() => {
-                clearUnlockAttempts()
-                setPasscode('')
-                setLegacyPassword('')
-                onSuccess?.()
-              })
-              .catch((err) => {
-                setLocalError(err instanceof Error ? err.message : 'Could not reset wallet')
-              })
-              .finally(() => setResetting(false))
           }}
         >
-          {resetting ? 'Creating new wallet…' : 'Forgot passcode — create new wallet'}
+          Use passcode only
         </button>
-      </div>
+      ) : null}
+
+      <p className="text-center text-[11px] leading-relaxed text-gray-500">
+        Forgot your account passcode? Contact{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand-green hover:underline">
+          {SUPPORT_EMAIL}
+        </a>{' '}
+        to reset the account address for your email address. This will create a new profile with no past activity
+        tracked.
+      </p>
     </div>
   )
 }

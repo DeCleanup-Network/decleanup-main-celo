@@ -101,8 +101,10 @@ keepalive_timeout 20s;
 Your app already validates file size. Enforce at edge too:
 
 ```nginx
-client_max_body_size 12m;
+client_max_body_size 25m;
 ```
+
+Use at least **25m** so optional cleanup videos (app cap 20 MB) are not rejected at nginx before Next.js. Photos stay under 12 MB in app validation.
 
 ### 2.3 Optional stricter limits for expensive routes
 

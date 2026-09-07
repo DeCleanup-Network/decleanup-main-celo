@@ -117,11 +117,28 @@ export function isAllowedCleanupImageMime(file: File): boolean {
 export function isAllowedCleanupVideoMime(file: File): boolean {
   const t = (file.type || '').toLowerCase().trim()
   if (ALLOWED_VIDEO_MIME.has(t)) return true
-  if (t === 'application/octet-stream' || t === '') {
-    const name = (file.name || '').toLowerCase()
-    return /\.(mp4|mov|webm|m4v)$/.test(name)
-  }
+  // iOS/Android often omit MIME or use vendor types; trust common extensions.
+  const name = (file.name || '').toLowerCase()
+  if (/\.(mp4|mov|webm|m4v)$/.test(name)) return true
   return false
+}
+
+/** Ensure Pinata / Content-Type checks see a real video MIME when the OS left it blank. */
+export function normalizeCleanupVideoFile(file: File): File {
+  const t = (file.type || '').toLowerCase().trim()
+  if (ALLOWED_VIDEO_MIME.has(t)) return file
+  const name = (file.name || '').toLowerCase()
+  let mime = ''
+  if (name.endsWith('.mov')) mime = 'video/quicktime'
+  else if (name.endsWith('.webm')) mime = 'video/webm'
+  else if (name.endsWith('.m4v')) mime = 'video/x-m4v'
+  else if (name.endsWith('.mp4') || name.endsWith('.m4a')) mime = 'video/mp4'
+  else if (t.startsWith('video/')) mime = t
+  if (!mime || mime === t) return file
+  return new File([file], file.name || `cleanup-video.${mime === 'video/quicktime' ? 'mov' : 'mp4'}`, {
+    type: mime,
+    lastModified: file.lastModified,
+  })
 }
 
 /** JSON blobs pinned via the same multipart route (impact reports, hypercert metadata, etc.) */

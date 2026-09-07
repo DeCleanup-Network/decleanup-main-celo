@@ -1,4 +1,4 @@
-/** Six-digit wallet passcode (phone-style PIN) for new wallet setup. */
+/** Six-digit account passcode (phone-style PIN) for new wallet setup. */
 export const WALLET_PASSCODE_LENGTH = 6
 
 const PASSCODE_PATTERN = /^\d{6}$/

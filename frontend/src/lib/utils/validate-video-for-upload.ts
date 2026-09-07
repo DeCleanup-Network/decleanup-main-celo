@@ -9,6 +9,27 @@ export type VideoValidationResult =
       reason?: 'too_large' | 'too_long' | 'metadata_unavailable' | 'invalid_duration'
     }
 
+/** Ensure upload sees a real video MIME when the OS left it blank (common on iOS). */
+export function normalizeCleanupVideoFile(file: File): File {
+  const t = (file.type || '').toLowerCase().trim()
+  if (t === 'video/mp4' || t === 'video/quicktime' || t === 'video/webm' || t === 'video/x-m4v') {
+    return file
+  }
+  const name = (file.name || '').toLowerCase()
+  let mime = ''
+  if (name.endsWith('.mov')) mime = 'video/quicktime'
+  else if (name.endsWith('.webm')) mime = 'video/webm'
+  else if (name.endsWith('.m4v')) mime = 'video/x-m4v'
+  else if (name.endsWith('.mp4')) mime = 'video/mp4'
+  else if (t.startsWith('video/')) mime = t
+  if (!mime || mime === t) return file
+  const ext = mime === 'video/quicktime' ? 'mov' : mime === 'video/webm' ? 'webm' : 'mp4'
+  return new File([file], file.name || `cleanup-video.${ext}`, {
+    type: mime,
+    lastModified: file.lastModified,
+  })
+}
+
 function isLikelyMobileSafari(): boolean {
   if (typeof navigator === 'undefined') return false
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -61,25 +82,27 @@ export async function validateCleanupVideoFile(
     return {
       ok: false,
       reason: 'too_large',
-      message: `Video must be under ${Math.round(MAX_CLEANUP_VIDEO_BYTES / (1024 * 1024))} MB`,
+      message: `Video must be under ${Math.round(MAX_CLEANUP_VIDEO_BYTES / (1024 * 1024))} MB (yours is ${(file.size / (1024 * 1024)).toFixed(1)} MB). Trim the clip or lower quality in Photos.`,
     }
   }
+
+  const allowUnknown = options?.allowUnknownDuration !== false
 
   try {
     const durationSec = await loadVideoDuration(file)
 
     if (!Number.isFinite(durationSec) || durationSec <= 0) {
-      if (options?.allowUnknownDuration && isLikelyMobileSafari()) {
+      if (allowUnknown && isLikelyMobileSafari()) {
         return { ok: true, durationSec: 0, durationUnknown: true }
       }
       return {
         ok: false,
         reason: 'invalid_duration',
-        message: 'Could not read video length. Try MP4 or MOV.',
+        message: 'Could not read video length. Try MP4 or MOV, or a shorter clip from Photos.',
       }
     }
 
-    if (durationSec > maxDurationSec + 0.25) {
+    if (durationSec > maxDurationSec + 0.5) {
       return {
         ok: false,
         reason: 'too_long',
@@ -89,7 +112,7 @@ export async function validateCleanupVideoFile(
 
     return { ok: true, durationSec }
   } catch {
-    if (options?.allowUnknownDuration && isLikelyMobileSafari()) {
+    if (allowUnknown && isLikelyMobileSafari()) {
       return { ok: true, durationSec: 0, durationUnknown: true }
     }
 
@@ -97,7 +120,7 @@ export async function validateCleanupVideoFile(
       ok: false,
       reason: 'metadata_unavailable',
       message:
-        'Safari could not read this video. Try a clip from Photos (MP4/MOV), or tap Add anyway if it is under 10 seconds.',
+        'Could not read this video. Try a clip from Photos (MP4/MOV under 10 seconds), or tap Add anyway if you are sure it is short enough.',
     }
   }
 }

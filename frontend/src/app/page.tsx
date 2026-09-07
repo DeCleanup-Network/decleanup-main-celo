@@ -53,7 +53,6 @@ import {
 import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
 import { AirdropPendingBanner } from '@/components/airdrop/AirdropPendingBanner'
 import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributorAirdropStrip'
-import { WalletReadyCard } from '@/components/aa/WalletReadyCard'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
@@ -440,14 +439,20 @@ function HomeContent() {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 md:gap-10 px-4 py-4 sm:px-6 sm:py-6">
-        {aaEnabled && isEmbeddedAccount && walletPhase === 'pending-password' && <WalletReadyCard />}
+        {aaEnabled && isEmbeddedAccount && walletPhase === 'pending-password' && (
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400">
+            Wallet locked.{' '}
+            <Link href="/wallet" className="font-medium text-brand-green underline">
+              Create passcode
+            </Link>
+          </div>
+        )}
         {aaEnabled && isEmbeddedAccount && walletPhase === 'locked' && (
           <div className="rounded-lg border border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400">
-            Wallet locked. You&apos;ll be asked for your wallet passkey when you submit or claim onchain in DeCleanup Rewards.{' '}
+            Wallet locked.{' '}
             <Link href="/wallet" className="font-medium text-brand-green underline">
-              Go to account settings
+              Log in to the session
             </Link>
-            .
           </div>
         )}
         {aaEnabled && isEmbeddedAccount && walletPhase === 'server-only' && (
@@ -534,6 +539,17 @@ function HomeContent() {
                 Your cleanup is being verified. This usually takes a few hours.
               </p>
             ) : null}
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="h-auto px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground sm:self-start"
+            >
+              <Link href="/cleanup/trash-athlete" className="inline-flex items-center gap-1.5">
+                <Trophy className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                Trash Athlete Challenge
+              </Link>
+            </Button>
           </div>
         </section>
 

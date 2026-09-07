@@ -46,7 +46,7 @@ client_body_timeout 15s;
 client_header_timeout 15s;
 send_timeout 20s;
 keepalive_timeout 20s;
-client_max_body_size 12m;
+client_max_body_size 25m;
 EOF
 
 # --- 1b) Snippet: §2.3 stricter limit_req for heavy APIs (replaces inherited server limit_req for this path)

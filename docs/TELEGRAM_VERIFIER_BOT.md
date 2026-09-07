@@ -2,6 +2,8 @@
 
 When a user successfully submits a cleanup onchain, verifiers get a message in a **private Telegram group** with submission ID, submitter, map link, IPFS photo links, and a link to the verifier dashboard.
 
+**Trash Athlete Challenge** submissions (off-chain) use the same bot and chat: after `POST /api/trash-athlete/challenges` succeeds, the server sends a separate alert with username, wallet, social link, and notes. Dedup keys are `ta:<challengeId>` in `telegram_submission_notifications`.
+
 ## Architecture
 
 ```
@@ -15,6 +17,12 @@ Server reads Submission.getSubmissionDetails (must be Pending)
 Dedup check (Supabase telegram_submission_notifications)
     ↓
 Telegram Bot API → TELEGRAM_VERIFIER_CHAT_ID
+
+User submits Trash Athlete Challenge (form)
+    ↓
+POST /api/trash-athlete/challenges → insert row
+    ↓
+notifyVerifiersOfTrashAthleteChallenge (same bot/chat, key ta:<id>)
 ```
 
 **Embedded / gasless wallets:** submission ID is taken from the `SubmissionCreated` event in the mined tx receipt (not `submissionCount - 1`), and the real transaction hash (not UserOp hash) is passed to Telegram. The client uses `keepalive` fetch + extra retries because mobile Safari often cancels requests after long AA confirms.
@@ -80,7 +88,7 @@ Redeploy after saving.
 
 ## Message contents
 
-Each alert includes:
+Each **cleanup** alert includes:
 
 - Submission **#id**
 - **Submitter** wallet address
@@ -89,6 +97,13 @@ Each alert includes:
 - **Before / after** IPFS links (via `NEXT_PUBLIC_IPFS_GATEWAY`)
 - **Impact form** / **recyclables** flags
 - Link to **`/verifier`** on your app URL (`NEXT_PUBLIC_WEB_APP_URL`)
+
+Each **Trash Athlete** alert includes:
+
+- Challenge **id**, username, wallet, email (if present)
+- **Social link** to review
+- Optional **notes**
+- Reward package reminder + links to **`/verifier`** and **`/cleanup/trash-athlete`**
 
 ## Troubleshooting
 

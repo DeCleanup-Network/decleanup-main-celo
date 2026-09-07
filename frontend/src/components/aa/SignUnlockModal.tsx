@@ -25,12 +25,10 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
         className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="sign-unlock-title"
+        aria-labelledby={mode === 'unlock' ? 'sign-unlock-title' : undefined}
+        aria-label={mode === 'set-password' ? 'Create your account passcode' : undefined}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 id="sign-unlock-title" className="text-lg font-semibold text-white">
-            {mode === 'set-password' ? 'Create wallet passcode' : 'Unlock to sign'}
-          </h2>
+        <div className="mb-4 flex items-start justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -41,17 +39,6 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
           </button>
         </div>
 
-        <p className="mb-4 text-center text-sm text-gray-400">
-          {mode === 'set-password' ? (
-            <>
-              To {purpose}, choose 6 digits for your {WALLET_PASSCODE_LOWER}.{' '}
-              <strong className="text-gray-300">Not your Google password.</strong>
-            </>
-          ) : (
-            <>To {purpose}, unlock with Face ID or your 6-digit {WALLET_PASSCODE_LOWER}.</>
-          )}
-        </p>
-
         {mode === 'set-password' ? (
           <WalletPasscodeSetupWizard
             showSessionDuration
@@ -61,14 +48,22 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
             }}
           />
         ) : (
-          <PasscodeUnlockPanel
-            compact
-            showSessionDuration
-            onSuccess={() => {
-              onSuccess()
-              onClose()
-            }}
-          />
+          <>
+            <h2 id="sign-unlock-title" className="mb-2 text-lg font-semibold text-white">
+              Unlock
+            </h2>
+            <p className="mb-4 text-center text-sm text-gray-400">
+              Use Face ID or your 6-digit account passcode.
+            </p>
+            <PasscodeUnlockPanel
+              compact
+              showSessionDuration
+              onSuccess={() => {
+                onSuccess()
+                onClose()
+              }}
+            />
+          </>
         )}
 
         <Button

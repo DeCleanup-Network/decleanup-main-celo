@@ -13,7 +13,7 @@ type Props = {
   ctaLabel?: string
 }
 
-/** Create wallet passcode while account is in pending-password phase */
+/** Create account passcode while account is in pending-password phase */
 export function WalletPasskeySetupForm({
   defaultOpen = false,
   compact = false,
