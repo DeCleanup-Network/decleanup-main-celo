@@ -173,6 +173,12 @@ NEXT_PUBLIC_HYPERCERTS_NETWORK=celo
 # TELEGRAM_VERIFIER_CHAT_ID=
 
 # ============================================
+# Impact contributor Google Sheet (optional)
+# ============================================
+# Apps Script Web App URL — see docs/CONTRIBUTOR_SHEET.md
+# CONTRIBUTOR_SHEET_WEBHOOK_URL=
+
+# ============================================
 # App URLs
 # ============================================
 NEXT_PUBLIC_WEB_APP_URL=http://localhost:3000

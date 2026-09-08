@@ -44,7 +44,8 @@ export function PasscodeUnlockPanel({
   } = useWallet()
   const [passcode, setPasscode] = useState('')
   const [duration, setDuration] = useState<SessionDurationId>(getPreferredSessionDuration())
-  const [pending, setPending] = useState(false)
+  const [passcodePending, setPasscodePending] = useState(false)
+  const [biometricPending, setBiometricPending] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
   const [platformAvailable, setPlatformAvailable] = useState(false)
@@ -57,6 +58,7 @@ export function PasscodeUnlockPanel({
     isPasskeyEnabled || (userId ? hasPasskeyUnlockRecord(userId) : false)
 
   const showBiometric = isPasskeySupported() && platformAvailable
+  const busy = passcodePending || biometricPending || passkeyLoading
 
   useEffect(() => {
     let cancelled = false
@@ -67,8 +69,8 @@ export function PasscodeUnlockPanel({
       if (cancelled) return
       setPlatformAvailable(platform)
       setPasskeyReady(true)
-      setBiometricReady(true)
     })()
+    setBiometricReady(true)
     return () => {
       cancelled = true
     }
@@ -83,7 +85,7 @@ export function PasscodeUnlockPanel({
       setLockoutSeconds(next.lockoutSeconds)
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [localError, pending])
+  }, [localError, passcodePending])
 
   const tryUnlock = async (password: string) => {
     const status = getUnlockAttemptStatus()
@@ -92,7 +94,7 @@ export function PasscodeUnlockPanel({
       return
     }
     setLocalError(null)
-    setPending(true)
+    setPasscodePending(true)
     try {
       await unlock(password, duration)
       clearUnlockAttempts()
@@ -105,16 +107,18 @@ export function PasscodeUnlockPanel({
         setLocalError(`Too many attempts. Wait ${next.lockoutSeconds}s.`)
         setLockoutSeconds(next.lockoutSeconds)
       } else {
-        setLocalError(`Incorrect ${WALLET_PASSCODE_LOWER}. ${next.remaining} attempt(s) left.`)
+        setLocalError(
+          `Incorrect ${WALLET_PASSCODE_LOWER}. ${next.remaining} attempt(s) left. If this keeps failing after clearing site data or switching devices, email ${SUPPORT_EMAIL}.`
+        )
       }
     } finally {
-      setPending(false)
+      setPasscodePending(false)
     }
   }
 
   const tryEnableBiometricAndUnlock = async (password: string) => {
     setLocalError(null)
-    setPending(true)
+    setPasscodePending(true)
     try {
       await registerPasskey(password)
       await unlockWithPasskey(duration)
@@ -126,13 +130,13 @@ export function PasscodeUnlockPanel({
       setLocalError(err instanceof Error ? err.message : 'Could not enable biometrics')
       setPasscode('')
     } finally {
-      setPending(false)
+      setPasscodePending(false)
     }
   }
 
   const submitPasskey = async () => {
     setLocalError(null)
-    setPending(true)
+    setBiometricPending(true)
     try {
       await unlockWithPasskey(duration)
       clearUnlockAttempts()
@@ -140,17 +144,18 @@ export function PasscodeUnlockPanel({
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Biometric unlock failed')
     } finally {
-      setPending(false)
+      setBiometricPending(false)
     }
   }
 
   useEffect(() => {
     if (!autoPromptBiometric || !biometricReady || !passkeyReady) return
     if (!biometricEnabled || !platformAvailable || biometricSetup) return
-    if (pending || passkeyLoading || lockoutSeconds > 0) return
+    if (busy || lockoutSeconds > 0) return
     if (autoPromptedRef.current) return
     autoPromptedRef.current = true
     void submitPasskey()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot Face ID prompt
   }, [
     autoPromptBiometric,
     biometricReady,
@@ -158,8 +163,6 @@ export function PasscodeUnlockPanel({
     biometricEnabled,
     platformAvailable,
     biometricSetup,
-    pending,
-    passkeyLoading,
     lockoutSeconds,
   ])
 
@@ -176,7 +179,7 @@ export function PasscodeUnlockPanel({
       {showBiometric && (
         <Button
           type="button"
-          disabled={pending || passkeyLoading || locked}
+          disabled={busy || locked}
           className="w-full font-sans !text-black bg-brand-green hover:bg-brand-green/90"
           onClick={() => {
             if (biometricEnabled) {
@@ -188,7 +191,7 @@ export function PasscodeUnlockPanel({
             setLocalError(null)
           }}
         >
-          {pending || passkeyLoading
+          {biometricPending || passkeyLoading
             ? 'Waiting for biometrics…'
             : biometricEnabled
               ? 'Face ID / Touch ID'
@@ -204,6 +207,7 @@ export function PasscodeUnlockPanel({
         value={passcode}
         onChange={setPasscode}
         onComplete={(v) => {
+          if (passcodePending || locked) return
           if (biometricSetup && !biometricEnabled) {
             void tryEnableBiometricAndUnlock(v)
             return
@@ -211,9 +215,13 @@ export function PasscodeUnlockPanel({
           void tryUnlock(v)
         }}
         title={biometricSetup ? 'Enable biometrics' : 'Enter passcode'}
-        subtitle={biometricSubtitle}
+        subtitle={
+          biometricPending
+            ? 'You can still enter your 6-digit passcode while Face ID is open.'
+            : biometricSubtitle
+        }
         error={localError}
-        disabled={pending || locked}
+        disabled={passcodePending || locked}
       />
 
       {biometricSetup && !biometricEnabled ? (

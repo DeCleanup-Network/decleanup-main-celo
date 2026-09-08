@@ -292,9 +292,9 @@ export function ImpactReportDetails({ impactReportHash, cleanupId }: ImpactRepor
           <div className="sm:col-span-2">
             <dt className="text-xs uppercase text-gray-400">Contributors</dt>
             <dd className="mt-1 space-y-1 text-base text-white">
-              {impactData.contributors.map((addr: string, i: number) => (
-                <div key={i} className="font-mono text-sm break-all">
-                  {addr}
+              {impactData.contributors.map((entry: string, i: number) => (
+                <div key={i} className="text-sm break-all">
+                  {entry}
                 </div>
               ))}
             </dd>

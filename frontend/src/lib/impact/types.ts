@@ -29,7 +29,7 @@ export interface ImpactEntry {
   bags: number
   totalMinutes: number // Normalized: (hours * 60) + minutes
   wasteTypes: string[]
-  contributors: string[] // may contain names or wallet addresses
+  contributors: string[] // emails (attribution); legacy entries may be wallet/ENS
   
   // Metadata
   environmentalChallenges?: string

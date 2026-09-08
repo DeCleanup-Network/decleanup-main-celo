@@ -993,7 +993,7 @@ export default function VerifierPage() {
           {impactData.contributors && impactData.contributors.length > 0 && (
             <div>
               <dt className="text-xs uppercase text-gray-400">Contributors</dt>
-              <dd className="text-base text-white">{impactData.contributors.length} address(es)</dd>
+              <dd className="text-base text-white">{impactData.contributors.length} contributor(s)</dd>
             </div>
           )}
           {impactData.scopeOfWork && (

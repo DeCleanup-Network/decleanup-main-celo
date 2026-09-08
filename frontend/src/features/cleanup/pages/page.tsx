@@ -27,7 +27,7 @@ import {
   invalidateUserSubmissionsCache,
 } from '@/lib/contractCache'
 import { notifyVerifierTelegramOfSubmission } from '@/lib/client/notify-verifier-telegram'
-import { resolveEnsToAddress } from '@/lib/utils/ens'
+import { notifyContributorSheet } from '@/lib/client/notify-contributor-sheet'
 import { AlertModal, type AlertModalVariant } from '@/components/ui/alert-modal'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
@@ -287,7 +287,6 @@ function CleanupContent() {
   const [checkingPending, setCheckingPending] = useState(true)
   const [clearingPending, setClearingPending] = useState(false)
   const [feeInfo, setFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
-  const [resolvingContributorIndex, setResolvingContributorIndex] = useState<number | null>(null)
   const [alertModal, setAlertModal] = useState<{
     title?: string
     message: string
@@ -430,7 +429,7 @@ function CleanupContent() {
     hours: '',
     minutes: '',
     wasteTypes: [] as string[],
-    contributors: [] as string[], // Array of contributor addresses
+    contributors: [] as string[], // Contributor emails (attribution only)
     scopeOfWork: '', // Auto-generated
     rightsAssignment: '' as '' | HypercertRightsPresetId,
     environmentalChallenges: '',
@@ -1157,6 +1156,18 @@ function CleanupContent() {
       setAlertModal({ message: `Please fill all required fields. Missing: ${missingFields.join(', ')}`, variant: 'warning' })
       return
     }
+
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
+    const invalidContributorEmails = enhancedData.contributors
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0 && !emailRe.test(e))
+    if (invalidContributorEmails.length > 0) {
+      setAlertModal({
+        message: `Contributor emails must be valid (e.g. name@example.com). Check: ${invalidContributorEmails.join(', ')}`,
+        variant: 'warning',
+      })
+      return
+    }
     
     // If user filled the form (or skipped it), proceed
     setHasImpactForm(validation.hasStartedFilling && validation.isValid)
@@ -1323,7 +1334,9 @@ function CleanupContent() {
             hours: enhancedData.hours,
             minutes: enhancedData.minutes,
             wasteTypes: enhancedData.wasteTypes,
-            contributors: enhancedData.contributors,
+            contributors: enhancedData.contributors
+              .map((email) => email.trim().toLowerCase())
+              .filter((email) => email.length > 0),
             scopeOfWork: enhancedData.scopeOfWork,
             rightsAssignment: enhancedData.rightsAssignment,
             environmentalChallenges: enhancedData.environmentalChallenges,
@@ -1432,6 +1445,41 @@ function CleanupContent() {
           submissionId: cleanupId.toString(),
           txHash: submitTxHash,
         })
+
+        if (impactFormEligible) {
+          const contributorEmails = enhancedData.contributors
+            .map((email) => email.trim().toLowerCase())
+            .filter((email) => email.length > 0)
+          if (contributorEmails.length > 0) {
+            notifyContributorSheet({
+              submissionId: cleanupId.toString(),
+              txHash: submitTxHash,
+              submitterWallet: (onchainOwnerAddress ?? submissionOwnerAddress ?? address) || undefined,
+              impactIpfsCid: impactFormDataHash || undefined,
+              latitude: location?.lat,
+              longitude: location?.lng,
+              impact: {
+                cleanupDate: resolvedCleanupDate,
+                campaignName: enhancedData.campaignName.trim() || undefined,
+                locationType: enhancedData.locationType || undefined,
+                area: enhancedData.area || undefined,
+                areaUnit: enhancedData.areaUnit || undefined,
+                weight: enhancedData.weight || undefined,
+                weightUnit: enhancedData.weightUnit || undefined,
+                bags: enhancedData.bags || undefined,
+                hours: enhancedData.hours || undefined,
+                minutes: enhancedData.minutes || undefined,
+                wasteTypes: enhancedData.wasteTypes,
+                contributors: contributorEmails,
+                scopeOfWork: enhancedData.scopeOfWork || undefined,
+                environmentalChallenges: enhancedData.environmentalChallenges || undefined,
+                preventionIdeas: enhancedData.preventionIdeas || undefined,
+                additionalNotes: enhancedData.additionalNotes || undefined,
+                rightsAssignment: enhancedData.rightsAssignment || undefined,
+              },
+            })
+          }
+        }
 
         console.log('✅ Referrer address used in submission:', referrerAddress || 'none (no referrer)')
         if (referrerAddress && referrerAddress !== '0x0000000000000000000000000000000000000000') {
@@ -2827,86 +2875,57 @@ function CleanupContent() {
               <label className="mb-2 block text-sm font-medium text-gray-300">
                 Contributors
               </label>
+              <p className="mb-2 text-xs text-gray-500">
+                Add people who helped with this cleanup by email. Attribution only — no DCU for listed contributors.
+              </p>
               <div className="space-y-2">
-                <div className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-400 break-all">
-                  <span className="font-mono text-xs">{address || 'Your wallet address'}</span>
-                  <span className="ml-2 text-gray-500">(You)</span>
+                <div className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-400">
+                  <span className="text-gray-300">You</span>
+                  <span className="ml-2 text-gray-500">(submitter)</span>
                 </div>
                 {enhancedData.contributors.map((contributor, idx) => (
-                  <div key={idx} className="flex flex-col gap-1">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={contributor}
-                        onChange={(e) => {
-                          const newContributors = [...enhancedData.contributors]
-                          newContributors[idx] = e.target.value
-                          setEnhancedData({ ...enhancedData, contributors: newContributors })
-                        }}
-                        onBlur={async () => {
-                          const value = enhancedData.contributors[idx]?.trim()
-                          if (!value || resolvingContributorIndex !== null) return
-                          setResolvingContributorIndex(idx)
-                          try {
-                            const resolved = await resolveEnsToAddress(value)
-                            if (resolved) {
-                              const newContributors = [...enhancedData.contributors]
-                              newContributors[idx] = resolved
-                              setEnhancedData({ ...enhancedData, contributors: newContributors })
-                            }
-                          } finally {
-                            setResolvingContributorIndex(null)
-                          }
-                        }}
-                        placeholder="Address or ENS (e.g. vitalik.eth)"
-                        className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white placeholder-gray-500 text-sm font-mono text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const value = enhancedData.contributors[idx]?.trim()
-                          if (!value) return
-                          setResolvingContributorIndex(idx)
-                          try {
-                            const resolved = await resolveEnsToAddress(value)
-                            if (resolved) {
-                              const newContributors = [...enhancedData.contributors]
-                              newContributors[idx] = resolved
-                              setEnhancedData({ ...enhancedData, contributors: newContributors })
-                            }
-                          } finally {
-                            setResolvingContributorIndex(null)
-                          }
-                        }}
-                        disabled={resolvingContributorIndex !== null || !enhancedData.contributors[idx]?.trim()}
-                        className="rounded-lg border border-brand-green/50 bg-brand-green/10 px-3 py-2 text-brand-green hover:bg-brand-green/20 disabled:opacity-50"
-                        title="Resolve ENS to address"
-                      >
-                        {resolvingContributorIndex === idx ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resolve'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEnhancedData({ ...enhancedData, contributors: enhancedData.contributors.filter((_, i) => i !== idx) })}
-                        className="rounded-lg border border-red-500 bg-red-500/10 px-3 py-2 text-red-400 hover:bg-red-500/20"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      value={contributor}
+                      onChange={(e) => {
+                        const newContributors = [...enhancedData.contributors]
+                        newContributors[idx] = e.target.value
+                        setEnhancedData({ ...enhancedData, contributors: newContributors })
+                      }}
+                      placeholder="contributor@email.com"
+                      className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEnhancedData({
+                          ...enhancedData,
+                          contributors: enhancedData.contributors.filter((_, i) => i !== idx),
+                        })
+                      }
+                      className="rounded-lg border border-red-500 bg-red-500/10 px-3 py-2 text-red-400 hover:bg-red-500/20"
+                      aria-label="Remove contributor"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
                 <button
                   type="button"
-                  onClick={() => setEnhancedData({ ...enhancedData, contributors: [...enhancedData.contributors, ''] })}
+                  onClick={() =>
+                    setEnhancedData({
+                      ...enhancedData,
+                      contributors: [...enhancedData.contributors, ''],
+                    })
+                  }
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06]"
                 >
                   <span className="text-lg">+</span>
-                  Add Contributor
+                  Add contributor email
                 </button>
-                {enhancedData.contributors.length > 0 && (
-                  <p className="text-xs text-gray-500">
-                    Attribution only (no DCU). Wallet or ENS (e.g. vitalik.eth).
-                  </p>
-                )}
               </div>
             </div>
 
