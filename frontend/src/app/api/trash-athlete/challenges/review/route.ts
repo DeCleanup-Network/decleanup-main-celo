@@ -7,7 +7,11 @@ import {
 import { getTrashAthleteById, updateTrashAthleteReview } from '@/lib/supabase/trash-athlete-db'
 import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
-import { autoDispenseTrashAthleteBonus } from '@/lib/server/trash-athlete-auto-dispense'
+import {
+  TRASH_ATHLETE_BONUS_CDCU,
+  TRASH_ATHLETE_DCU_POINTS,
+  TRASH_ATHLETE_TARGET_LEVEL,
+} from '@/lib/trash-athlete/constants'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -84,48 +88,16 @@ export async function POST(request: NextRequest) {
       rejectionReason: body.reason,
     })
 
-    let bonusDispense:
-      | { ok: true; txHash: string; recipient: string; amountCdcu: string }
-      | { ok: false; reason: string }
-      | undefined
-
-    if (body.action === 'approve') {
-      const dispense = await autoDispenseTrashAthleteBonus(updated)
-      bonusDispense = dispense.ok
-        ? {
-            ok: true,
-            txHash: dispense.txHash,
-            recipient: dispense.recipient,
-            amountCdcu: dispense.amountCdcu,
-          }
-        : { ok: false, reason: dispense.reason }
-
-      if (!dispense.ok) {
-        console.warn(
-          '[trash-athlete/review] auto $cDCU dispense failed (approval kept):',
-          dispense.reason
-        )
-      }
-    }
-
-    const refreshed =
-      body.action === 'approve' && bonusDispense?.ok
-        ? (await getTrashAthleteById(challengeId)) || updated
-        : updated
-
     return NextResponse.json({
       success: true,
-      challenge: refreshed,
-      bonusDispense,
+      challenge: updated,
       rewardsNote:
         body.action === 'approve'
-          ? bonusDispense?.ok
-            ? `${bonusDispense.amountCdcu} $cDCU sent automatically to ${bonusDispense.recipient}. Level 3 + 30 DCU still need ops grant.`
-            : `Approved, but automatic $cDCU send failed (${bonusDispense?.reason ?? 'unknown'}). Ops can retry. Level 3 + 30 DCU still need ops grant.`
+          ? `Approved. Ops: send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the user wallet (Safe).`
           : undefined,
     })
   } catch (e) {
-    logApiError('trash-athlete/review', e)
+    logApiError('trash-athlete/challenges/review', e)
     return NextResponse.json({ error: apiErrorMessage(e, 'Review failed') }, { status: 500 })
   }
 }

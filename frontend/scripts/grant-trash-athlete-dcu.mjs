@@ -1,17 +1,21 @@
 /**
- * Ops helper: after a Trash Athlete Challenge is APPROVED in the verifier UI,
- * grant 30 DCU points via DCURewardManager.distributeRewards (owner key).
+ * Ops helper (Safe / owner): after Trash Athlete is APPROVED in the verifier UI,
+ * grant 30 DCU via DCURewardManager.distributeRewards.
  *
- * Impact Product level cannot jump to 3 in one call without a contract upgrade.
- * Level grant remains manual (3× claim path or future adminSetLevel).
+ * Level 3 and 150 $cDCU are also manual for now (Safe):
+ *   - $cDCU: transfer/mint via ClaimVault or treasury process you already use
+ *   - Level: verifyPOI + mint/upgrade path from Safe (or user CLAIM LEVEL after POI)
  *
  * Usage (from frontend/):
  *   node scripts/grant-trash-athlete-dcu.mjs --wallet 0x... [--confirm]
  *
- * Requires in .env.local:
+ * Requires in .env.local a key that can call distributeRewards (Safe owner execution
+ * or a hot key that still owns DCURewardManager — usually not available if ownership
+ * is only on the Safe; then run the same call from Safe Transaction Builder).
+ *
  *   DCU_REWARD_OWNER_PRIVATE_KEY (or CONTRACT_OWNER_PRIVATE_KEY)
- *   NEXT_PUBLIC_DCUREWARDMANAGER_ADDRESS (or CONTRACT_ADDRESSES via env)
- *   NEXT_PUBLIC_RPC_URL / REQUIRED RPC
+ *   NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT
+ *   NEXT_PUBLIC_RPC_URL
  */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'

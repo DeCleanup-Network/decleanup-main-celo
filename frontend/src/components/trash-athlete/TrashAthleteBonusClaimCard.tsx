@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, Gift, Loader2 } from 'lucide-react'
+import { CheckCircle2, Gift } from 'lucide-react'
 import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 import {
   TRASH_ATHLETE_BONUS_CDCU,
@@ -12,19 +12,19 @@ type Props = {
   challenge: TrashAthleteChallenge
 }
 
-/** Status card after approval — $cDCU is minted automatically on verifier approve. */
+/** Approved status — rewards are sent manually by ops (Safe). */
 export function TrashAthleteBonusClaimCard({ challenge }: Props) {
   const amountLabel = challenge.bonusCdcuAmount || TRASH_ATHLETE_BONUS_CDCU
 
-  if (challenge.bonusCdcuClaimed) {
+  if (challenge.bonusCdcuClaimed && challenge.levelGrantStatus === 'granted') {
     return (
       <div className="rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm">
         <div className="flex items-center gap-2 font-medium text-brand-green">
           <CheckCircle2 className="h-4 w-4" />
-          {amountLabel} $cDCU sent
+          Rewards recorded
         </div>
         <p className="mt-2 text-muted-foreground">
-          Bonus was credited automatically after verification
+          {amountLabel} $cDCU
           {challenge.bonusCdcuClaimTx ? (
             <>
               {' '}
@@ -40,7 +40,8 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
               )
             </>
           ) : null}
-          . Level {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU are granted by the team.
+          {' '}
+          and level / DCU grants are marked done for this challenge.
         </p>
       </div>
     )
@@ -53,17 +54,10 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
         Challenge approved
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        Your {amountLabel} $cDCU bonus is being sent automatically to your signer address. Refresh in a
-        minute if it is not in your wallet yet.
+        Verified. The team will send {amountLabel} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
+        {TRASH_ATHLETE_DCU_POINTS} DCU to your account wallet. No action needed here.
       </p>
-      <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-brand-green" aria-hidden />
-        Waiting for automatic credit…
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Level {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU: team grant after social
-        verification.
-      </p>
+      <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{challenge.walletAddress}</p>
     </div>
   )
 }

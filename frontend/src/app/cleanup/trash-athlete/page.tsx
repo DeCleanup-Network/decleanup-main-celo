@@ -62,14 +62,19 @@ export default function TrashAthleteChallengePage() {
   }, [signedIn, sessionStatus])
 
   const pending = mine.find((c) => c.status === 'PENDING')
-  const approvedUnclaimed = mine.find((c) => c.status === 'APPROVED' && !c.bonusCdcuClaimed)
+  const approved = mine.find((c) => c.status === 'APPROVED')
   const latest = mine[0]
+  const canShowSubmitForm = !pending && !approved && (!latest || latest.status === 'REJECTED')
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     if (!canSubmitForm) {
       setError('Wallet not ready. Finish account setup first.')
+      return
+    }
+    if (pending) {
+      setError('You already have a submission waiting for verification.')
       return
     }
     setSubmitting(true)
@@ -136,9 +141,9 @@ export default function TrashAthleteChallengePage() {
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             How to participate: every day for a month remove one piece of litter from environment, post it
             on socials with hashtags #TrashMob2026MMDD, #GlobalCleanupGamesOrg and #DeCleanupNetwork. After
-            30 days complete, share your result in a form below. After the verification process, you pass
-            through {TRASH_ATHLETE_TARGET_LEVEL} levels of DeCleanup Network and receive additional reward of{' '}
-            {TRASH_ATHLETE_BONUS_CDCU} $cDCU.
+            30 days complete, share your result below. After verification, you receive{' '}
+            {TRASH_ATHLETE_BONUS_CDCU} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
+            {TRASH_ATHLETE_DCU_POINTS} DCU (sent by the team).
           </p>
         </div>
       </div>
@@ -149,9 +154,14 @@ export default function TrashAthleteChallengePage() {
         </div>
       ) : null}
 
-      {approvedUnclaimed ? (
+      {approved ? (
         <div className="mt-8">
-          <TrashAthleteBonusClaimCard challenge={approvedUnclaimed} />
+          <TrashAthleteBonusClaimCard challenge={approved} />
+          {approved.bonusCdcuClaimed && approved.levelGrantStatus === 'granted' ? (
+            <Button variant="outline" className="mt-4" onClick={() => router.push('/')}>
+              Back to dashboard
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -162,7 +172,7 @@ export default function TrashAthleteChallengePage() {
             Waiting for verification
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            @{pending.username} — verifier will open your social link and check the cleanup photos.
+            Submit is locked until a verifier approves @{pending.username}.
           </p>
           <a
             href={pending.socialProfileUrl}
@@ -175,24 +185,16 @@ export default function TrashAthleteChallengePage() {
         </div>
       ) : null}
 
-      {!pending && !approvedUnclaimed && latest?.status === 'APPROVED' && latest.bonusCdcuClaimed ? (
+      {!pending && !approved && latest?.status === 'APPROVED' ? (
         <div className="mt-8 rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm">
           <div className="flex items-center gap-2 font-medium text-brand-green">
             <CheckCircle2 className="h-4 w-4" aria-hidden />
             Challenge approved
           </div>
-          <p className="mt-2 text-muted-foreground">
-            Bonus $cDCU is sent automatically on approval. Level {TRASH_ATHLETE_TARGET_LEVEL} +{' '}
-            {TRASH_ATHLETE_DCU_POINTS} DCU are granted by the team after social verification (onchain
-            level cannot jump in one step yet).
-          </p>
-          <Button variant="outline" className="mt-4" onClick={() => router.push('/')}>
-            Back to dashboard
-          </Button>
         </div>
       ) : null}
 
-      {!pending && !approvedUnclaimed && (!latest || latest.status === 'REJECTED') ? (
+      {canShowSubmitForm ? (
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           {!canSubmitForm ? (
             <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
@@ -278,7 +280,7 @@ export default function TrashAthleteChallengePage() {
         </form>
       ) : null}
 
-      {latest?.status === 'REJECTED' && !pending ? (
+      {latest?.status === 'REJECTED' && !pending && !approved ? (
         <p className="mt-4 text-sm text-muted-foreground">
           Previous submission was rejected
           {latest.rejectionReason ? `: ${latest.rejectionReason}` : ''}. You can submit again with an

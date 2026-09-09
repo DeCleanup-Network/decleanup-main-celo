@@ -117,8 +117,7 @@ EMAIL_FROM=DeCleanup <onboarding@resend.dev>
 # ClaimVault signer (server only)
 # ============================================
 CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY=
-# Optional gas payer for server ClaimVault.claim() (Trash Athlete auto 150 $cDCU on approve).
-# If unset, the authorized signer key submits the tx and must hold CELO.
+# Optional gas payer if server submits ClaimVault.claim() (not used for Trash Athlete while ops send manually).
 # CLAIM_VAULT_RELAYER_PRIVATE_KEY=
 # Mainnet: ClaimVault deploy block (fast airdrop / $cDCU log checks; without it mainnet scans from block 0 ~40s)
 # CDCU_CLAIM_LOGS_FROM_BLOCK=

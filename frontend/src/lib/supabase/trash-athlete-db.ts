@@ -96,11 +96,12 @@ export async function insertTrashAthleteChallenge(params: {
 }
 
 export async function listTrashAthleteByStatus(status: TrashAthleteStatus): Promise<TrashAthleteChallenge[]> {
+  const orderCol = status === 'PENDING' ? 'submitted_at' : 'reviewed_at'
   const { data, error } = await getSupabase()
     .from('trash_athlete_challenges')
     .select('*')
     .eq('status', status)
-    .order('submitted_at', { ascending: false })
+    .order(orderCol, { ascending: false })
 
   if (error) throw new Error(`Failed to list trash athlete challenges: ${error.message}`)
   return ((data ?? []) as Row[]).map(rowToChallenge)
@@ -190,6 +191,22 @@ export async function markTrashAthleteBonusClaimed(params: {
     .eq('id', params.id)
 
   if (error) throw new Error(`Failed to mark trash athlete bonus claimed: ${error.message}`)
+}
+
+export async function markTrashAthleteLevelGrantStatus(params: {
+  id: string
+  status: TrashAthleteLevelGrantStatus
+}): Promise<TrashAthleteChallenge> {
+  const { data, error } = await getSupabase()
+    .from('trash_athlete_challenges')
+    .update({ level_grant_status: params.status } as never)
+    .eq('id', params.id)
+    .select()
+    .maybeSingle()
+
+  if (error) throw new Error(`Failed to update trash athlete level grant: ${error.message}`)
+  if (!data) throw new Error('Challenge not found')
+  return rowToChallenge(data as Row)
 }
 
 export async function findClaimableTrashAthleteBonus(

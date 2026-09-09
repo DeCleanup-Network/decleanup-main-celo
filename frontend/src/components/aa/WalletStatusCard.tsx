@@ -149,10 +149,6 @@ export function WalletStatusCard({ wallet, loading }: Props) {
 
         <CopyableAddress address={displayAddress} truncate={false} className="text-sm text-gray-200" />
 
-        <p className="text-sm leading-relaxed text-gray-400">
-          This is your signer address — the same one MetaMask shows after you export your private key.
-        </p>
-
         <Link
           href={portfolioHref}
           className="inline-flex text-sm font-medium text-brand-green hover:underline"

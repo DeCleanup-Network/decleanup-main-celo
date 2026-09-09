@@ -33,15 +33,18 @@ export async function GET(request: NextRequest) {
     const wallet = (searchParams.get('wallet') || '').trim()
     const reviewer = (searchParams.get('reviewer') || '').trim()
 
-    if (status === 'PENDING') {
+    if (status === 'PENDING' || status === 'APPROVED' || status === 'REJECTED') {
       if (!reviewer || !isAddress(reviewer)) {
-        return NextResponse.json({ error: 'reviewer address required for pending list' }, { status: 400 })
+        return NextResponse.json(
+          { error: 'reviewer address required for verifier challenge lists' },
+          { status: 400 }
+        )
       }
       const canReview = await canReviewHypercertOnChain(reviewer)
       if (!canReview) {
-        return NextResponse.json({ error: 'Not authorized to list pending challenges' }, { status: 403 })
+        return NextResponse.json({ error: 'Not authorized to list challenges' }, { status: 403 })
       }
-      const challenges = await listTrashAthleteByStatus('PENDING')
+      const challenges = await listTrashAthleteByStatus(status)
       return NextResponse.json({ success: true, challenges })
     }
 
@@ -63,7 +66,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, challenges })
     }
 
-    return NextResponse.json({ error: 'Provide status=PENDING&reviewer=, mine=1, or wallet=' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Provide status=PENDING|APPROVED|REJECTED&reviewer=, mine=1, or wallet=' },
+      { status: 400 }
+    )
   } catch (e) {
     if (isMissingTableError(e)) {
       return NextResponse.json(
