@@ -66,7 +66,7 @@ export async function notifyVerifiersOfTrashAthleteChallenge(
     '',
     `<b>ID:</b> <code>${escapeHtml(challenge.id)}</code>`,
     `<b>Username:</b> ${escapeHtml(challenge.username)}`,
-    `<b>Wallet:</b> <code>${escapeHtml(challenge.walletAddress)}</code> (${shortAddress(challenge.walletAddress)})`,
+    `<b>Signer:</b> <code>${escapeHtml(challenge.walletAddress)}</code> (${shortAddress(challenge.walletAddress)})`,
   ]
 
   if (challenge.email) {

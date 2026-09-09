@@ -2,7 +2,7 @@
 
 When a user successfully submits a cleanup onchain, verifiers get a message in a **private Telegram group** with submission ID, submitter, map link, IPFS photo links, and a link to the verifier dashboard.
 
-**Trash Athlete Challenge** submissions (off-chain) use the same bot and chat: after `POST /api/trash-athlete/challenges` succeeds, the server sends a separate alert with username, wallet, social link, and notes. Dedup keys are `ta:<challengeId>` in `telegram_submission_notifications`.
+**Trash Athlete Challenge** submissions (off-chain) use the same bot and chat: after `POST /api/trash-athlete/challenges` succeeds, the server sends a separate alert with username, **signer EOA**, social link, and notes. Dedup keys are `ta:<challengeId>` in `telegram_submission_notifications`.
 
 ## Architecture
 
@@ -100,7 +100,7 @@ Each **cleanup** alert includes:
 
 Each **Trash Athlete** alert includes:
 
-- Challenge **id**, username, wallet, email (if present)
+- Challenge **id**, username, **signer** address, email (if present)
 - **Social link** to review
 - Optional **notes**
 - Reward package reminder + links to **`/verifier`** and **`/cleanup/trash-athlete`**

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { ExternalLink, ShieldCheck, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
@@ -30,11 +31,14 @@ export function DashboardProfileCard({
   cleanupStatus,
   claimFeeInfo,
 }: Props) {
+  const { data: session } = useSession()
   const { showVerifierFeatures } = useVerifierAccess({ defer: true })
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { eoaAddress, smartAccountAddress } = useWallet()
   const displayAddress =
     isEmbeddedAccount && eoaAddress ? eoaAddress : address
+  const accountEmail =
+    isEmbeddedAccount && session?.user?.email ? session.user.email : null
   const badgeAddress =
     isEmbeddedAccount && eoaAddress
       ? eoaAddress
@@ -76,16 +80,19 @@ export function DashboardProfileCard({
       >
         Complete cleanups, build your rank and reputation, create impact profile
       </p>
+      {accountEmail ? (
+        <div className="mb-3">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Email
+          </p>
+          <p className="break-all text-xs text-foreground sm:text-sm">{accountEmail}</p>
+        </div>
+      ) : null}
       <div className="mb-4">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Your address
         </p>
         <CopyableAddress address={displayAddress} truncate className="text-xs text-foreground sm:text-sm" />
-        {isEmbeddedAccount ? (
-          <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-            Signer address — same as MetaMask after you export your key.
-          </p>
-        ) : null}
       </div>
       <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
         <Link href={impactHref} className="inline-flex items-center justify-center gap-2">

@@ -71,9 +71,10 @@ export async function POST(request: NextRequest) {
 
     let challenge = challengeId ? await getTrashAthleteById(challengeId) : null
     if (!challenge) {
+      // Prefer signer EOA rows; also match legacy smart-account rows
       challenge =
-        (await findClaimableTrashAthleteBonus(wallet.smartAccountAddress)) ||
-        (await findClaimableTrashAthleteBonus(wallet.address))
+        (await findClaimableTrashAthleteBonus(wallet.address)) ||
+        (await findClaimableTrashAthleteBonus(wallet.smartAccountAddress))
     }
     if (!challenge) {
       return NextResponse.json({ error: 'No approved unclaimed Trash Athlete bonus' }, { status: 404 })
@@ -85,10 +86,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Challenge does not belong to this account' }, { status: 403 })
     }
 
-    // Prefer minting to the signer EOA (same as airdrop / gardens.fund), fall back to request recipient if it matches.
-    const mintTo = allowedWallets.has(recipient.toLowerCase())
-      ? (recipient as Address)
-      : (wallet.address as Address)
+    // Always mint to signer EOA (MetaMask / import address)
+    const mintTo = (wallet.address as Address)
 
     const amountWei = parseEther(challenge.bonusCdcuAmount || TRASH_ATHLETE_BONUS_CDCU)
     const nonce = BigInt(`0x${randomBytes(16).toString('hex')}`)

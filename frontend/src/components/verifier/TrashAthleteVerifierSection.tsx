@@ -145,7 +145,7 @@ export function TrashAthleteVerifierSection({
                   <p className="text-foreground">@{c.username}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">Wallet</p>
+                  <p className="text-xs text-gray-400">Signer address</p>
                   <p className="break-all font-mono text-xs text-gray-300">{c.walletAddress}</p>
                 </div>
                 {c.email ? (
@@ -194,7 +194,8 @@ export function TrashAthleteVerifierSection({
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   After approve, ops sends {TRASH_ATHLETE_BONUS_CDCU} $cDCU + level{' '}
-                  {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU from the Safe.
+                  {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU to the signer
+                  address from the Safe.
                 </p>
               </div>
             </div>

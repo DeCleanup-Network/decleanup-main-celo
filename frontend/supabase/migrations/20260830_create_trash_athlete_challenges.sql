@@ -1,4 +1,5 @@
 -- Trash Athlete Challenge (global cleanup games): simplified social-proof submissions.
+-- wallet_address stores the **signer EOA** (MetaMask / import address), not the smart account.
 create table if not exists public.trash_athlete_challenges (
   id text primary key,
   user_id text,

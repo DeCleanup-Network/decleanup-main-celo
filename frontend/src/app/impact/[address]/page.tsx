@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { useAccount, useSignMessage } from 'wagmi'
 import { isAddress, getAddress } from 'viem'
 import type { Address } from 'viem'
@@ -59,6 +60,7 @@ import {
 } from '@/lib/blockchain/chain-constants'
 import { isVerifier } from '@/lib/blockchain/contracts'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import {
   PROFILE_LIMITS,
   buildProfileSignMessage,
@@ -174,6 +176,8 @@ type WalletIdentityPayload = {
 }
 
 function PublicPortfolioContent() {
+  const { data: session } = useSession()
+  const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: connectedAddress } = useAccount()
   const { signMessageAsync } = useSignMessage()
   const { submissionOwnerAddress } = useSmartAccountClient()
@@ -181,6 +185,8 @@ function PublicPortfolioContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const raw = typeof params?.address === 'string' ? params.address : ''
+  const sessionEmail =
+    isEmbeddedAccount && session?.user?.email ? session.user.email.trim() : ''
 
   const saParam = searchParams.get('sa') || searchParams.get('submissionOwner')
   const submissionOwnerOverride = useMemo(() => {
@@ -695,6 +701,19 @@ function PublicPortfolioContent() {
                   />
                 </div>
               )}
+              {profile?.showEmail && profile.publicEmail?.trim() ? (
+                <p className="text-sm text-muted-foreground">
+                  <span className="mr-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                    Email
+                  </span>
+                  <a
+                    href={`mailto:${profile.publicEmail.trim()}`}
+                    className="break-all text-foreground underline-offset-2 hover:underline"
+                  >
+                    {profile.publicEmail.trim()}
+                  </a>
+                </p>
+              ) : null}
               {profile?.bio?.trim() ? (
                 <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{profile.bio.trim()}</p>
               ) : null}
@@ -836,16 +855,45 @@ function PublicPortfolioContent() {
                 </label>
               ))}
             </div>
-            <label className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={draftProfile.showPreciseLocation}
-                onChange={(e) =>
-                  setDraftProfile((p) => (p ? { ...p, showPreciseLocation: e.target.checked } : p))
-                }
-              />
-              Show precise location coordinates publicly
-            </label>
+            <div className="mt-3 flex flex-col gap-2">
+              <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={draftProfile.showPreciseLocation}
+                  onChange={(e) =>
+                    setDraftProfile((p) => (p ? { ...p, showPreciseLocation: e.target.checked } : p))
+                  }
+                />
+                Show precise location coordinates publicly
+              </label>
+              {sessionEmail ? (
+                <label className="inline-flex items-start gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={draftProfile.showEmail}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setDraftProfile((p) =>
+                        p
+                          ? {
+                              ...p,
+                              showEmail: checked,
+                              publicEmail: checked ? sessionEmail : '',
+                            }
+                          : p
+                      )
+                    }}
+                  />
+                  <span>
+                    Show email on impact portfolio
+                    <span className="mt-0.5 block break-all text-[10px] text-muted-foreground/80">
+                      {sessionEmail}
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+            </div>
             <div className="mt-4 flex gap-2">
               <Button
                 type="button"
@@ -853,7 +901,13 @@ function PublicPortfolioContent() {
                   if (!portfolioDisplayAddress || !draftProfile) return
                   setSaveProfileError(null)
                   setSaveProfileLoading(true)
-                  const sanitized = sanitizeProfileFromUserInput(draftProfile)
+                  const withEmail = {
+                    ...draftProfile,
+                    showEmail: Boolean(sessionEmail && draftProfile.showEmail),
+                    publicEmail:
+                      sessionEmail && draftProfile.showEmail ? sessionEmail : '',
+                  }
+                  const sanitized = sanitizeProfileFromUserInput(withEmail)
                   const key = `impact_profile:${portfolioDisplayAddress.toLowerCase()}`
                   try {
                     if (typeof window !== 'undefined') {

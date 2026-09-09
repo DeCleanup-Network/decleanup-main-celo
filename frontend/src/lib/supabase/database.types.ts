@@ -224,6 +224,8 @@ export interface Database {
           location_label: string
           location_coords: string
           show_precise_location: boolean
+          show_email: boolean
+          public_email: string
           creator_name: string
           creator_role: string
           projects: string
@@ -241,6 +243,8 @@ export interface Database {
           location_label: string
           location_coords: string
           show_precise_location: boolean
+          show_email?: boolean
+          public_email?: string
           creator_name: string
           creator_role: string
           projects: string
@@ -256,6 +260,8 @@ export interface Database {
           location_label?: string
           location_coords?: string
           show_precise_location?: boolean
+          show_email?: boolean
+          public_email?: string
           creator_name?: string
           creator_role?: string
           projects?: string

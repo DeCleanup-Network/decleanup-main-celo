@@ -7,6 +7,10 @@ export type EditableProfile = {
   locationLabel: string
   locationCoords: string
   showPreciseLocation: boolean
+  /** When true, `publicEmail` is shown on the public impact portfolio. */
+  showEmail: boolean
+  /** Contact email shown publicly only if showEmail is true (usually account email). */
+  publicEmail: string
   impactContext: string
   additionalityStatement: string
   creatorName: string
@@ -18,12 +22,16 @@ export type EditableProfile = {
   dapp: string
 }
 
-export const PROFILE_LIMITS: Record<keyof Omit<EditableProfile, 'showPreciseLocation'>, number> = {
+export const PROFILE_LIMITS: Record<
+  keyof Omit<EditableProfile, 'showPreciseLocation' | 'showEmail'>,
+  number
+> = {
   displayName: 80,
   legalName: 120,
   bio: 420,
   locationLabel: 120,
   locationCoords: 64,
+  publicEmail: 254,
   impactContext: 600,
   additionalityStatement: 480,
   creatorName: 120,
@@ -44,6 +52,8 @@ export function emptyImpactProfile(): EditableProfile {
     locationLabel: '',
     locationCoords: '',
     showPreciseLocation: false,
+    showEmail: false,
+    publicEmail: '',
     impactContext: '',
     additionalityStatement: '',
     creatorName: '',
@@ -67,6 +77,8 @@ export function sanitizeProfileFromUserInput(input: unknown): EditableProfile {
     locationLabel: clampField(src.locationLabel ?? base.locationLabel, PROFILE_LIMITS.locationLabel),
     locationCoords: clampField(src.locationCoords ?? base.locationCoords, PROFILE_LIMITS.locationCoords),
     showPreciseLocation: toBool(src.showPreciseLocation, base.showPreciseLocation),
+    showEmail: toBool(src.showEmail, base.showEmail),
+    publicEmail: clampEmail(src.publicEmail ?? base.publicEmail),
     impactContext: clampField(src.impactContext ?? base.impactContext, PROFILE_LIMITS.impactContext),
     additionalityStatement: clampField(
       src.additionalityStatement ?? base.additionalityStatement,
@@ -91,6 +103,8 @@ export function getDefaultProfile(displayName: string): EditableProfile {
     locationLabel: 'Koh Phangan, Thailand, Surat Thani Province',
     locationCoords: '9.7317, 100.0136',
     showPreciseLocation: true,
+    showEmail: false,
+    publicEmail: '',
     impactContext:
       'Koh Phangan has limited formal municipal waste collection in many zones, heavy tourist-season plastic load, and reef proximity. Documented cleanups here divert material that would otherwise persist in coastal buffers or enter nearshore habitat. This portfolio ties field activity to onchain verification for funders and CSR teams.',
     additionalityStatement:
@@ -110,6 +124,14 @@ function clampField(value: unknown, max: number): string {
   return v.slice(0, max)
 }
 
+function clampEmail(value: unknown): string {
+  const v = clampField(value, PROFILE_LIMITS.publicEmail).toLowerCase()
+  if (!v) return ''
+  // Soft validate — empty if clearly not an email
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return ''
+  return v
+}
+
 function toBool(value: unknown, fallback = true): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
@@ -124,6 +146,8 @@ export function sanitizeProfile(input: unknown, fallbackDisplayName: string): Ed
     locationLabel: clampField(src.locationLabel ?? defaults.locationLabel, PROFILE_LIMITS.locationLabel),
     locationCoords: clampField(src.locationCoords ?? defaults.locationCoords, PROFILE_LIMITS.locationCoords),
     showPreciseLocation: toBool(src.showPreciseLocation, defaults.showPreciseLocation),
+    showEmail: toBool(src.showEmail, defaults.showEmail),
+    publicEmail: clampEmail(src.publicEmail ?? defaults.publicEmail),
     impactContext: clampField(src.impactContext ?? defaults.impactContext, PROFILE_LIMITS.impactContext),
     additionalityStatement: clampField(
       src.additionalityStatement ?? defaults.additionalityStatement,
@@ -147,6 +171,8 @@ export function serializeProfile(profile: EditableProfile): string {
     locationLabel: profile.locationLabel,
     locationCoords: profile.locationCoords,
     showPreciseLocation: profile.showPreciseLocation,
+    showEmail: profile.showEmail,
+    publicEmail: profile.showEmail ? profile.publicEmail : '',
     impactContext: profile.impactContext,
     additionalityStatement: profile.additionalityStatement,
     creatorName: profile.creatorName,

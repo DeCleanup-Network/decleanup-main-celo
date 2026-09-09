@@ -1,10 +1,11 @@
 /**
  * Ops helper (Safe / owner): after Trash Athlete is APPROVED in the verifier UI,
- * grant 30 DCU via DCURewardManager.distributeRewards.
+ * grant 30 DCU via DCURewardManager.distributeRewards to the **signer EOA**
+ * (`trash_athlete_challenges.wallet_address` — MetaMask / import address).
  *
  * Level 3 and 150 $cDCU are also manual for now (Safe):
- *   - $cDCU: transfer/mint via ClaimVault or treasury process you already use
- *   - Level: verifyPOI + mint/upgrade path from Safe (or user CLAIM LEVEL after POI)
+ *   - $cDCU: ClaimVault mint to the same signer EOA
+ *   - Level: verifyPOI + mint/upgrade for that signer EOA
  *
  * Usage (from frontend/):
  *   node scripts/grant-trash-athlete-dcu.mjs --wallet 0x... [--confirm]

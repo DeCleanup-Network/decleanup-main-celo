@@ -55,9 +55,12 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
         Verified. The team will send {amountLabel} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
-        {TRASH_ATHLETE_DCU_POINTS} DCU to your account wallet. No action needed here.
+        {TRASH_ATHLETE_DCU_POINTS} DCU to your signer address (the one you import to MetaMask). No action
+        needed here.
       </p>
-      <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{challenge.walletAddress}</p>
+      <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
+        Signer: {challenge.walletAddress}
+      </p>
     </div>
   )
 }

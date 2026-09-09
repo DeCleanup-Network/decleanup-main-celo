@@ -4,7 +4,9 @@ import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { useAccount, useSignMessage } from 'wagmi'
 import { Loader2, Trophy, ExternalLink, CheckCircle2 } from 'lucide-react'
+import type { Address } from 'viem'
 import { BackButton } from '@/components/layout/BackButton'
 import { Button } from '@/components/ui/button'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
@@ -18,6 +20,7 @@ import {
 } from '@/lib/trash-athlete/constants'
 import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 import { TrashAthleteBonusClaimCard } from '@/components/trash-athlete/TrashAthleteBonusClaimCard'
+import { buildTrashAthleteSubmitMessage } from '@/lib/trash-athlete/review-signing'
 
 export default function TrashAthleteChallengePage() {
   const router = useRouter()
@@ -25,6 +28,8 @@ export default function TrashAthleteChallengePage() {
   const { data: session, status: sessionStatus } = useSession()
   const { address, showMainApp, walletReady, walletPhase } = useAppWalletAddress()
   const { smartAccountAddress } = useWallet()
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   const [username, setUsername] = useState('')
   const [socialProfileUrl, setSocialProfileUrl] = useState('')
@@ -34,20 +39,39 @@ export default function TrashAthleteChallengePage() {
   const [mine, setMine] = useState<TrashAthleteChallenge[]>([])
   const [loadingMine, setLoadingMine] = useState(true)
 
-  const signedIn = aaEnabled ? Boolean(session?.user) : showMainApp
-  const hasWallet = Boolean(smartAccountAddress || address)
-  const canSubmitForm = walletReady && hasWallet && walletPhase !== 'no-wallet' && walletPhase !== 'loading'
+  const emailSignedIn = aaEnabled ? Boolean(session?.user) : false
+  const walletConnected = Boolean(wagmiConnected && (wagmiAddress || address))
+  /** Email session or WalletConnect / browser wallet */
+  const canAccess = emailSignedIn || walletConnected || (!aaEnabled && showMainApp)
+
+  const embeddedReady =
+    emailSignedIn &&
+    walletReady &&
+    Boolean(smartAccountAddress || address) &&
+    walletPhase !== 'no-wallet' &&
+    walletPhase !== 'loading'
+
+  const canSubmitForm = embeddedReady || walletConnected
 
   useEffect(() => {
     if (sessionStatus === 'loading') return
-    if (!signedIn) {
+    if (!canAccess) {
       setLoadingMine(false)
       return
     }
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/trash-athlete/challenges?mine=1', { cache: 'no-store' })
+        let res: Response
+        if (emailSignedIn) {
+          res = await fetch('/api/trash-athlete/challenges?mine=1', { cache: 'no-store' })
+        } else {
+          const w = (wagmiAddress || address) as string
+          res = await fetch(
+            `/api/trash-athlete/challenges?wallet=${encodeURIComponent(w)}`,
+            { cache: 'no-store' }
+          )
+        }
         const data = await res.json().catch(() => ({}))
         if (!cancelled && res.ok && Array.isArray(data.challenges)) {
           setMine(data.challenges)
@@ -59,7 +83,7 @@ export default function TrashAthleteChallengePage() {
     return () => {
       cancelled = true
     }
-  }, [signedIn, sessionStatus])
+  }, [canAccess, emailSignedIn, sessionStatus, wagmiAddress, address])
 
   const pending = mine.find((c) => c.status === 'PENDING')
   const approved = mine.find((c) => c.status === 'APPROVED')
@@ -70,7 +94,7 @@ export default function TrashAthleteChallengePage() {
     e.preventDefault()
     setError(null)
     if (!canSubmitForm) {
-      setError('Wallet not ready. Finish account setup first.')
+      setError('Connect a wallet (WalletConnect / MetaMask) or sign in with email first.')
       return
     }
     if (pending) {
@@ -79,14 +103,36 @@ export default function TrashAthleteChallengePage() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/trash-athlete/challenges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const body: Record<string, unknown> = {
+        username,
+        socialProfileUrl,
+        notes,
+      }
+
+      // Prefer email/embedded when session exists; otherwise sign with connected wallet
+      if (!emailSignedIn) {
+        const wallet = (wagmiAddress || address) as Address | undefined
+        if (!wallet || !signMessageAsync) {
+          throw new Error('Wallet not ready to sign. Reconnect WalletConnect and try again.')
+        }
+        const timestamp = Date.now()
+        const message = buildTrashAthleteSubmitMessage({
           username,
           socialProfileUrl,
           notes,
-        }),
+          wallet,
+          timestamp,
+        })
+        const signature = await signMessageAsync({ message })
+        body.wallet = wallet
+        body.timestamp = timestamp
+        body.signature = signature
+      }
+
+      const res = await fetch('/api/trash-athlete/challenges', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -111,7 +157,7 @@ export default function TrashAthleteChallengePage() {
     )
   }
 
-  if (!signedIn) {
+  if (!canAccess) {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
         <BackButton href="/cleanup" label="Back to submit cleanup" />
@@ -119,11 +165,17 @@ export default function TrashAthleteChallengePage() {
           {TRASH_ATHLETE_LABEL}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Sign in with email to share your 30-day Trash Athlete result after you finish the challenge.
+          Sign in with email or connect your wallet (WalletConnect / MetaMask) to submit your 30-day
+          result.
         </p>
-        <Button asChild className="mt-6">
-          <Link href="/login?callbackUrl=/cleanup/trash-athlete">Sign in with email</Link>
-        </Button>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button asChild>
+            <Link href="/login?callbackUrl=/cleanup/trash-athlete">Sign in with email</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/">Connect wallet on home</Link>
+          </Button>
+        </div>
       </div>
     )
   }
@@ -145,6 +197,11 @@ export default function TrashAthleteChallengePage() {
             {TRASH_ATHLETE_BONUS_CDCU} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
             {TRASH_ATHLETE_DCU_POINTS} DCU (sent by the team).
           </p>
+          {walletConnected && !emailSignedIn ? (
+            <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+              Submitting as {(wagmiAddress || address)?.toLowerCase()}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -198,7 +255,14 @@ export default function TrashAthleteChallengePage() {
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           {!canSubmitForm ? (
             <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-              Finish wallet setup (account passcode / Face ID) so rewards can go to your account.
+              Connect WalletConnect / MetaMask, or finish email wallet setup (passcode), so we know where
+              to send rewards.
+            </p>
+          ) : null}
+
+          {walletConnected && !emailSignedIn ? (
+            <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+              You will confirm a signature in your wallet. Rewards go to that connected address.
             </p>
           ) : null}
 
@@ -271,10 +335,12 @@ export default function TrashAthleteChallengePage() {
             {submitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting…
+                {emailSignedIn ? 'Submitting…' : 'Confirm in wallet…'}
               </>
-            ) : (
+            ) : emailSignedIn ? (
               'Submit Trash Athlete completion'
+            ) : (
+              'Sign & submit with wallet'
             )}
           </Button>
         </form>

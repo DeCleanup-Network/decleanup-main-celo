@@ -4,6 +4,7 @@ export type TrashAthleteLevelGrantStatus = 'pending' | 'granted' | 'skipped'
 export type TrashAthleteChallenge = {
   id: string
   userId: string | null
+  /** Signer EOA (import / MetaMask address). Not the smart account. */
   walletAddress: string
   email: string | null
   username: string

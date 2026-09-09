@@ -31,6 +31,8 @@ function rowToProfile(row: ImpactPortfolioRow): EditableProfile {
     legal_name?: string
     impact_context?: string
     additionality_statement?: string
+    show_email?: boolean
+    public_email?: string
   }
   return {
     displayName: row.display_name,
@@ -39,6 +41,8 @@ function rowToProfile(row: ImpactPortfolioRow): EditableProfile {
     locationLabel: row.location_label,
     locationCoords: row.location_coords,
     showPreciseLocation: row.show_precise_location,
+    showEmail: Boolean(extended.show_email),
+    publicEmail: extended.public_email ?? '',
     impactContext: extended.impact_context ?? '',
     additionalityStatement: extended.additionality_statement ?? '',
     creatorName: row.creator_name,
@@ -84,6 +88,8 @@ export async function upsertImpactPortfolioProfile(address: string, profile: Edi
     legal_name?: string
     impact_context?: string
     additionality_statement?: string
+    show_email?: boolean
+    public_email?: string
   } = {
     address: address.toLowerCase(),
     display_name: profile.displayName,
@@ -92,6 +98,8 @@ export async function upsertImpactPortfolioProfile(address: string, profile: Edi
     location_label: profile.locationLabel,
     location_coords: profile.locationCoords,
     show_precise_location: profile.showPreciseLocation,
+    show_email: profile.showEmail,
+    public_email: profile.showEmail ? profile.publicEmail : '',
     impact_context: profile.impactContext,
     additionality_statement: profile.additionalityStatement,
     creator_name: profile.creatorName,
