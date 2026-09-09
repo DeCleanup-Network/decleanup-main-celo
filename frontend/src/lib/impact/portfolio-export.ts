@@ -1,5 +1,5 @@
 import type { PublicPortfolioPayload } from '@/lib/impact/public-portfolio-shared'
-import type { EditableProfile } from '@/lib/impact/portfolio-profile'
+import { emptyImpactProfile, type EditableProfile } from '@/lib/impact/portfolio-profile'
 import type { PortfolioEndorsement } from '@/lib/impact/portfolio-endorsements'
 import { PLASTIC_CO2E_FACTOR_KG, estimatePlasticCo2eKg } from '@/lib/impact/portfolio-display'
 
@@ -51,23 +51,7 @@ export function buildPortfolioDisclosureExport(params: {
       legalName: profile?.legalName?.trim() || profile?.creatorName?.trim() || '',
       ensTextRecords: params.ensTextRecords ?? {},
     },
-    profile: profile ?? {
-      displayName: '',
-      bio: '',
-      locationLabel: '',
-      locationCoords: '',
-      showPreciseLocation: false,
-      legalName: '',
-      impactContext: '',
-      additionalityStatement: '',
-      creatorName: '',
-      creatorRole: '',
-      projects: '',
-      openTo: '',
-      farcaster: '',
-      twitter: '',
-      dapp: '',
-    },
+    profile: profile ?? emptyImpactProfile(),
     metrics: {
       dcuRecognized: params.data.rewards.totalDcuBreakdown,
       verifiedCleanups: params.data.verifiedCleanups,
