@@ -532,6 +532,11 @@ appkit-modal {
   }
 }
 
+/* Sticky header / notch: keep chrome below status bar (iPhone Dynamic Island, PWA) */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 @media print {
   .no-print {
     display: none !important;

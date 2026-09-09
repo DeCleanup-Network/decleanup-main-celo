@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Copy, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NumericPasscodePad } from '@/components/aa/NumericPasscodePad'
 import { useWallet } from '@/providers/WalletProvider'
@@ -24,12 +24,14 @@ export function MetamaskExportSection() {
   const [error, setError] = useState<string | null>(null)
   const [revealedKey, setRevealedKey] = useState<string | null>(null)
   const [showKey, setShowKey] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const unlocked = hasActiveSigningSession
 
   const revealKey = async (password?: string) => {
     setError(null)
     setRevealedKey(null)
+    setCopied(false)
     if (needsSigningPassword) {
       setError(`Set your ${WALLET_PASSCODE_LOWER} first.`)
       return
@@ -43,13 +45,24 @@ export function MetamaskExportSection() {
     try {
       const key = unlocked ? decryptForExportInSession() : await decryptForExport(unlockPassword)
       setRevealedKey(key)
-      setShowKey(false)
+      setShowKey(true)
       setPasscode('')
     } catch {
       setError(`Incorrect ${WALLET_PASSCODE_LOWER}.`)
       setPasscode('')
     } finally {
       setPending(false)
+    }
+  }
+
+  const copyKey = async () => {
+    if (!revealedKey) return
+    try {
+      await navigator.clipboard.writeText(revealedKey)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError('Could not copy. Select the key and copy manually.')
     }
   }
 
@@ -102,22 +115,43 @@ export function MetamaskExportSection() {
               {unlocked && error ? <p className="text-xs text-red-400">{error}</p> : null}
             </>
           ) : (
-            <div className="relative">
-              <p
-                className={`break-all rounded-lg border border-gray-700 bg-black p-3 font-mono text-xs text-gray-200 ${
-                  showKey ? '' : 'blur-sm select-none'
-                }`}
-              >
-                {revealedKey}
-              </p>
-              <button
-                type="button"
-                className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-white/[0.06]"
-                onClick={() => setShowKey((v) => !v)}
-                aria-label={showKey ? 'Hide key' : 'Show key'}
-              >
-                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+            <div className="space-y-3">
+              <div className="relative">
+                <textarea
+                  readOnly
+                  value={revealedKey}
+                  rows={3}
+                  spellCheck={false}
+                  autoComplete="off"
+                  onFocus={(e) => e.currentTarget.select()}
+                  className={`w-full resize-none rounded-lg border border-gray-700 bg-black px-3 py-2.5 pr-10 font-mono text-xs leading-relaxed text-gray-200 outline-none ${
+                    showKey ? '' : 'blur-sm'
+                  }`}
+                  aria-label="Private key"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-white/[0.06]"
+                  onClick={() => setShowKey((v) => !v)}
+                  aria-label={showKey ? 'Hide key' : 'Show key'}
+                >
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button type="button" size="sm" className="gap-1.5" onClick={() => void copyKey()}>
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" aria-hidden />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" aria-hidden />
+                    Copy key
+                  </>
+                )}
+              </Button>
+              {error ? <p className="text-xs text-red-400">{error}</p> : null}
             </div>
           )}
         </div>

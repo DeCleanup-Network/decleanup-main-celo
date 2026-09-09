@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { ExternalLink, Loader2, Trophy } from 'lucide-react'
 import type { Address } from 'viem'
 import { Button } from '@/components/ui/button'
@@ -60,7 +59,9 @@ export function TrashAthleteVerifierSection({
         title: action === 'approve' ? 'Challenge approved' : 'Challenge rejected',
         message:
           action === 'approve'
-            ? `User can claim ${TRASH_ATHLETE_BONUS_CDCU} $cDCU. Level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU still need ops grant.`
+            ? (typeof data.rewardsNote === 'string' && data.rewardsNote
+                ? data.rewardsNote
+                : `${TRASH_ATHLETE_BONUS_CDCU} $cDCU is sent automatically. Level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU still need ops grant.`)
             : 'Rejected.',
       })
       onChanged()
@@ -158,11 +159,8 @@ export function TrashAthleteVerifierSection({
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  After approve, user claims {TRASH_ATHLETE_BONUS_CDCU} $cDCU in-app. Level/DCU ops:{' '}
-                  <Link href="/cleanup/trash-athlete" className="text-brand-green hover:underline">
-                    challenge page
-                  </Link>
-                  .
+                  On approve, {TRASH_ATHLETE_BONUS_CDCU} $cDCU is sent automatically to the user&apos;s
+                  signer. Level/DCU ops still need a team grant.
                 </p>
               </div>
             </div>

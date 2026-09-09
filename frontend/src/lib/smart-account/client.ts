@@ -2,9 +2,9 @@
 
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { createPublicClient, formatEther, http } from 'viem'
+import { createPublicClient, erc20Abi, formatEther, http, isAddress } from 'viem'
 import { entryPoint07Address } from 'viem/account-abstraction'
-import { REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
 
 const entryPoint = { address: entryPoint07Address as Address, version: '0.7' as const }
 
@@ -81,6 +81,27 @@ export async function getClientSmartAccountBalance(address: Address): Promise<st
   })
   const wei = await publicClient.getBalance({ address })
   return formatEther(wei)
+}
+
+/** ERC-20 $cDCU balance on an address (smart account or EOA). Returns null if token not configured. */
+export async function getClientCdcuTokenBalance(address: Address): Promise<string | null> {
+  const token = CONTRACT_ADDRESSES.DCU_TOKEN?.trim()
+  if (!token || !isAddress(token) || !isAddress(address)) return null
+  try {
+    const publicClient = createPublicClient({
+      chain: getChain(),
+      transport: http(REQUIRED_RPC_URL),
+    })
+    const raw = await publicClient.readContract({
+      address: token as Address,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [address],
+    })
+    return formatEther(raw)
+  } catch {
+    return null
+  }
 }
 
 export { getClientUserOperationReceiptSafe as getClientUserOperationReceipt } from '@/lib/smart-account/wait-user-op'

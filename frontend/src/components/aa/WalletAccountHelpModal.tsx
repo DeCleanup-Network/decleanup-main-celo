@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button'
 import { WalletHelpTopic } from '@/components/aa/WalletHelpTopic'
 import { REQUIRED_RPC_URL, REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
-import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
 import type { Address } from 'viem'
 
 type Props = {
@@ -52,23 +51,14 @@ export function WalletAccountHelpModal({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <WalletHelpTopic label="Your wallet address">
-            Your DeCleanup identity on Celo. Impact portfolio, rewards, $cDCU airdrops, and{' '}
-            <a
-              href="https://gardens.fund"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-brand-green hover:underline"
-            >
-              gardens.fund
-            </a>{' '}
-            all use this address. It is the same address MetaMask shows after you export your signing
-            key.
+            Your signer address on Celo — the same one MetaMask shows after you export your private key.
+            Impact portfolio and onchain cleanups use your smart account behind the scenes.
             <span className="mt-2 block font-mono text-[10px] text-gray-500">{walletAddress}</span>
           </WalletHelpTopic>
 
           <WalletHelpTopic label="Signing key">
-            The private key you export unlocks this address. After you set a 6-digit {WALLET_PASSCODE_LOWER}{' '}
-            in the app, routine actions stay gasless when sponsorship is on.
+            The private key you export unlocks this signer address. MetaMask will match the address shown above.
+            Routine in-app actions stay gasless when sponsorship is on.
           </WalletHelpTopic>
 
           <WalletHelpTopic label="Gas sponsorship">

@@ -12,7 +12,7 @@ const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"
   ssr: true,
   loading: () => (
     <div className="flex min-h-screen flex-col bg-black">
-      <div className="h-14 border-b border-brand-green/20 bg-gray-900/40" aria-hidden />
+      <div className="h-14 border-b border-brand-green/20 bg-gray-900/40 pt-safe" aria-hidden />
       <div className="flex flex-1 items-center justify-center">
         <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-800" aria-label="Loading" />
       </div>

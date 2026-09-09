@@ -151,16 +151,7 @@ export default function TrashAthleteChallengePage() {
 
       {approvedUnclaimed ? (
         <div className="mt-8">
-          <TrashAthleteBonusClaimCard
-            challenge={approvedUnclaimed}
-            onClaimed={() => {
-              setMine((prev) =>
-                prev.map((c) =>
-                  c.id === approvedUnclaimed.id ? { ...c, bonusCdcuClaimed: true } : c
-                )
-              )
-            }}
-          />
+          <TrashAthleteBonusClaimCard challenge={approvedUnclaimed} />
         </div>
       ) : null}
 
@@ -191,8 +182,9 @@ export default function TrashAthleteChallengePage() {
             Challenge approved
           </div>
           <p className="mt-2 text-muted-foreground">
-            Bonus $cDCU claimed. Level {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU are
-            granted by the team after social verification (onchain level cannot jump in one step yet).
+            Bonus $cDCU is sent automatically on approval. Level {TRASH_ATHLETE_TARGET_LEVEL} +{' '}
+            {TRASH_ATHLETE_DCU_POINTS} DCU are granted by the team after social verification (onchain
+            level cannot jump in one step yet).
           </p>
           <Button variant="outline" className="mt-4" onClick={() => router.push('/')}>
             Back to dashboard

@@ -1,17 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { HelpCircle } from 'lucide-react'
+import type { Address } from 'viem'
 import type { AaWalletState } from '@/hooks/useAaWallet'
 import { GasSponsorshipBadge } from '@/components/aa/GasSponsorshipBadge'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { Button } from '@/components/ui/button'
 import { chainLabelFromId } from '@/components/aa/WalletAccountHelpModal'
+import { getClientCdcuTokenBalance } from '@/lib/smart-account/client'
 
 type Props = {
   wallet: AaWalletState | null
   loading: boolean
+}
+
+function formatTokenDisplay(raw: string): string {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return raw
+  if (n === 0) return '0'
+  if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+  return n.toLocaleString(undefined, { maximumFractionDigits: 6 })
 }
 
 function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: () => void; chainId: number }) {
@@ -83,6 +94,32 @@ function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClo
 
 export function WalletStatusCard({ wallet, loading }: Props) {
   const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
+  const [cdcuBalance, setCdcuBalance] = useState<string | null>(null)
+
+  /** Balances live on the smart account; displayed identity is the signer EOA (MetaMask). */
+  const smartAccountAddress = wallet?.smartAccountAddress
+  const displayAddress = wallet?.eoaAddress || wallet?.smartAccountAddress
+
+  useEffect(() => {
+    if (!smartAccountAddress) {
+      setCdcuBalance(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const bal = await getClientCdcuTokenBalance(smartAccountAddress as Address)
+      if (cancelled) return
+      if (bal == null) {
+        setCdcuBalance(null)
+        return
+      }
+      const n = Number(bal)
+      setCdcuBalance(Number.isFinite(n) && n > 0 ? bal : null)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [smartAccountAddress])
 
   if (loading && !wallet) {
     return (
@@ -94,11 +131,11 @@ export function WalletStatusCard({ wallet, loading }: Props) {
     )
   }
 
-  if (!wallet) return null
+  if (!wallet || !displayAddress) return null
 
-  // Smart account = DeCleanup identity + Impact Portfolio address
-  const identityAddress = wallet.smartAccountAddress
-  const networkShort = wallet.chainId === 42220 || wallet.chainId === 11142220 ? 'Celo' : chainLabelFromId(wallet.chainId)
+  const networkShort =
+    wallet.chainId === 42220 || wallet.chainId === 11142220 ? 'Celo' : chainLabelFromId(wallet.chainId)
+  const portfolioHref = `/impact/${smartAccountAddress || displayAddress}`
 
   return (
     <>
@@ -110,15 +147,14 @@ export function WalletStatusCard({ wallet, loading }: Props) {
           <GasSponsorshipBadge enabled={wallet.gaslessEnabled} />
         </div>
 
-        <CopyableAddress address={identityAddress} truncate={false} className="text-sm text-gray-200" />
+        <CopyableAddress address={displayAddress} truncate={false} className="text-sm text-gray-200" />
 
         <p className="text-sm leading-relaxed text-gray-400">
-          This is your DeCleanup Network identity. Information about your impact and actions live on this
-          address.
+          This is your signer address — the same one MetaMask shows after you export your private key.
         </p>
 
         <Link
-          href={`/impact/${identityAddress}`}
+          href={portfolioHref}
           className="inline-flex text-sm font-medium text-brand-green hover:underline"
         >
           View impact portfolio
@@ -129,6 +165,12 @@ export function WalletStatusCard({ wallet, loading }: Props) {
             <span className="text-gray-500">Balance </span>
             <span className="font-medium text-white">{wallet.balance} CELO</span>
           </div>
+          {cdcuBalance ? (
+            <div>
+              <span className="text-gray-500">$cDCU </span>
+              <span className="font-medium text-white">{formatTokenDisplay(cdcuBalance)}</span>
+            </div>
+          ) : null}
           <div className="inline-flex items-center gap-1.5">
             <span className="text-gray-500">Network </span>
             <span className="font-medium text-white">{networkShort}</span>
