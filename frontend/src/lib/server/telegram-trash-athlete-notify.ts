@@ -1,6 +1,7 @@
 import 'server-only'
 import {
   TRASH_ATHLETE_BONUS_CDCU,
+  TRASH_ATHLETE_DCU_POINTS,
   TRASH_ATHLETE_LABEL,
   TRASH_ATHLETE_TARGET_LEVEL,
 } from '@/lib/trash-athlete/constants'
@@ -77,7 +78,7 @@ export async function notifyVerifiersOfTrashAthleteChallenge(
     `<b>When:</b> ${escapeHtml(submittedAt)}`,
     '',
     `<a href="${escapeHtml(socialUrl)}">Open social link</a>`,
-    `<b>Reward package:</b> level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_BONUS_CDCU} $cDCU`
+    `<b>Reward package:</b> level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU + ${TRASH_ATHLETE_BONUS_CDCU} $cDCU`
   )
 
   if (notes) {

@@ -13,11 +13,11 @@ create table if not exists public.trash_athlete_challenges (
   reviewed_at bigint,
   reviewed_by text,
   rejection_reason text,
-  -- Rewards unlocked on approve: level 3 + 30 DCU (ops/onchain) + 150 $cDCU (ClaimVault)
+  -- Rewards unlocked on approve: level 1 + 30 DCU (ops/onchain) + 150 $cDCU (ClaimVault)
   bonus_cdcu_amount numeric not null default 150,
   bonus_cdcu_claimed boolean not null default false,
   bonus_cdcu_claim_tx text,
-  level_target int not null default 3,
+  level_target int not null default 1,
   dcu_points_amount numeric not null default 30,
   level_grant_status text not null default 'pending'
     check (level_grant_status in ('pending', 'granted', 'skipped')),

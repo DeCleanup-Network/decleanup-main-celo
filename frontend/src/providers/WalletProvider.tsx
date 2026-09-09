@@ -703,6 +703,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setChainId(null)
             setBalance(null)
           } else {
+            // After a support reset, server has a new wallet while this device still has the old blob.
+            // Prefer the server record when addresses diverge so phone/desktop stay in sync.
+            const serverEoa = server.eoaAddress?.toLowerCase()
+            const serverSa = server.smartAccountAddress?.toLowerCase()
+            const localDivergesFromServer =
+              Boolean(server.hasWallet && server.encryptedBlob && serverEoa && serverSa) &&
+              (local.address.toLowerCase() !== serverEoa ||
+                local.smartAccountAddress.toLowerCase() !== serverSa)
+
+            if (
+              localDivergesFromServer &&
+              server.eoaAddress &&
+              server.smartAccountAddress &&
+              server.encryptedBlob
+            ) {
+              clearPasskeyUnlockRecord(uid)
+              const record: LocalWalletRecord = {
+                userId: uid,
+                address: server.eoaAddress as Address,
+                smartAccountAddress: server.smartAccountAddress as Address,
+                encryptedBlob: server.encryptedBlob as LocalWalletRecord['encryptedBlob'],
+                chainId: server.chainId ?? REQUIRED_CHAIN_ID,
+                updatedAt: new Date().toISOString(),
+              }
+              await saveEncryptedWallet(record)
+              applyRecord(record, false)
+              setBalance(server.balance ?? null)
+              setIsPasskeyEnabled(false)
+              setIsNewDevice(true)
+              return
+            }
+
             applyRecord(local, false)
             setIsPasskeyEnabled(hasPasskeyUnlockRecord(uid))
             if (server.hasWallet && server.smartAccountAddress) {

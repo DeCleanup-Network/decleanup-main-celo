@@ -52,7 +52,8 @@ export function WalletAccountHelpModal({
         <div className="grid gap-3 sm:grid-cols-2">
           <WalletHelpTopic label="Your wallet address">
             Your signer address on Celo — the same one MetaMask shows after you export your private key.
-            Impact portfolio and onchain cleanups use your smart account behind the scenes.
+            $cDCU balance and airdrops use this address. Impact portfolio and onchain cleanups use your
+            smart account behind the scenes.
             <span className="mt-2 block font-mono text-[10px] text-gray-500">{walletAddress}</span>
           </WalletHelpTopic>
 

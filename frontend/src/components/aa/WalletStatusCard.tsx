@@ -96,18 +96,18 @@ export function WalletStatusCard({ wallet, loading }: Props) {
   const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
   const [cdcuBalance, setCdcuBalance] = useState<string | null>(null)
 
-  /** Balances live on the smart account; displayed identity is the signer EOA (MetaMask). */
-  const smartAccountAddress = wallet?.smartAccountAddress
+  /** Display identity + $cDCU: signer EOA (MetaMask / import). CELO gas may still sit on the smart account. */
   const displayAddress = wallet?.eoaAddress || wallet?.smartAccountAddress
+  const cdcuBalanceAddress = (wallet?.eoaAddress || wallet?.smartAccountAddress) as Address | undefined
 
   useEffect(() => {
-    if (!smartAccountAddress) {
+    if (!cdcuBalanceAddress) {
       setCdcuBalance(null)
       return
     }
     let cancelled = false
     void (async () => {
-      const bal = await getClientCdcuTokenBalance(smartAccountAddress as Address)
+      const bal = await getClientCdcuTokenBalance(cdcuBalanceAddress)
       if (cancelled) return
       if (bal == null) {
         setCdcuBalance(null)
@@ -119,7 +119,7 @@ export function WalletStatusCard({ wallet, loading }: Props) {
     return () => {
       cancelled = true
     }
-  }, [smartAccountAddress])
+  }, [cdcuBalanceAddress])
 
   if (loading && !wallet) {
     return (
@@ -135,7 +135,7 @@ export function WalletStatusCard({ wallet, loading }: Props) {
 
   const networkShort =
     wallet.chainId === 42220 || wallet.chainId === 11142220 ? 'Celo' : chainLabelFromId(wallet.chainId)
-  const portfolioHref = `/impact/${smartAccountAddress || displayAddress}`
+  const portfolioHref = `/impact/${displayAddress}`
 
   return (
     <>

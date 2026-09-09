@@ -3,9 +3,9 @@
  * grant 30 DCU via DCURewardManager.distributeRewards to the **signer EOA**
  * (`trash_athlete_challenges.wallet_address` — MetaMask / import address).
  *
- * Level 3 and 150 $cDCU are also manual for now (Safe):
+ * Level 1 (verifyPOI + mint) and 150 $cDCU are also manual for now (Safe):
  *   - $cDCU: ClaimVault mint to the same signer EOA
- *   - Level: verifyPOI + mint/upgrade for that signer EOA
+ *   - Level: verifyPOI + mint for that signer EOA (owner mint = level 1)
  *
  * Usage (from frontend/):
  *   node scripts/grant-trash-athlete-dcu.mjs --wallet 0x... [--confirm]
@@ -128,4 +128,4 @@ const hash = await walletClient.writeContract({
 console.log('tx sent:', hash)
 const receipt = await publicClient.waitForTransactionReceipt({ hash })
 console.log('status:', receipt.status)
-console.log('OK: 30 DCU granted. Level 3 NFT still needs separate ops (mint + upgrades or contract upgrade).')
+console.log('OK: 30 DCU granted. Level 1 NFT still needs separate Safe ops (verifyPOI + mint).')
