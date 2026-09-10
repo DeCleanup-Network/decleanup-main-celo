@@ -113,25 +113,24 @@ Redeploy and test WalletConnect modal + Google OAuth popup.
 
 ---
 
-## 4. Phase 3 — Install UX (planned)
+## 4. Phase 3 — Install UX (**shipped**)
 
-1. Listen for `beforeinstallprompt` (Chromium).
-2. Show dismissible banner on home or guide: “Install DeCleanup Rewards”.
-3. Store dismissal in `localStorage` for 30 days.
-4. iOS: show instruction sheet (“Share → Add to Home Screen”) — no native prompt API.
+1. `beforeinstallprompt` banner — `PwaInstallBanner`
+2. Dismiss stored 30 days in `localStorage`
+3. iOS Share → Add to Home Screen copy in the same banner
 
----
+### 4.1 Shortcuts + splash (**shipped**)
 
-## 4.1 Icons and splash (gaps)
+| Piece | Where |
+|-------|--------|
+| Manifest shortcuts | `public/manifest.webmanifest` → Cleanup, Trash Athlete, Account, Guide |
+| Maskable icon | `public/icon-512-maskable.png` |
+| iOS startup images | `public/splash/*.png` + `appleWebApp.startupImage` in `metadata.ts` |
+| Regenerate assets | `node scripts/generate-pwa-splash.mjs` |
 
-| Asset | Size | Purpose |
-|-------|------|---------|
-| `icon-192.png` | 192×192 | Android launcher |
-| `icon-512.png` | 512×512 | Splash / high-DPI |
-| Maskable safe zone | 512 with padding | Android adaptive icon |
-| `apple-touch-startup-image` | multiple | iOS launch screen (optional) |
+### 4.2 Push notifications (**not shipped**)
 
-Update `manifest.webmanifest` `icons` array when files exist.
+Needs VAPID keys, subscription store, SW `push` handler, and user opt-in UX. Telegram verifier alerts remain the ops channel until product asks for Web Push.
 
 ---
 
