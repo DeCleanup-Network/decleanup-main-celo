@@ -48,6 +48,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Serwist (generated at build)
+public/sw*
+public/swe-worker*
+
 NOTES.md*
 
 /docs

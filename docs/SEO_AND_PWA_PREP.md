@@ -66,7 +66,7 @@ The landing page is a **client component**, but the root layout still ships **se
 
 ## Part 2 — PWA flow: current state, gaps, and compatibility
 
-### Current state (installed web app lite)
+### Current state (installable PWA)
 
 Already present:
 
@@ -76,19 +76,13 @@ Already present:
 | Manifest link | Root metadata `manifest: '/manifest.webmanifest'` |
 | `appleWebApp` meta | Root metadata |
 | Theme color | `viewport.themeColor` + manifest `theme_color` |
-| Icons referenced | `/icon.png`, `/apple-icon.png` (must exist in `public/` on deploy) |
+| Icons | `/icon.png`, `/apple-icon.png`, `/icon-512.png` |
+| Service worker (Serwist) | `src/app/sw.ts` → `public/sw.js` at build |
+| Offline page | `/~offline` |
+| Install banner | `PwaInstallBanner` (Chromium prompt + iOS Share hint) |
+| Update toast | `PwaUpdateToast` when a new SW is waiting |
 
-**Not present yet** (full PWA):
-
-| Missing piece | Why it matters |
-|---------------|----------------|
-| Service worker | Offline shell, precache, “Add to Home Screen” prompts on Android Chrome |
-| Install UI | Custom `beforeinstallprompt` banner |
-| Maskable icons (192, 512) | Better Android launcher icon |
-| iOS splash / `apple-touch-startup-image` | Polished launch on iPhone |
-| `display_override` / shortcuts | Optional UX |
-| Push notifications | Out of scope unless product asks |
-| SW cache policy for `/api/*` | **Critical** — wrong caching breaks auth |
+**API / auth / AA / passkey routes are NetworkOnly** — never cached by the SW.
 
 ### Recommended PWA implementation order
 

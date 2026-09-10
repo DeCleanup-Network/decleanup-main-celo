@@ -7,6 +7,8 @@ import { SiteFooterLinks } from '@/components/layout/SiteFooterLinks'
 import { RootErrorBoundary } from '@/components/RootErrorBoundary'
 import { ChunkLoadRecovery } from '@/components/ChunkLoadRecovery'
 import { HypercertPublishedNotifier } from '@/components/hypercerts/HypercertPublishedNotifier'
+import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner'
+import { PwaUpdateToast } from '@/components/pwa/PwaUpdateToast'
 import { useAutoSwitchToAppChain } from '@/hooks/useAutoSwitchToAppChain'
 import { usePathname } from 'next/navigation'
 import type { State } from 'wagmi'
@@ -36,6 +38,8 @@ export default function RootClientBody({
         <div className="flex min-h-screen flex-col">
           <ChunkLoadRecovery />
           <HypercertPublishedNotifier />
+          <PwaUpdateToast />
+          <PwaInstallBanner />
           <AutoSwitchToAppChain />
           <NetworkChecker />
           <Header />

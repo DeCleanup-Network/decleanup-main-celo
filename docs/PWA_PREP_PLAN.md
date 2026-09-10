@@ -1,6 +1,6 @@
 # PWA preparation plan (DeCleanup Rewards)
 
-**Status:** Phase 1 shipped in code (manifest + meta). **Phase 2+** not implemented (service worker, install UI).
+**Status:** Phase 1 (manifest) + **Phase 2 (Serwist SW)** + **Phase 3 (install banner)** shipped in code.
 
 **Canonical install origin:** `https://dapp.decleanup.net` only.
 
@@ -51,16 +51,23 @@ DeCleanup Rewards is **auth-heavy** and **wallet-heavy**. A bad service worker i
 
 ---
 
-## 3. Phase 2 — Service worker (planned)
+## 3. Phase 2 — Service worker (**shipped**)
 
-### 3.1 Recommended library
+### Implementation
 
-| Option | Fit |
-|--------|-----|
-| **Serwist** (`@serwist/next`) | App Router, maintained, granular routing |
-| **@ducanh2912/next-pwa** | Wrapper around Workbox for Next |
+| Piece | Path |
+|-------|------|
+| Serwist wrapper | `frontend/next.config.mjs` (`withSerwist`, disabled in `dev`) |
+| Worker source | `frontend/src/app/sw.ts` |
+| Offline fallback | `frontend/src/app/~offline/page.tsx` (precached) |
+| Install banner | `frontend/src/components/pwa/PwaInstallBanner.tsx` |
+| Update toast | `frontend/src/components/pwa/PwaUpdateToast.tsx` |
 
-Pick one; do not hand-roll fetch interception.
+Generated at build: `frontend/public/sw.js` (gitignored).
+
+### 3.1 Library
+
+**Serwist** (`@serwist/next` + `serwist`) — App Router, maintained.
 
 ### 3.2 Cache policy (non-negotiable)
 

@@ -17,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
         '/profile',
         '/cleanup',
         '/login',
+        '/~offline',
         '/import-wallet',
         '/recovery',
         '/create-hypercert',

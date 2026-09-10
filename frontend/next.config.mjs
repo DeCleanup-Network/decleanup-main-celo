@@ -1,6 +1,30 @@
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import withSerwistInit from '@serwist/next'
 import { buildContentSecurityPolicy, getSecurityHeaders } from './csp-headers.mjs'
 
 const isDev = process.env.NODE_ENV !== 'production'
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+function offlineRevision() {
+  try {
+    const offlinePage = readFileSync(join(__dirname, 'src/app/~offline/page.tsx'), 'utf8')
+    return createHash('md5').update(offlinePage).digest('hex')
+  } catch {
+    return String(Date.now())
+  }
+}
+
+const withSerwist = withSerwistInit({
+  swSrc: 'src/app/sw.ts',
+  swDest: 'public/sw.js',
+  disable: isDev,
+  register: true,
+  reloadOnOnline: true,
+  additionalPrecacheEntries: [{ url: '/~offline', revision: offlineRevision() }],
+})
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -18,41 +42,49 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/manifest.webmanifest",
+        source: '/manifest.webmanifest',
         headers: [
-          { key: "Content-Type", value: "application/manifest+json" },
-          { key: "Cache-Control", value: "public, max-age=86400" },
+          { key: 'Content-Type', value: 'application/manifest+json' },
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
         ],
       },
       {
-        source: "/.well-known/:path*",
+        source: '/sw.js',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
+        source: '/.well-known/:path*',
         headers: [
           {
-            key: "Access-Control-Allow-Origin",
-            value: "*",
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
           },
           {
-            key: "Content-Type",
-            value: "application/json",
+            key: 'Content-Type',
+            value: 'application/json',
           },
         ],
       },
       // Allow Google/Web3Auth popup to complete (fixes "Cross-Origin-Opener-Policy policy would block the window.closed call")
       {
-        source: "/:path*",
+        source: '/:path*',
         headers: [
           {
-            key: "Cross-Origin-Opener-Policy",
-            value: "same-origin-allow-popups",
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
           },
           ...getSecurityHeaders(isDev),
           {
-            key: "Content-Security-Policy",
+            key: 'Content-Security-Policy',
             value: buildContentSecurityPolicy(isDev),
           },
         ],
       },
-    ];
+    ]
   },
   // Webpack: resolve optional/React Native deps so layout and app chunks build (client + server)
   webpack: (config, { isServer, dev }) => {
@@ -63,14 +95,14 @@ const nextConfig = {
       // Fix Privy build error: dangling Farcaster dependencies
       '@farcaster/mini-app-solana': false,
       '@farcaster/mini-app-sdk': false,
-    };
+    }
     // Optional pino dev dependency used by WalletConnect; avoid "Module not found" on server
     config.resolve.fallback = {
       ...config.resolve.fallback,
       'pino-pretty': false,
       '@farcaster/mini-app-solana': false,
       '@farcaster/mini-app-sdk': false,
-    };
+    }
     // Disable persistent cache in dev to avoid 500s from stale vendor-chunks (ERR_ABORTED on layout.css, app/page.js, etc.)
     if (dev) {
       // Default OFF: stale vendor-chunks (e.g. lucide-react.js) cause 500s after turbo/webpack switches.
@@ -88,9 +120,8 @@ const nextConfig = {
       // Do not set config.devtool — Next.js 14 forces eval-source-map in dev and logs
       // https://nextjs.org/docs/messages/improper-devtool if you override it.
     }
-    return config;
+    return config
   },
-};
+}
 
-export default nextConfig;
-
+export default withSerwist(nextConfig)
