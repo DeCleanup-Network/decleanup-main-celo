@@ -67,6 +67,16 @@ export function useHomeReferralNotification({
               const dismissedKey = `referral_notification_dismissed_${displayReferrer.toLowerCase()}`
               if (!localStorage.getItem(dismissedKey)) {
                 setShowReferralNotification(true)
+                const emittedKey = `referral_notification_emitted_${displayReferrer.toLowerCase()}`
+                if (!localStorage.getItem(emittedKey)) {
+                  localStorage.setItem(emittedKey, '1')
+                  void import('@/lib/notifications/client-emit').then(({ emitNotificationEvent }) => {
+                    emitNotificationEvent({
+                      event: 'referral_joined',
+                      meta: { referrer: displayReferrer },
+                    })
+                  })
+                }
               }
             }
             return
@@ -95,6 +105,16 @@ export function useHomeReferralNotification({
             const dismissedKey = `referral_notification_dismissed_${referrerAddr.toLowerCase()}`
             if (!localStorage.getItem(dismissedKey)) {
               setShowReferralNotification(true)
+              const emittedKey = `referral_notification_emitted_${referrerAddr.toLowerCase()}`
+              if (!localStorage.getItem(emittedKey)) {
+                localStorage.setItem(emittedKey, '1')
+                void import('@/lib/notifications/client-emit').then(({ emitNotificationEvent }) => {
+                  emitNotificationEvent({
+                    event: 'referral_joined',
+                    meta: { referrer: referrerAddr },
+                  })
+                })
+              }
             }
             const scope = (publicWalletAddress ?? address).toLowerCase()
             localStorage.setItem(`referrer_${scope}`, referrerAddr)
@@ -110,6 +130,16 @@ export function useHomeReferralNotification({
             const dismissedKey = `referral_notification_dismissed_${referrerAddr.toLowerCase()}`
             if (!localStorage.getItem(dismissedKey)) {
               setShowReferralNotification(true)
+              const emittedKey = `referral_notification_emitted_${referrerAddr.toLowerCase()}`
+              if (!localStorage.getItem(emittedKey)) {
+                localStorage.setItem(emittedKey, '1')
+                void import('@/lib/notifications/client-emit').then(({ emitNotificationEvent }) => {
+                  emitNotificationEvent({
+                    event: 'referral_joined',
+                    meta: { referrer: referrerAddr },
+                  })
+                })
+              }
             }
           } else {
             setShowReferralNotification(false)

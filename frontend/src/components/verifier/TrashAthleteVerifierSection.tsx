@@ -9,7 +9,8 @@ import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 import {
   TRASH_ATHLETE_BONUS_CDCU,
   TRASH_ATHLETE_DCU_POINTS,
-  TRASH_ATHLETE_TARGET_LEVEL,
+  TRASH_ATHLETE_LEVEL_COPY,
+  TRASH_ATHLETE_OPS_NOTE,
 } from '@/lib/trash-athlete/constants'
 
 type Props = {
@@ -94,7 +95,7 @@ export function TrashAthleteVerifierSection({
           action === 'approve'
             ? typeof data.rewardsNote === 'string' && data.rewardsNote
               ? data.rewardsNote
-              : `Approved. Ops will send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the signer address.`
+              : `Approved. Ops will send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + ${TRASH_ATHLETE_LEVEL_COPY} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the signer. ${TRASH_ATHLETE_OPS_NOTE}`
             : 'Rejected.',
       })
       onChanged()
@@ -116,8 +117,9 @@ export function TrashAthleteVerifierSection({
         Trash Athlete Challenges
       </h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Open the social link and confirm cleanup photos before approving. Reward: level{' '}
-        {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU + {TRASH_ATHLETE_BONUS_CDCU} $cDCU.
+        Open the social link and confirm cleanup photos before approving. Reward: {TRASH_ATHLETE_LEVEL_COPY} +{' '}
+        {TRASH_ATHLETE_DCU_POINTS} DCU + {TRASH_ATHLETE_BONUS_CDCU} $cDCU. If they already have an NFT, tell them to
+        Claim/Upgrade once — do not Safe-mint again.
       </p>
       {challenges.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
@@ -193,9 +195,8 @@ export function TrashAthleteVerifierSection({
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  After approve, ops sends {TRASH_ATHLETE_BONUS_CDCU} $cDCU + level{' '}
-                  {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU to the signer
-                  address.
+                  After approve, ops sends {TRASH_ATHLETE_BONUS_CDCU} $cDCU + {TRASH_ATHLETE_LEVEL_COPY} +{' '}
+                  {TRASH_ATHLETE_DCU_POINTS} DCU to the signer. Check NFT balance: mint if 0, else user upgrades once.
                 </p>
               </div>
             </div>

@@ -10,19 +10,25 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  name               String?
-  email              String?             @unique
-  emailVerified      DateTime?
-  image              String?
-  accounts           Account[]
-  sessions           Session[]
-  wallet             UserWallet?
-  passkeyCredentials PasskeyCredential[]
-  passkeyUnlock      PasskeyUnlockSecret?
-  webAuthnChallenges WebAuthnChallenge[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                   String                     @id @default(cuid())
+  name                 String?
+  email                String?                    @unique
+  emailVerified        DateTime?
+  image                String?
+  accounts             Account[]
+  sessions             Session[]
+  wallet               UserWallet?
+  passkeyCredentials   PasskeyCredential[]
+  passkeyUnlock        PasskeyUnlockSecret?
+  webAuthnChallenges   WebAuthnChallenge[]
+  notifications        UserNotification[]
+  pushSubscriptions    PushSubscription[]
+  contributorWelcomeGrants ContributorWelcomeGrant[]
+  /// Prefer email/push for reward & security events (default on).
+  notifyEmail          Boolean                    @default(true)
+  notifyPush           Boolean                    @default(true)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
 }
 
 model Account {
@@ -111,4 +117,65 @@ model WebAuthnChallenge {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// In-app notification inbox (email/push fan-out via NotificationService).
+model UserNotification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String    @db.Text
+  href      String?
+  meta      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@index([type])
+}
+
+/// Web Push subscription (VAPID). Unique endpoint across users.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// Idempotent 10 DCU welcome when a registered user is listed as a contributor.
+model ContributorWelcomeGrant {
+  id                String   @id @default(cuid())
+  contributorUserId String
+  contributor       User     @relation(fields: [contributorUserId], references: [id], onDelete: Cascade)
+  submissionId      String
+  amountDcu         Int      @default(10)
+  /// recorded | pending_ops | distributed
+  status            String   @default("recorded")
+  grantedAt         DateTime @default(now())
+
+  @@unique([contributorUserId, submissionId])
+  @@index([submissionId])
+}
+
+/// Contributors listed on a cleanup (matched after verification).
+model CleanupContributorEntry {
+  id           String   @id @default(cuid())
+  submissionId String
+  identifier   String
+  normalized   String
+  /// email | address | ens
+  kind         String
+  createdAt    DateTime @default(now())
+
+  @@unique([submissionId, normalized])
+  @@index([submissionId])
 }

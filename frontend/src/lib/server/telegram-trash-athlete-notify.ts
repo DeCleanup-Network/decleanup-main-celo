@@ -3,7 +3,8 @@ import {
   TRASH_ATHLETE_BONUS_CDCU,
   TRASH_ATHLETE_DCU_POINTS,
   TRASH_ATHLETE_LABEL,
-  TRASH_ATHLETE_TARGET_LEVEL,
+  TRASH_ATHLETE_LEVEL_COPY,
+  TRASH_ATHLETE_OPS_NOTE,
 } from '@/lib/trash-athlete/constants'
 import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 import { getTelegramConfig } from '@/lib/server/telegram-config'
@@ -78,7 +79,8 @@ export async function notifyVerifiersOfTrashAthleteChallenge(
     `<b>When:</b> ${escapeHtml(submittedAt)}`,
     '',
     `<a href="${escapeHtml(socialUrl)}">Open social link</a>`,
-    `<b>Reward package:</b> level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU + ${TRASH_ATHLETE_BONUS_CDCU} $cDCU`
+    `<b>Reward package:</b> ${escapeHtml(TRASH_ATHLETE_LEVEL_COPY)} + ${TRASH_ATHLETE_DCU_POINTS} DCU + ${TRASH_ATHLETE_BONUS_CDCU} $cDCU`,
+    `<i>${escapeHtml(TRASH_ATHLETE_OPS_NOTE)}</i>`
   )
 
   if (notes) {

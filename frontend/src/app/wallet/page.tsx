@@ -27,6 +27,14 @@ const MetamaskExportSection = dynamic(
   { ssr: false, loading: () => <div className="h-16 animate-pulse rounded-xl bg-gray-900/50" /> }
 )
 
+const PushNotificationSettings = dynamic(
+  () =>
+    import('@/components/notifications/PushNotificationSettings').then((m) => ({
+      default: m.PushNotificationSettings,
+    })),
+  { ssr: false, loading: () => <div className="h-24 animate-pulse rounded-xl bg-gray-900/50" /> }
+)
+
 export default function AccountSettingsPage() {
   const { status } = useSession()
   const router = useRouter()
@@ -123,6 +131,7 @@ export default function AccountSettingsPage() {
 
           {phase !== 'pending-password' && <PasskeySettings />}
           {(phase === 'locked' || phase === 'unlocked') && <MetamaskExportSection />}
+          {(phase === 'locked' || phase === 'unlocked') && <PushNotificationSettings />}
         </>
       )}
     </div>

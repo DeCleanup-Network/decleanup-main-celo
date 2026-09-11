@@ -699,6 +699,9 @@ useEffect(() => {
                   variant: 'success',
                   message: 'Claim submitted!\n\nYour claim transaction was sent.\n\nPlease wait for confirmation and refresh the page in a moment.',
                 })
+
+                const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
+                emitNotificationEvent({ event: 'level_claimed' })
             
                 // Refresh local status + profile data + cleanup status
                 if (address && onchainOwner && publicAddress) {

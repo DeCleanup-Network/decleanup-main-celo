@@ -5,7 +5,7 @@ import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 import {
   TRASH_ATHLETE_BONUS_CDCU,
   TRASH_ATHLETE_DCU_POINTS,
-  TRASH_ATHLETE_TARGET_LEVEL,
+  TRASH_ATHLETE_LEVEL_COPY,
 } from '@/lib/trash-athlete/constants'
 
 type Props = {
@@ -54,8 +54,8 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
         Challenge approved
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        Verified. The team will send {amountLabel} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
-        {TRASH_ATHLETE_DCU_POINTS} DCU to your address:{' '}
+        Verified. The team will send {amountLabel} $cDCU tokens, {TRASH_ATHLETE_LEVEL_COPY} (mint if you have no NFT;
+        otherwise Claim/Upgrade once in the app), and {TRASH_ATHLETE_DCU_POINTS} DCU to your address:{' '}
         <span className="break-all font-mono text-[11px] text-foreground">{signer}</span>
       </p>
     </div>

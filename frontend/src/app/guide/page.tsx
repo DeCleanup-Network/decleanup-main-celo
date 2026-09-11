@@ -310,6 +310,11 @@ export default function UserGuidePage() {
               </ul>
             </div>
 
+            <div className="mb-5 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/60">
+              <strong className="text-white">Push notifications:</strong> enable them in Account Settings. On iPhone they
+              only work after you add DeCleanup Rewards to your Home Screen (Safari → Share → Add to Home Screen).
+            </div>
+
             <h3 className="font-heading mb-3 text-base font-semibold text-white">Steps to secure your wallet</h3>
             <ol className="mb-5 space-y-3">
               {WALLET_SECURITY_STEPS.map((step, index) => (

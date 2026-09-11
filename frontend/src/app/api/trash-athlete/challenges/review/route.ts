@@ -10,7 +10,8 @@ import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 import {
   TRASH_ATHLETE_BONUS_CDCU,
   TRASH_ATHLETE_DCU_POINTS,
-  TRASH_ATHLETE_TARGET_LEVEL,
+  TRASH_ATHLETE_LEVEL_COPY,
+  TRASH_ATHLETE_OPS_NOTE,
 } from '@/lib/trash-athlete/constants'
 
 export const runtime = 'nodejs'
@@ -88,12 +89,18 @@ export async function POST(request: NextRequest) {
       rejectionReason: body.reason,
     })
 
+    const wallet = updated?.walletAddress || existing.walletAddress
+    if (wallet) {
+      const { notifyTrashAthleteReview } = await import('@/lib/server/notifications/events')
+      await notifyTrashAthleteReview(wallet, body.action, challengeId)
+    }
+
     return NextResponse.json({
       success: true,
       challenge: updated,
       rewardsNote:
         body.action === 'approve'
-          ? `Approved. Ops: send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the signer address.`
+          ? `Approved. Ops: send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + ${TRASH_ATHLETE_LEVEL_COPY} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the signer. ${TRASH_ATHLETE_OPS_NOTE}`
           : undefined,
     })
   } catch (e) {

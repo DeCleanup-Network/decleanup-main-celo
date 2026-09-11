@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { WalletErrorBoundary } from '@/features/wallet/components/WalletErrorBoundary'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 export function Header() {
   return (
@@ -21,7 +22,8 @@ export function Header() {
             />
           </Link>
 
-          <div className="min-w-0 flex-shrink flex justify-end">
+          <div className="min-w-0 flex-shrink flex items-center justify-end gap-1 sm:gap-2">
+            <NotificationBell />
             <WalletErrorBoundary>
               <WalletConnect />
             </WalletErrorBoundary>

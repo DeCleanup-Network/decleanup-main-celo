@@ -56,4 +56,49 @@ self.addEventListener('message', (event) => {
   }
 })
 
+self.addEventListener('push', (event) => {
+  let title = 'DeCleanup Rewards'
+  let body = 'You have a new update'
+  let href = '/'
+  try {
+    const data = event.data?.json() as { title?: string; body?: string; href?: string } | undefined
+    if (data?.title) title = data.title
+    if (data?.body) body = data.body
+    if (data?.href) href = data.href
+  } catch {
+    const text = event.data?.text()
+    if (text) body = text
+  }
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { href },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const href =
+    (event.notification.data && (event.notification.data as { href?: string }).href) || '/'
+  const url = new URL(href, self.location.origin).href
+  event.waitUntil(
+    (async () => {
+      const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of clientsList) {
+        if ('focus' in client) {
+          await client.focus()
+          if ('navigate' in client) {
+            await (client as WindowClient).navigate(url)
+          }
+          return
+        }
+      }
+      await self.clients.openWindow(url)
+    })()
+  )
+})
+
 serwist.addEventListeners()

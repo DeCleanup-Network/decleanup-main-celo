@@ -161,6 +161,10 @@ export async function PUT(request: NextRequest) {
     }
 
     await markTrashAthleteBonusClaimed({ id: challengeId, txHash })
+
+    const { notifyTrashAthleteRewards } = await import('@/lib/server/notifications/events')
+    await notifyTrashAthleteRewards(userId, challengeId)
+
     return NextResponse.json({ success: true })
   } catch (e) {
     logApiError('trash-athlete/claim-record', e)

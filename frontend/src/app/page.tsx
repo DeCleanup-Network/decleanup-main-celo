@@ -46,6 +46,8 @@ import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useHomeDashboardOnChain } from '@/hooks/useHomeDashboardOnChain'
 import { useHomeReferralNotification } from '@/hooks/useHomeReferralNotification'
+import { PriorityNotificationModal } from '@/components/notifications/PriorityNotificationModal'
+import { emitNotificationEvent } from '@/lib/notifications/client-emit'
 import {
   SignUnlockModal,
   type SignUnlockModalMode,
@@ -323,6 +325,8 @@ function HomeContent() {
         title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'Impact Product claimed',
         message: successMessage,
       })
+
+      emitNotificationEvent({ event: 'level_claimed' })
 
       setShowReferralNotification(false)
 
@@ -855,6 +859,8 @@ function HomeContent() {
           </Link>
         </div>
       </main>
+
+      <PriorityNotificationModal />
 
       {claimModal && (
         <AlertModal

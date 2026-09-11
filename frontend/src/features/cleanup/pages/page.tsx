@@ -1158,12 +1158,16 @@ function CleanupContent() {
     }
 
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
-    const invalidContributorEmails = enhancedData.contributors
+    const addrRe = /^0x[a-fA-F0-9]{40}$/
+    const ensRe = /^[a-z0-9-]+\.eth$/i
+    const invalidContributors = enhancedData.contributors
       .map((e) => e.trim())
-      .filter((e) => e.length > 0 && !emailRe.test(e))
-    if (invalidContributorEmails.length > 0) {
+      .filter(
+        (e) => e.length > 0 && !emailRe.test(e) && !addrRe.test(e) && !ensRe.test(e)
+      )
+    if (invalidContributors.length > 0) {
       setAlertModal({
-        message: `Contributor emails must be valid (e.g. name@example.com). Check: ${invalidContributorEmails.join(', ')}`,
+        message: `Contributors must be email, 0x wallet, or name.eth. Check: ${invalidContributors.join(', ')}`,
         variant: 'warning',
       })
       return
@@ -1445,6 +1449,29 @@ function CleanupContent() {
           submissionId: cleanupId.toString(),
           txHash: submitTxHash,
         })
+
+        {
+          const { emitNotificationEvent, registerContributorsClient } = await import(
+            '@/lib/notifications/client-emit'
+          )
+          emitNotificationEvent({
+            event: 'cleanup_submitted',
+            submissionId: cleanupId.toString(),
+          })
+          if (impactFormEligible) {
+            const contributorIds = enhancedData.contributors
+              .map((c) => c.trim())
+              .filter((c) => c.length > 0)
+            if (contributorIds.length > 0) {
+              registerContributorsClient({
+                submissionId: cleanupId.toString(),
+                contributors: contributorIds,
+                submitterWallet:
+                  (onchainOwnerAddress ?? submissionOwnerAddress ?? address) || undefined,
+              })
+            }
+          }
+        }
 
         if (impactFormEligible) {
           const contributorEmails = enhancedData.contributors
@@ -2876,7 +2903,7 @@ function CleanupContent() {
                 Contributors
               </label>
               <p className="mb-2 text-xs text-gray-500">
-                Add people who helped with this cleanup by email. Attribution only — no DCU for listed contributors.
+                Add people who helped by email, wallet (0x…), or ENS (name.eth). Registered users get 10 DCU after this cleanup is verified (once per submission). Unmatched contacts stay on the invite sheet.
               </p>
               <div className="space-y-2">
                 <div className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-400">
@@ -2886,16 +2913,16 @@ function CleanupContent() {
                 {enhancedData.contributors.map((contributor, idx) => (
                   <div key={idx} className="flex gap-2">
                     <input
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
+                      type="text"
+                      inputMode="text"
+                      autoComplete="off"
                       value={contributor}
                       onChange={(e) => {
                         const newContributors = [...enhancedData.contributors]
                         newContributors[idx] = e.target.value
                         setEnhancedData({ ...enhancedData, contributors: newContributors })
                       }}
-                      placeholder="contributor@email.com"
+                      placeholder="email, 0x…, or name.eth"
                       className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
                     />
                     <button

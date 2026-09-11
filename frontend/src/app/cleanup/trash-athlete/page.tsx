@@ -16,7 +16,7 @@ import {
   TRASH_ATHLETE_BONUS_CDCU,
   TRASH_ATHLETE_DCU_POINTS,
   TRASH_ATHLETE_LABEL,
-  TRASH_ATHLETE_TARGET_LEVEL,
+  TRASH_ATHLETE_LEVEL_COPY,
 } from '@/lib/trash-athlete/constants'
 import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 import { TrashAthleteBonusClaimCard } from '@/components/trash-athlete/TrashAthleteBonusClaimCard'
@@ -194,8 +194,8 @@ export default function TrashAthleteChallengePage() {
             How to participate: every day for a month remove one piece of litter from environment, post it
             on socials with hashtags #TrashMob2026MMDD, #GlobalCleanupGamesOrg and #DeCleanupNetwork. After
             30 days complete, share your result below. After verification, you receive{' '}
-            {TRASH_ATHLETE_BONUS_CDCU} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
-            {TRASH_ATHLETE_DCU_POINTS} DCU (sent by the team).
+            {TRASH_ATHLETE_BONUS_CDCU} $cDCU tokens, {TRASH_ATHLETE_LEVEL_COPY} (mint level 1 if you have no NFT yet;
+            otherwise open the app and Claim/Upgrade once), and {TRASH_ATHLETE_DCU_POINTS} DCU (sent by the team).
           </p>
           {walletConnected && !emailSignedIn ? (
             <p className="mt-2 font-mono text-[11px] text-muted-foreground">

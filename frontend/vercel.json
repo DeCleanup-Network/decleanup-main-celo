@@ -4,6 +4,12 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/streak-reminders",
+      "schedule": "0 */2 * * *"
+    }
+  ],
   "functions": {
     "src/app/api/ml-verification/verify/route.ts": {
       "maxDuration": 120

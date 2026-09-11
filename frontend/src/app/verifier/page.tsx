@@ -669,6 +669,16 @@ export default function VerifierPage() {
                 </>
             )
             setActionModal({ variant: 'success', title: 'Cleanup verified', message })
+            const verified = cleanups.find((c) => c.id === id)
+            if (verified?.user) {
+              const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
+              emitNotificationEvent({
+                event: 'cleanup_verified',
+                walletAddress: verified.user,
+                submissionId: id.toString(),
+                reviewer: address,
+              })
+            }
             setTimeout(() => {
                 void fetchCleanups()
             }, 2500)
@@ -723,6 +733,16 @@ export default function VerifierPage() {
                 </>
             )
             setActionModal({ variant: 'success', title: 'Cleanup rejected', message })
+            const rejected = cleanups.find((c) => c.id === id)
+            if (rejected?.user) {
+              const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
+              emitNotificationEvent({
+                event: 'cleanup_declined',
+                walletAddress: rejected.user,
+                submissionId: id.toString(),
+                reviewer: address,
+              })
+            }
             setTimeout(() => {
                 void fetchCleanups()
             }, 2500)

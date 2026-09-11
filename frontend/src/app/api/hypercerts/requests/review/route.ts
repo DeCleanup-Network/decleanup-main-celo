@@ -106,6 +106,30 @@ export async function POST(request: NextRequest) {
 
     const latest = await getHypercertRequestById(requestId)
 
+    const wallet = latest?.requester || existing.requester
+    if (wallet) {
+      const { notifyWallet } = await import('@/lib/server/notifications/events')
+      if (nextStatus === 'APPROVED') {
+        await notifyWallet(wallet, {
+          type: publishWarning ? 'hypercert_fail' : 'hypercert_success',
+          title: publishWarning ? 'Hypercert approved (publish issue)' : 'Hypercert approved',
+          body: publishWarning
+            ? `Your Hypercert was approved but publishing had an issue: ${publishWarning}`
+            : 'Your Hypercert request was approved and published.',
+          href: '/hypercerts',
+          meta: { requestId },
+        })
+      } else {
+        await notifyWallet(wallet, {
+          type: 'hypercert_fail',
+          title: 'Hypercert declined',
+          body: body.reason || 'Your Hypercert request was not approved.',
+          href: '/hypercerts',
+          meta: { requestId },
+        })
+      }
+    }
+
     return NextResponse.json({
       success: true,
       request: latest ?? updated,
