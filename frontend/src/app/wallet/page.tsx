@@ -113,7 +113,10 @@ export default function AccountSettingsPage() {
         <>
           {phase === 'pending-password' && <PendingPasswordSettings />}
 
-          <WalletStatusCard wallet={wallet} loading={loading} />
+          <section className="space-y-3">
+            <h2 className="font-heading text-sm tracking-wider text-gray-400">Your account</h2>
+            <WalletStatusCard wallet={wallet} loading={loading} />
+          </section>
 
           {phase === 'unlocked' && <WalletSessionBar />}
           {phase === 'locked' && <UnlockSigningForm />}

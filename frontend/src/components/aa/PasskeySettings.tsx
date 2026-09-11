@@ -95,7 +95,8 @@ export function PasskeySettings() {
       </summary>
       <div className="space-y-4 border-t border-gray-800 px-5 pb-5 pt-3">
         <p className="text-sm text-gray-400">
-          Unlock on this device without needing your {WALLET_PASSCODE_LOWER} each time.
+          Expand to turn Face ID / Touch ID on or off. Enabling asks for your {WALLET_PASSCODE_LOWER} once
+          on this device.
         </p>
         {open && loading ? (
           <p className="text-sm text-gray-400">Loading…</p>
@@ -116,7 +117,7 @@ export function PasskeySettings() {
                 className="border-red-900/50 text-red-300 hover:bg-red-950/30"
                 onClick={() => void removeAll()}
               >
-                {removing ? 'Removing…' : 'Remove biometrics'}
+                {removing ? 'Removing…' : 'Turn off Face ID / Touch ID'}
               </Button>
             )}
           </>

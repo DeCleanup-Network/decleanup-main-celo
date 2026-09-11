@@ -61,6 +61,7 @@ import {
 import { isVerifier } from '@/lib/blockchain/contracts'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
+import { useWallet } from '@/providers/WalletProvider'
 import {
   PROFILE_LIMITS,
   buildProfileSignMessage,
@@ -179,6 +180,7 @@ function PublicPortfolioContent() {
   const { data: session } = useSession()
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: connectedAddress } = useAccount()
+  const { eoaAddress, smartAccountAddress: embeddedSmartAccount } = useWallet()
   const { signMessageAsync } = useSignMessage()
   const { submissionOwnerAddress } = useSmartAccountClient()
   const params = useParams()
@@ -620,25 +622,45 @@ function PublicPortfolioContent() {
   }, [data, profile, ensName, shareUrl, endorsements, portfolioDisplayAddress])
 
   const canEditProfile = useMemo(() => {
-    if (!connectedAddress || !portfolioDisplayAddress) return false
-    const connected = connectedAddress.toLowerCase()
-    const owners = [
-      portfolioDisplayAddress.toLowerCase(),
-      walletIdentity?.smartAccountAddress?.toLowerCase(),
-      connectedOwnerEoa?.toLowerCase(),
-      effectiveSubmissionOwner?.toLowerCase(),
-      submissionOwnerOverride?.toLowerCase(),
-    ].filter(Boolean) as string[]
-    return owners.includes(connected)
+    if (!portfolioDisplayAddress) return false
+    const portfolio = portfolioDisplayAddress.toLowerCase()
+    const linkedEoa = walletIdentity?.eoaAddress?.toLowerCase()
+    const linkedSa = walletIdentity?.smartAccountAddress?.toLowerCase()
+    const myAddresses = [
+      connectedAddress,
+      eoaAddress,
+      embeddedSmartAccount,
+      submissionOwnerAddress,
+    ]
+      .filter(Boolean)
+      .map((a) => (a as string).toLowerCase())
+
+    for (const mine of myAddresses) {
+      if (mine === portfolio) return true
+      if (linkedEoa && mine === linkedEoa && (portfolio === linkedEoa || (linkedSa && portfolio === linkedSa))) {
+        return true
+      }
+      if (linkedSa && mine === linkedSa && ((linkedEoa && portfolio === linkedEoa) || portfolio === linkedSa)) {
+        return true
+      }
+    }
+    return false
   }, [
-    connectedAddress,
     portfolioDisplayAddress,
+    walletIdentity?.eoaAddress,
     walletIdentity?.smartAccountAddress,
-    connectedOwnerEoa,
-    effectiveSubmissionOwner,
-    submissionOwnerOverride,
+    connectedAddress,
+    eoaAddress,
+    embeddedSmartAccount,
+    submissionOwnerAddress,
   ])
 
+  const headerEmail = useMemo(() => {
+    if (profile?.showEmail && profile.publicEmail?.trim()) return profile.publicEmail.trim()
+    if (canEditProfile && sessionEmail) return sessionEmail
+    return null
+  }, [profile?.showEmail, profile?.publicEmail, canEditProfile, sessionEmail])
+  const headerEmailIsPublic = Boolean(profile?.showEmail && profile.publicEmail?.trim())
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="impact-portfolio-document mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:space-y-8 sm:py-10">
@@ -646,7 +668,7 @@ function PublicPortfolioContent() {
         <DeCleanupPageHero
           programWord="IMPACT PORTFOLIO"
           pageTagline="ESG disclosure · Creator portfolio"
-          description="Onchain verified cleanups, impact reports, and DCU rewards on Celo. Readable as a formal disclosure document."
+          description="Onchain verified cleanups, impact reports, and $cDCU rewards on Celo. Readable as a formal disclosure document."
           trailing={
             <Button asChild variant="outline" size="sm" className="border-border bg-card">
               <Link href="/">Home</Link>
@@ -701,17 +723,20 @@ function PublicPortfolioContent() {
                   />
                 </div>
               )}
-              {profile?.showEmail && profile.publicEmail?.trim() ? (
+              {headerEmail ? (
                 <p className="text-sm text-muted-foreground">
                   <span className="mr-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
                     Email
                   </span>
                   <a
-                    href={`mailto:${profile.publicEmail.trim()}`}
+                    href={`mailto:${headerEmail}`}
                     className="break-all text-foreground underline-offset-2 hover:underline"
                   >
-                    {profile.publicEmail.trim()}
+                    {headerEmail}
                   </a>
+                  {canEditProfile && !headerEmailIsPublic ? (
+                    <span className="ml-2 text-[11px] text-muted-foreground/70">(only you · enable in Edit profile)</span>
+                  ) : null}
                 </p>
               ) : null}
               {profile?.bio?.trim() ? (

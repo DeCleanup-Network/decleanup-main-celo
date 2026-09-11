@@ -53,7 +53,7 @@ export function SignUnlockModal({ open, onClose, onSuccess, mode, purpose }: Pro
               Unlock
             </h2>
             <p className="mb-4 text-center text-sm text-gray-400">
-              Use Face ID or your 6-digit account passcode.
+              Enter your 6-digit account passcode.
             </p>
             <PasscodeUnlockPanel
               compact

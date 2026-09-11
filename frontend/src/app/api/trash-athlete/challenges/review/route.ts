@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       challenge: updated,
       rewardsNote:
         body.action === 'approve'
-          ? `Approved. Ops: send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the user wallet (Safe).`
+          ? `Approved. Ops: send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the signer address.`
           : undefined,
     })
   } catch (e) {

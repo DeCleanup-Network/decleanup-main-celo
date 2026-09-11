@@ -94,7 +94,7 @@ export function TrashAthleteVerifierSection({
           action === 'approve'
             ? typeof data.rewardsNote === 'string' && data.rewardsNote
               ? data.rewardsNote
-              : `Approved. Ops will send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU.`
+              : `Approved. Ops will send ${TRASH_ATHLETE_BONUS_CDCU} $cDCU + level ${TRASH_ATHLETE_TARGET_LEVEL} + ${TRASH_ATHLETE_DCU_POINTS} DCU to the signer address.`
             : 'Rejected.',
       })
       onChanged()
@@ -195,7 +195,7 @@ export function TrashAthleteVerifierSection({
                 <p className="text-[11px] text-muted-foreground">
                   After approve, ops sends {TRASH_ATHLETE_BONUS_CDCU} $cDCU + level{' '}
                   {TRASH_ATHLETE_TARGET_LEVEL} + {TRASH_ATHLETE_DCU_POINTS} DCU to the signer
-                  address from the Safe.
+                  address.
                 </p>
               </div>
             </div>

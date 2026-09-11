@@ -12,9 +12,10 @@ type Props = {
   challenge: TrashAthleteChallenge
 }
 
-/** Approved status — rewards are sent manually by ops (Safe). */
+/** Approved status — rewards are sent manually by ops to the signer EOA. */
 export function TrashAthleteBonusClaimCard({ challenge }: Props) {
   const amountLabel = challenge.bonusCdcuAmount || TRASH_ATHLETE_BONUS_CDCU
+  const signer = challenge.walletAddress
 
   if (challenge.bonusCdcuClaimed && challenge.levelGrantStatus === 'granted') {
     return (
@@ -39,8 +40,7 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
               </a>
               )
             </>
-          ) : null}
-          {' '}
+          ) : null}{' '}
           and level / DCU grants are marked done for this challenge.
         </p>
       </div>
@@ -55,11 +55,8 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
         Verified. The team will send {amountLabel} $cDCU tokens, level {TRASH_ATHLETE_TARGET_LEVEL}, and{' '}
-        {TRASH_ATHLETE_DCU_POINTS} DCU to your signer address (the one you import to MetaMask). No action
-        needed here.
-      </p>
-      <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
-        Signer: {challenge.walletAddress}
+        {TRASH_ATHLETE_DCU_POINTS} DCU to your address:{' '}
+        <span className="break-all font-mono text-[11px] text-foreground">{signer}</span>
       </p>
     </div>
   )
