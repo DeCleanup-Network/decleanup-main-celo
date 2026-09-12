@@ -47,6 +47,7 @@ import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useHomeDashboardOnChain } from '@/hooks/useHomeDashboardOnChain'
 import { useHomeReferralNotification } from '@/hooks/useHomeReferralNotification'
 import { PriorityNotificationModal } from '@/components/notifications/PriorityNotificationModal'
+import { IosPushOptInBanner } from '@/components/notifications/IosPushOptInBanner'
 import { emitNotificationEvent } from '@/lib/notifications/client-emit'
 import {
   SignUnlockModal,
@@ -443,6 +444,7 @@ function HomeContent() {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 md:gap-10 px-4 py-4 sm:px-6 sm:py-6">
+        <IosPushOptInBanner />
         {aaEnabled && isEmbeddedAccount && walletPhase === 'pending-password' && (
           <div className="rounded-lg border border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400">
             Wallet locked.{' '}

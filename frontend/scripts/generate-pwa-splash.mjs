@@ -57,19 +57,50 @@ for (const { w, h, file } of SPLASHES) {
   console.log('wrote', file, `${w}x${h}`, `(logo ${logoSize} from ${srcW})`)
 }
 
-// Maskable-friendly 512 with safe-zone padding (Android adaptive)
-const pad = 96
+// Maskable: full-bleed brand green + logo in safe zone (avoid black padding on desktop PWAs).
+const pad = Math.round(512 * 0.1)
 const inner = 512 - pad * 2
-const paddedIcon = await sharp(iconPath)
-  .resize(inner, inner, { fit: 'contain', background: BG })
+const { data: raw, info: rawInfo } = await sharp(iconPath)
+  .resize(inner, inner, { fit: 'fill' })
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true })
+const px = new Uint8ClampedArray(raw)
+const iw = rawInfo.width
+const ih = rawInfo.height
+const visited = new Uint8Array(iw * ih)
+const isMatte = (i) => {
+  const o = i * 4
+  return px[o] < 18 && px[o + 1] < 18 && px[o + 2] < 18
+}
+const stack = [0, iw - 1, (ih - 1) * iw, (ih - 1) * iw + (iw - 1)]
+while (stack.length) {
+  const i = stack.pop()
+  if (i < 0 || i >= iw * ih || visited[i]) continue
+  visited[i] = 1
+  if (!isMatte(i)) continue
+  px[i * 4 + 3] = 0
+  const x = i % iw
+  const y = (i / iw) | 0
+  if (x > 0) stack.push(i - 1)
+  if (x < iw - 1) stack.push(i + 1)
+  if (y > 0) stack.push(i - iw)
+  if (y < ih - 1) stack.push(i + iw)
+}
+const paddedIcon = await sharp(px, { raw: { width: iw, height: ih, channels: 4 } })
   .png()
   .toBuffer()
 
 await sharp({
-  create: { width: 512, height: 512, channels: 4, background: BG },
+  create: {
+    width: 512,
+    height: 512,
+    channels: 4,
+    background: { r: 34, g: 120, b: 48, alpha: 1 },
+  },
 })
   .composite([{ input: paddedIcon, left: pad, top: pad }])
-  .png()
+  .png({ compressionLevel: 9 })
   .toFile(join(root, 'public', 'icon-512-maskable.png'))
 
 console.log('wrote icon-512-maskable.png')

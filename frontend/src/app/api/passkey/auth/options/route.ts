@@ -16,7 +16,9 @@ export async function POST() {
       return NextResponse.json({ error: 'No passkeys registered' }, { status: 404 })
     }
 
-    // Prefer on-device Face ID / Touch ID — hybrid transport opens QR / cross-device on iOS Safari.
+  // Prefer on-device Face ID / Touch ID — hybrid transport opens QR / cross-device on iOS Safari.
+    // Empty allowCredentials would also prefer discoverable credentials; we keep explicit IDs
+    // so a re-install can still assert the same Keychain passkey for this account.
     const options = await generateAuthenticationOptions({
       rpID: getWebAuthnRpId(),
       allowCredentials: credentials.map((c) => ({

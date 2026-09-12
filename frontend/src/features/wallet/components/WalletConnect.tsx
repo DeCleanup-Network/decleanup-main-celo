@@ -68,7 +68,12 @@ export function WalletConnect() {
         </div>
       )
     }
-    return null
+    // Guest: header must still offer a path to Google / email / MetaMask / WalletConnect
+    return (
+      <Button asChild variant="brandGhost" size="sm">
+        <Link href="/login?callbackUrl=/">Log in</Link>
+      </Button>
+    )
   }
 
   const isPrivyEnabled = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)

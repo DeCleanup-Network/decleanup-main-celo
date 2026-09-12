@@ -450,33 +450,15 @@
   z-index: 5;
 }
 
-/* WalletConnect / Reown AppKit modals above app chrome */
+/* WalletConnect / Reown AppKit modals above app chrome.
+   Do NOT force display/position — that keeps closed modals as full-screen overlays
+   and blocks desktop MetaMask / WalletConnect clicks. */
 [data-rk] [role="dialog"],
 div[id^="rk_connect"],
 wcm-modal,
 w3m-modal,
 appkit-modal {
   z-index: 2147483647 !important;
-}
-
-wcm-modal,
-w3m-modal,
-appkit-modal {
-  position: fixed !important;
-  inset: 0 !important;
-  display: flex !important;
-  align-items: flex-end !important;
-  justify-content: center !important;
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
-}
-
-@media (min-width: 640px) {
-  wcm-modal,
-  w3m-modal,
-  appkit-modal {
-    align-items: center !important;
-    padding-bottom: 0 !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

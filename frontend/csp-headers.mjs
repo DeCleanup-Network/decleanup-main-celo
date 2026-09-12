@@ -37,6 +37,8 @@ const WALLETCONNECT_CONNECT = [
   'wss://*.walletconnect.com',
   'https://api.reown.com',
   'https://*.reown.com',
+  'https://rpc.walletconnect.org',
+  'https://rpc.walletconnect.com',
 ].join(' ')
 
 /** Ethereum mainnet RPC for ENS / optional client reads (server API preferred for ENS). */
@@ -90,6 +92,8 @@ export function buildContentSecurityPolicy(isDev) {
       : "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
+    // Cleanup optional video preview uses blob:; IPFS / Pinata playback uses https:
+    "media-src 'self' blob: data: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${connectSrc}`,
     `frame-src 'self' ${WALLETCONNECT_FRAMES} ${GOOGLE_AUTH}`,

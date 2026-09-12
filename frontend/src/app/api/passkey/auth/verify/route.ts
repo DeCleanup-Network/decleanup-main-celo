@@ -8,7 +8,7 @@ import {
   toWebAuthnCredential,
   updatePasskeyCounter,
 } from '@/lib/passkey/repository'
-import { getPasskeyUnlockSecret } from '@/lib/passkey/unlock-secret'
+import { getOrCreatePasskeyUnlockSecret } from '@/lib/passkey/unlock-secret'
 import { getWebAuthnOrigins, getWebAuthnRpId } from '@/lib/passkey/config'
 
 export const dynamic = 'force-dynamic'
@@ -43,10 +43,7 @@ export async function POST(request: Request) {
 
     await updatePasskeyCounter(credentialId, verification.authenticationInfo.newCounter)
 
-    const unlockKey = await getPasskeyUnlockSecret(userId)
-    if (!unlockKey) {
-      return NextResponse.json({ error: 'Passkey unlock not configured' }, { status: 400 })
-    }
+    const unlockKey = await getOrCreatePasskeyUnlockSecret(userId)
 
     return NextResponse.json({
       ok: true,

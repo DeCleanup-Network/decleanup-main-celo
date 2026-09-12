@@ -13,6 +13,8 @@ import { processContributorWelcomeOnVerify } from '@/lib/server/contributors/wel
 import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 import { findWalletMetadata } from '@/lib/wallet/repository'
+import { getOnChainSubmissionStatus } from '@/lib/server/notifications/onchain-submission-status'
+import { enforceApiRateLimit } from '@/lib/server/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -49,7 +51,6 @@ async function assertVerifierOrSelf(params: {
     if (can) return { ok: true }
   }
 
-  // Session user who is a verifier (wallet from their account)
   if (params.sessionUserId) {
     const meta = await findWalletMetadata(params.sessionUserId)
     const addr = meta?.address || meta?.smartAccountAddress
@@ -61,7 +62,7 @@ async function assertVerifierOrSelf(params: {
 
 /**
  * Client/server event bus → NotificationService.
- * Self events require session; verify/decline require verifier.
+ * cleanup_verified / cleanup_declined: confirm on-chain status (reliable even without Auth.js session).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -108,30 +109,100 @@ export async function POST(request: NextRequest) {
 
       case 'cleanup_verified':
       case 'cleanup_declined': {
-        const wallet = body.walletAddress?.trim()
         const submissionId = body.submissionId?.trim()
-        if (!wallet || !isAddress(wallet) || !submissionId) {
-          return NextResponse.json({ error: 'walletAddress and submissionId required' }, { status: 400 })
+        if (!submissionId) {
+          return NextResponse.json({ error: 'submissionId required' }, { status: 400 })
         }
-        const authz = await assertVerifierOrSelf({
-          sessionUserId,
-          targetWallet: wallet,
-          reviewer: body.reviewer,
-          allowSelf: false,
+
+        const limited = await enforceApiRateLimit({
+          request,
+          scope: 'notify-cleanup-review',
+          maxRequests: 30,
+          windowMs: 60_000,
+          walletAddress: body.reviewer || body.walletAddress || null,
         })
-        if (!authz.ok) {
-          return NextResponse.json({ error: authz.error }, { status: authz.status })
+        if (!limited.ok) return limited.response
+
+        // Prefer on-chain truth so wallet-only verifiers (no Auth.js session) still notify.
+        const onchain = await getOnChainSubmissionStatus(submissionId)
+        if (!onchain) {
+          // Fallback to reviewer auth + client-supplied wallet if RPC/ABI fails
+          const wallet = body.walletAddress?.trim()
+          if (!wallet || !isAddress(wallet)) {
+            return NextResponse.json(
+              { error: 'Could not read submission on-chain; walletAddress required' },
+              { status: 502 }
+            )
+          }
+          const authz = await assertVerifierOrSelf({
+            sessionUserId,
+            targetWallet: wallet,
+            reviewer: body.reviewer,
+            allowSelf: false,
+          })
+          if (!authz.ok) {
+            return NextResponse.json({ error: authz.error }, { status: authz.status })
+          }
+          if (event === 'cleanup_verified') {
+            const n = await notifyCleanupVerified(wallet, submissionId)
+            const welcome = await processContributorWelcomeOnVerify({
+              submissionId,
+              submitterWallet: wallet,
+            })
+            return NextResponse.json({
+              success: true,
+              notified: Boolean(n),
+              matchedUser: Boolean(n),
+              contributorGrants: welcome.granted,
+              source: 'client-wallet',
+            })
+          }
+          const n = await notifyCleanupDeclined(wallet, submissionId)
+          return NextResponse.json({
+            success: true,
+            notified: Boolean(n),
+            matchedUser: Boolean(n),
+            source: 'client-wallet',
+          })
         }
+
+        if (event === 'cleanup_verified' && !onchain.verified) {
+          return NextResponse.json(
+            { error: 'Submission is not approved on-chain yet', status: 'pending_or_rejected' },
+            { status: 409 }
+          )
+        }
+        if (event === 'cleanup_declined' && !onchain.rejected) {
+          return NextResponse.json(
+            { error: 'Submission is not rejected on-chain yet' },
+            { status: 409 }
+          )
+        }
+
+        const wallet = onchain.submitter
         if (event === 'cleanup_verified') {
-          await notifyCleanupVerified(wallet, submissionId)
+          const n = await notifyCleanupVerified(wallet, submissionId)
           const welcome = await processContributorWelcomeOnVerify({
             submissionId,
             submitterWallet: wallet,
           })
-          return NextResponse.json({ success: true, contributorGrants: welcome.granted })
+          return NextResponse.json({
+            success: true,
+            notified: Boolean(n),
+            matchedUser: Boolean(n),
+            contributorGrants: welcome.granted,
+            submitter: wallet,
+            source: 'onchain',
+          })
         }
-        await notifyCleanupDeclined(wallet, submissionId)
-        return NextResponse.json({ success: true })
+        const n = await notifyCleanupDeclined(wallet, submissionId)
+        return NextResponse.json({
+          success: true,
+          notified: Boolean(n),
+          matchedUser: Boolean(n),
+          submitter: wallet,
+          source: 'onchain',
+        })
       }
 
       case 'custom': {

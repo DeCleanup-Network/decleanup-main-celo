@@ -73,7 +73,7 @@ export function PasskeySettings() {
   const statusLabel = isPasskeyEnabled
     ? 'On this device'
     : serverCount > 0
-      ? 'Registered'
+      ? 'Re-link'
       : 'Off'
 
   return (
@@ -97,6 +97,9 @@ export function PasskeySettings() {
         <p className="text-sm text-gray-400">
           Expand to turn Face ID / Touch ID on or off. Enabling asks for your {WALLET_PASSCODE_LOWER} once
           on this device.
+          {!isPasskeyEnabled && serverCount > 0
+            ? ' After deleting the app, Face ID may still be on your iPhone — Enable re-links it (you will see Face ID, then enter your passcode).'
+            : ''}
         </p>
         {open && loading ? (
           <p className="text-sm text-gray-400">Loading…</p>
@@ -104,6 +107,13 @@ export function PasskeySettings() {
           <>
             {credentials.length > 0 && isPasskeyEnabled ? (
               <p className="text-xs text-gray-500">{credentials.length} device(s) registered</p>
+            ) : null}
+
+            {!isPasskeyEnabled && serverCount > 0 ? (
+              <p className="text-xs text-amber-200/90">
+                Biometrics were registered before on this account. Tap Enable to open Face ID / Touch ID and
+                reconnect this install.
+              </p>
             ) : null}
 
             {!isPasskeyEnabled && <EnablePasskey hideIntro onEnabled={() => void load()} />}

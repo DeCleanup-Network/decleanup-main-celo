@@ -41,6 +41,15 @@ export function formatWebAuthnError(err: unknown): string {
     return 'This site could not be verified for biometrics. Open the same URL you always use (for example https://dapp.decleanup.net) in Safari or Chrome, then try again.'
   }
 
+  if (
+    lower.includes('previously registered') ||
+    lower.includes('already registered') ||
+    lower.includes('invalidstate') ||
+    lower.includes('credentialexclude')
+  ) {
+    return 'Face ID / Touch ID is already saved on this iPhone from a past install. Open Account settings → Face ID / Touch ID and tap Enable again (confirm with your account passcode) to re-link it. Or turn it off there first, then enable.'
+  }
+
   if (lower.includes('no passkeys registered') || lower.includes('passkey unlock not configured')) {
     return 'Face ID / Touch ID is not set up on this device yet. Enable it below with your account passcode, or unlock with your passcode.'
   }

@@ -41,11 +41,18 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const [timedOut, setTimedOut] = useState(false)
   const redirectedRef = useRef(false)
 
-  const { injectedConnector, walletConnectConnector } = useMemo(() => {
+  const { injectedConnector, metaMaskConnector, walletConnectConnector } = useMemo(() => {
+    const metaMask =
+      connectors.find((c) => c.id === 'metaMask' || c.id === 'metaMaskSDK' || c.type === 'metaMask') ??
+      null
     const injected =
       connectors.find((c) => c.id === 'injected' || c.type === 'injected') ?? null
     const walletConnect = connectors.find((c) => c.id === 'walletConnect') ?? null
-    return { injectedConnector: injected, walletConnectConnector: walletConnect }
+    return {
+      injectedConnector: injected,
+      metaMaskConnector: metaMask,
+      walletConnectConnector: walletConnect,
+    }
   }, [connectors])
 
   useEffect(() => {
@@ -87,11 +94,9 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     const isWalletConnect = connector.id === 'walletConnect'
     const mobile = isMobileBrowser()
 
-    if (isWalletConnect) {
-      void reconnect(config).catch(() => {})
-    }
-
+    // Mobile only: nudge relay before connect. Desktop reconnect races AppKit QR open.
     if (isWalletConnect && mobile) {
+      void reconnect(config).catch(() => {})
       connect({ connector })
       return
     }
@@ -99,8 +104,10 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     connect({ connector, chainId: REQUIRED_CHAIN_ID })
   }
 
-  const showInjected = hasInjectedProvider() && injectedConnector
-  const showWalletConnect = walletConnectConnector
+  const browserWalletConnector =
+    (hasInjectedProvider() && (metaMaskConnector || injectedConnector)) || null
+  const showBrowserWallet = Boolean(browserWalletConnector)
+  const showWalletConnect = Boolean(walletConnectConnector)
 
   return (
     <div className="space-y-2">
@@ -112,12 +119,12 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
         <p className="text-center text-xs text-brand-green">Connected — opening app…</p>
       ) : (
         <>
-          {showInjected ? (
+          {showBrowserWallet ? (
             <Button
               type="button"
               disabled={isPending}
               className="w-full"
-              onClick={() => connectWith(injectedConnector)}
+              onClick={() => connectWith(browserWalletConnector)}
             >
               {isPending ? 'Connecting…' : 'MetaMask / browser wallet'}
             </Button>
@@ -125,15 +132,15 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
           {showWalletConnect ? (
             <Button
               type="button"
-              variant={showInjected ? 'outline' : 'default'}
+              variant={showBrowserWallet ? 'outline' : 'default'}
               disabled={isPending}
               className="w-full"
               onClick={() => connectWith(walletConnectConnector)}
             >
-              {isPending ? 'Connecting…' : showInjected ? 'WalletConnect' : 'Connect wallet'}
+              {isPending ? 'Connecting…' : showBrowserWallet ? 'WalletConnect' : 'Connect wallet'}
             </Button>
           ) : null}
-          {!showInjected && !showWalletConnect ? (
+          {!showBrowserWallet && !showWalletConnect ? (
             <p className="text-center text-xs text-amber-300">No wallet connectors available.</p>
           ) : null}
           {isPending && !timedOut ? (

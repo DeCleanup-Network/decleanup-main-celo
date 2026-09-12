@@ -34,6 +34,30 @@ export async function createNotification(
   input: CreateNotificationInput
 ): Promise<NotificationDto | null> {
   try {
+    // Dedupe high-value events (verify can be retried by client).
+    const submissionId =
+      input.meta && typeof input.meta.submissionId === 'string'
+        ? input.meta.submissionId
+        : null
+    if (submissionId && !input.skipInbox) {
+      const recent = await prisma.userNotification.findMany({
+        where: {
+          userId: input.userId,
+          type: input.type,
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      })
+      const duplicate = recent.find((row) => {
+        const meta = row.meta as { submissionId?: string } | null
+        return meta?.submissionId === submissionId
+      })
+      if (duplicate) {
+        return toDto(duplicate)
+      }
+    }
+
     let dto: NotificationDto | null = null
 
     if (!input.skipInbox) {

@@ -27,7 +27,30 @@ export async function fetchPasskeyStatus(): Promise<{
   return data
 }
 
-export async function registerPasskey(userId: string, unlockPassword: string): Promise<void> {
+function isPreviouslyRegisteredError(err: unknown): boolean {
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'string'
+        ? err
+        : ''
+  const name = err instanceof Error ? err.name : ''
+  const lower = `${name} ${message}`.toLowerCase()
+  return (
+    lower.includes('invalidstate') ||
+    lower.includes('previously registered') ||
+    lower.includes('already registered') ||
+    lower.includes('credentialexclude')
+  )
+}
+
+/** Prove an existing iCloud/Keychain passkey and re-wrap unlock for this install. */
+export async function rebindPasskey(userId: string, unlockPassword: string): Promise<void> {
+  const unlockKey = await authenticatePasskey()
+  await wrapUnlockPassword(userId, unlockPassword, unlockKey)
+}
+
+async function registerNewPasskey(userId: string, unlockPassword: string): Promise<void> {
   const optionsRes = await fetch('/api/passkey/register/options', {
     method: 'POST',
     credentials: 'include',
@@ -41,6 +64,11 @@ export async function registerPasskey(userId: string, unlockPassword: string): P
       optionsJSON: optionsJson.options as PublicKeyCredentialCreationOptionsJSON,
     })
   } catch (e) {
+    if (isPreviouslyRegisteredError(e)) {
+      // Same Face ID already on this Apple ID — re-link instead of creating a duplicate.
+      await rebindPasskey(userId, unlockPassword)
+      return
+    }
     throw new Error(formatWebAuthnError(e))
   }
 
@@ -54,6 +82,39 @@ export async function registerPasskey(userId: string, unlockPassword: string): P
   if (!verifyRes.ok) throw new Error(verifyJson.error ?? 'Passkey registration failed')
 
   await wrapUnlockPassword(userId, unlockPassword, verifyJson.unlockKey as string)
+}
+
+/**
+ * Enable Face ID / Touch ID on this device install.
+ * If the authenticator was already registered (common after deleting/re-adding the PWA),
+ * authenticate and re-wrap the unlock password instead of registering again.
+ */
+export async function registerPasskey(userId: string, unlockPassword: string): Promise<void> {
+  const status = await fetchPasskeyStatus().catch(() => ({
+    hasPasskey: false,
+    count: 0,
+    credentials: [],
+  }))
+
+  if (status.count > 0) {
+    try {
+      await rebindPasskey(userId, unlockPassword)
+      return
+    } catch (rebindErr) {
+      // Keychain credential missing or user cancelled — try fresh registration.
+      const msg = (rebindErr instanceof Error ? rebindErr.message : String(rebindErr)).toLowerCase()
+      if (
+        msg.includes('cancelled') ||
+        msg.includes('canceled') ||
+        msg.includes('not allowed') ||
+        msg.includes('did not complete')
+      ) {
+        throw rebindErr instanceof Error ? rebindErr : new Error(formatWebAuthnError(rebindErr))
+      }
+    }
+  }
+
+  await registerNewPasskey(userId, unlockPassword)
 }
 
 export async function authenticatePasskey(): Promise<string> {
@@ -94,7 +155,10 @@ export async function authenticatePasskey(): Promise<string> {
   return verifyJson.unlockKey as string
 }
 
-export async function removePasskey(params: { credentialId?: string; removeAll?: boolean }): Promise<void> {
+export async function removePasskey(params: {
+  credentialId?: string
+  removeAll?: boolean
+}): Promise<void> {
   const res = await fetch('/api/passkey/remove', {
     method: 'POST',
     credentials: 'include',

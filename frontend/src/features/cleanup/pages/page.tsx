@@ -2479,11 +2479,25 @@ function CleanupContent() {
               {optionalVideo && optionalVideoPreview ? (
                 <div className="relative mb-2">
                   <video
-                    src={optionalVideoPreview}
+                    key={optionalVideoPreview}
                     controls
                     playsInline
+                    muted
+                    preload="metadata"
                     className="h-48 w-full rounded-lg bg-black object-contain"
-                  />
+                    onError={() => {
+                      setAlertModal({
+                        message:
+                          'This browser could not play a preview of that clip (codec or format). You can still submit if it is an MP4/MOV under 10 seconds — or pick another clip from Photos.',
+                        variant: 'warning',
+                      })
+                    }}
+                  >
+                    <source
+                      src={optionalVideoPreview}
+                      type={optionalVideo.type || 'video/mp4'}
+                    />
+                  </video>
                   <button
                     type="button"
                     onClick={() => setOptionalVideo(null)}

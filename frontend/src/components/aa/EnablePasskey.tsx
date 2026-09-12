@@ -102,7 +102,9 @@ export function EnablePasskey({
         className="w-full border-white/10 text-foreground"
         onClick={() => void enable(presetPassword ?? passcode)}
       >
-        {pending || passkeyLoading ? 'Enabling biometrics…' : 'Enable Face ID / Touch ID'}
+        {pending || passkeyLoading
+          ? 'Connecting Face ID…'
+          : 'Enable Face ID / Touch ID'}
       </Button>
 
       {!needsPad && error ? <p className="text-sm text-red-400">{error}</p> : null}

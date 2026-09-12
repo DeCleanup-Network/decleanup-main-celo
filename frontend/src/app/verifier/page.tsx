@@ -670,14 +670,24 @@ export default function VerifierPage() {
             )
             setActionModal({ variant: 'success', title: 'Cleanup verified', message })
             const verified = cleanups.find((c) => c.id === id)
-            if (verified?.user) {
+            {
               const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
-              emitNotificationEvent({
-                event: 'cleanup_verified',
-                walletAddress: verified.user,
+              // Prefer on-chain lookup by submissionId (works without Auth.js on verifier).
+              // Retry shortly — tx may not be indexed on the RPC yet.
+              const payload = {
+                event: 'cleanup_verified' as const,
                 submissionId: id.toString(),
+                walletAddress: verified?.user,
                 reviewer: address,
-              })
+              }
+              let result = await emitNotificationEvent(payload)
+              if (!result.ok && result.status === 409) {
+                await new Promise((r) => setTimeout(r, 2500))
+                result = await emitNotificationEvent(payload)
+              }
+              if (!result.ok) {
+                console.warn('[verifier] cleanup_verified notify failed', result)
+              }
             }
             setTimeout(() => {
                 void fetchCleanups()
@@ -734,14 +744,19 @@ export default function VerifierPage() {
             )
             setActionModal({ variant: 'success', title: 'Cleanup rejected', message })
             const rejected = cleanups.find((c) => c.id === id)
-            if (rejected?.user) {
+            {
               const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
-              emitNotificationEvent({
-                event: 'cleanup_declined',
-                walletAddress: rejected.user,
+              const payload = {
+                event: 'cleanup_declined' as const,
                 submissionId: id.toString(),
+                walletAddress: rejected?.user,
                 reviewer: address,
-              })
+              }
+              let result = await emitNotificationEvent(payload)
+              if (!result.ok && result.status === 409) {
+                await new Promise((r) => setTimeout(r, 2500))
+                result = await emitNotificationEvent(payload)
+              }
             }
             setTimeout(() => {
                 void fetchCleanups()
