@@ -2,10 +2,10 @@
 
 import { useCallback, useState } from 'react'
 import { useAccount, useSignMessage } from 'wagmi'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Button } from '@/components/ui/button'
+import { signInWithConnectedWallet } from '@/lib/auth/client-wallet-signin'
 
 type Props = {
   callbackUrl: string
@@ -23,27 +23,12 @@ export function WalletSignInButton({ callbackUrl }: Props) {
     setPending(true)
     setError(null)
     try {
-      const res = await fetch(
-        `/api/auth/wallet/nonce?address=${encodeURIComponent(address)}`,
-        { credentials: 'include' }
-      )
-      if (!res.ok) throw new Error('Could not start wallet sign-in')
-      const { message } = (await res.json()) as { message: string }
-      const signature = await signMessageAsync({ message })
-      const result = await signIn('wallet', {
-        message,
-        signature,
-        redirect: false,
-        callbackUrl,
+      const result = await signInWithConnectedWallet({
+        address,
+        signMessageAsync,
       })
-      if (result?.error) {
-        const hint =
-          result.error === 'Configuration'
-            ? 'Database or auth config issue — run npm run db:check in frontend/, then restart npm run dev.'
-            : result.error === 'CredentialsSignin'
-              ? 'Signature or sign-in session expired. Click Sign in again (do not refresh between steps).'
-              : `Wallet sign-in failed (${result.error}).`
-        setError(hint)
+      if (!result.ok) {
+        setError(result.error)
         return
       }
       router.replace(callbackUrl)

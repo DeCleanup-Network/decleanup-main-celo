@@ -55,17 +55,49 @@ export async function notifyCleanupSubmitted(userId: string, submissionId: strin
   })
 }
 
-export async function notifyLevelClaimed(userId: string, level?: number) {
+export async function notifyLevelClaimed(
+  userId: string,
+  opts?: {
+    level?: number
+    nftAction?: 'minted' | 'upgraded' | string
+    hasImpactReport?: boolean
+    hasRecyclables?: boolean
+  }
+) {
+  const action =
+    opts?.nftAction === 'minted' || opts?.nftAction === 'upgraded'
+      ? opts.nftAction
+      : typeof opts?.level === 'number' && opts.level <= 1
+        ? 'minted'
+        : 'upgraded'
+
+  const reportParts: string[] = []
+  if (opts?.hasRecyclables) reportParts.push('recyclables report')
+  if (opts?.hasImpactReport) reportParts.push('impact report')
+
+  let body =
+    typeof opts?.level === 'number'
+      ? `Your Impact Product was ${action} to level ${opts.level}.`
+      : `Your Impact Product was ${action}.`
+
+  if (reportParts.length === 1) {
+    body += ` Additional reward will be granted for submitting ${reportParts[0]}.`
+  } else if (reportParts.length === 2) {
+    body += ` Additional reward will be granted for submitting ${reportParts[0]} and ${reportParts[1]}.`
+  }
+
   return createNotification({
     userId,
     type: 'level_claimed',
-    title: 'Impact Product upgraded',
-    body:
-      typeof level === 'number'
-        ? `You claimed / upgraded to level ${level}.`
-        : 'Your Impact Product level was claimed successfully.',
+    title: action === 'minted' ? 'Impact Product minted' : 'Impact Product upgraded',
+    body,
     href: '/',
-    meta: level != null ? { level } : undefined,
+    meta: {
+      ...(opts?.level != null ? { level: opts.level } : {}),
+      nftAction: action,
+      hasImpactReport: Boolean(opts?.hasImpactReport),
+      hasRecyclables: Boolean(opts?.hasRecyclables),
+    },
   })
 }
 

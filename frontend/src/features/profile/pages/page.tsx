@@ -127,7 +127,7 @@ export default function ProfilePage() {
   } | null>(null)
   const [isClaiming, setIsClaiming] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [claimModal, setClaimModal] = useState<{ variant: 'success' | 'error'; message: string } | null>(null)
+  const [claimModal, setClaimModal] = useState<{ variant: 'success' | 'warning' | 'error'; message: string } | null>(null)
   const [notifyModal, setNotifyModal] = useState<{
     variant: 'success' | 'info' | 'error'
     title: string
@@ -683,7 +683,10 @@ useEffect(() => {
                           : {}),
                       }
 
-                await claimImpactProductFromVerification(cleanupStatus.cleanupId, claimOptions)
+                const claimResult = await claimImpactProductFromVerification(
+                  cleanupStatus.cleanupId,
+                  claimOptions
+                )
 
                 // Mark as claimed in localStorage
                 if (address && cleanupStatus.cleanupId && onchainOwner) {
@@ -695,13 +698,29 @@ useEffect(() => {
                   }
                 }
 
+                const { buildImpactProductClaimMessage } = await import(
+                  '@/lib/notifications/claim-success-copy'
+                )
                 setClaimModal({
-                  variant: 'success',
-                  message: 'Claim submitted!\n\nYour claim transaction was sent.\n\nPlease wait for confirmation and refresh the page in a moment.',
+                  variant: claimResult.bonusError ? 'warning' : 'success',
+                  message: buildImpactProductClaimMessage({
+                    nftAction: claimResult.nftAction,
+                    priorLevel: cleanupStatus.level,
+                    hasImpactReport: claimResult.hasImpactReport,
+                    hasRecyclables: claimResult.hasRecyclables,
+                    bonusError: claimResult.bonusError,
+                    nftTxHash: claimResult.nftTxHash,
+                  }),
                 })
 
                 const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
-                emitNotificationEvent({ event: 'level_claimed' })
+                emitNotificationEvent({
+                  event: 'level_claimed',
+                  level: (cleanupStatus.level || 0) + (claimResult.nftAction ? 1 : 0),
+                  nftAction: claimResult.nftAction,
+                  hasImpactReport: claimResult.hasImpactReport,
+                  hasRecyclables: claimResult.hasRecyclables,
+                })
             
                 // Refresh local status + profile data + cleanup status
                 if (address && onchainOwner && publicAddress) {
@@ -745,7 +764,13 @@ useEffect(() => {
         <AlertModal
           isOpen
           onClose={() => setClaimModal(null)}
-          title={claimModal.variant === 'success' ? 'Claim submitted' : 'Claim failed'}
+          title={
+            claimModal.variant === 'success'
+              ? 'Impact Product claimed'
+              : claimModal.variant === 'warning'
+                ? 'Level claimed, bonuses pending'
+                : 'Claim failed'
+          }
           message={claimModal.message}
           variant={claimModal.variant}
         />

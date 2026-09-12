@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
+import { userHasRealEmail } from '@/lib/server/notifications/resolve-user'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,11 +16,12 @@ export async function GET() {
     }
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { notifyEmail: true, notifyPush: true },
+      select: { notifyEmail: true, notifyPush: true, email: true },
     })
     return NextResponse.json({
       notifyEmail: user?.notifyEmail ?? true,
       notifyPush: user?.notifyPush ?? true,
+      hasEmail: userHasRealEmail(user?.email),
     })
   } catch (e) {
     logApiError('notifications/preferences GET', e)
@@ -41,6 +43,20 @@ export async function PATCH(request: NextRequest) {
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
+
+    if (data.notifyEmail !== undefined) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      })
+      if (!userHasRealEmail(user?.email)) {
+        delete data.notifyEmail
+      }
+    }
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    }
+
     await prisma.user.update({ where: { id: userId }, data })
     return NextResponse.json({ success: true, ...data })
   } catch (e) {

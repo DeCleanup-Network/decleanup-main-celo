@@ -131,6 +131,15 @@ export function NotificationBell() {
               ))
             )}
           </ul>
+          <div className="border-t border-white/10 px-3 py-2">
+            <Link
+              href="/wallet"
+              className="text-xs text-brand-green hover:underline"
+              onClick={() => setOpen(false)}
+            >
+              Notification settings
+            </Link>
+          </div>
         </div>
       )}
     </div>

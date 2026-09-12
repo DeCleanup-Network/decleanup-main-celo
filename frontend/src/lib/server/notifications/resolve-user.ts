@@ -15,6 +15,7 @@ export async function resolveUserIdByEmail(email: string): Promise<string | null
 export async function resolveUserIdByWallet(wallet: string): Promise<string | null> {
   const addr = wallet.trim().toLowerCase()
   if (!isAddress(addr)) return null
+
   const row = await prisma.userWallet.findFirst({
     where: {
       OR: [
@@ -24,7 +25,24 @@ export async function resolveUserIdByWallet(wallet: string): Promise<string | nu
     },
     select: { userId: true },
   })
-  return row?.userId ?? null
+  if (row?.userId) return row.userId
+
+  const account = await prisma.account.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: 'wallet',
+        providerAccountId: addr,
+      },
+    },
+    select: { userId: true },
+  })
+  if (account?.userId) return account.userId
+
+  const walletLocal = await prisma.user.findUnique({
+    where: { email: `${addr}@wallet.local` },
+    select: { id: true },
+  })
+  return walletLocal?.id ?? null
 }
 
 export async function resolveUserEmail(userId: string): Promise<string | null> {
@@ -33,5 +51,12 @@ export async function resolveUserEmail(userId: string): Promise<string | null> {
     select: { email: true, notifyEmail: true },
   })
   if (!user?.email || user.notifyEmail === false) return null
+  // Synthetic SIWE accounts have no real mailbox
+  if (user.email.toLowerCase().endsWith('@wallet.local')) return null
   return user.email
+}
+
+export function userHasRealEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  return !email.toLowerCase().endsWith('@wallet.local')
 }

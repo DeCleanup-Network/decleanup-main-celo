@@ -11,6 +11,7 @@ import { CopyableAddress } from '@/components/ui/copyable-address'
 import { useENSName } from '@/hooks/useENSName'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
 import { useWalletConnectionMode } from '@/hooks/useWalletConnectionMode'
+import { PushNotificationSettings } from '@/components/notifications/PushNotificationSettings'
 import {
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
@@ -147,6 +148,8 @@ export default function ExternalWalletSettingsPage() {
           {switching ? 'Switching…' : `Switch to ${REQUIRED_CHAIN_NAME}`}
         </Button>
       </div>
+
+      <PushNotificationSettings />
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6">
         <Button

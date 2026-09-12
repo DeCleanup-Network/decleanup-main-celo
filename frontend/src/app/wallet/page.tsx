@@ -131,9 +131,11 @@ export default function AccountSettingsPage() {
 
           {phase !== 'pending-password' && <PasskeySettings />}
           {(phase === 'locked' || phase === 'unlocked') && <MetamaskExportSection />}
-          {(phase === 'locked' || phase === 'unlocked') && <PushNotificationSettings />}
         </>
       )}
+
+      {/* Always visible when signed in — not gated on wallet unlock phase */}
+      {status === 'authenticated' && <PushNotificationSettings />}
     </div>
   )
 }

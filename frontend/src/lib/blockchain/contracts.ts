@@ -1637,10 +1637,15 @@ export async function getUserLevelFresh(userAddress: Address): Promise<number> {
 export type ClaimImpactProductResult = {
   hash: `0x${string}`
   nftTxHash: `0x${string}` | null
+  /** Present when an NFT mint or level upgrade ran in this claim. */
+  nftAction: 'minted' | 'upgraded' | null
   bonusClaimed: boolean
   bonusError?: string
   impactReportRewardsWei?: bigint
   recyclablesRewardsWei?: bigint
+  /** Submission had an impact report / recyclables attached onchain. */
+  hasImpactReport: boolean
+  hasRecyclables: boolean
 }
 
 export async function claimImpactProductFromVerification(
@@ -1710,10 +1715,15 @@ export async function claimImpactProductFromVerification(
 
   let hash: `0x${string}` | null = null
   let nftTxHash: `0x${string}` | null = null
+  let nftAction: 'minted' | 'upgraded' | null = null
   let bonusClaimed = false
   let bonusError: string | undefined
   let impactReportRewardsWei: bigint | undefined
   let recyclablesRewardsWei: bigint | undefined
+  const hasImpactReport = Boolean(
+    cleanupDetails.hasImpactForm && (cleanupDetails.impactFormDataHash || '').trim()
+  )
+  const hasRecyclables = Boolean(cleanupDetails.hasRecyclables)
 
   try {
     let nftStepRequired = false
@@ -1740,6 +1750,7 @@ export async function claimImpactProductFromVerification(
           useAtomicClaim ? cleanupId : undefined
         )
         hash = nftTxHash
+        nftAction = 'minted'
         console.log('Impact Product NFT minted:', hash)
       } else if (needsUpgrade) {
         console.log(`Upgrading Impact Product NFT: level ${currentLevel} → ${currentLevel + 1}`)
@@ -1752,6 +1763,7 @@ export async function claimImpactProductFromVerification(
           useAtomicClaim ? cleanupId : undefined
         )
         hash = nftTxHash
+        nftAction = 'upgraded'
         console.log('Impact Product NFT upgraded:', hash)
       } else {
         console.log('No Impact Product mint/upgrade needed (max level or already synced)')
@@ -1888,10 +1900,13 @@ export async function claimImpactProductFromVerification(
     return {
       hash,
       nftTxHash,
+      nftAction,
       bonusClaimed,
       bonusError,
       impactReportRewardsWei,
       recyclablesRewardsWei,
+      hasImpactReport,
+      hasRecyclables,
     }
   } catch (error: any) {
     console.error('Error claiming rewards:', error)

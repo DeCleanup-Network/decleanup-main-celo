@@ -59,7 +59,7 @@ import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributo
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
-import { formatEther } from 'viem'
+import { buildImpactProductClaimMessage, impactProductNftVerb } from '@/lib/notifications/claim-success-copy'
 
 const WalletConnect = dynamic(
   () =>
@@ -298,28 +298,19 @@ function HomeContent() {
       }
 
       claimSuccessHandledRef.current = false
-      const reportDcu =
-        claimResult.impactReportRewardsWei != null
-          ? Number(formatEther(claimResult.impactReportRewardsWei))
-          : null
-      const recyclablesDcu =
-        claimResult.recyclablesRewardsWei != null
-          ? Number(formatEther(claimResult.recyclablesRewardsWei))
-          : null
 
-      let successMessage =
-        'Your Impact Product was minted or upgraded onchain.'
-      if (claimResult.bonusClaimed) {
-        successMessage +=
-          reportDcu != null || recyclablesDcu != null
-            ? ` Impact report + recyclables buckets updated (${reportDcu ?? 0} + ${recyclablesDcu ?? 0} DCU in RewardManager).`
-            : ' Impact report and recyclables rewards were submitted onchain.'
-      } else if (claimResult.bonusError) {
-        successMessage +=
-          ' Recyclables / impact-report DCU did not land yet (bonus step failed after NFT). Tap Claim again to retry bonuses only, or refresh in a minute.'
-      } else if (!claimResult.nftTxHash) {
-        successMessage += ' No new NFT step was required; refresh your dashboard balances.'
-      }
+      const nftVerb = impactProductNftVerb({
+        nftAction: claimResult.nftAction,
+        priorLevel: rewardStats.userLevel,
+      })
+      const successMessage = buildImpactProductClaimMessage({
+        nftAction: claimResult.nftAction,
+        priorLevel: rewardStats.userLevel,
+        hasImpactReport: claimResult.hasImpactReport,
+        hasRecyclables: claimResult.hasRecyclables,
+        bonusError: claimResult.bonusError,
+        nftTxHash: claimResult.nftTxHash,
+      })
 
       setClaimModal({
         variant: claimResult.bonusError ? 'warning' : 'success',
@@ -327,7 +318,13 @@ function HomeContent() {
         message: successMessage,
       })
 
-      emitNotificationEvent({ event: 'level_claimed' })
+      emitNotificationEvent({
+        event: 'level_claimed',
+        level: rewardStats.userLevel + (claimResult.nftAction ? 1 : 0),
+        nftAction: claimResult.nftAction ?? nftVerb,
+        hasImpactReport: claimResult.hasImpactReport,
+        hasRecyclables: claimResult.hasRecyclables,
+      })
 
       setShowReferralNotification(false)
 

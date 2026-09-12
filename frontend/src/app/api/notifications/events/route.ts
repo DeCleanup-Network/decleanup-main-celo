@@ -25,6 +25,9 @@ type EventBody = {
   submissionId?: string
   challengeId?: string
   level?: number
+  nftAction?: 'minted' | 'upgraded' | string
+  hasImpactReport?: boolean
+  hasRecyclables?: boolean
   title?: string
   body?: string
   href?: string
@@ -88,7 +91,12 @@ export async function POST(request: NextRequest) {
         if (!sessionUserId) {
           return NextResponse.json({ error: 'Sign in required' }, { status: 401 })
         }
-        await notifyLevelClaimed(sessionUserId, body.level)
+        await notifyLevelClaimed(sessionUserId, {
+          level: body.level,
+          nftAction: body.nftAction,
+          hasImpactReport: body.hasImpactReport,
+          hasRecyclables: body.hasRecyclables,
+        })
         return NextResponse.json({ success: true })
       }
 
