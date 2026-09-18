@@ -93,6 +93,12 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
+# Sponsor events admin (cUSD funding page /sponsor)
+# Comma-separated EOAs allowed to publish/approve events
+SPONSOR_ADMIN_WALLETS=
+# Optional shared secret (header x-sponsor-admin-secret) as backup to allowlist
+SPONSOR_ADMIN_SECRET=
+
 # ============================================
 # Auth.js + Account abstraction (Google / email login)
 # ============================================

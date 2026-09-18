@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   useAccount,
   useConnect,
@@ -39,6 +41,8 @@ function progressPct(raised: number, goal: number): number {
 }
 
 export function SponsorPanel() {
+  const searchParams = useSearchParams()
+  const eventFromQuery = searchParams.get('event')
   const { address, isConnected, chainId } = useAccount()
   const { connectAsync, connectors, isPending: connecting, reset } = useConnect()
   const { disconnect } = useDisconnect()
@@ -110,6 +114,13 @@ export function SponsorPanel() {
   useEffect(() => {
     void loadEvents()
   }, [loadEvents])
+
+  useEffect(() => {
+    if (!eventFromQuery || events.length === 0) return
+    if (events.some((e) => e.id === eventFromQuery)) {
+      setSelectedId(eventFromQuery)
+    }
+  }, [eventFromQuery, events])
 
   useEffect(() => {
     setMiniPay(isMiniPayInjected())
@@ -268,6 +279,21 @@ export function SponsorPanel() {
           Send cUSD on Celo to fund a verified cleanup event
           {miniPay ? ' · MiniPay detected' : ''}.
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href="/sponsor/submit"
+            className="inline-flex min-h-[44px] items-center rounded-lg border border-brand-green/40 bg-brand-green/10 px-3.5 text-xs font-heading font-semibold uppercase tracking-wide text-brand-green hover:bg-brand-green/20"
+          >
+            Get funded
+          </Link>
+          <Link
+            href="/sponsor/admin"
+            className="inline-flex min-h-[44px] items-center rounded-lg border border-white/10 px-3.5 text-xs font-heading font-semibold uppercase tracking-wide text-gray-400 hover:border-white/25 hover:text-white"
+          >
+            Admin
+          </Link>
+        </div>
+        <p className="mt-2 text-[11px] text-gray-600">Gardens pool or community share link — open from Get funded.</p>
       </div>
 
       {/* Events */}
@@ -280,9 +306,15 @@ export function SponsorPanel() {
             {loadError}
           </p>
         ) : events.length === 0 ? (
-          <p className="rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-4 text-sm text-gray-400">
-            No active or upcoming events yet. Check back soon.
-          </p>
+          <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-4">
+            <p className="text-sm text-gray-400">No active or upcoming events yet.</p>
+            <Link
+              href="/sponsor/submit"
+              className="inline-flex text-sm text-brand-green hover:underline"
+            >
+              Get funded (level 5+) →
+            </Link>
+          </div>
         ) : (
           <ul className="space-y-2">
             {events.map((ev) => {

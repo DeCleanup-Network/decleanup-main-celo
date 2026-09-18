@@ -407,6 +407,7 @@ export interface Database {
           recipient_address: string
           verified_cleanups_count: number
           status: string
+          submitted_by: string | null
           created_at: string
           updated_at: string
         }
@@ -420,6 +421,7 @@ export interface Database {
           recipient_address: string
           verified_cleanups_count?: number
           status: string
+          submitted_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -432,6 +434,7 @@ export interface Database {
           recipient_address?: string
           verified_cleanups_count?: number
           status?: string
+          submitted_by?: string | null
           updated_at?: string
         }
         Relationships: []
