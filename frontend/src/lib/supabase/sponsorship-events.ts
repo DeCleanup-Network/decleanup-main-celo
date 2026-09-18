@@ -6,6 +6,9 @@ import type { SponsorEventDto, SponsorEventInput, SponsorEventStatus } from '@/l
 
 export type { SponsorEventDto, SponsorEventStatus } from '@/lib/sponsor/types'
 
+const EVENT_SELECT =
+  'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by, why_funding, community_size, event_frequency, impact_summary, social_links, impact_portfolio_url, reviewed_by, reviewed_at'
+
 let client: ReturnType<typeof createClient<Database>> | null = null
 
 export function isSponsorshipDbConfigured(): boolean {
@@ -38,15 +41,58 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+type EventRow = {
+  id: string
+  name: string
+  location: string
+  organiser: string
+  event_date: string | null
+  funding_goal_cusd: unknown
+  recipient_address: string
+  verified_cleanups_count: number | null
+  status: string
+  submitted_by?: string | null
+  why_funding?: string | null
+  community_size?: string | null
+  event_frequency?: string | null
+  impact_summary?: string | null
+  social_links?: string | null
+  impact_portfolio_url?: string | null
+  reviewed_by?: string | null
+  reviewed_at?: string | null
+}
+
+function mapEvent(e: EventRow, amountRaisedCusd: number): SponsorEventDto {
+  return {
+    id: e.id,
+    name: e.name,
+    location: e.location,
+    organiser: e.organiser,
+    eventDate: e.event_date,
+    fundingGoalCusd: toNum(e.funding_goal_cusd),
+    amountRaisedCusd,
+    verifiedCleanupsCount: e.verified_cleanups_count ?? 0,
+    recipientAddress: e.recipient_address,
+    status: e.status as SponsorEventStatus,
+    submittedBy: e.submitted_by ?? null,
+    whyFunding: e.why_funding ?? null,
+    communitySize: e.community_size ?? null,
+    eventFrequency: e.event_frequency ?? null,
+    impactSummary: e.impact_summary ?? null,
+    socialLinks: e.social_links ?? null,
+    impactPortfolioUrl: e.impact_portfolio_url ?? null,
+    reviewedBy: e.reviewed_by ?? null,
+    reviewedAt: e.reviewed_at ?? null,
+  }
+}
+
 export async function listSponsorEvents(): Promise<SponsorEventDto[]> {
   const sb = getSupabase()
   const { data: events, error } = await sb
     .from('events')
-    .select(
-      'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by'
-    )
+    .select(EVENT_SELECT)
     .in('status', ['active', 'upcoming'])
-    .order('event_date', { ascending: true })
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   if (!events?.length) return []
@@ -65,62 +111,24 @@ export async function listSponsorEvents(): Promise<SponsorEventDto[]> {
     raised.set(row.event_id, prev + toNum(row.amount_cusd))
   }
 
-  return events.map((e) => mapEvent(e, raised.get(e.id) || 0))
+  return events.map((e) => mapEvent(e as EventRow, raised.get(e.id) || 0))
 }
 
 export async function listPendingSponsorEvents(): Promise<SponsorEventDto[]> {
   const sb = getSupabase()
   const { data: events, error } = await sb
     .from('events')
-    .select(
-      'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by'
-    )
+    .select(EVENT_SELECT)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (events || []).map((e) => mapEvent(e, 0))
-}
-
-function mapEvent(
-  e: {
-    id: string
-    name: string
-    location: string
-    organiser: string
-    event_date: string
-    funding_goal_cusd: unknown
-    recipient_address: string
-    verified_cleanups_count: number | null
-    status: string
-    submitted_by?: string | null
-  },
-  amountRaisedCusd: number
-): SponsorEventDto {
-  return {
-    id: e.id,
-    name: e.name,
-    location: e.location,
-    organiser: e.organiser,
-    eventDate: e.event_date,
-    fundingGoalCusd: toNum(e.funding_goal_cusd),
-    amountRaisedCusd,
-    verifiedCleanupsCount: e.verified_cleanups_count ?? 0,
-    recipientAddress: e.recipient_address,
-    status: e.status as SponsorEventStatus,
-    submittedBy: e.submitted_by ?? null,
-  }
+  return (events || []).map((e) => mapEvent(e as EventRow, 0))
 }
 
 export async function getSponsorEventById(id: string): Promise<SponsorEventDto | null> {
   const sb = getSupabase()
-  const { data: e, error } = await sb
-    .from('events')
-    .select(
-      'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by'
-    )
-    .eq('id', id)
-    .maybeSingle()
+  const { data: e, error } = await sb.from('events').select(EVENT_SELECT).eq('id', id).maybeSingle()
 
   if (error) throw error
   if (!e) return null
@@ -133,7 +141,7 @@ export async function getSponsorEventById(id: string): Promise<SponsorEventDto |
   if (sumErr) throw sumErr
   const amountRaisedCusd = (rows || []).reduce((acc, r) => acc + toNum(r.amount_cusd), 0)
 
-  return mapEvent(e, amountRaisedCusd)
+  return mapEvent(e as EventRow, amountRaisedCusd)
 }
 
 export async function createSponsorEvent(input: SponsorEventInput): Promise<SponsorEventDto> {
@@ -146,10 +154,19 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
   if (!(input.fundingGoalCusd > 0) || !Number.isFinite(input.fundingGoalCusd)) {
     throw new Error('Funding goal must be greater than zero')
   }
-  const eventDate = new Date(input.eventDate)
-  if (Number.isNaN(eventDate.getTime())) {
-    throw new Error('Invalid event date')
+  if (!input.whyFunding?.trim()) {
+    throw new Error('Explain why you need funding')
   }
+
+  let eventDateIso: string | null = null
+  if (input.eventDate?.trim()) {
+    const eventDate = new Date(input.eventDate)
+    if (Number.isNaN(eventDate.getTime())) {
+      throw new Error('Invalid event date')
+    }
+    eventDateIso = eventDate.toISOString()
+  }
+
   const allowed: SponsorEventStatus[] = ['pending', 'active', 'upcoming', 'ended']
   if (!allowed.includes(input.status)) {
     throw new Error('Invalid status')
@@ -162,41 +179,50 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
       name: input.name.trim(),
       location: input.location.trim(),
       organiser: input.organiser.trim(),
-      event_date: eventDate.toISOString(),
+      event_date: eventDateIso,
       funding_goal_cusd: input.fundingGoalCusd,
       recipient_address: getAddress(input.recipientAddress),
       verified_cleanups_count: Math.max(0, Math.floor(input.verifiedCleanupsCount ?? 0)),
       status: input.status,
       submitted_by: input.submittedBy ? getAddress(input.submittedBy) : null,
-    })
-    .select(
-      'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by'
-    )
+      why_funding: input.whyFunding?.trim() || null,
+      community_size: input.communitySize?.trim() || null,
+      event_frequency: input.eventFrequency?.trim() || null,
+      impact_summary: input.impactSummary?.trim() || null,
+      social_links: input.socialLinks?.trim() || null,
+      impact_portfolio_url: input.impactPortfolioUrl?.trim() || null,
+    } as Database['public']['Tables']['events']['Insert'])
+    .select(EVENT_SELECT)
     .single()
 
   if (error) throw error
-  return mapEvent(data, 0)
+  return mapEvent(data as EventRow, 0)
 }
 
 export async function updateSponsorEventStatus(
   id: string,
-  status: SponsorEventStatus
+  status: SponsorEventStatus,
+  reviewedBy?: string | null
 ): Promise<SponsorEventDto> {
   const allowed: SponsorEventStatus[] = ['pending', 'active', 'upcoming', 'ended']
   if (!allowed.includes(status)) throw new Error('Invalid status')
 
   const sb = getSupabase()
+  const patch: Record<string, unknown> = { status }
+  if (reviewedBy && isAddress(reviewedBy)) {
+    patch.reviewed_by = getAddress(reviewedBy)
+    patch.reviewed_at = new Date().toISOString()
+  }
+
   const { data, error } = await sb
     .from('events')
-    .update({ status })
+    .update(patch as Database['public']['Tables']['events']['Update'])
     .eq('id', id)
-    .select(
-      'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by'
-    )
+    .select(EVENT_SELECT)
     .single()
 
   if (error) throw error
-  return mapEvent(data, 0)
+  return mapEvent(data as EventRow, 0)
 }
 
 export async function recordSponsorship(input: {
@@ -235,7 +261,6 @@ export async function recordSponsorship(input: {
 
   if (error) {
     if (error.code === '23505') {
-      // Unique tx_hash — treat as success (idempotent retry)
       const { data: existing } = await sb
         .from('sponsorships')
         .select('id')

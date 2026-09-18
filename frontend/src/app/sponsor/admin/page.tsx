@@ -1,11 +1,17 @@
 'use client'
 
-import { SponsorAdminPanel } from '@/components/sponsor/SponsorAdminPanel'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-export default function SponsorAdminPage() {
+/** Ops admin create is retired. Verifiers review funding apps in the verifier cabinet. */
+export default function SponsorAdminRedirectPage() {
+  const router = useRouter()
+  useEffect(() => {
+    router.replace('/verifier')
+  }, [router])
   return (
-    <main className="flex min-h-0 flex-1 flex-col bg-background">
-      <SponsorAdminPanel />
+    <main className="flex flex-1 items-center justify-center bg-background px-4 py-10 text-sm text-gray-400">
+      Redirecting to verifier cabinet…
     </main>
   )
 }

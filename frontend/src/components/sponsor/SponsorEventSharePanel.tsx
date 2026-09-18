@@ -89,11 +89,13 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
                 {event.location} · {event.organiser}
               </p>
               <p className="mt-0.5 text-xs text-gray-600">
-                {new Date(event.eventDate).toLocaleDateString(undefined, {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {event.eventDate
+                  ? new Date(event.eventDate).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'Ongoing'}
                 {event.status === 'pending' ? ' · Under review' : ` · ${event.status}`}
               </p>
             </div>
@@ -123,7 +125,7 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
               <div className="rounded-xl border border-white/8 bg-black/30 px-3 py-3">
                 <p className="text-sm text-gray-300">
                   {event.status === 'pending'
-                    ? 'Awaiting publish — donations open once DeCleanup lists this event.'
+                    ? 'Awaiting publish. Donations open once DeCleanup lists this event.'
                     : 'This event is not open for donations right now.'}
                 </p>
                 <Link href="/sponsor" className="mt-2 inline-flex text-sm text-brand-green hover:underline">

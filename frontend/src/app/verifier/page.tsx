@@ -33,6 +33,7 @@ import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { VerifierMlScoreBlock } from '@/components/verifier/VerifierMlScoreBlock'
 import { OptionalSubmissionVideo } from '@/components/verifier/OptionalSubmissionVideo'
 import { TrashAthleteVerifierSection } from '@/components/verifier/TrashAthleteVerifierSection'
+import { FundingApplicationsVerifierSection } from '@/components/verifier/FundingApplicationsVerifierSection'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 import { filterExcludedSubmissionIds } from '@/lib/submission/excluded-ids'
 import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
@@ -1236,6 +1237,18 @@ export default function VerifierPage() {
                     onChanged={() => {
                       void fetchCleanups()
                     }}
+                    onNotify={({ variant, title, message }) =>
+                      setActionModal({ variant, title, message })
+                    }
+                  />
+                )}
+
+                {isVerifierUser && address && (
+                  <FundingApplicationsVerifierSection
+                    reviewerAddress={address as Address}
+                    signMessage={async (message) =>
+                      (await signMessageForWallet({ message })) as `0x${string}`
+                    }
                     onNotify={({ variant, title, message }) =>
                       setActionModal({ variant, title, message })
                     }

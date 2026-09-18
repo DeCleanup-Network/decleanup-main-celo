@@ -6,9 +6,9 @@ import {
   listPendingSponsorEvents,
   listSponsorEvents,
 } from '@/lib/supabase/sponsorship-events'
-import { assertCanManageSponsorEvents } from '@/lib/sponsor/admin-auth'
 import { getMaxImpactProductLevel } from '@/lib/sponsor/impact-product-level'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
+import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import type { SponsorEventStatus } from '@/lib/sponsor/types'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 import { enforceApiRateLimit } from '@/lib/server/rate-limit'
@@ -24,12 +24,8 @@ export async function GET(request: NextRequest) {
 
     const pending = request.nextUrl.searchParams.get('status') === 'pending'
     if (pending) {
-      try {
-        assertCanManageSponsorEvents({
-          walletAddress: request.headers.get('x-sponsor-admin-wallet'),
-          adminSecret: request.headers.get('x-sponsor-admin-secret'),
-        })
-      } catch {
+      const wallet = request.headers.get('x-sponsor-reviewer-wallet') || request.headers.get('x-sponsor-admin-wallet')
+      if (!wallet || !isAddress(wallet) || !(await canReviewHypercertOnChain(wallet))) {
         return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
       }
       const events = await listPendingSponsorEvents()
@@ -48,16 +44,20 @@ type CreateBody = {
   name?: string
   location?: string
   organiser?: string
-  eventDate?: string
+  eventDate?: string | null
   fundingGoalCusd?: number | string
   recipientAddress?: string
+  whyFunding?: string
+  communitySize?: string
+  eventFrequency?: string
+  impactSummary?: string
+  socialLinks?: string
+  impactPortfolioUrl?: string
   verifiedCleanupsCount?: number
-  status?: SponsorEventStatus
   walletAddress?: string
-  /** Optional linked owner (e.g. smart account) for level merge. */
   onchainOwner?: string
-  /** Public proposals are always stored as pending unless admin. */
   asProposal?: boolean
+  status?: SponsorEventStatus
 }
 
 export async function POST(request: NextRequest) {
@@ -78,15 +78,19 @@ export async function POST(request: NextRequest) {
 
     const name = body.name?.trim() || ''
     const location = body.location?.trim() || ''
-    const organiser = body.organiser?.trim() || ''
-    const eventDate = body.eventDate?.trim() || ''
+    const organiser = body.organiser?.trim() || name
+    const eventDate = body.eventDate?.trim() || null
     const recipientAddress = body.recipientAddress?.trim() || ''
     const fundingGoalCusd =
       typeof body.fundingGoalCusd === 'number' ? body.fundingGoalCusd : Number(body.fundingGoalCusd)
     const walletAddress = body.walletAddress?.trim() || null
-    const adminSecret = request.headers.get('x-sponsor-admin-secret')
+    const whyFunding = body.whyFunding?.trim() || ''
+    const communitySize = body.communitySize?.trim() || ''
+    const eventFrequency = body.eventFrequency?.trim() || ''
+    const impactSummary = body.impactSummary?.trim() || ''
+    const socialLinks = body.socialLinks?.trim() || ''
 
-    if (!name || !location || !organiser || !eventDate || !recipientAddress) {
+    if (!name || !location || !recipientAddress || !whyFunding) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
     if (!isAddress(recipientAddress)) {
@@ -95,45 +99,29 @@ export async function POST(request: NextRequest) {
     if (!(fundingGoalCusd > 0) || !Number.isFinite(fundingGoalCusd)) {
       return NextResponse.json({ error: 'Invalid funding goal' }, { status: 400 })
     }
-
-    const wantsPublish =
-      !body.asProposal && (body.status === 'active' || body.status === 'upcoming' || body.status === 'ended')
-
-    let status: SponsorEventStatus = 'pending'
-    if (wantsPublish) {
-      try {
-        assertCanManageSponsorEvents({ walletAddress, adminSecret })
-      } catch {
-        return NextResponse.json(
-          { error: 'Only allowlisted admins can publish events. Submit as a proposal instead.' },
-          { status: 403 }
-        )
-      }
-      status = body.status || 'upcoming'
-    } else {
-      // Community proposals: Impact Product level 5+
-      if (!walletAddress || !isAddress(walletAddress)) {
-        return NextResponse.json(
-          { error: 'Connect a wallet to submit an event for funding.' },
-          { status: 400 }
-        )
-      }
-      const linked =
-        body.onchainOwner && isAddress(body.onchainOwner) ? (getAddress(body.onchainOwner) as Address) : null
-      const level = await getMaxImpactProductLevel(getAddress(walletAddress) as Address, linked)
-      const minLevel = SPONSOR_CONFIG.minLevelToPropose
-      if (level < minLevel) {
-        return NextResponse.json(
-          {
-            error: `Reach Impact Product level ${minLevel} to submit events for funding (you are level ${level}).`,
-            level,
-            minLevel,
-          },
-          { status: 403 }
-        )
-      }
-      status = 'pending'
+    if (!walletAddress || !isAddress(walletAddress)) {
+      return NextResponse.json({ error: 'Connect a wallet to submit for donations.' }, { status: 400 })
     }
+
+    // Community applications always land as pending for verifier review.
+    const linked =
+      body.onchainOwner && isAddress(body.onchainOwner) ? (getAddress(body.onchainOwner) as Address) : null
+    const level = await getMaxImpactProductLevel(getAddress(walletAddress) as Address, linked)
+    const minLevel = SPONSOR_CONFIG.minLevelToPropose
+    if (level < minLevel) {
+      return NextResponse.json(
+        {
+          error: `Reach Impact Product level ${minLevel} to submit for donations (you are level ${level}).`,
+          level,
+          minLevel,
+        },
+        { status: 403 }
+      )
+    }
+
+    const portfolio =
+      body.impactPortfolioUrl?.trim() ||
+      `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://dapp.decleanup.net'}/impact/${getAddress(walletAddress)}`
 
     const event = await createSponsorEvent({
       name,
@@ -143,8 +131,14 @@ export async function POST(request: NextRequest) {
       fundingGoalCusd,
       recipientAddress,
       verifiedCleanupsCount: body.verifiedCleanupsCount,
-      status,
-      submittedBy: walletAddress && isAddress(walletAddress) ? walletAddress : null,
+      status: 'pending',
+      submittedBy: getAddress(walletAddress),
+      whyFunding,
+      communitySize,
+      eventFrequency,
+      impactSummary,
+      socialLinks,
+      impactPortfolioUrl: portfolio,
     })
 
     return NextResponse.json({ success: true, event }, { status: 201 })

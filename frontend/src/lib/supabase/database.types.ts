@@ -402,12 +402,20 @@ export interface Database {
           name: string
           location: string
           organiser: string
-          event_date: string
+          event_date: string | null
           funding_goal_cusd: number | string
           recipient_address: string
           verified_cleanups_count: number
           status: string
           submitted_by: string | null
+          why_funding: string | null
+          community_size: string | null
+          event_frequency: string | null
+          impact_summary: string | null
+          social_links: string | null
+          impact_portfolio_url: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
           created_at: string
           updated_at: string
         }
@@ -416,12 +424,20 @@ export interface Database {
           name: string
           location: string
           organiser: string
-          event_date: string
+          event_date?: string | null
           funding_goal_cusd: number | string
           recipient_address: string
           verified_cleanups_count?: number
           status: string
           submitted_by?: string | null
+          why_funding?: string | null
+          community_size?: string | null
+          event_frequency?: string | null
+          impact_summary?: string | null
+          social_links?: string | null
+          impact_portfolio_url?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -429,12 +445,20 @@ export interface Database {
           name?: string
           location?: string
           organiser?: string
-          event_date?: string
+          event_date?: string | null
           funding_goal_cusd?: number | string
           recipient_address?: string
           verified_cleanups_count?: number
           status?: string
           submitted_by?: string | null
+          why_funding?: string | null
+          community_size?: string | null
+          event_frequency?: string | null
+          impact_summary?: string | null
+          social_links?: string | null
+          impact_portfolio_url?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
           updated_at?: string
         }
         Relationships: []

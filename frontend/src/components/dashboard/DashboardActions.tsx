@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Leaf, Award, Loader2, Clock, Shield, Heart, Check } from 'lucide-react'
+import { Leaf, Award, Loader2, Clock, Shield, Heart, Check, HandCoins } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FeeDisplay } from '@/components/ui/fee-display'
 import { ActionHint } from '@/components/ui/action-hint'
@@ -9,6 +9,7 @@ import { TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
+import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
 import { useVerifierAccess } from '@/hooks/useVerifierAccess'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
@@ -178,6 +179,13 @@ export function DashboardActions({
                     <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
                         <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         Impact certificate
+                    </Link>
+                </ActionHint>
+
+                <ActionHint hint={`Community cUSD donations after Impact Product level ${SPONSOR_CONFIG.minLevelToPropose}+`}>
+                    <Link href="/sponsor/submit" className={stepClass(userImpactLevel >= SPONSOR_CONFIG.minLevelToPropose)}>
+                        <HandCoins className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        Apply for funding
                     </Link>
                 </ActionHint>
             </div>
