@@ -1,0 +1,13 @@
+-- Optional seed: replace recipient_address before use.
+-- insert into public.events (
+--   name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status
+-- ) values (
+--   'Bangkok canal cleanup',
+--   'Bangkok, Thailand',
+--   'DeCleanup Network',
+--   now() + interval '7 days',
+--   500,
+--   '0xYourRecipientAddressHere',
+--   0,
+--   'upcoming'
+-- );

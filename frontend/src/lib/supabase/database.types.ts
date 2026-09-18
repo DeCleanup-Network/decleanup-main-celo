@@ -396,6 +396,71 @@ export interface Database {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          id: string
+          name: string
+          location: string
+          organiser: string
+          event_date: string
+          funding_goal_cusd: number | string
+          recipient_address: string
+          verified_cleanups_count: number
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          location: string
+          organiser: string
+          event_date: string
+          funding_goal_cusd: number | string
+          recipient_address: string
+          verified_cleanups_count?: number
+          status: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          location?: string
+          organiser?: string
+          event_date?: string
+          funding_goal_cusd?: number | string
+          recipient_address?: string
+          verified_cleanups_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sponsorships: {
+        Row: {
+          id: string
+          event_id: string
+          sponsor_address: string
+          amount_cusd: number | string
+          tx_hash: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          sponsor_address: string
+          amount_cusd: number | string
+          tx_hash: string
+          created_at?: string
+        }
+        Update: {
+          event_id?: string
+          sponsor_address?: string
+          amount_cusd?: number | string
+          tx_hash?: string
+        }
+        Relationships: []
+      }
     }
     Views: {}
     Functions: {}
