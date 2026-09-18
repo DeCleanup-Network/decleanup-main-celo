@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
   useAccount,
+  useConfig,
   useConnect,
   useDisconnect,
   useReadContract,
@@ -21,6 +22,7 @@ import {
   CUSD_ERC20_ABI,
   isMiniPayInjected,
 } from '@/lib/blockchain/cusd'
+import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 
@@ -44,6 +46,7 @@ export function SponsorPanel() {
   const searchParams = useSearchParams()
   const eventFromQuery = searchParams.get('event')
   const { address, isConnected, chainId } = useAccount()
+  const config = useConfig()
   const { connectAsync, connectors, isPending: connecting, reset } = useConnect()
   const { disconnect } = useDisconnect()
   const { switchChainAsync, isPending: switching } = useSwitchChain()
@@ -167,7 +170,7 @@ export function SponsorPanel() {
         if (!cancelled) {
           setActionError(
             e instanceof Error
-              ? `${e.message} (tx may still have succeeded — save your hash: ${txHash})`
+              ? `${e.message} (tx may still have succeeded; save your hash: ${txHash})`
               : 'Record failed'
           )
         }
@@ -215,7 +218,7 @@ export function SponsorPanel() {
     }
     try {
       if (kind === 'walletConnect') {
-        await connectAsync({ connector })
+        await connectWithWalletConnect({ config, connector, connectAsync })
       } else {
         await connectAsync({ connector, chainId: CELO_MAINNET_CHAIN_ID })
       }
@@ -284,16 +287,12 @@ export function SponsorPanel() {
             href="/sponsor/submit"
             className="inline-flex min-h-[44px] items-center rounded-lg border border-brand-green/40 bg-brand-green/10 px-3.5 text-xs font-heading font-semibold uppercase tracking-wide text-brand-green hover:bg-brand-green/20"
           >
-            Get funded
-          </Link>
-          <Link
-            href="/sponsor/admin"
-            className="inline-flex min-h-[44px] items-center rounded-lg border border-white/10 px-3.5 text-xs font-heading font-semibold uppercase tracking-wide text-gray-400 hover:border-white/25 hover:text-white"
-          >
-            Admin
+            Apply for funding
           </Link>
         </div>
-        <p className="mt-2 text-[11px] text-gray-600">Gardens pool or community share link — open from Get funded.</p>
+        <p className="mt-2 text-[11px] text-gray-600">
+          Organizers apply from the dashboard. Verifiers approve before campaigns appear here.
+        </p>
       </div>
 
       {/* Events */}
@@ -346,11 +345,13 @@ export function SponsorPanel() {
                       {ev.location} · {ev.organiser}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-500">
-                      {new Date(ev.eventDate).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {ev.eventDate
+                        ? new Date(ev.eventDate).toLocaleDateString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : 'Ongoing'}
                     </p>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
                       <div

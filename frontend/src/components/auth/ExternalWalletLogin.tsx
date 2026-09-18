@@ -4,12 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useAccount, useConfig, useConnect, useSignMessage } from 'wagmi'
-import { reconnect } from '@wagmi/core'
 import { Button } from '@/components/ui/button'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { signInWithConnectedWallet } from '@/lib/auth/client-wallet-signin'
+import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 
 type Props = {
   callbackUrl: string
@@ -48,16 +48,12 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const [connecting, setConnecting] = useState(false)
   const redirectedRef = useRef(false)
 
-  const { injectedConnector, metaMaskConnector, walletConnectConnector } = useMemo(() => {
-    const metaMask =
-      connectors.find((c) => c.id === 'metaMask' || c.id === 'metaMaskSDK' || c.type === 'metaMask') ??
-      null
+  const { injectedConnector, walletConnectConnector } = useMemo(() => {
     const injected =
       connectors.find((c) => c.id === 'injected' || c.type === 'injected') ?? null
     const walletConnect = connectors.find((c) => c.id === 'walletConnect') ?? null
     return {
       injectedConnector: injected,
-      metaMaskConnector: metaMask,
       walletConnectConnector: walletConnect,
     }
   }, [connectors])
@@ -124,17 +120,10 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     reset()
 
     const isWalletConnect = connector.id === 'walletConnect'
-    const mobile = isMobileBrowser()
 
     try {
-      // Mobile only: nudge relay before connect. Desktop reconnect races AppKit QR open.
-      if (isWalletConnect && mobile) {
-        void reconnect(config).catch(() => {})
-      }
-
-      // Avoid chainId on WalletConnect connect — can block QR modal open on some desktops.
       if (isWalletConnect) {
-        await connectAsync({ connector })
+        await connectWithWalletConnect({ config, connector, connectAsync })
       } else {
         await connectAsync({ connector, chainId: REQUIRED_CHAIN_ID })
       }
@@ -151,7 +140,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   }
 
   const browserWalletConnector =
-    (hasInjectedProvider() && (metaMaskConnector || injectedConnector)) || null
+    (hasInjectedProvider() && injectedConnector) || null
   const showBrowserWallet = Boolean(browserWalletConnector)
   const showWalletConnect = Boolean(walletConnectConnector)
   const busy = isPending || connecting || authBusy

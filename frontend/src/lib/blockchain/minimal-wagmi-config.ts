@@ -1,5 +1,5 @@
 import { cookieStorage, createConfig, createStorage, http, type Config } from 'wagmi'
-import { injected, metaMask, walletConnect } from 'wagmi/connectors'
+import { injected, walletConnect } from 'wagmi/connectors'
 import { aaWagmiChains, celoMainnetChain, celoSepoliaChain } from '@/lib/blockchain/aa-wagmi-chains'
 import { getWalletConnectMetadata } from '@/lib/blockchain/wallet-connect-metadata'
 
@@ -13,14 +13,17 @@ function buildMinimalWagmiConfig(): Config {
   return createConfig({
     chains: [...aaWagmiChains],
     connectors: [
-      // Dedicated MetaMask path (desktop extension) before generic injected
-      metaMask({ dappMetadata: { name: 'DeCleanup Rewards', url: 'https://dapp.decleanup.net' } }),
+      // Prefer browser-injected providers (MetaMask extension / MiniPay / in-app browsers).
+      // Avoid wagmi `metaMask()` SDK connector: it phones home to *.api.cx.metamask.io and
+      // hangs when CSP or mobile deep-link analytics fail.
       injected({ shimDisconnect: true }),
       walletConnect({
         projectId: walletConnectProjectId,
-        // AppKit modal on desktop; on mobile Safari we also deep-link via WalletConnectUriOpener.
         showQrModal: true,
         metadata: getWalletConnectMetadata(),
+        qrModalOptions: {
+          themeMode: 'dark',
+        },
       }),
     ],
     storage: createStorage({ storage: cookieStorage }),

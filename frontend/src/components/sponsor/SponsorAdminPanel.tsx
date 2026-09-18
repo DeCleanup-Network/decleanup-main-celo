@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useAccount, useConnect } from 'wagmi'
+import { useAccount, useConfig, useConnect } from 'wagmi'
 import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
 import { Button } from '@/components/ui/button'
 import { SponsorEventForm, type EventFormValues } from '@/components/sponsor/SponsorEventForm'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
+import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 
 function short(a: string) {
   return a.length > 10 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a
@@ -14,6 +15,7 @@ function short(a: string) {
 
 export function SponsorAdminPanel() {
   const { address, isConnected } = useAccount()
+  const config = useConfig()
   const { connectAsync, connectors, isPending } = useConnect()
   const [adminSecret, setAdminSecret] = useState('')
   const [pending, setPending] = useState<SponsorEventDto[]>([])
@@ -51,10 +53,15 @@ export function SponsorAdminPanel() {
   }, [isConnected, adminSecret, loadPending])
 
   const connect = async () => {
-    const c =
-      connectors.find((x) => x.id === 'injected' || x.type === 'injected') ||
-      connectors.find((x) => x.id === 'walletConnect')
+    const injected =
+      connectors.find((x) => x.id === 'injected' || x.type === 'injected') || null
+    const wc = connectors.find((x) => x.id === 'walletConnect') || null
+    const c = injected || wc
     if (!c) return
+    if (c.id === 'walletConnect') {
+      await connectWithWalletConnect({ config, connector: c, connectAsync })
+      return
+    }
     await connectAsync({ connector: c })
   }
 

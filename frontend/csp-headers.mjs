@@ -8,16 +8,29 @@ const GOOGLE_AUTH = 'https://accounts.google.com https://oauth2.googleapis.com'
 
 /**
  * Injected wallet extensions (e.g. MetaMask inpage.js) may call Merkle RPC even when the
- * dApp uses Celo — without this, connect-src blocks spam the console but do not break the app.
+ * dApp uses Celo. MetaMask SDK / analytics also call cx.metamask.io when the metaMask
+ * connector or SDK is present — blocking those breaks connect on desktop and mobile.
  */
-const WALLET_EXTENSION_RPC = 'https://eth.merkle.io https://*.merkle.io'
+const WALLET_EXTENSION_RPC = [
+  'https://eth.merkle.io',
+  'https://*.merkle.io',
+  'https://metamask-sdk.api.cx.metamask.io',
+  'https://mm-sdk-analytics.api.cx.metamask.io',
+  'https://*.api.cx.metamask.io',
+  'https://*.cx.metamask.io',
+  'https://*.metamask.io',
+].join(' ')
 
-/** WalletConnect verify iframe (attestation modal). */
+/** WalletConnect verify / AppKit iframes. */
 const WALLETCONNECT_FRAMES = [
   'https://verify.walletconnect.org',
   'https://verify.walletconnect.com',
   'https://secure.walletconnect.org',
   'https://secure.walletconnect.com',
+  'https://*.walletconnect.org',
+  'https://*.walletconnect.com',
+  'https://*.reown.com',
+  'https://appkit-wallet.reown.com',
 ].join(' ')
 
 /** WalletConnect / Reown AppKit + relay (required when RainbowKit or WC is on the page). */
