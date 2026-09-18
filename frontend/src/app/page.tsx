@@ -56,6 +56,7 @@ import {
 import { AccountBootstrapPanel } from '@/components/aa/AccountBootstrapPanel'
 import { AirdropPendingBanner } from '@/components/airdrop/AirdropPendingBanner'
 import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributorAirdropStrip'
+import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
@@ -380,18 +381,22 @@ function HomeContent() {
             </div>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
-              {aaAuth ? (
-                <Button asChild size="default">
-                  <Link href="/login?callbackUrl=/">Log in</Link>
-                </Button>
-              ) : (
+            {aaAuth ? (
+              <div className="pt-1 animate-fade-in-up">
+                <InlineLoginCta callbackUrl="/">
+                  <Button asChild variant="brandGhost" size="default">
+                    <Link href="/guide">How it works</Link>
+                  </Button>
+                </InlineLoginCta>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
                 <WalletConnect />
-              )}
-              <Button asChild variant="brandGhost" size="default">
-                <Link href="/guide">How it works</Link>
-              </Button>
-            </div>
+                <Button asChild variant="brandGhost" size="default">
+                  <Link href="/guide">How it works</Link>
+                </Button>
+              </div>
+            )}
             <p className="text-landing-hint">
               {aaAuth
                 ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'

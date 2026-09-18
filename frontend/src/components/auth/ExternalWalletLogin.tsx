@@ -10,6 +10,8 @@ import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { signInWithConnectedWallet } from '@/lib/auth/client-wallet-signin'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
+import { useWalletConnectUri } from '@/components/wallet/WalletConnectUriOpener'
+import { openWalletConnectFallbackLink } from '@/lib/blockchain/wallet-connect-mobile-link'
 
 type Props = {
   callbackUrl: string
@@ -25,7 +27,8 @@ function hasInjectedProvider(): boolean {
   return Boolean((window as Window & { ethereum?: unknown }).ethereum)
 }
 
-const CONNECT_TIMEOUT_MS = 25_000
+/** Scanning a QR code and approving in a wallet app regularly takes longer than half a minute. */
+const CONNECT_TIMEOUT_MS = 90_000
 
 /**
  * MetaMask / WalletConnect login (pre–RainbowKit AA path).
@@ -46,7 +49,9 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const [authError, setAuthError] = useState<string | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const redirectedRef = useRef(false)
+  const walletConnectUri = useWalletConnectUri()
 
   const { injectedConnector, walletConnectConnector } = useMemo(() => {
     const injected =
@@ -116,6 +121,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     setTimedOut(false)
     setAuthError(null)
     setConnectError(null)
+    setLinkCopied(false)
     setConnecting(true)
     reset()
 
@@ -177,11 +183,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
               className="w-full"
               onClick={() => void connectWith(walletConnectConnector)}
             >
-              {busy && !authBusy
-                ? 'Opening WalletConnect…'
-                : showBrowserWallet
-                  ? 'WalletConnect'
-                  : 'Connect wallet'}
+              {busy && !authBusy ? 'Opening WalletConnect…' : 'WalletConnect'}
             </Button>
           ) : null}
           {!showBrowserWallet && !showWalletConnect ? (
@@ -193,6 +195,38 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
                 ? 'Choose your wallet in the popup, or wait to be sent to your wallet app.'
                 : 'Choose a wallet in the modal, or approve the connection in your wallet app.'}
             </p>
+          ) : null}
+          {walletConnectUri && (isPending || connecting || timedOut) ? (
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="brandGhost"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => openWalletConnectFallbackLink(walletConnectUri)}
+                >
+                  Open wallet app
+                </Button>
+                <Button
+                  type="button"
+                  variant="brandGhost"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    void navigator.clipboard
+                      ?.writeText(walletConnectUri)
+                      .then(() => setLinkCopied(true))
+                      .catch(() => setLinkCopied(false))
+                  }}
+                >
+                  {linkCopied ? 'Link copied' : 'Copy link'}
+                </Button>
+              </div>
+              <p className="text-center text-[10px] text-gray-500">
+                Use these only if the QR code or wallet list does not show up.
+              </p>
+            </div>
           ) : null}
           {(isPending || connecting) && !timedOut ? (
             <Button

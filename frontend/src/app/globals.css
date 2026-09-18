@@ -168,7 +168,10 @@
     );
   }
 
-  body > * {
+  /* Page content stacks above the fixed body::before gradient. Wallet modals must keep their
+     own position: fixed, otherwise the WalletConnect QR sheet lays out at the bottom of the
+     document and never appears on screen. */
+  body > *:not(w3m-modal):not(wcm-modal):not(appkit-modal) {
     position: relative;
     z-index: 1;
   }

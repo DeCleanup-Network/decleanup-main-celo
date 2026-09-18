@@ -4,7 +4,7 @@ import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 /**
  * Start WalletConnect from a user gesture.
  * Do not pass chainId here: it can block the QR / AppKit modal on desktop.
- * Mobile: light relay reconnect first; UriOpener deep-links if the modal never appears.
+ * Mobile: light relay reconnect first so a suspended relay socket does not stall the pairing.
  */
 export async function connectWithWalletConnect(params: {
   config: Config

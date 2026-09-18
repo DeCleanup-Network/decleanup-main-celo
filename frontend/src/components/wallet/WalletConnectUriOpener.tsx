@@ -1,18 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { getConnectors } from '@wagmi/core'
 import { useConfig } from 'wagmi'
-import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
-import { openWalletConnectFallbackLink } from '@/lib/blockchain/wallet-connect-mobile-link'
-
-function hasWalletConnectModalOpen(): boolean {
-  return Boolean(
-    document.querySelector(
-      'w3m-modal, wcm-modal, appkit-modal, [data-w3m-modal], [data-testid="w3m-modal"]'
-    )
-  )
-}
+import {
+  getWalletConnectUri,
+  setWalletConnectUri,
+  subscribeWalletConnectUri,
+} from '@/lib/blockchain/wallet-connect-uri'
 
 type ConnectorMessage = {
   type: string
@@ -20,8 +15,9 @@ type ConnectorMessage = {
 }
 
 /**
- * If AppKit / QR modal never mounts after display_uri, open the WalletConnect universal link.
- * Mobile: same-tab deep link. Desktop: new tab so the dapp stays open.
+ * Keeps the latest WalletConnect pairing URI around so connect buttons can offer a manual
+ * deep link when the AppKit modal does not appear. Never navigates on its own: an automatic
+ * redirect to walletconnect.com used to drop people out of the dApp mid-connect.
  */
 export function WalletConnectUriOpener() {
   const config = useConfig()
@@ -32,19 +28,27 @@ export function WalletConnectUriOpener() {
 
     const onMessage = (message: ConnectorMessage) => {
       if (message.type !== 'display_uri' || typeof message.data !== 'string') return
-      const uri = message.data
-
-      window.setTimeout(() => {
-        if (hasWalletConnectModalOpen()) return
-        openWalletConnectFallbackLink(uri)
-      }, isMobileBrowser() ? 1200 : 1800)
+      setWalletConnectUri(message.data)
     }
 
+    const onConnect = () => setWalletConnectUri(null)
+
     walletConnect.emitter.on('message', onMessage)
+    walletConnect.emitter.on('connect', onConnect)
     return () => {
       walletConnect.emitter.off('message', onMessage)
+      walletConnect.emitter.off('connect', onConnect)
     }
   }, [config])
 
   return null
+}
+
+/** Latest WalletConnect pairing URI, or null when there is no pending pairing. */
+export function useWalletConnectUri(): string | null {
+  return useSyncExternalStore(
+    subscribeWalletConnectUri,
+    getWalletConnectUri,
+    () => null
+  )
 }

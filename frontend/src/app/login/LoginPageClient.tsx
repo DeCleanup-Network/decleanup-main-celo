@@ -1,25 +1,10 @@
 'use client'
 
-import { signIn, useSession } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { useDisconnect } from 'wagmi'
-import { Button } from '@/components/ui/button'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
-import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
-import { ExternalWalletLogin } from '@/components/auth/ExternalWalletLogin'
-import { LoginEmailForm } from '@/components/auth/LoginEmailForm'
-import { LoginRecoverySection } from '@/components/auth/LoginRecoverySection'
-
-function LoginDivider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 py-1">
-      <div className="h-px flex-1 bg-white/10" />
-      <span className="font-meta text-[10px] text-muted-foreground">{label}</span>
-      <div className="h-px flex-1 bg-white/10" />
-    </div>
-  )
-}
+import { LoginOptions } from '@/components/auth/LoginOptions'
 
 type Props = {
   emailLoginEnabled: boolean
@@ -27,8 +12,6 @@ type Props = {
 
 export default function LoginPageClient({ emailLoginEnabled }: Props) {
   const { status } = useSession()
-  const { isEmbeddedAccount } = useEmbeddedAuth()
-  const { disconnect } = useDisconnect()
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') ?? '/'
@@ -37,7 +20,7 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
   const aaEnabled = isAaAuthEnabledClient()
   const errorMessage =
     authError === 'Configuration'
-      ? 'Sign-in could not finish — the app could not save your account to Postgres. In frontend/: run npm run db:check. Fix DATABASE_URL (postgresql://…?sslmode=require), run npm run db:push, or paste prisma/supabase-full-schema.sql into Supabase SQL Editor. Then restart npm run dev.'
+      ? 'Sign-in could not finish. The app could not save your account to Postgres. In frontend/: run npm run db:check. Fix DATABASE_URL (postgresql://…?sslmode=require), run npm run db:push, or paste prisma/supabase-full-schema.sql into Supabase SQL Editor. Then restart npm run dev.'
       : authError
         ? `Sign-in failed (${authError}). Check the terminal where npm run dev is running.`
         : null
@@ -60,14 +43,12 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
     )
   }
 
-  const subtitle = emailLoginEnabled
-    ? 'Google · Email · WalletConnect · Recovery import'
-    : 'Google · WalletConnect · Recovery import'
-
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <h1 className="text-center text-2xl font-bold text-white">Sign in</h1>
-      <p className="mt-2 text-center text-sm text-gray-400">{subtitle}</p>
+      <p className="mt-2 text-center text-sm text-gray-400">
+        Pick one way in. You can add the others later.
+      </p>
 
       {(errorMessage || emailSent) && (
         <p
@@ -84,31 +65,11 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
         </p>
       )}
 
-      <div className="mt-8 space-y-4">
-        <Button
-          type="button"
-          className="w-full"
-          onClick={() => {
-            disconnect()
-            void signIn('google', { callbackUrl })
-          }}
-        >
-          Continue with Google
-        </Button>
-
-        {emailLoginEnabled ? (
-          <>
-            <LoginDivider label="or" />
-            <LoginEmailForm callbackUrl={callbackUrl} />
-          </>
-        ) : null}
-
-        <LoginDivider label="or" />
-
-        <ExternalWalletLogin callbackUrl={callbackUrl} />
-
-        <LoginRecoverySection callbackUrl={callbackUrl} />
-      </div>
+      <LoginOptions
+        className="mt-8"
+        callbackUrl={callbackUrl}
+        emailLoginEnabled={emailLoginEnabled}
+      />
     </div>
   )
 }
