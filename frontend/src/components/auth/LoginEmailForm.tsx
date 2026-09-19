@@ -91,7 +91,7 @@ export function LoginEmailForm({ callbackUrl }: Props) {
         className="w-full border-white/10 text-foreground"
         disabled={pending || sent}
       >
-        {sent ? 'Check your inbox' : pending ? 'Sending…' : 'Continue with Email'}
+        {sent ? 'Check your inbox' : pending ? 'Sending…' : 'Send sign-in link'}
       </Button>
       {error && (
         <p className="text-xs text-amber-300" role="alert">

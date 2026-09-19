@@ -178,12 +178,11 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
           {showWalletConnect ? (
             <Button
               type="button"
-              variant={showBrowserWallet ? 'outline' : 'default'}
               disabled={busy}
               className="w-full"
               onClick={() => void connectWith(walletConnectConnector)}
             >
-              {busy && !authBusy ? 'Opening WalletConnect…' : 'WalletConnect'}
+              {busy && !authBusy ? 'Opening WalletConnect…' : 'Connect wallet'}
             </Button>
           ) : null}
           {!showBrowserWallet && !showWalletConnect ? (
