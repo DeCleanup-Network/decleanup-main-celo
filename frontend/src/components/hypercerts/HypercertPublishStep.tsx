@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
+import { isAwaitingHypercertPublish } from '@/lib/blockchain/hypercerts/requests'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   requests: HypercertRequest[]
@@ -19,6 +21,8 @@ export function HypercertPublishStep({
   onCancel,
   cancelPending,
 }: Props) {
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+
   if (requests.length === 0) return null
 
   return (
@@ -27,8 +31,8 @@ export function HypercertPublishStep({
         Step 4: Verifier review &amp; publish
       </h2>
       <p className="mb-6 text-sm text-muted-foreground">
-        A DeCleanup verifier approves your request. On approval, your certificate is published to
-        Hyperscan automatically — you do not need to publish it yourself.
+        A DeCleanup Network verifier approves your request. On approval, your certificate should
+        publish to Hyperscan automatically. If that step fails, reset and submit again.
       </p>
 
       <ul className="space-y-4">
@@ -36,8 +40,8 @@ export function HypercertPublishStep({
           const title = request.metadata?.branding?.title || request.metadata?.name || 'Hypercert'
           const hyperscanUrl = request.atUri ? buildHyperscanHypercertUrl(request.atUri) : null
           const isPendingReview = request.status === 'PENDING'
-          const isPublishing =
-            (request.status === 'APPROVED' || request.status === 'MINTED') && !request.atUri
+          const isStalled = isAwaitingHypercertPublish(request)
+          const confirming = confirmId === request.id
 
           return (
             <li key={request.id} className="rounded-2xl border border-border bg-background/40 p-4">
@@ -65,31 +69,69 @@ export function HypercertPublishStep({
                 </p>
               ) : null}
 
-              {isPublishing ? (
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-green" aria-hidden />
-                  Approved — publishing to Hyperscan…
-                </p>
+              {isStalled ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-amber-200">
+                    Approved, but not live on Hyperscan. Publish did not finish, so this request is
+                    blocking a new one.
+                  </p>
+                  {request.atPublishError ? (
+                    <p className="text-xs text-amber-400/90" role="status">
+                      {request.atPublishError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Usually the AT login on the server failed, or Hyperscan publish is turned off.
+                    </p>
+                  )}
+                </div>
               ) : null}
 
-              {request.atPublishError ? (
+              {!isStalled && request.atPublishError ? (
                 <p className="mb-3 text-xs text-amber-400" role="status">
-                  Publish issue (verifier will retry): {request.atPublishError}
+                  Publish issue: {request.atPublishError}
                 </p>
               ) : null}
 
               {!request.atUri && onCancel ? (
-                <button
-                  type="button"
-                  onClick={() => onCancel(request.id)}
-                  disabled={!canSign || cancelPending}
-                  className={cn(
-                    'mt-3 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline',
-                    'disabled:cursor-not-allowed disabled:opacity-50'
-                  )}
-                >
-                  {cancelPending ? 'Withdrawing…' : 'Withdraw request'}
-                </button>
+                confirming ? (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      This withdraws the request so you can configure and submit a new one. Sign in
+                      your wallet to confirm.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!canSign || cancelPending}
+                        onClick={() => onCancel(request.id)}
+                      >
+                        {cancelPending ? 'Resetting…' : 'Confirm reset'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="brandGhost"
+                        size="sm"
+                        disabled={cancelPending}
+                        onClick={() => setConfirmId(null)}
+                      >
+                        Keep request
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="brandGhost"
+                    size="sm"
+                    className="mt-4"
+                    disabled={!canSign || cancelPending}
+                    onClick={() => setConfirmId(request.id)}
+                  >
+                    Reset and start over
+                  </Button>
+                )
               ) : null}
             </li>
           )

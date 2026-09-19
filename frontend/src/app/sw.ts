@@ -15,18 +15,29 @@ declare const self: ServiceWorkerGlobalScope
  * Never cache auth, wallet, or API traffic — stale responses break login / AA / passkeys.
  * NetworkOnly rules must come before defaultCache.
  */
+function isAuthDocument(url: URL): boolean {
+  return url.pathname === '/login' || url.pathname.startsWith('/login/')
+}
+
+/** NetworkOnly throws `no-response` when a navigation is aborted (Auth.js bounce). Swallow that. */
+const swallowAbortedNetwork: ConstructorParameters<typeof NetworkOnly>[0] = {
+  plugins: [
+    {
+      handlerDidError: async () =>
+        new Response(undefined, { status: 504, statusText: 'network-unavailable' }),
+    },
+  ],
+}
+
 const sensitiveNetworkOnly: RuntimeCaching[] = [
   {
     matcher: ({ sameOrigin, url }) => sameOrigin && url.pathname.startsWith('/api/'),
-    handler: new NetworkOnly(),
+    handler: new NetworkOnly(swallowAbortedNetwork),
   },
   {
     matcher: ({ sameOrigin, url }) =>
-      sameOrigin &&
-      (url.pathname === '/login' ||
-        url.pathname.startsWith('/login/') ||
-        url.pathname.startsWith('/api/auth')),
-    handler: new NetworkOnly(),
+      sameOrigin && (isAuthDocument(url) || url.pathname.startsWith('/api/auth')),
+    handler: new NetworkOnly(swallowAbortedNetwork),
   },
 ]
 
@@ -43,7 +54,14 @@ const serwist = new Serwist({
       {
         url: '/~offline',
         matcher({ request }) {
-          return request.destination === 'document'
+          if (request.destination !== 'document') return false
+          try {
+            const url = new URL(request.url)
+            if (isAuthDocument(url) || url.pathname.startsWith('/api/')) return false
+          } catch {
+            return false
+          }
+          return true
         },
       },
     ],

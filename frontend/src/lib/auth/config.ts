@@ -4,6 +4,7 @@ import Email from 'next-auth/providers/email'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/db/prisma'
 import { sendResendMagicLink } from '@/lib/auth/resend-magic-link'
+import { safeRedirectUrl } from '@/lib/auth/safe-callback-url'
 
 const providers: NextAuthConfig['providers'] = []
 
@@ -93,6 +94,9 @@ export const authConfig = {
     },
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      return safeRedirectUrl(url, baseUrl)
+    },
     async jwt({ token, user, account }) {
       if (account?.provider) {
         token.authProvider = account.provider

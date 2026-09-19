@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 import { LoginOptions } from '@/components/auth/LoginOptions'
 
 type Props = {
@@ -14,7 +15,7 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
   const { status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/'
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'))
   const authError = searchParams.get('error')
   const emailSent = searchParams.get('email') === 'sent'
   const aaEnabled = isAaAuthEnabledClient()

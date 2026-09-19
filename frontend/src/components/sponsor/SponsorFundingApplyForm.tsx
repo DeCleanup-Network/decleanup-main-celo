@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useAccount, useConfig, useConnect } from 'wagmi'
 import { isAddress, type Address } from 'viem'
-import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
+import { PageBackButton } from '@/components/layout/PageBackButton'
 import { Button } from '@/components/ui/button'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
@@ -167,8 +167,8 @@ export function SponsorFundingApplyForm() {
         : `/sponsor/e/${submittedId}`
     return (
       <div className="mx-auto w-full max-w-md space-y-4 overflow-y-auto px-4 py-6 pb-12 sm:px-5">
-        <BackToDeCleanupLink />
-        <h1 className="font-heading text-2xl tracking-wider text-white">Submitted</h1>
+        <PageBackButton href="/sponsor/submit" />
+        <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Submitted</h1>
         <p className="text-sm text-gray-400">
           A verifier will review your application. When approved, donors can fund you on /sponsor.
         </p>
@@ -185,11 +185,8 @@ export function SponsorFundingApplyForm() {
   return (
     <div className="mx-auto w-full max-w-md space-y-5 overflow-y-auto px-4 py-6 pb-12 sm:px-5">
       <div>
-        <BackToDeCleanupLink className="mr-3" />
-        <Link href="/sponsor/submit" className="text-xs text-gray-500 hover:text-brand-green hover:underline">
-          Apply for funding
-        </Link>
-        <h1 className="mt-2 font-heading text-2xl tracking-wider text-white">Submit for donations</h1>
+        <PageBackButton href="/sponsor/submit" />
+        <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Submit for donations</h1>
         <p className="mt-1 text-sm text-gray-400">
           Tell donors who you are and why to fund your cleanups. Verifiers approve before you go live.
         </p>
@@ -202,11 +199,8 @@ export function SponsorFundingApplyForm() {
       ) : checking ? (
         <p className="text-sm text-gray-400">Checking level…</p>
       ) : !eligible ? (
-        <div className="space-y-2 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
+        <div className="rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
           <p className="text-sm text-gray-300">Level {MIN_LEVEL}+ required.</p>
-          <Link href="/" className="text-sm text-brand-green hover:underline">
-            Go to dashboard
-          </Link>
         </div>
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">

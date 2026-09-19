@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { PageBackButton } from '@/components/layout/PageBackButton'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
-import { Button } from '@/components/ui/button'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { useHypercertWallet } from '@/hooks/useHypercertWallet'
@@ -24,7 +23,6 @@ import {
   isAwaitingHypercertPublish,
   cancelHypercertRequest,
 } from '@/lib/blockchain/hypercerts/requests'
-import { buildHyperscanHypercertUrl } from '@/lib/blockchain/hypercerts/atproto/urls'
 import { evaluateBrandingReadiness, isBrandingTextComplete } from '@/lib/blockchain/hypercerts/branding-readiness'
 import { HypercertStatusPills } from '@/components/hypercerts/HypercertStatusPills'
 import { HypercertProgressTracker } from '@/components/hypercerts/HypercertProgressTracker'
@@ -266,7 +264,7 @@ export default function HypercertsCertificationPage() {
       })
       setActionModal({
         title: 'Request withdrawn',
-        message: 'You can configure a new certificate and submit again.',
+        message: 'The stuck request is gone. You can configure a new certificate and submit again.',
         variant: 'info',
       })
       setRequestsRefreshKey((k) => k + 1)
@@ -282,14 +280,7 @@ export default function HypercertsCertificationPage() {
     }
   }
 
-  const homeButton = (
-    <Link href="/">
-      <Button variant="outline" size="sm" className="gap-2 border-border bg-card font-heading tracking-wider">
-        <ArrowLeft className="h-4 w-4" />
-        Home
-      </Button>
-    </Link>
-  )
+  const backButton = <PageBackButton />
 
   if (!showMainApp) {
     return (
@@ -299,7 +290,7 @@ export default function HypercertsCertificationPage() {
             programWord="HYPERCERTS"
             description="Connect your wallet to request a milestone impact certificate."
             align="center"
-            trailing={homeButton}
+            trailing={backButton}
           />
           <div className="mx-auto flex max-w-md flex-col items-center gap-6 rounded-2xl border border-border bg-card p-8 text-center">
             <WalletConnect />
@@ -415,7 +406,7 @@ export default function HypercertsCertificationPage() {
         <DeCleanupPageHero
           programWord="HYPERCERTS"
           description="Build and publish your impact certificate on Hyperscan."
-          trailing={homeButton}
+          trailing={backButton}
         />
 
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
@@ -500,41 +491,6 @@ export default function HypercertsCertificationPage() {
                   <HypercertCertificateCard key={request.id} request={request} />
                 ))}
               </div>
-            </section>
-          ) : null}
-
-          {activeRequests.length > 0 ? (
-            <section className="space-y-4 border-t border-border pt-8">
-              <h2 className="font-heading text-xl uppercase tracking-wider text-foreground">
-                Open requests
-              </h2>
-              <ul className="space-y-2">
-                {activeRequests.map((request) => (
-                  <li
-                    key={request.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm"
-                  >
-                    <span className="text-muted-foreground">{request.id.slice(0, 8)}…</span>
-                    <span className="text-xs uppercase text-muted-foreground">
-                      {request.status === 'PENDING'
-                        ? 'Pending review'
-                        : isAwaitingHypercertPublish(request)
-                          ? 'Publishing'
-                          : request.status}
-                    </span>
-                    {request.atUri ? (
-                      <Link
-                        href={buildHyperscanHypercertUrl(request.atUri)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-green hover:underline"
-                      >
-                        Hyperscan
-                      </Link>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
             </section>
           ) : null}
 

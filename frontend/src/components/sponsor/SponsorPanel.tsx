@@ -311,7 +311,7 @@ export function SponsorPanel() {
               href="/sponsor/submit"
               className="inline-flex text-sm text-brand-green hover:underline"
             >
-              Get funded (level 5+) →
+              Get funded →
             </Link>
           </div>
         ) : (

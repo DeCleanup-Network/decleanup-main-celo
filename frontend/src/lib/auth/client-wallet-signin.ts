@@ -1,6 +1,7 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
+import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 
 type SignMessage = (args: { message: string }) => Promise<`0x${string}` | string>
 
@@ -11,6 +12,8 @@ type SignMessage = (args: { message: string }) => Promise<`0x${string}` | string
 export async function signInWithConnectedWallet(opts: {
   address: string
   signMessageAsync: SignMessage
+  /** Where the app goes next. Without it Auth.js stores the current URL as the callback. */
+  redirectTo?: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const address = opts.address.trim()
   if (!address) return { ok: false, error: 'Wallet not connected' }
@@ -29,6 +32,7 @@ export async function signInWithConnectedWallet(opts: {
       message,
       signature,
       redirect: false,
+      callbackUrl: safeCallbackUrl(opts.redirectTo),
     })
 
     if (result?.error) {

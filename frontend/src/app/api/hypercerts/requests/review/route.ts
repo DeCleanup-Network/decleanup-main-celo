@@ -4,7 +4,11 @@ import {
   assertFreshTimestamp,
   buildReviewMessage,
 } from '@/lib/blockchain/hypercerts/request-signing'
-import { getHypercertRequestById, updateHypercertRequestStatus } from '@/lib/supabase/hypercert-requests-db'
+import {
+  getHypercertRequestById,
+  recordAtProtoError,
+  updateHypercertRequestStatus,
+} from '@/lib/supabase/hypercert-requests-db'
 import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import { isAtProtoEnabled, getAtProtoOrgDid } from '@/lib/blockchain/hypercerts/atproto'
 import { publishHypercertToAtProto } from '@/lib/blockchain/hypercerts/atproto-publish'
@@ -93,14 +97,19 @@ export async function POST(request: NextRequest) {
 
     // Publish to Hyperscan when verifier approves (server AT credentials).
     let publishWarning: string | undefined
-    if (isAtProtoEnabled() && nextStatus === 'APPROVED') {
-      const verifierDid = getAtProtoOrgDid()
-      const result = await publishHypercertToAtProto(requestId, verifierDid)
-      if (!result.success) {
-        console.error(`[ATProto] Publish failed for ${requestId}: ${result.error}`)
-        publishWarning = result.error ?? 'AT Protocol publish failed after approval.'
+    if (nextStatus === 'APPROVED') {
+      if (isAtProtoEnabled()) {
+        const verifierDid = getAtProtoOrgDid()
+        const result = await publishHypercertToAtProto(requestId, verifierDid)
+        if (!result.success) {
+          console.error(`[ATProto] Publish failed for ${requestId}: ${result.error}`)
+          publishWarning = result.error ?? 'AT Protocol publish failed after approval.'
+        } else {
+          console.log(`[ATProto] Published ${requestId} -> ${result.atUri}`)
+        }
       } else {
-        console.log(`[ATProto] Published ${requestId} -> ${result.atUri}`)
+        publishWarning = 'ATProto publishing is disabled (HYPERCERTS_AT_ENABLED is not true).'
+        await recordAtProtoError(requestId, publishWarning)
       }
     }
 

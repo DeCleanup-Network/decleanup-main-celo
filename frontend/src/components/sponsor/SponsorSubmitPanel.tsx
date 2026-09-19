@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAccount, useConfig, useConnect } from 'wagmi'
 import type { Address } from 'viem'
 import { Lock, Share2, Sprout, Unlock } from 'lucide-react'
-import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
+import { PageBackButton } from '@/components/layout/PageBackButton'
 import { Button } from '@/components/ui/button'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
@@ -69,11 +69,8 @@ export function SponsorSubmitPanel() {
 
       <div className="relative space-y-5 pb-10">
         <div>
-          <BackToDeCleanupLink className="mr-3" />
-          <Link href="/" className="text-xs text-gray-500 hover:text-brand-green hover:underline">
-            Dashboard
-          </Link>
-          <h1 className="mt-2 font-heading text-2xl tracking-wider text-white">Apply for funding</h1>
+          <PageBackButton />
+          <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Apply for funding</h1>
           <p className="mt-1 text-sm text-gray-400">
             Two paths. Start with community donations (MiniPay / cUSD). Gardens unlocks later.
           </p>
@@ -158,18 +155,10 @@ export function SponsorSubmitPanel() {
               Submit for donations
             </Link>
           ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-gray-500">
-                Reach Impact Product level {MIN_LEVEL}, then come back to apply. Verifiers will review
-                before your page goes live for donors.
-              </p>
-              <Link
-                href="/"
-                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-white/10 text-sm text-gray-300 hover:border-white/25"
-              >
-                Go to dashboard
-              </Link>
-            </div>
+            <p className="text-xs text-gray-500">
+              Reach Impact Product level {MIN_LEVEL}, then come back to apply. Verifiers will review
+              before your page goes live for donors.
+            </p>
           )}
         </section>
 

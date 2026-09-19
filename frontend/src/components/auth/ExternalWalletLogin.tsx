@@ -9,17 +9,13 @@ import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { signInWithConnectedWallet } from '@/lib/auth/client-wallet-signin'
+import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useWalletConnectUri } from '@/components/wallet/WalletConnectUriOpener'
 import { openWalletConnectFallbackLink } from '@/lib/blockchain/wallet-connect-mobile-link'
 
 type Props = {
   callbackUrl: string
-}
-
-function safeCallbackUrl(url: string): string {
-  if (!url || url.startsWith('/login')) return '/'
-  return url
 }
 
 function hasInjectedProvider(): boolean {
@@ -56,10 +52,9 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const { injectedConnector, walletConnectConnector } = useMemo(() => {
     const injected =
       connectors.find((c) => c.id === 'injected' || c.type === 'injected') ?? null
-    const walletConnect = connectors.find((c) => c.id === 'walletConnect') ?? null
     return {
       injectedConnector: injected,
-      walletConnectConnector: walletConnect,
+      walletConnectConnector: connectors.find((c) => c.id === 'walletConnect') ?? null,
     }
   }, [connectors])
 
@@ -90,6 +85,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
         const result = await signInWithConnectedWallet({
           address,
           signMessageAsync,
+          redirectTo: target,
         })
         if (cancelled) return
         if (!result.ok) {
@@ -145,8 +141,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     }
   }
 
-  const browserWalletConnector =
-    (hasInjectedProvider() && injectedConnector) || null
+  const browserWalletConnector = (hasInjectedProvider() && injectedConnector) || null
   const showBrowserWallet = Boolean(browserWalletConnector)
   const showWalletConnect = Boolean(walletConnectConnector)
   const busy = isPending || connecting || authBusy
@@ -172,7 +167,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
               className="w-full"
               onClick={() => void connectWith(browserWalletConnector)}
             >
-              {busy && !authBusy ? 'Connecting…' : 'MetaMask / browser wallet'}
+              {busy && !authBusy ? 'Connecting…' : 'Browser wallet'}
             </Button>
           ) : null}
           {showWalletConnect ? (
@@ -276,6 +271,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
                     const result = await signInWithConnectedWallet({
                       address,
                       signMessageAsync,
+                      redirectTo: target,
                     })
                     setAuthBusy(false)
                     if (!result.ok) {
