@@ -4,6 +4,9 @@ export const CUSD_CELO_MAINNET_ADDRESS =
 
 export const CELO_MAINNET_CHAIN_ID = 42220
 
+/** ERC-20 transfer is ~65k gas. Set explicitly so wallets that fail Celo fee estimation can still confirm. */
+export const CUSD_TRANSFER_GAS = 100_000n
+
 /** Minimal ERC-20 ABI for balance + transfer. */
 export const CUSD_ERC20_ABI = [
   {

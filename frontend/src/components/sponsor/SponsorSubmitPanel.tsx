@@ -125,9 +125,12 @@ export function SponsorSubmitPanel() {
             <span className="rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
               Verifier review
             </span>
-            <span className="rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
-              Live on /sponsor
-            </span>
+            <Link
+              href="/sponsor"
+              className="rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-brand-green hover:underline"
+            >
+              Live here
+            </Link>
           </div>
 
           {isConnected && level != null ? (

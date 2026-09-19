@@ -13,6 +13,7 @@ import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useEffect } from 'react'
 
 const MIN_LEVEL = SPONSOR_CONFIG.minLevelToPropose
+const WHY_FUNDING_MAX = SPONSOR_CONFIG.whyFundingMaxChars
 
 const inputClass =
   'w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-green/50'
@@ -117,6 +118,10 @@ export function SponsorFundingApplyForm() {
       setError('Fill campaign name, location, and why you need funding.')
       return
     }
+    if (whyFunding.trim().length > WHY_FUNDING_MAX) {
+      setError(`Why you need funding must be ${WHY_FUNDING_MAX} characters or fewer.`)
+      return
+    }
     const goal = Number(fundingGoal)
     if (!(goal > 0)) {
       setError('Funding goal must be greater than zero.')
@@ -210,11 +215,15 @@ export function SponsorFundingApplyForm() {
           <Field label="Location / area">
             <input className={inputClass} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Bangkok, Thailand" />
           </Field>
-          <Field label="Why do you need funding?" hint="Equipment, transport, disposal, supplies…">
+          <Field
+            label="Why do you need funding?"
+            hint={`Equipment, transport, disposal, supplies. ${whyFunding.length}/${WHY_FUNDING_MAX}`}
+          >
             <textarea
               className={`${inputClass} min-h-[88px] resize-y`}
               value={whyFunding}
-              onChange={(e) => setWhyFunding(e.target.value)}
+              maxLength={WHY_FUNDING_MAX}
+              onChange={(e) => setWhyFunding(e.target.value.slice(0, WHY_FUNDING_MAX))}
               placeholder="We need bags, gloves, and dump fees for weekly canal cleanups."
             />
           </Field>

@@ -8,23 +8,23 @@ import {
   useConfig,
   useConnect,
   useDisconnect,
+  useBalance,
   useReadContract,
   useSwitchChain,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { formatUnits, isAddress, parseUnits } from 'viem'
+import { formatUnits, getAddress, isAddress, parseUnits } from 'viem'
 import { Button } from '@/components/ui/button'
-import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
 import {
   CELO_MAINNET_CHAIN_ID,
   CUSD_CELO_MAINNET_ADDRESS,
   CUSD_ERC20_ABI,
+  CUSD_TRANSFER_GAS,
   isMiniPayInjected,
 } from '@/lib/blockchain/cusd'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
-import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
 
 function formatCusd(n: number): string {
   if (!Number.isFinite(n)) return '0'
@@ -40,6 +40,21 @@ function shortAddr(a: string): string {
 function progressPct(raised: number, goal: number): number {
   if (!(goal > 0)) return 0
   return Math.min(100, Math.round((raised / goal) * 100))
+}
+
+function SponsorExitLinks() {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button asChild variant="outline" size="sm" className="border-border bg-card font-heading tracking-wider">
+        <a href="https://decleanup.net" rel="noreferrer">
+          Go back to website
+        </a>
+      </Button>
+      <Button asChild variant="outline" size="sm" className="border-border bg-card font-heading tracking-wider">
+        <Link href="/">Back to the app</Link>
+      </Button>
+    </div>
+  )
 }
 
 export function SponsorPanel() {
@@ -83,7 +98,16 @@ export function SponsorPanel() {
     query: { enabled: Boolean(address && onCelo) },
   })
 
+  const { data: celoBalance } = useBalance({
+    address,
+    chainId: CELO_MAINNET_CHAIN_ID,
+    query: { enabled: Boolean(address && onCelo) },
+  })
+
   const balance = balanceRaw != null ? Number(formatUnits(balanceRaw, 18)) : null
+  const celoForGas =
+    celoBalance != null ? Number(formatUnits(celoBalance.value, celoBalance.decimals)) : null
+  const needsCeloForGas = !miniPay && celoForGas != null && celoForGas < 0.001
   const amountNum = Number(amount)
   const amountValid = Number.isFinite(amountNum) && amountNum > 0
   const exceedsBalance = balance != null && amountValid && amountNum > balance + 1e-12
@@ -252,8 +276,10 @@ export function SponsorPanel() {
         address: CUSD_CELO_MAINNET_ADDRESS,
         abi: CUSD_ERC20_ABI,
         functionName: 'transfer',
-        args: [selected.recipientAddress as `0x${string}`, value],
+        args: [getAddress(selected.recipientAddress), value],
         chainId: CELO_MAINNET_CHAIN_ID,
+        gas: CUSD_TRANSFER_GAS,
+        ...(miniPay ? { feeCurrency: CUSD_CELO_MAINNET_ADDRESS } : {}),
       })
       setTxHash(hash)
     } catch (e) {
@@ -276,22 +302,11 @@ export function SponsorPanel() {
   return (
     <div className="mx-auto w-full max-w-md space-y-5 px-4 py-6 sm:px-5">
       <div>
-        <BackToDeCleanupLink />
-        <h1 className="mt-2 font-heading text-2xl tracking-wider text-white">Sponsor a cleanup</h1>
+        <SponsorExitLinks />
+        <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Sponsor a cleanup</h1>
         <p className="mt-1 text-sm text-gray-400">
-          Send cUSD on Celo to fund a verified cleanup event
+          Connect, pick a campaign, enter an amount, and send cUSD
           {miniPay ? ' · MiniPay detected' : ''}.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            href="/sponsor/submit"
-            className="inline-flex min-h-[44px] items-center rounded-lg border border-brand-green/40 bg-brand-green/10 px-3.5 text-xs font-heading font-semibold uppercase tracking-wide text-brand-green hover:bg-brand-green/20"
-          >
-            Apply for funding
-          </Link>
-        </div>
-        <p className="mt-2 text-[11px] text-gray-600">
-          Organizers apply from the dashboard. Verifiers approve before campaigns appear here.
         </p>
       </div>
 
@@ -305,14 +320,8 @@ export function SponsorPanel() {
             {loadError}
           </p>
         ) : events.length === 0 ? (
-          <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-4">
+          <div className="rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-4">
             <p className="text-sm text-gray-400">No active or upcoming events yet.</p>
-            <Link
-              href="/sponsor/submit"
-              className="inline-flex text-sm text-brand-green hover:underline"
-            >
-              Get funded →
-            </Link>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -393,16 +402,11 @@ export function SponsorPanel() {
               {walletConnect ? (
                 <Button
                   type="button"
-                  variant={injected ? 'outline' : 'default'}
-                  className="w-full border-white/10"
+                  className="w-full"
                   disabled={connecting}
                   onClick={() => void connectBrowser('walletConnect')}
                 >
-                  {connecting
-                    ? 'Opening…'
-                    : isMobileBrowser()
-                      ? 'WalletConnect'
-                      : 'WalletConnect (QR)'}
+                  {connecting ? 'Opening WalletConnect…' : 'Connect wallet'}
                 </Button>
               ) : null}
             </div>
@@ -470,6 +474,18 @@ export function SponsorPanel() {
           {exceedsBalance ? (
             <p className="text-xs text-amber-300">Amount exceeds your cUSD balance.</p>
           ) : null}
+          {needsCeloForGas ? (
+            <p className="text-xs text-amber-300">
+              Your wallet needs a little CELO for gas (about 0.001). Without it the send can fail even
+              if you have cUSD.
+            </p>
+          ) : (
+            <p className="text-[11px] text-gray-500">
+              {miniPay
+                ? 'MiniPay pays the network fee in cUSD. The amount you enter is the donation.'
+                : 'This is a normal cUSD send. Your wallet may say it cannot estimate the fee on Celo. That is a wallet display issue. Confirm if you have enough cUSD and a little CELO.'}
+            </p>
+          )}
           <Button
             type="button"
             className="w-full"
@@ -499,6 +515,9 @@ export function SponsorPanel() {
           >
             {success.txHash}
           </a>
+          <div className="pt-1">
+            <SponsorExitLinks />
+          </div>
         </div>
       ) : null}
 

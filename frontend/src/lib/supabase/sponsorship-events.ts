@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { isAddress, getAddress } from 'viem'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SponsorEventDto, SponsorEventInput, SponsorEventStatus } from '@/lib/sponsor/types'
+import { SPONSOR_CONFIG } from '@/config/sponsor'
 
 export type { SponsorEventDto, SponsorEventStatus } from '@/lib/sponsor/types'
 
@@ -156,6 +157,9 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
   }
   if (!input.whyFunding?.trim()) {
     throw new Error('Explain why you need funding')
+  }
+  if (input.whyFunding.trim().length > SPONSOR_CONFIG.whyFundingMaxChars) {
+    throw new Error(`Why you need funding must be ${SPONSOR_CONFIG.whyFundingMaxChars} characters or fewer`)
   }
 
   let eventDateIso: string | null = null

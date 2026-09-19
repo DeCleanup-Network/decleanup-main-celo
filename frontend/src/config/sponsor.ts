@@ -6,6 +6,9 @@ export const SPONSOR_CONFIG = {
   /** Impact Product level required to propose an event for community cUSD funding. */
   minLevelToPropose: 1,
 
+  /** Max length for "Why do you need funding?" */
+  whyFundingMaxChars: 1000,
+
   /** Min $cDCU balance for Gardens governance (vote + propose). */
   gardensMinCdcu: 250,
 

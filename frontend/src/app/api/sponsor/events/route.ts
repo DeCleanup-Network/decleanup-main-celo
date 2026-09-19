@@ -93,6 +93,12 @@ export async function POST(request: NextRequest) {
     if (!name || !location || !recipientAddress || !whyFunding) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+    if (whyFunding.length > SPONSOR_CONFIG.whyFundingMaxChars) {
+      return NextResponse.json(
+        { error: `Why you need funding must be ${SPONSOR_CONFIG.whyFundingMaxChars} characters or fewer.` },
+        { status: 400 }
+      )
+    }
     if (!isAddress(recipientAddress)) {
       return NextResponse.json({ error: 'Invalid recipient address' }, { status: 400 })
     }
