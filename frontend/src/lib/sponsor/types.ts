@@ -1,3 +1,7 @@
+import type { SponsorPaymentMethod } from '@/lib/sponsor/payment-methods'
+
+export type { PaymentMethodKind, SponsorPaymentMethod } from '@/lib/sponsor/payment-methods'
+
 export type SponsorEventStatus = 'pending' | 'active' | 'upcoming' | 'ended'
 
 export type SponsorEventDto = {
@@ -18,6 +22,7 @@ export type SponsorEventDto = {
   impactSummary?: string | null
   socialLinks?: string | null
   impactPortfolioUrl?: string | null
+  paymentMethods?: SponsorPaymentMethod[]
   reviewedBy?: string | null
   reviewedAt?: string | null
 }
@@ -28,7 +33,7 @@ export type SponsorEventInput = {
   organiser: string
   eventDate?: string | null
   fundingGoalCusd: number
-  recipientAddress: string
+  recipientAddress?: string | null
   verifiedCleanupsCount?: number
   status: SponsorEventStatus
   submittedBy?: string | null
@@ -38,4 +43,5 @@ export type SponsorEventInput = {
   impactSummary?: string | null
   socialLinks?: string | null
   impactPortfolioUrl?: string | null
+  paymentMethods?: SponsorPaymentMethod[]
 }

@@ -22,6 +22,12 @@ export type PortfolioDisclosureExport = {
     cumulativeAreaSqm: number
     co2eEstimateKg: number
     co2eMethodology: string
+    events: Array<{
+      submissionId: string
+      weightKg: number
+      areaSqm: number
+      co2eEstimateKg: number
+    }>
   }
   framework: {
     sdgs: number[]
@@ -58,8 +64,16 @@ export function buildPortfolioDisclosureExport(params: {
       impactReports: params.data.verifiedWithReport,
       cumulativeWeightKg: weightKg,
       cumulativeAreaSqm: params.data.cumulative.areaSqm,
-      co2eEstimateKg: estimatePlasticCo2eKg(weightKg),
-      co2eMethodology: `Plastic weight x IPCC AR6 displacement factor (${PLASTIC_CO2E_FACTOR_KG} kg CO2e per kg)`,
+      co2eEstimateKg: params.data.cumulative.co2eEstimateKg ?? estimatePlasticCo2eKg(weightKg),
+      co2eMethodology: `Plastic weight x IPCC AR6 displacement factor (${PLASTIC_CO2E_FACTOR_KG} kg CO2e per kg diverted from open burning or landfill)`,
+      events: params.data.enriched
+        .filter((e) => e.details.verified && !e.details.rejected)
+        .map((e) => ({
+          submissionId: e.submissionId,
+          weightKg: e.weightKg,
+          areaSqm: e.areaSqm,
+          co2eEstimateKg: e.co2eEstimateKg,
+        })),
     },
     framework: {
       sdgs: [11, 14, 15],
@@ -93,6 +107,7 @@ export function buildReportPrintHtml(params: {
   prevention: string
   weightKg: string
   areaSqm: string
+  co2eKg?: string
   cid: string
   portfolioUrl: string
 }): string {
@@ -115,6 +130,7 @@ td,th{border:1px solid #ccc;padding:0.5rem;text-align:left;font-size:0.85rem} th
 <tr><th>Prevention note</th><td>${esc(params.prevention)}</td></tr>
 <tr><th>Weight</th><td>${esc(params.weightKg)}</td></tr>
 <tr><th>Area</th><td>${esc(params.areaSqm)}</td></tr>
+<tr><th>Climate estimate</th><td>${esc(params.co2eKg || '-')}</td></tr>
 <tr><th>IPFS CID</th><td style="font-family:monospace;font-size:0.75rem">${esc(params.cid)}</td></tr>
 </table>
 <p class="footer">Portfolio: ${esc(params.portfolioUrl)} · Generated ${esc(new Date().toISOString())}</p>

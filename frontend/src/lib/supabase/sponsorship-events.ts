@@ -3,12 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 import { isAddress, getAddress } from 'viem'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SponsorEventDto, SponsorEventInput, SponsorEventStatus } from '@/lib/sponsor/types'
+import {
+  cryptoRecipientFromMethods,
+  parsePaymentMethods,
+  validatePaymentMethods,
+} from '@/lib/sponsor/payment-methods'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 
 export type { SponsorEventDto, SponsorEventStatus } from '@/lib/sponsor/types'
 
 const EVENT_SELECT =
-  'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by, why_funding, community_size, event_frequency, impact_summary, social_links, impact_portfolio_url, reviewed_by, reviewed_at'
+  'id, name, location, organiser, event_date, funding_goal_cusd, recipient_address, verified_cleanups_count, status, submitted_by, why_funding, community_size, event_frequency, impact_summary, social_links, impact_portfolio_url, payment_methods, reviewed_by, reviewed_at'
 
 let client: ReturnType<typeof createClient<Database>> | null = null
 
@@ -49,7 +54,7 @@ type EventRow = {
   organiser: string
   event_date: string | null
   funding_goal_cusd: unknown
-  recipient_address: string
+  recipient_address: string | null
   verified_cleanups_count: number | null
   status: string
   submitted_by?: string | null
@@ -59,6 +64,7 @@ type EventRow = {
   impact_summary?: string | null
   social_links?: string | null
   impact_portfolio_url?: string | null
+  payment_methods?: unknown
   reviewed_by?: string | null
   reviewed_at?: string | null
 }
@@ -73,7 +79,7 @@ function mapEvent(e: EventRow, amountRaisedCusd: number): SponsorEventDto {
     fundingGoalCusd: toNum(e.funding_goal_cusd),
     amountRaisedCusd,
     verifiedCleanupsCount: e.verified_cleanups_count ?? 0,
-    recipientAddress: e.recipient_address,
+    recipientAddress: e.recipient_address || '',
     status: e.status as SponsorEventStatus,
     submittedBy: e.submitted_by ?? null,
     whyFunding: e.why_funding ?? null,
@@ -82,6 +88,7 @@ function mapEvent(e: EventRow, amountRaisedCusd: number): SponsorEventDto {
     impactSummary: e.impact_summary ?? null,
     socialLinks: e.social_links ?? null,
     impactPortfolioUrl: e.impact_portfolio_url ?? null,
+    paymentMethods: parsePaymentMethods(e.payment_methods),
     reviewedBy: e.reviewed_by ?? null,
     reviewedAt: e.reviewed_at ?? null,
   }
@@ -149,7 +156,12 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
   if (!input.name.trim() || !input.location.trim() || !input.organiser.trim()) {
     throw new Error('Name, location, and organiser are required')
   }
-  if (!isAddress(input.recipientAddress)) {
+  const paymentMethods = parsePaymentMethods(input.paymentMethods)
+  const paymentError = validatePaymentMethods(paymentMethods)
+  if (paymentError) throw new Error(paymentError)
+  const recipientAddress =
+    input.recipientAddress && isAddress(input.recipientAddress) ? getAddress(input.recipientAddress) : null
+  if (paymentMethods.some((m) => m.kind === 'crypto') && !recipientAddress) {
     throw new Error('Invalid recipient address')
   }
   if (!(input.fundingGoalCusd > 0) || !Number.isFinite(input.fundingGoalCusd)) {
@@ -185,7 +197,8 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
       organiser: input.organiser.trim(),
       event_date: eventDateIso,
       funding_goal_cusd: input.fundingGoalCusd,
-      recipient_address: getAddress(input.recipientAddress),
+      recipient_address: recipientAddress,
+      payment_methods: paymentMethods,
       verified_cleanups_count: Math.max(0, Math.floor(input.verifiedCleanupsCount ?? 0)),
       status: input.status,
       submitted_by: input.submittedBy ? getAddress(input.submittedBy) : null,
@@ -201,6 +214,70 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
 
   if (error) throw error
   return mapEvent(data as EventRow, 0)
+}
+
+export async function updateSponsorEventFields(
+  id: string,
+  input: Omit<SponsorEventInput, 'status' | 'submittedBy'>
+): Promise<SponsorEventDto> {
+  const existing = await getSponsorEventById(id)
+  if (!existing) throw new Error('Event not found')
+
+  if (!input.name.trim() || !input.location.trim()) {
+    throw new Error('Name and location are required')
+  }
+  const paymentMethods = parsePaymentMethods(input.paymentMethods)
+  const paymentError = validatePaymentMethods(paymentMethods)
+  if (paymentError) throw new Error(paymentError)
+  const recipientAddress =
+    cryptoRecipientFromMethods(paymentMethods, input.recipientAddress) ||
+    (input.recipientAddress && isAddress(input.recipientAddress) ? getAddress(input.recipientAddress) : null)
+  if (paymentMethods.some((m) => m.kind === 'crypto') && !recipientAddress) {
+    throw new Error('Invalid recipient address')
+  }
+  if (!(input.fundingGoalCusd > 0) || !Number.isFinite(input.fundingGoalCusd)) {
+    throw new Error('Funding goal must be greater than zero')
+  }
+  if (!input.whyFunding?.trim()) {
+    throw new Error('Explain why you need funding')
+  }
+  if (input.whyFunding.trim().length > SPONSOR_CONFIG.whyFundingMaxChars) {
+    throw new Error(`Why you need funding must be ${SPONSOR_CONFIG.whyFundingMaxChars} characters or fewer`)
+  }
+
+  let eventDateIso: string | null = null
+  if (input.eventDate?.trim()) {
+    const eventDate = new Date(input.eventDate)
+    if (Number.isNaN(eventDate.getTime())) {
+      throw new Error('Invalid event date')
+    }
+    eventDateIso = eventDate.toISOString()
+  }
+
+  const sb = getSupabase()
+  const { data, error } = await sb
+    .from('events')
+    .update({
+      name: input.name.trim(),
+      location: input.location.trim(),
+      organiser: input.organiser.trim() || input.name.trim(),
+      event_date: eventDateIso,
+      funding_goal_cusd: input.fundingGoalCusd,
+      recipient_address: recipientAddress,
+      payment_methods: paymentMethods,
+      why_funding: input.whyFunding.trim(),
+      community_size: input.communitySize?.trim() || null,
+      event_frequency: input.eventFrequency?.trim() || null,
+      impact_summary: input.impactSummary?.trim() || null,
+      social_links: input.socialLinks?.trim() || null,
+      impact_portfolio_url: input.impactPortfolioUrl?.trim() || existing.impactPortfolioUrl || null,
+    } as Database['public']['Tables']['events']['Update'])
+    .eq('id', id)
+    .select(EVENT_SELECT)
+    .single()
+
+  if (error) throw error
+  return mapEvent(data as EventRow, existing.amountRaisedCusd)
 }
 
 export async function updateSponsorEventStatus(

@@ -588,7 +588,9 @@ function PublicPortfolioContent() {
 
   const hasTrend = trendData.length > 0
   const chartData = trendData
-  const co2eEstimate = data ? estimatePlasticCo2eKg(data.cumulative.weightKg) : 0
+  const co2eEstimate = data
+    ? data.cumulative.co2eEstimateKg ?? estimatePlasticCo2eKg(data.cumulative.weightKg)
+    : 0
 
   const socialLinks = [
     { label: 'Farcaster', href: profile?.farcaster || '' },
@@ -1072,7 +1074,8 @@ function PublicPortfolioContent() {
                   title={`Estimate: cumulative plastic weight × IPCC AR6 displacement factor (${PLASTIC_CO2E_FACTOR_KG} kg CO₂e per kg plastic).`}
                   aria-label="GHG methodology info"
                 >
-                  Methodology: IPCC AR6 displacement factor for recovered plastic mass ({PLASTIC_CO2E_FACTOR_KG} kg CO₂e/kg).
+                  Methodology: IPCC AR6 displacement factor of {PLASTIC_CO2E_FACTOR_KG} kg CO₂e per kg
+                  of plastic diverted from open burning or landfill.
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-card p-4">
@@ -1270,6 +1273,11 @@ function PublicPortfolioContent() {
                     const additionalLinks = extractAdditionalReportLinks(e.impact)
                     const photosExpanded = expandedPhotoIds.has(e.submissionId)
                     const hasPhotos = showBefore || showAfter
+                    const metrics = {
+                      weightKg: e.weightKg ?? parseImpactMetrics(e.impact).weightKg,
+                      areaSqm: e.areaSqm ?? parseImpactMetrics(e.impact).areaSqm,
+                    }
+                    const eventCo2e = e.co2eEstimateKg ?? estimatePlasticCo2eKg(metrics.weightKg)
                     return (
                       <article key={e.submissionId} className="overflow-hidden rounded-xl border border-border bg-card">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -1350,7 +1358,25 @@ function PublicPortfolioContent() {
                             </div>
                           </>
                         ) : null}
-                        <div className="grid gap-3 px-4 py-4 md:grid-cols-2">
+                        <div className="grid gap-3 px-4 py-4 md:grid-cols-3">
+                          <div className="rounded-md border border-border/60 p-3 text-xs">
+                            <p className="text-muted-foreground">Weight</p>
+                            <p className="mt-1">{formatNum(metrics.weightKg, 1)} kg</p>
+                          </div>
+                          <div className="rounded-md border border-border/60 p-3 text-xs">
+                            <p className="text-muted-foreground">Area</p>
+                            <p className="mt-1">{formatNum(metrics.areaSqm, 1)} m²</p>
+                          </div>
+                          <div className="rounded-md border border-border/60 p-3 text-xs">
+                            <p className="text-muted-foreground">Climate estimate</p>
+                            <p className="mt-1 text-brand-green">
+                              {eventCo2e > 0
+                                ? `≈ ${formatNum(eventCo2e, 1)} kg CO₂e avoided`
+                                : 'Add weight in the impact report'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid gap-3 px-4 pb-4 md:grid-cols-2">
                           <div className="rounded-md border border-border/60 p-3 text-xs">
                             <p className="text-muted-foreground">Scope</p>
                             <p className="mt-1">{e.impact?.scopeOfWork || '-'}</p>
@@ -1394,7 +1420,6 @@ function PublicPortfolioContent() {
                             variant="outline"
                             className="no-print text-xs"
                             onClick={() => {
-                              const metrics = parseImpactMetrics(e.impact)
                               openReportPrintWindow(
                                 buildReportPrintHtml({
                                   title: e.impact?.campaignName?.trim() || `Cleanup #${e.submissionId}`,
@@ -1404,6 +1429,10 @@ function PublicPortfolioContent() {
                                   prevention: e.impact?.preventionIdeas || '-',
                                   weightKg: `${formatNum(metrics.weightKg, 1)} kg`,
                                   areaSqm: `${formatNum(metrics.areaSqm, 1)} m²`,
+                                  co2eKg:
+                                    eventCo2e > 0
+                                      ? `≈ ${formatNum(eventCo2e, 1)} kg CO2e avoided`
+                                      : '-',
                                   cid,
                                   portfolioUrl: shareUrl || window.location.href,
                                 })

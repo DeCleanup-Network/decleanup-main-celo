@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         </p>
         <h1 className="mb-2 font-heading text-3xl tracking-wide text-brand-green sm:text-4xl">Privacy Policy</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Effective April 23, 2026 · DeCleanup Network · Reviewed by privacy counsel
+          Effective September 20, 2026 · DeCleanup Network · Reviewed by privacy counsel
         </p>
 
         <article className="space-y-8 text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -46,6 +46,11 @@ export default function PrivacyPage() {
                 (including Supabase), such as status updates, reviewer notes, and any contact information you
                 voluntarily provide.
               </li>
+              <li>
+                Funding-campaign details that an organiser chooses to publish, such as bank account information, local
+                payment instructions, QR-code images, and a crypto wallet address. These details are shown to potential
+                donors so they can send funds directly to the organiser.
+              </li>
             </ul>
             <p className="mt-3">
               DeCleanup Rewards does not request your seed phrase or private key under any circumstances. You should
@@ -56,13 +61,29 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">2. How We Use Your Information</h2>
             <p>
-              We use collected data to operate and secure DeCleanup Rewards, process cleanup submissions, prevent
-              fraudulent or abusive activity, and fulfill legal obligations.
+              We use collected data to operate and secure DeCleanup Rewards, process cleanup submissions, display
+              organiser-provided donation details, prevent fraudulent or abusive activity, and fulfill legal
+              obligations. We do not accept, process, or custody campaign donations. Bank transfers and other local
+              payments are completed in the donor&apos;s own bank or payment app, not inside DeCleanup Rewards. Crypto
+              donations are sent on-chain from the donor&apos;s wallet to the organiser&apos;s published address.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">3. Disclosure and Sharing</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">
+              3. Cleanup Funding Listings
+            </h2>
+            <p>
+              When you publish a funding campaign, the payment details you submit become visible on a public shareable
+              page. DeCleanup Rewards is the information provider for those details only. We are not the payee. Donors
+              who choose a bank account or another local method pay the organiser manually. Donors who choose crypto
+              send cUSD on Celo directly to the listed wallet. We do not see the donor&apos;s bank credentials, and we
+              do not receive the donated funds.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">4. Disclosure and Sharing</h2>
             <p>
               We engage subprocessors to support platform operations, including hosting providers, Celo RPC services,
               IPFS pinning services, and database providers. We may disclose personal information when required to do so
@@ -73,7 +94,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">4. Where Your Data Is Stored</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">5. Where Your Data Is Stored</h2>
             <p className="mb-3">
               We use infrastructure providers to operate the platform. Primary storage locations include:
             </p>
@@ -99,7 +120,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">5. Retention and Security</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">6. Retention and Security</h2>
             <p>
               We retain personal data for as long as necessary to support platform operations and satisfy legal
               obligations. Data is deleted or anonymized when retention is no longer required. Please be aware that
@@ -109,7 +130,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">6. Your Rights</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">7. Your Rights</h2>
             <p>
               Depending on your jurisdiction, you may have rights to access, correct, delete, restrict the processing
               of, or receive a portable copy of your personal data. To exercise any of these rights, contact us using
@@ -119,7 +140,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">7. Children</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. Children</h2>
             <p>
               DeCleanup Rewards is not directed at children under the age of 13. We do not knowingly collect personal
               data from children.
@@ -127,7 +148,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. International Data Transfers</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">9. International Data Transfers</h2>
             <p>
               Your data may be processed in jurisdictions outside your country of residence. Where legally required, we
               apply appropriate transfer mechanisms to ensure adequate protection of personal data.
@@ -135,7 +156,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">9. Policy Updates</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">10. Policy Updates</h2>
             <p>
               We may update this Privacy Policy from time to time. The revised effective date will be reflected at the
               top of this page.
@@ -143,7 +164,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">10. Contact</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">11. Contact</h2>
             <p>
               <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-green hover:underline">
                 {PRIVACY_EMAIL}

@@ -3,14 +3,21 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useAccount, useConfig, useConnect } from 'wagmi'
-import { isAddress, type Address } from 'viem'
+import type { Address } from 'viem'
 import { PageBackButton } from '@/components/layout/PageBackButton'
 import { Button } from '@/components/ui/button'
+import { SponsorCopyLinkButton } from '@/components/sponsor/SponsorCopyLinkButton'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useEffect } from 'react'
+import { SponsorPaymentMethodFields } from '@/components/sponsor/SponsorPaymentMethodFields'
+import {
+  cryptoRecipientFromMethods,
+  validatePaymentMethods,
+  type SponsorPaymentMethod,
+} from '@/lib/sponsor/payment-methods'
 
 const MIN_LEVEL = SPONSOR_CONFIG.minLevelToPropose
 const WHY_FUNDING_MAX = SPONSOR_CONFIG.whyFundingMaxChars
@@ -58,13 +65,9 @@ export function SponsorFundingApplyForm() {
   const [eventFrequency, setEventFrequency] = useState('')
   const [impactSummary, setImpactSummary] = useState('')
   const [fundingGoal, setFundingGoal] = useState('')
-  const [recipient, setRecipient] = useState('')
+  const [paymentMethods, setPaymentMethods] = useState<SponsorPaymentMethod[]>([])
   const [socialLinks, setSocialLinks] = useState('')
   const [nextEventDate, setNextEventDate] = useState('')
-
-  useEffect(() => {
-    if (address && !recipient) setRecipient(address)
-  }, [address, recipient])
 
   useEffect(() => {
     let cancelled = false
@@ -127,10 +130,12 @@ export function SponsorFundingApplyForm() {
       setError('Funding goal must be greater than zero.')
       return
     }
-    if (!isAddress(recipient.trim())) {
-      setError('Recipient must be a valid 0x wallet address.')
+    const paymentError = validatePaymentMethods(paymentMethods)
+    if (paymentError) {
+      setError(paymentError)
       return
     }
+    const recipient = cryptoRecipientFromMethods(paymentMethods, rewardIdentity)
 
     setBusy(true)
     try {
@@ -143,7 +148,8 @@ export function SponsorFundingApplyForm() {
           organiser: name,
           eventDate: nextEventDate || null,
           fundingGoalCusd: goal,
-          recipientAddress: recipient.trim(),
+          recipientAddress: recipient || undefined,
+          paymentMethods,
           whyFunding,
           communitySize,
           eventFrequency,
@@ -177,9 +183,7 @@ export function SponsorFundingApplyForm() {
         <p className="text-sm text-gray-400">
           A verifier will review your application. When approved, donors can fund you on /sponsor.
         </p>
-        <p className="break-all rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-gray-300">
-          {shareUrl}
-        </p>
+        <SponsorCopyLinkButton url={shareUrl} title={name || 'Cleanup fundraiser'} label="Share" showUrl />
         <Link href="/sponsor/submit" className="text-sm text-brand-green hover:underline">
           Back to apply for funding
         </Link>
@@ -251,24 +255,11 @@ export function SponsorFundingApplyForm() {
               placeholder="~40 kg plastic per event, 200m shoreline"
             />
           </Field>
-          <Field label="Funding goal (cUSD)">
+          <Field label="Funding goal" hint="Target amount. Donors can send local currency or cUSD.">
             <input className={inputClass} inputMode="decimal" value={fundingGoal} onChange={(e) => setFundingGoal(e.target.value)} placeholder="300" />
           </Field>
           <Field label="Next event date (optional)">
             <input className={inputClass} type="date" value={nextEventDate} onChange={(e) => setNextEventDate(e.target.value)} />
-          </Field>
-          <Field
-            label="Recipient wallet (cUSD)"
-            hint="Defaults to your connected wallet. Change only if donations should go elsewhere."
-          >
-            <input
-              className={`${inputClass} font-mono text-xs`}
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder={address || '0x…'}
-              spellCheck={false}
-              autoComplete="off"
-            />
           </Field>
           <Field label="Socials proving impact" hint="X, Instagram, Telegram, photos. One link per line.">
             <textarea
@@ -278,6 +269,13 @@ export function SponsorFundingApplyForm() {
               placeholder={'https://x.com/…\nhttps://instagram.com/…'}
             />
           </Field>
+          <SponsorPaymentMethodFields
+            methods={paymentMethods}
+            onChange={setPaymentMethods}
+            defaultRecipient={address || ''}
+            walletAddress={rewardIdentity}
+          />
+
           <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 px-3 py-2.5">
             <p className="text-[11px] uppercase tracking-wide text-gray-500">Impact portfolio (auto)</p>
             <a

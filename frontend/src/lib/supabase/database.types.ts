@@ -404,7 +404,7 @@ export interface Database {
           organiser: string
           event_date: string | null
           funding_goal_cusd: number | string
-          recipient_address: string
+          recipient_address: string | null
           verified_cleanups_count: number
           status: string
           submitted_by: string | null
@@ -414,6 +414,7 @@ export interface Database {
           impact_summary: string | null
           social_links: string | null
           impact_portfolio_url: string | null
+          payment_methods: unknown
           reviewed_by: string | null
           reviewed_at: string | null
           created_at: string
@@ -426,7 +427,7 @@ export interface Database {
           organiser: string
           event_date?: string | null
           funding_goal_cusd: number | string
-          recipient_address: string
+          recipient_address?: string | null
           verified_cleanups_count?: number
           status: string
           submitted_by?: string | null
@@ -436,6 +437,7 @@ export interface Database {
           impact_summary?: string | null
           social_links?: string | null
           impact_portfolio_url?: string | null
+          payment_methods?: unknown
           reviewed_by?: string | null
           reviewed_at?: string | null
           created_at?: string
@@ -447,7 +449,7 @@ export interface Database {
           organiser?: string
           event_date?: string | null
           funding_goal_cusd?: number | string
-          recipient_address?: string
+          recipient_address?: string | null
           verified_cleanups_count?: number
           status?: string
           submitted_by?: string | null
@@ -457,6 +459,7 @@ export interface Database {
           impact_summary?: string | null
           social_links?: string | null
           impact_portfolio_url?: string | null
+          payment_methods?: unknown
           reviewed_by?: string | null
           reviewed_at?: string | null
           updated_at?: string

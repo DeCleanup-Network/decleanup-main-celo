@@ -4,7 +4,7 @@ import { buildPageMetadata } from '@/lib/seo/metadata'
 export const metadata: Metadata = buildPageMetadata({
   title: 'Sponsor a cleanup',
   description:
-    'Send cUSD on Celo to fund a verified DeCleanup event. Works in MiniPay and WalletConnect.',
+    'Browse cleanup campaigns, open a shareable page, then donate with cUSD on Celo.',
   path: '/sponsor',
 })
 

@@ -10,6 +10,11 @@ import { getMaxImpactProductLevel } from '@/lib/sponsor/impact-product-level'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { canReviewHypercertOnChain } from '@/lib/verifier/hypercert-review-auth'
 import type { SponsorEventStatus } from '@/lib/sponsor/types'
+import {
+  cryptoRecipientFromMethods,
+  parsePaymentMethods,
+  validatePaymentMethods,
+} from '@/lib/sponsor/payment-methods'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 import { enforceApiRateLimit } from '@/lib/server/rate-limit'
 
@@ -58,6 +63,7 @@ type CreateBody = {
   onchainOwner?: string
   asProposal?: boolean
   status?: SponsorEventStatus
+  paymentMethods?: unknown
 }
 
 export async function POST(request: NextRequest) {
@@ -90,7 +96,10 @@ export async function POST(request: NextRequest) {
     const impactSummary = body.impactSummary?.trim() || ''
     const socialLinks = body.socialLinks?.trim() || ''
 
-    if (!name || !location || !recipientAddress || !whyFunding) {
+    const paymentMethods = parsePaymentMethods(body.paymentMethods)
+    const resolvedRecipient = cryptoRecipientFromMethods(paymentMethods, recipientAddress || walletAddress)
+
+    if (!name || !location || !whyFunding) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
     if (whyFunding.length > SPONSOR_CONFIG.whyFundingMaxChars) {
@@ -99,8 +108,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    if (!isAddress(recipientAddress)) {
-      return NextResponse.json({ error: 'Invalid recipient address' }, { status: 400 })
+    const paymentError = validatePaymentMethods(paymentMethods)
+    if (paymentError) {
+      return NextResponse.json({ error: paymentError }, { status: 400 })
     }
     if (!(fundingGoalCusd > 0) || !Number.isFinite(fundingGoalCusd)) {
       return NextResponse.json({ error: 'Invalid funding goal' }, { status: 400 })
@@ -135,7 +145,8 @@ export async function POST(request: NextRequest) {
       organiser,
       eventDate,
       fundingGoalCusd,
-      recipientAddress,
+      recipientAddress: resolvedRecipient || undefined,
+      paymentMethods,
       verifiedCleanupsCount: body.verifiedCleanupsCount,
       status: 'pending',
       submittedBy: getAddress(walletAddress),

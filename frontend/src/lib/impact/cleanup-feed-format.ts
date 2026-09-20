@@ -1,5 +1,6 @@
 import type { CleanupFeedRow } from '@/lib/supabase/cleanup-feed'
 import { formatApproxCoords } from '@/lib/impact/location-label'
+import { estimatePlasticCo2eKg } from '@/lib/impact/portfolio-display'
 import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-shared'
 
 function fmtNum(n: number, digits = 1): string {
@@ -22,7 +23,11 @@ export function buildCleanupSummary(
   const parts: string[] = []
 
   if (row.weight_kg > 0) {
+    const co2eKg = estimatePlasticCo2eKg(row.weight_kg)
     parts.push(`Removed ${fmtNum(row.weight_kg)} kg of waste`)
+    if (co2eKg > 0) {
+      parts.push(`≈ ${fmtNum(co2eKg)} kg CO2e avoided`)
+    }
   } else {
     parts.push('Verified cleanup')
   }
@@ -76,6 +81,8 @@ export type PublicCleanupFeedItem = {
     wasteTypes: string[]
     contributorsCount: number
     hasImpactReport: boolean
+    /** IPCC AR6 estimate from reported plastic weight (kg CO2e). */
+    co2eEstimateKg: number
   }
   recyclables: {
     hasRecyclables: boolean
@@ -130,6 +137,7 @@ export function rowToPublicFeedItem(row: CleanupFeedRow): PublicCleanupFeedItem 
       wasteTypes: row.waste_types,
       contributorsCount: row.contributors_count,
       hasImpactReport: row.has_impact_report,
+      co2eEstimateKg: estimatePlasticCo2eKg(row.weight_kg),
     },
     recyclables: {
       hasRecyclables: row.has_recyclables,

@@ -1,5 +1,8 @@
-/** IPCC AR6 displacement factor for plastic waste (kg CO₂e per kg plastic). */
-export const PLASTIC_CO2E_FACTOR_KG = 1.78
+/**
+ * IPCC AR6 plastic displacement factor (kg CO2e per kg plastic collected and
+ * diverted from open burning or landfill).
+ */
+export const PLASTIC_CO2E_FACTOR_KG = 3.6
 
 export function estimatePlasticCo2eKg(weightKg: number): number {
   if (!Number.isFinite(weightKg) || weightKg <= 0) return 0

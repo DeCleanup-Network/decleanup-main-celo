@@ -8,6 +8,7 @@ const PUBLIC_PATHS: { path: string; changeFrequency: MetadataRoute.Sitemap[numbe
   { path: '/leaderboard', changeFrequency: 'daily', priority: 0.85 },
   { path: '/hypercerts', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/airdrop', changeFrequency: 'weekly', priority: 0.75 },
+  { path: '/sponsor', changeFrequency: 'daily', priority: 0.8 },
   { path: '/staking', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.4 },

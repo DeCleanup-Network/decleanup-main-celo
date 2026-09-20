@@ -16,7 +16,8 @@ import {
 } from '@/lib/blockchain/contracts'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
-import { fetchViaIpfsGatewayProxy, proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import { fetchIpfsByCid, fetchViaIpfsGatewayProxy, proxyIpfsHttpUrl } from '@/lib/utils/ipfs-gateway-proxy'
+import { estimatePlasticCo2eKg } from '@/lib/impact/portfolio-display'
 import {
   hashToGatewayUrl,
   type ImpactReportJson,
@@ -98,12 +99,15 @@ function parseImpactMetrics(impact: ImpactReportJson | null): {
 
 async function fetchImpactJson(hash: string): Promise<ImpactReportJson | null> {
   if (!hash) return null
-  const clean = hash.split('?')[0].split('#')[0]
-  const url = hashToGatewayUrl(clean)
+  const clean = hash.replace(/^ipfs:\/\//i, '').split('?')[0].split('#')[0].trim()
+  if (!clean) return null
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), 12000)
   try {
-    const r = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } })
+    const r = await fetchIpfsByCid(clean, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json' },
+    })
     if (!r.ok) return null
     const text = await r.text()
     if (text.trim().startsWith('<')) return null
@@ -260,10 +264,14 @@ export async function fetchPublicPortfolioData(
     if (d.impactFormDataHash) {
       impact = await fetchImpactJson(d.impactFormDataHash)
     }
+    const eventMetrics = parseImpactMetrics(impact)
     enriched.push({
       submissionId: submissionIds[i].toString(),
       details: d,
       impact,
+      weightKg: eventMetrics.weightKg,
+      areaSqm: eventMetrics.areaSqm,
+      co2eEstimateKg: estimatePlasticCo2eKg(eventMetrics.weightKg),
     })
   }
 
@@ -365,6 +373,7 @@ export async function fetchPublicPortfolioData(
       bagsTotal,
       minutesTotal,
       wasteTypeCounts,
+      co2eEstimateKg: estimatePlasticCo2eKg(weightKg),
     },
     impactProductImageUrl,
     hypercerts,

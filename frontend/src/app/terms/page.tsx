@@ -20,7 +20,7 @@ export default function TermsPage() {
           </Link>
         </p>
         <h1 className="mb-2 font-heading text-3xl tracking-wide text-brand-green sm:text-4xl">Terms of Service</h1>
-        <p className="mb-8 text-sm text-muted-foreground">Effective April 23, 2026 · DeCleanup Network</p>
+        <p className="mb-8 text-sm text-muted-foreground">Effective September 20, 2026 · DeCleanup Network</p>
 
         <article className="space-y-8 text-sm leading-relaxed text-muted-foreground sm:text-base">
           <section>
@@ -37,9 +37,10 @@ export default function TermsPage() {
             <p>
               DeCleanup Rewards provides interfaces for interacting with DeCleanup-related smart contracts deployed on
               the Celo blockchain. Functionality includes cleanup submissions, reward distribution, Impact Products,
-              optional Hypercerts (impact certificates published after verifier approval, when enabled), and optional
-              $cDCU token claims via ClaimVault, subject to deployment configuration. Features may be modified,
-              suspended, or discontinued at any time.
+              optional Hypercerts (impact certificates published after verifier approval, when enabled), optional $cDCU
+              token claims via ClaimVault, and public listings of cleanup funding campaigns. On those listings we
+              publish organiser-supplied payment details only. We do not accept or process donations. Features may be
+              modified, suspended, or discontinued at any time.
             </p>
           </section>
 
@@ -95,7 +96,35 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">8. Third-Party Services</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">
+              8. Cleanup Funding and Donations
+            </h2>
+            <p className="mb-3">
+              DeCleanup Rewards may list cleanup campaigns that ask for community funding. In that role we are an
+              information provider only. We publish payment details that the campaign organiser supplies, such as a
+              bank account, a local-payment QR code or instructions, or a crypto wallet address. We do not accept
+              donations, hold donor funds, or act as a payment processor, money transmitter, or escrow for these
+              campaigns.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                Bank account and other local payment methods are completed manually in the donor&apos;s own bank or
+                payment app. Those transfers do not go through DeCleanup Rewards.
+              </li>
+              <li>
+                Crypto donations (cUSD on Celo) are sent from the donor&apos;s wallet directly to the organiser&apos;s
+                published address. DeCleanup Rewards does not receive, custody, or forward those tokens.
+              </li>
+            </ul>
+            <p className="mt-3">
+              Any dispute about a donation is between the donor and the campaign organiser. Organisers are responsible
+              for the accuracy of the payment details they publish. Always verify the destination before you send
+              funds.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">9. Third-Party Services</h2>
             <p>
               DeCleanup Rewards depends on third-party infrastructure including wallet providers, Celo RPC endpoints,
               IPFS pinning services, hosting providers, database services, optional machine learning services, AT
@@ -106,7 +135,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">
-              9. Disclaimers and Limitation of Liability
+              10. Disclaimers and Limitation of Liability
             </h2>
             <p>
               DeCleanup Rewards is provided on an &quot;as is&quot; and &quot;as available&quot; basis without warranties
@@ -118,7 +147,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">10. Indemnification</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">11. Indemnification</h2>
             <p>
               You agree to defend, indemnify, and hold harmless DeCleanup Network from and against any claims, losses, or
               expenses (including reasonable legal fees) arising from your use of DeCleanup Rewards, your submitted
@@ -127,7 +156,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">11. Privacy</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">12. Privacy</h2>
             <p>
               Your use of DeCleanup Rewards is also governed by our{' '}
               <Link href="/privacy" className="text-brand-green hover:underline">
@@ -138,7 +167,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">12. Amendments</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">13. Amendments</h2>
             <p>
               DeCleanup Network reserves the right to update these Terms at any time by posting a revised version.
               Continued use of DeCleanup Rewards following the posting of changes constitutes acceptance of those
@@ -147,7 +176,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">13. Governing Law and Disputes</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">14. Governing Law and Disputes</h2>
             <p>
               DeCleanup Network operates as a global project without a single governing jurisdiction. Mandatory rights
               under your local laws remain unaffected by these Terms. In the event of a dispute, the parties agree to
@@ -157,7 +186,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">14. Contact</h2>
+            <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">15. Contact</h2>
             <p>
               <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand-green hover:underline">
                 {SUPPORT_EMAIL}

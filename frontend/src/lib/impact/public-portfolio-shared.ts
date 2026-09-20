@@ -52,6 +52,10 @@ export type EnrichedCleanup = {
   submissionId: string
   details: CleanupDetails
   impact: ImpactReportJson | null
+  weightKg: number
+  areaSqm: number
+  /** IPCC AR6 estimate from reported plastic weight (kg CO2e). */
+  co2eEstimateKg: number
 }
 
 export type PublicPortfolioRewards = {
@@ -73,6 +77,8 @@ export type CumulativeImpactMetrics = {
   bagsTotal: number
   minutesTotal: number
   wasteTypeCounts: Record<string, number>
+  /** IPCC AR6 estimate from cumulative plastic weight (kg CO2e). */
+  co2eEstimateKg: number
 }
 
 /** Published hypercert row for public portfolio disclosure. */
