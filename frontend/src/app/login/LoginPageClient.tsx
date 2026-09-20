@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 import { LoginOptions } from '@/components/auth/LoginOptions'
+import { campaignText } from '@/lib/sponsor/display'
 
 type Props = {
   emailLoginEnabled: boolean
@@ -35,8 +36,8 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
   if (!aaEnabled) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-white">AA auth not enabled</h1>
-        <p className="mt-2 text-sm text-gray-400">
+        <h1 className={campaignText.section}>AA auth not enabled</h1>
+        <p className={`mt-2 ${campaignText.note}`}>
           Set <code className="text-brand-green">NEXT_PUBLIC_AA_AUTH_ENABLED=true</code> and configure Auth.js
           env vars (see ENV_TEMPLATE.md).
         </p>
@@ -46,8 +47,8 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
-      <h1 className="text-center text-2xl font-bold text-white">Sign in</h1>
-      <p className="mt-2 text-center text-sm text-gray-400">
+      <h1 className={`text-center ${campaignText.title}`}>Sign in</h1>
+      <p className={`mt-2 text-center ${campaignText.note}`}>
         Pick one way in. You can add the others later.
       </p>
 

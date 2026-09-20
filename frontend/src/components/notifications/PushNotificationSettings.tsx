@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useAccount, useSignMessage } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { signInWithConnectedWallet } from '@/lib/auth/client-wallet-signin'
+import { campaignText } from '@/lib/sponsor/display'
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -207,8 +208,8 @@ export function PushNotificationSettings({ className }: Props) {
       }
     >
       <div>
-        <h2 className="font-heading text-sm tracking-wider text-gray-400">Notifications</h2>
-        <p className="mt-1 text-xs text-gray-500">
+        <h2 className={campaignText.section}>Notifications</h2>
+        <p className={`mt-1 ${campaignText.note}`}>
           Alerts for verified cleanups, rewards, and related updates.
         </p>
       </div>
@@ -221,7 +222,7 @@ export function PushNotificationSettings({ className }: Props) {
         <>
           {needsWalletAuth ? (
             <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-              <p className="text-sm text-gray-300">
+              <p className={campaignText.body}>
                 Sign once with your connected wallet to turn notifications on or off for this address.
               </p>
               <Button
@@ -249,7 +250,7 @@ export function PushNotificationSettings({ className }: Props) {
           {canManage || needsWalletAuth ? (
             <>
               {hasEmail && canManage ? (
-                <label className="flex cursor-pointer items-center justify-between gap-3 text-sm text-gray-200">
+                <label className={`flex cursor-pointer items-center justify-between gap-3 ${campaignText.formValue}`}>
                   <span>Email alerts</span>
                   <input
                     type="checkbox"
@@ -266,7 +267,7 @@ export function PushNotificationSettings({ className }: Props) {
                 </label>
               ) : null}
 
-              <label className="flex cursor-pointer items-center justify-between gap-3 text-sm text-gray-200">
+              <label className={`flex cursor-pointer items-center justify-between gap-3 ${campaignText.formValue}`}>
                 <span>Allow push alerts</span>
                 <input
                   type="checkbox"
@@ -296,9 +297,9 @@ export function PushNotificationSettings({ className }: Props) {
 
               {supported ? (
                 <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
-                  <p className="text-xs text-gray-500">
+                  <p className={campaignText.meta}>
                     Device push:{' '}
-                    <span className={subscribed ? 'text-brand-green' : 'text-gray-400'}>
+                    <span className={subscribed ? 'text-brand-green' : 'text-zinc-400'}>
                       {subscribed ? 'On' : 'Off'}
                     </span>
                     {isIos() && !isStandalonePwa()
@@ -329,7 +330,7 @@ export function PushNotificationSettings({ className }: Props) {
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">
+                <p className={campaignText.note}>
                   Push is not available in this browser. On iPhone, add DeCleanup to Home Screen first.
                 </p>
               )}
@@ -338,7 +339,7 @@ export function PushNotificationSettings({ className }: Props) {
         </>
       )}
 
-      {message && <p className="text-xs text-gray-400">{message}</p>}
+      {message && <p className={campaignText.note}>{message}</p>}
     </section>
   )
 }

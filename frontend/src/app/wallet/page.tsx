@@ -15,6 +15,7 @@ import { useAccount } from 'wagmi'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
+import { campaignText } from '@/lib/sponsor/display'
 
 const PasskeySettings = dynamic(
   () => import('@/components/aa/PasskeySettings').then((m) => ({ default: m.PasskeySettings })),
@@ -57,7 +58,7 @@ export default function AccountSettingsPage() {
 
   if (!aaEnabled) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-12 text-center text-gray-400">
+      <div className={`mx-auto max-w-lg px-4 py-12 text-center ${campaignText.note}`}>
         Account settings are not enabled.
       </div>
     )
@@ -65,7 +66,7 @@ export default function AccountSettingsPage() {
 
   if (status === 'loading' || phase === 'loading') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-12 text-center text-gray-400">
+      <div className={`mx-auto max-w-lg px-4 py-12 text-center ${campaignText.note}`}>
         Loading account…
       </div>
     )
@@ -114,7 +115,7 @@ export default function AccountSettingsPage() {
       )}
 
       {phase === 'no-wallet' && (
-        <p className="text-sm text-gray-400">Setting up your wallet…</p>
+        <p className={campaignText.note}>Setting up your wallet…</p>
       )}
 
       {showWalletDetails && (
@@ -122,7 +123,7 @@ export default function AccountSettingsPage() {
           {phase === 'pending-password' && <PendingPasswordSettings />}
 
           <section className="space-y-3">
-            <h2 className="font-heading text-sm tracking-wider text-gray-400">Your account</h2>
+            <h2 className={campaignText.section}>Your account</h2>
             <WalletStatusCard wallet={wallet} loading={loading} />
           </section>
 

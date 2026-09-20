@@ -11,6 +11,7 @@ import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
+import { campaignText } from '@/lib/sponsor/display'
 
 const MIN_LEVEL = SPONSOR_CONFIG.minLevelToPropose
 
@@ -70,15 +71,15 @@ export function SponsorSubmitPanel() {
       <div className="relative space-y-5 pb-10">
         <div>
           <PageBackButton />
-          <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Apply for funding</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className={`mt-4 ${campaignText.title}`}>Apply for funding</h1>
+          <p className={`mt-1 ${campaignText.note}`}>
             Two paths. Start with community donations (MiniPay / cUSD). Gardens unlocks later.
           </p>
         </div>
 
         {!isConnected ? (
           <div className="space-y-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-            <p className="text-sm text-gray-300">Connect the wallet that holds your Impact Product.</p>
+            <p className={campaignText.body}>Connect the wallet that holds your Impact Product.</p>
             <Button type="button" className="w-full" disabled={isPending} onClick={() => void connect()}>
               {isPending ? 'Connecting…' : 'Connect wallet'}
             </Button>
@@ -86,7 +87,7 @@ export function SponsorSubmitPanel() {
         ) : null}
 
         {isConnected && levelLoading ? (
-          <p className="text-sm text-gray-400">Checking eligibility…</p>
+          <p className={campaignText.note}>Checking eligibility…</p>
         ) : null}
 
         {/* Path 1: community / MiniPay */}
@@ -103,8 +104,8 @@ export function SponsorSubmitPanel() {
                 <Share2 className="h-4 w-4" />
               </span>
               <div>
-                <p className="font-heading text-sm tracking-wide text-white">Community donations</p>
-                <p className="text-[11px] text-gray-500">MiniPay · share link · cUSD on Celo</p>
+                <p className={campaignText.cardTitle}>Community donations</p>
+                <p className={campaignText.cardHint}>MiniPay · share link · cUSD on Celo</p>
               </div>
             </div>
             {communityUnlocked ? (
@@ -112,17 +113,17 @@ export function SponsorSubmitPanel() {
                 <Unlock className="h-3 w-3" /> Open
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-heading uppercase tracking-wide text-gray-500">
+              <span className={`inline-flex items-center gap-1 font-heading uppercase tracking-wide ${campaignText.meta}`}>
                 <Lock className="h-3 w-3" /> Locked
               </span>
             )}
           </div>
 
           <div className="mb-3 flex flex-wrap gap-1.5">
-            <span className="rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+            <span className={`rounded-md border border-white/10 bg-black/40 px-2 py-0.5 uppercase tracking-wide ${campaignText.meta}`}>
               Level {MIN_LEVEL}+
             </span>
-            <span className="rounded-md border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+            <span className={`rounded-md border border-white/10 bg-black/40 px-2 py-0.5 uppercase tracking-wide ${campaignText.meta}`}>
               Verifier review
             </span>
             <Link
@@ -135,7 +136,7 @@ export function SponsorSubmitPanel() {
 
           {isConnected && level != null ? (
             <div className="mb-3">
-              <div className="mb-1 flex justify-between text-[11px] text-gray-500">
+              <div className={`mb-1 flex justify-between ${campaignText.meta}`}>
                 <span>Your level</span>
                 <span>
                   {level} / {MIN_LEVEL}
@@ -158,7 +159,7 @@ export function SponsorSubmitPanel() {
               Submit for donations
             </Link>
           ) : (
-            <p className="text-xs text-gray-500">
+            <p className={campaignText.note}>
               Reach Impact Product level {MIN_LEVEL}, then come back to apply. Verifiers will review
               before your page goes live for donors.
             </p>
@@ -173,22 +174,22 @@ export function SponsorSubmitPanel() {
                 <Sprout className="h-4 w-4" />
               </span>
               <div>
-                <p className="font-heading text-sm tracking-wide text-white">Gardens pool</p>
-                <p className="text-[11px] text-gray-500">
+                <p className={campaignText.cardTitle}>Gardens pool</p>
+                <p className={campaignText.cardHint}>
                   Needs {SPONSOR_CONFIG.gardensMinCdcu}+ $cDCU
                 </p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-heading uppercase tracking-wide text-gray-500">
+            <span className={`inline-flex items-center gap-1 font-heading uppercase tracking-wide ${campaignText.meta}`}>
               <Lock className="h-3 w-3" /> Locked
             </span>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className={campaignText.note}>
             Details coming soon. Use community donations first if you do not hold enough $cDCU yet.
           </p>
         </section>
 
-        <Link href="/sponsor" className="block text-center text-xs text-gray-600 hover:text-brand-green">
+        <Link href="/sponsor" className={`block text-center hover:text-brand-green ${campaignText.meta}`}>
           Browse live donation pages
         </Link>
       </div>

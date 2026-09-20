@@ -21,7 +21,7 @@ import {
   isMiniPayInjected,
 } from '@/lib/blockchain/cusd'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
-import { formatCusd, shortAddr } from '@/lib/sponsor/display'
+import { campaignText, formatCusd, shortAddr } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
 type Props = {
@@ -192,10 +192,10 @@ export function SponsorDonateSection({ event, onRecorded }: Props) {
   return (
     <div className="space-y-3">
       <section className="space-y-3 rounded-xl border border-white/10 bg-zinc-950/80 p-4">
-        <h2 className="font-heading text-xs tracking-wider text-gray-500">Wallet</h2>
+        <h2 className={campaignText.label}>Wallet</h2>
         {!isConnected ? (
           miniPay ? (
-            <p className="text-sm text-gray-400">Connecting MiniPay…</p>
+            <p className={campaignText.note}>Connecting MiniPay…</p>
           ) : (
             <div className="space-y-2">
               {injected ? (
@@ -222,7 +222,7 @@ export function SponsorDonateSection({ event, onRecorded }: Props) {
           )
         ) : (
           <div className="space-y-2 text-sm">
-            <p className="text-gray-300">{shortAddr(address!)}</p>
+            <p className={campaignText.formValue}>{shortAddr(address!)}</p>
             {!onCelo ? (
               <div className="space-y-2">
                 <p className="text-amber-200">Switch to Celo mainnet to send cUSD.</p>
@@ -231,7 +231,7 @@ export function SponsorDonateSection({ event, onRecorded }: Props) {
                 </Button>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">
+              <p className={campaignText.formLabel}>
                 cUSD balance:{' '}
                 <span className="text-brand-green">
                   {balance == null ? '…' : `${formatCusd(balance)} cUSD`}
@@ -241,7 +241,7 @@ export function SponsorDonateSection({ event, onRecorded }: Props) {
             {!miniPay ? (
               <button
                 type="button"
-                className="text-xs text-gray-500 underline hover:text-gray-300"
+                className="text-xs text-zinc-400 underline hover:text-zinc-200"
                 onClick={() => disconnect()}
               >
                 Disconnect
@@ -253,10 +253,10 @@ export function SponsorDonateSection({ event, onRecorded }: Props) {
 
       {isConnected && onCelo && !success ? (
         <section className="space-y-3 rounded-xl border border-white/10 bg-zinc-950/80 p-4">
-          <h2 className="font-heading text-xs tracking-wider text-gray-500">Amount</h2>
-          <p className="text-[11px] text-gray-500">Funds go to {shortAddr(event.recipientAddress)}</p>
+          <h2 className={campaignText.label}>Amount</h2>
+          <p className={campaignText.note}>Funds go to {shortAddr(event.recipientAddress)}</p>
           <label className="block space-y-1.5">
-            <span className="text-xs text-gray-400">Amount (cUSD)</span>
+            <span className={campaignText.formLabel}>Amount (cUSD)</span>
             <input
               type="text"
               inputMode="decimal"

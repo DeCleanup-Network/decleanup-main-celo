@@ -7,6 +7,7 @@ import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
 import { Button } from '@/components/ui/button'
 import { SponsorEventForm, type EventFormValues } from '@/components/sponsor/SponsorEventForm'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
+import { campaignText } from '@/lib/sponsor/display'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 
 function short(a: string) {
@@ -108,26 +109,26 @@ export function SponsorAdminPanel() {
     <div className="mx-auto w-full max-w-md space-y-6 px-4 py-6 sm:px-5">
       <div>
         <BackToDeCleanupLink className="mr-3" />
-        <Link href="/sponsor" className="text-xs text-gray-500 hover:text-brand-green hover:underline">
+        <Link href="/sponsor" className={`${campaignText.meta} hover:text-brand-green hover:underline`}>
           ← Sponsor page
         </Link>
-        <h1 className="mt-2 font-heading text-2xl tracking-wider text-white">Event admin</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className={`mt-2 ${campaignText.title}`}>Event admin</h1>
+        <p className={`mt-1 ${campaignText.note}`}>
           Publish events or approve community proposals. Allowlisted wallets or admin secret.
         </p>
       </div>
 
       <section className="space-y-2 rounded-xl border border-white/10 bg-zinc-950/80 p-4">
-        <h2 className="font-heading text-xs tracking-wider text-gray-500">Access</h2>
+        <h2 className={campaignText.label}>Access</h2>
         {!isConnected ? (
           <Button type="button" className="w-full" disabled={isPending} onClick={() => void connect()}>
             {isPending ? 'Connecting…' : 'Connect admin wallet'}
           </Button>
         ) : (
-          <p className="text-sm text-gray-300">{short(address!)}</p>
+          <p className={campaignText.formValue}>{short(address!)}</p>
         )}
         <label className="block space-y-1.5">
-          <span className="text-xs text-gray-400">Admin secret (optional)</span>
+          <span className={campaignText.formLabel}>Admin secret (optional)</span>
           <input
             type="password"
             className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-green/50"
@@ -140,29 +141,29 @@ export function SponsorAdminPanel() {
       </section>
 
       <section className="rounded-xl border border-white/10 bg-zinc-950/80 p-4">
-        <h2 className="mb-3 font-heading text-xs tracking-wider text-gray-500">Publish event</h2>
+        <h2 className={`mb-3 ${campaignText.label}`}>Publish event</h2>
         <SponsorEventForm mode="admin" submitLabel="Publish event" onSubmit={createPublished} />
       </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-heading text-xs tracking-wider text-gray-500">Pending proposals</h2>
+          <h2 className={campaignText.label}>Pending proposals</h2>
           <button type="button" className="text-xs text-brand-green hover:underline" onClick={() => void loadPending()}>
             Refresh
           </button>
         </div>
         {loadError ? <p className="text-sm text-amber-200">{loadError}</p> : null}
         {pending.length === 0 && !loadError ? (
-          <p className="text-sm text-gray-500">No pending proposals.</p>
+          <p className={campaignText.note}>No pending proposals.</p>
         ) : (
           <ul className="space-y-2">
             {pending.map((ev) => (
               <li key={ev.id} className="rounded-xl border border-white/10 bg-zinc-950/80 p-3">
-                <p className="font-medium text-white">{ev.name}</p>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className={campaignText.cardTitle}>{ev.name}</p>
+                <p className={`mt-1 ${campaignText.note}`}>
                   {ev.location} · {ev.organiser} · {ev.fundingGoalCusd} cUSD
                 </p>
-                <p className="mt-0.5 text-[11px] text-gray-600">
+                <p className={`mt-0.5 ${campaignText.meta}`}>
                   To {short(ev.recipientAddress)}
                   {ev.submittedBy ? ` · by ${short(ev.submittedBy)}` : ''}
                 </p>

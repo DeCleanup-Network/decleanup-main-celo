@@ -18,6 +18,7 @@ import {
   validatePaymentMethods,
   type SponsorPaymentMethod,
 } from '@/lib/sponsor/payment-methods'
+import { campaignText } from '@/lib/sponsor/display'
 
 const MIN_LEVEL = SPONSOR_CONFIG.minLevelToPropose
 const WHY_FUNDING_MAX = SPONSOR_CONFIG.whyFundingMaxChars
@@ -36,9 +37,9 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs text-gray-400">{label}</span>
+      <span className={campaignText.formLabel}>{label}</span>
       {children}
-      {hint ? <span className="block text-[11px] text-gray-600">{hint}</span> : null}
+      {hint ? <span className={`block ${campaignText.meta}`}>{hint}</span> : null}
     </label>
   )
 }
@@ -179,8 +180,8 @@ export function SponsorFundingApplyForm() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 overflow-y-auto px-4 py-6 pb-12 sm:px-5">
         <PageBackButton href="/sponsor/submit" />
-        <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Submitted</h1>
-        <p className="text-sm text-gray-400">
+        <h1 className={`mt-4 ${campaignText.title}`}>Submitted</h1>
+        <p className={campaignText.noteBox}>
           A verifier will review your application. When approved, donors can fund you on /sponsor.
         </p>
         <SponsorCopyLinkButton url={shareUrl} title={name || 'Cleanup fundraiser'} label="Share" showUrl />
@@ -195,8 +196,8 @@ export function SponsorFundingApplyForm() {
     <div className="mx-auto w-full max-w-md space-y-5 overflow-y-auto px-4 py-6 pb-12 sm:px-5">
       <div>
         <PageBackButton href="/sponsor/submit" />
-        <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Submit for donations</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className={`mt-4 ${campaignText.title}`}>Submit for donations</h1>
+        <p className={`mt-1 ${campaignText.note}`}>
           Tell donors who you are and why to fund your cleanups. Verifiers approve before you go live.
         </p>
       </div>
@@ -206,10 +207,10 @@ export function SponsorFundingApplyForm() {
           {isPending ? 'Connecting…' : 'Connect wallet'}
         </Button>
       ) : checking ? (
-        <p className="text-sm text-gray-400">Checking level…</p>
+        <p className={campaignText.note}>Checking level…</p>
       ) : !eligible ? (
         <div className="rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-          <p className="text-sm text-gray-300">Level {MIN_LEVEL}+ required.</p>
+          <p className={campaignText.body}>Level {MIN_LEVEL}+ required.</p>
         </div>
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
@@ -277,7 +278,7 @@ export function SponsorFundingApplyForm() {
           />
 
           <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-gray-500">Impact portfolio (auto)</p>
+            <p className={campaignText.label}>Impact portfolio (auto)</p>
             <a
               href={portfolioUrl}
               target="_blank"

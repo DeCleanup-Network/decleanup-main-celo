@@ -61,7 +61,7 @@ export function LoginEmailForm({ callbackUrl }: Props) {
       data-1p-ignore="true"
       data-lpignore="true"
     >
-      <label className="block text-left text-xs text-gray-500" htmlFor={INPUT_ID}>
+      <label className="block text-left text-xs text-zinc-400" htmlFor={INPUT_ID}>
         Email (magic link)
       </label>
       <input

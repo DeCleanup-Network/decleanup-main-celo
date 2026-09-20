@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { isAddress } from 'viem'
 import { Button } from '@/components/ui/button'
 import type { SponsorEventStatus } from '@/lib/sponsor/types'
+import { campaignText } from '@/lib/sponsor/display'
 
 export type EventFormValues = {
   name: string
@@ -47,9 +48,9 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs text-gray-400">{label}</span>
+      <span className={campaignText.formLabel}>{label}</span>
       {children}
-      {hint ? <span className="block text-[11px] text-gray-600">{hint}</span> : null}
+      {hint ? <span className={`block ${campaignText.meta}`}>{hint}</span> : null}
     </label>
   )
 }

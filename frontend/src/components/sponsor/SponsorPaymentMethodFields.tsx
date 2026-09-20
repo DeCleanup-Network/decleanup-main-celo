@@ -12,6 +12,7 @@ import {
   type PaymentMethodKind,
   type SponsorPaymentMethod,
 } from '@/lib/sponsor/payment-methods'
+import { campaignText } from '@/lib/sponsor/display'
 
 const inputClass =
   'w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-green/50'
@@ -41,9 +42,9 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs text-gray-400">{label}</span>
+      <span className={campaignText.formLabel}>{label}</span>
       {children}
-      {hint ? <span className="block text-[11px] text-gray-600">{hint}</span> : null}
+      {hint ? <span className={`block ${campaignText.meta}`}>{hint}</span> : null}
     </label>
   )
 }
@@ -98,8 +99,8 @@ export function SponsorPaymentMethodFields({
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-xs text-gray-400">How can donors pay you?</p>
-        <p className="mt-1 text-[11px] text-gray-600">
+        <p className={campaignText.formLabel}>How can donors pay you?</p>
+        <p className={`mt-1 ${campaignText.note}`}>
           Pick one method, then you can add one more. Bank and local payments happen outside the app.
         </p>
       </div>
@@ -115,11 +116,11 @@ export function SponsorPaymentMethodFields({
                 onClick={() => add(kind)}
                 className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-left transition hover:border-brand-green/40"
               >
-                <span className="flex items-center gap-2 text-sm font-medium text-white">
+                <span className={`flex items-center gap-2 ${campaignText.cardTitle}`}>
                   <Icon className="h-4 w-4 text-brand-green" />
                   {PAYMENT_METHOD_LABEL[kind]}
                 </span>
-                <span className="mt-1 block text-[11px] text-gray-500">{PAYMENT_METHOD_HINT[kind]}</span>
+                <span className={campaignText.cardHint}>{PAYMENT_METHOD_HINT[kind]}</span>
               </button>
             )
           })}
@@ -129,11 +130,11 @@ export function SponsorPaymentMethodFields({
       {methods.map((method, index) => (
         <div key={method.kind} className="space-y-3 rounded-xl border border-brand-green/30 bg-brand-green/5 p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-white">{PAYMENT_METHOD_LABEL[method.kind]}</p>
+            <p className={campaignText.cardTitle}>{PAYMENT_METHOD_LABEL[method.kind]}</p>
             <button
               type="button"
               onClick={() => remove(index)}
-              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-white"
+              className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white"
             >
               <X className="h-3.5 w-3.5" />
               Remove
@@ -205,7 +206,7 @@ export function SponsorPaymentMethodFields({
                   onChange={(e) => void uploadQr(index, e.target.files?.[0])}
                 />
               </Field>
-              {uploading ? <p className="text-xs text-gray-500">Uploading QR…</p> : null}
+              {uploading ? <p className={campaignText.meta}>Uploading QR…</p> : null}
               {method.qrImageCid ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -236,7 +237,7 @@ export function SponsorPaymentMethodFields({
       ))}
 
       {methods.length === 1 && canAdd ? (
-        <p className="text-[11px] text-gray-600">Optional: add one more payment method from the cards above.</p>
+        <p className={campaignText.note}>Optional: add one more payment method from the cards above.</p>
       ) : null}
 
       {uploadError ? (
@@ -246,7 +247,7 @@ export function SponsorPaymentMethodFields({
       ) : null}
 
       {methods.length >= MAX_PAYMENT_METHODS ? (
-        <p className="text-[11px] text-gray-600">Two payment methods is the maximum for now.</p>
+        <p className={campaignText.note}>Two payment methods is the maximum for now.</p>
       ) : null}
     </div>
   )
@@ -272,11 +273,11 @@ export function PaymentMethodCardButton({
           : 'border-white/10 bg-zinc-950/80 hover:border-white/20'
       }`}
     >
-      <span className="flex items-center gap-2 text-sm font-medium text-white">
+      <span className={`flex items-center gap-2 ${campaignText.cardTitle}`}>
         <Icon className="h-4 w-4 text-brand-green" />
         {PAYMENT_METHOD_LABEL[kind]}
       </span>
-      <span className="mt-1 block text-[11px] text-gray-500">{PAYMENT_METHOD_HINT[kind]}</span>
+      <span className={campaignText.cardHint}>{PAYMENT_METHOD_HINT[kind]}</span>
     </button>
   )
 }

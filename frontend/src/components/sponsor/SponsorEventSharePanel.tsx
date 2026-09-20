@@ -10,6 +10,7 @@ import { SponsorDonorPaymentOptions } from '@/components/sponsor/SponsorDonorPay
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import {
   eventShareAbsoluteUrl,
+  campaignText,
   formatCusd,
   formatEventDate,
   isOpenForDonations,
@@ -83,20 +84,20 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
           </p>
         </div>
 
-        {loading ? <p className="text-sm text-gray-400">Loading…</p> : null}
+        {loading ? <p className={campaignText.note}>Loading…</p> : null}
         {error ? <p className="text-sm text-amber-200">{error}</p> : null}
 
         {event ? (
           <>
             <section className="space-y-4 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
               <div>
-                <h1 className="font-heading text-2xl tracking-wider text-white">{event.name}</h1>
-                <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-gray-300">
+                <h1 className={campaignText.title}>{event.name}</h1>
+                <p className={`mt-2 inline-flex items-center gap-1.5 ${campaignText.body}`}>
                   <MapPin className="h-3.5 w-3.5 text-brand-green" aria-hidden />
                   {event.location}
                 </p>
-                <p className="mt-1 text-sm text-gray-400">Organised by {event.organiser}</p>
-                <p className="mt-0.5 text-xs text-gray-600">
+                <p className={`mt-1 ${campaignText.note}`}>Organised by {event.organiser}</p>
+                <p className={`mt-0.5 ${campaignText.meta}`}>
                   {formatEventDate(event.eventDate)}
                   {event.status === 'pending' ? ' · Under review' : ` · ${event.status}`}
                 </p>
@@ -104,9 +105,14 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
 
               {open ? (
                 <div>
-                  <div className="mb-1.5 flex justify-between text-xs text-gray-400">
-                    <span>{formatCusd(event.amountRaisedCusd)} cUSD raised</span>
-                    <span>Goal {formatCusd(event.fundingGoalCusd)}</span>
+                  <div className="mb-1.5 flex justify-between text-xs">
+                    <span>
+                      <span className="text-zinc-100">{formatCusd(event.amountRaisedCusd)}</span>{' '}
+                      <span className="text-zinc-400">cUSD raised</span>
+                    </span>
+                    <span className="text-zinc-400">
+                      Goal <span className="text-zinc-100">{formatCusd(event.fundingGoalCusd)}</span>
+                    </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-white/10">
                     <div
@@ -114,7 +120,7 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className={`mt-2 ${campaignText.meta}`}>
                     {verifiedCleanupLabel(event.verifiedCleanupsCount)}
                   </p>
                 </div>
@@ -135,15 +141,15 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
 
             {event.whyFunding ? (
               <section className="space-y-2 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-                <h2 className="font-heading text-xs tracking-wider text-gray-500">Why this cleanup needs funding</h2>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{event.whyFunding}</p>
+                <h2 className={campaignText.label}>Why this cleanup needs funding</h2>
+                <p className={`whitespace-pre-wrap ${campaignText.body}`}>{event.whyFunding}</p>
               </section>
             ) : null}
 
             {event.impactSummary ? (
               <section className="space-y-2 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-                <h2 className="font-heading text-xs tracking-wider text-gray-500">Impact so far</h2>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{event.impactSummary}</p>
+                <h2 className={campaignText.label}>Impact so far</h2>
+                <p className={`whitespace-pre-wrap ${campaignText.body}`}>{event.impactSummary}</p>
               </section>
             ) : null}
 
@@ -151,14 +157,14 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
               <section className="grid gap-3 sm:grid-cols-2">
                 {event.communitySize ? (
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-                    <p className="font-heading text-xs tracking-wider text-gray-500">Community</p>
-                    <p className="mt-1 text-sm text-gray-200">{event.communitySize}</p>
+                    <p className={campaignText.label}>Community</p>
+                    <p className={`mt-1 ${campaignText.body}`}>{event.communitySize}</p>
                   </div>
                 ) : null}
                 {event.eventFrequency ? (
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-                    <p className="font-heading text-xs tracking-wider text-gray-500">How often</p>
-                    <p className="mt-1 text-sm text-gray-200">{event.eventFrequency}</p>
+                    <p className={campaignText.label}>How often</p>
+                    <p className={`mt-1 ${campaignText.body}`}>{event.eventFrequency}</p>
                   </div>
                 ) : null}
               </section>
@@ -166,7 +172,7 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
 
             {(event.impactPortfolioUrl || socials.length > 0) ? (
               <section className="space-y-2 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-                <h2 className="font-heading text-xs tracking-wider text-gray-500">Learn more</h2>
+                <h2 className={campaignText.label}>Learn more</h2>
                 <div className="flex flex-wrap gap-2">
                   {event.impactPortfolioUrl ? (
                     <a
@@ -185,7 +191,7 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 hover:text-white"
+                      className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-3 py-2 text-xs text-zinc-100 hover:text-white"
                     >
                       {new URL(url).hostname.replace(/^www\./, '')}
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -202,7 +208,7 @@ export function SponsorEventSharePanel({ eventId }: { eventId: string }) {
               />
             ) : (
               <div className="rounded-xl border border-white/8 bg-black/30 px-3 py-3">
-                <p className="text-sm text-gray-300">
+                <p className={campaignText.note}>
                   {event.status === 'pending'
                     ? 'Awaiting publish. Donations open once DeCleanup lists this cleanup.'
                     : 'This cleanup is not open for donations right now.'}

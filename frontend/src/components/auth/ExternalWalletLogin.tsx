@@ -184,7 +184,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
             <p className="text-center text-xs text-amber-300">No wallet connectors available.</p>
           ) : null}
           {(isPending || connecting) && !timedOut ? (
-            <p className="text-center text-xs text-gray-400">
+            <p className="text-center text-sm leading-relaxed text-zinc-400">
               {isMobileBrowser()
                 ? 'Choose your wallet in the popup, or wait to be sent to your wallet app.'
                 : 'Choose a wallet in the modal, or approve the connection in your wallet app.'}
@@ -217,7 +217,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
                   {linkCopied ? 'Link copied' : 'Copy link'}
                 </Button>
               </div>
-              <p className="text-center text-[10px] text-gray-500">
+              <p className="text-center text-xs leading-relaxed text-zinc-500">
                 Use these only if the QR code or wallet list does not show up.
               </p>
             </div>

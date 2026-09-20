@@ -53,3 +53,19 @@ export function verifiedCleanupLabel(count: number): string {
   const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
   return n === 1 ? '1 verified cleanup' : `${n} verified cleanups`
 }
+
+/** Type roles on a campaign page so headings, body, notes, and forms stay distinct. */
+export const campaignText = {
+  title: 'font-heading text-2xl tracking-wider text-white',
+  section: 'font-heading text-sm tracking-wider text-white',
+  label: 'font-heading text-xs tracking-wider text-zinc-400',
+  body: 'text-sm leading-relaxed text-zinc-100',
+  note: 'text-sm leading-relaxed text-zinc-400',
+  noteBox:
+    'rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm leading-relaxed text-zinc-400',
+  cardTitle: 'text-sm font-medium text-white',
+  cardHint: 'mt-1 block text-xs leading-relaxed text-zinc-400',
+  meta: 'text-xs text-zinc-500',
+  formLabel: 'text-xs text-zinc-400',
+  formValue: 'text-sm text-zinc-100',
+} as const

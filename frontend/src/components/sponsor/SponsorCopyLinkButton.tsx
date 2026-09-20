@@ -56,7 +56,7 @@ export function SponsorCopyLinkButton({
         {copied ? 'Link copied' : label}
       </button>
       {showUrl && url ? (
-        <p className="break-all rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-[11px] text-gray-300">
+        <p className="break-all rounded-lg border border-white/10 bg-black/25 px-3 py-2 font-mono text-[11px] text-zinc-500">
           {url}
         </p>
       ) : null}

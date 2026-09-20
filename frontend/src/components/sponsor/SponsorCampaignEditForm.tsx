@@ -10,7 +10,7 @@ import { SponsorPaymentMethodFields } from '@/components/sponsor/SponsorPaymentM
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
-import { sponsorEventPath } from '@/lib/sponsor/display'
+import { campaignText, sponsorEventPath } from '@/lib/sponsor/display'
 import { isSponsorEventOwner } from '@/lib/sponsor/edit-auth'
 import {
   cryptoRecipientFromMethods,
@@ -36,9 +36,9 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs text-gray-400">{label}</span>
+      <span className={campaignText.formLabel}>{label}</span>
       {children}
-      {hint ? <span className="block text-[11px] text-gray-600">{hint}</span> : null}
+      {hint ? <span className={`block ${campaignText.meta}`}>{hint}</span> : null}
     </label>
   )
 }
@@ -190,8 +190,8 @@ export function SponsorCampaignEditForm({ eventId }: { eventId: string }) {
     <div className="mx-auto w-full max-w-md space-y-5 overflow-y-auto px-4 py-6 pb-12 sm:px-5">
       <div>
         <PageBackButton href={sponsorEventPath(eventId)} label="Back to campaign" />
-        <h1 className="mt-4 font-heading text-2xl tracking-wider text-white">Edit campaign</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className={`mt-4 ${campaignText.title}`}>Edit campaign</h1>
+        <p className={`mt-1 ${campaignText.note}`}>
           Update the story or add another payment method. Bank and local payments stay outside the app.
         </p>
       </div>
@@ -201,7 +201,7 @@ export function SponsorCampaignEditForm({ eventId }: { eventId: string }) {
           {isPending ? 'Connecting…' : 'Connect organiser wallet'}
         </Button>
       ) : loading ? (
-        <p className="text-sm text-gray-400">Loading campaign…</p>
+        <p className={campaignText.note}>Loading campaign…</p>
       ) : !event ? (
         <p className="text-sm text-amber-200">{error || 'Campaign not found'}</p>
       ) : !allowed ? (

@@ -10,6 +10,7 @@ import {
   type SponsorPaymentMethod,
 } from '@/lib/sponsor/payment-methods'
 import { SponsorDonateSection } from '@/components/sponsor/SponsorDonateSection'
+import { campaignText } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
 const ICONS = {
@@ -20,7 +21,7 @@ const ICONS = {
 
 function ManualNotice() {
   return (
-    <p className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-gray-400">
+    <p className={campaignText.noteBox}>
       This option is completed outside the app. Use the details below, then tell the organiser if you need a receipt.
     </p>
   )
@@ -29,21 +30,36 @@ function ManualNotice() {
 function MethodDetails({ method }: { method: SponsorPaymentMethod }) {
   if (method.kind === 'bank') {
     return (
-      <div className="space-y-2 text-sm text-gray-200">
+      <div className="space-y-2">
         <ManualNotice />
-        {method.bankName ? <p>Bank: {method.bankName}</p> : null}
-        {method.accountName ? <p>Account name: {method.accountName}</p> : null}
-        {method.accountNumber ? <p className="font-mono text-xs">Account number: {method.accountNumber}</p> : null}
-        {method.notes ? <p className="whitespace-pre-wrap text-gray-300">{method.notes}</p> : null}
+        {method.bankName ? (
+          <p>
+            <span className={campaignText.formLabel}>Bank </span>
+            <span className={campaignText.formValue}>{method.bankName}</span>
+          </p>
+        ) : null}
+        {method.accountName ? (
+          <p>
+            <span className={campaignText.formLabel}>Account name </span>
+            <span className={campaignText.formValue}>{method.accountName}</span>
+          </p>
+        ) : null}
+        {method.accountNumber ? (
+          <p>
+            <span className={campaignText.formLabel}>Account number </span>
+            <span className={`${campaignText.formValue} font-mono text-xs`}>{method.accountNumber}</span>
+          </p>
+        ) : null}
+        {method.notes ? <p className={`whitespace-pre-wrap ${campaignText.note}`}>{method.notes}</p> : null}
       </div>
     )
   }
   if (method.kind === 'local') {
     return (
-      <div className="space-y-3 text-sm text-gray-200">
+      <div className="space-y-3">
         <ManualNotice />
-        {method.localMethodName ? <p>{method.localMethodName}</p> : null}
-        {method.localDetails ? <p className="whitespace-pre-wrap text-gray-300">{method.localDetails}</p> : null}
+        {method.localMethodName ? <p className={campaignText.cardTitle}>{method.localMethodName}</p> : null}
+        {method.localDetails ? <p className={`whitespace-pre-wrap ${campaignText.note}`}>{method.localDetails}</p> : null}
         {method.qrImageCid ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -72,10 +88,10 @@ export function SponsorDonorPaymentOptions({
   if (methods.length === 0) return null
 
   return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="font-heading text-xs tracking-wider text-gray-500">How to donate</h2>
-        <p className="mt-1 text-xs text-gray-500">
+    <section className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/90 p-4">
+      <div className="space-y-2">
+        <h2 className={campaignText.section}>How to donate</h2>
+        <p className={campaignText.noteBox}>
           Pick a method this cleanup accepts. Bank and local payments are manual. Crypto is sent in this app.
         </p>
       </div>
@@ -91,14 +107,14 @@ export function SponsorDonorPaymentOptions({
               className={`rounded-xl border px-3 py-3 text-left transition ${
                 isOn
                   ? 'border-brand-green/50 bg-brand-green/10'
-                  : 'border-white/10 bg-zinc-950/80 hover:border-white/20'
+                  : 'border-white/15 bg-black/40 hover:border-white/30'
               }`}
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-white">
+              <span className={`flex items-center gap-2 ${campaignText.cardTitle}`}>
                 <Icon className="h-4 w-4 text-brand-green" />
                 {PAYMENT_METHOD_LABEL[method.kind]}
               </span>
-              <span className="mt-1 block text-[11px] text-gray-500">
+              <span className={campaignText.cardHint}>
                 {method.kind === 'crypto' ? 'Pay in the app with MiniPay or a wallet.' : 'Manual payment, outside the app.'}
               </span>
             </button>
@@ -107,8 +123,8 @@ export function SponsorDonorPaymentOptions({
       </div>
 
       {active?.kind === 'crypto' ? (
-        <div className="space-y-2">
-          <p className="text-xs text-gray-500">Connect a wallet only when you are ready to send cUSD.</p>
+        <div className="space-y-3">
+          <p className={campaignText.noteBox}>Connect a wallet only when you are ready to send cUSD.</p>
           <SponsorDonateSection
             event={{
               ...event,
