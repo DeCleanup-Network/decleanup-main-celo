@@ -28,6 +28,12 @@ const withSerwist = withSerwistInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // frontend/ is the app root; the repo also has a lockfile one level up.
+  outputFileTracingRoot: __dirname,
+  // Next 15.5 still wraps ESLint 8 APIs during `next build`; this repo lints with `eslint .`.
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     // lucide-react omitted — optimizePackageImports can reference missing vendor-chunks in dev.
     optimizePackageImports: [
@@ -117,7 +123,7 @@ const nextConfig = {
           aggregateTimeout: 300,
         }
       }
-      // Do not set config.devtool — Next.js 14 forces eval-source-map in dev and logs
+      // Do not set config.devtool — Next.js forces eval-source-map in dev and logs
       // https://nextjs.org/docs/messages/improper-devtool if you override it.
     }
     return config

@@ -13,10 +13,11 @@ const UPLOAD_DIR = resolveUploadDir()
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const filePath = join(UPLOAD_DIR, ...params.path)
+    const { path } = await params
+    const filePath = join(UPLOAD_DIR, ...path)
 
     // Security: ensure the resolved path stays inside the uploads directory.
     // Compare with a trailing separator so a sibling dir like `uploads-evil` cannot

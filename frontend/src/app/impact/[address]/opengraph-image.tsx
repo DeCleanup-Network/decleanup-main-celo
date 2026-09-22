@@ -24,8 +24,9 @@ function shortAddr(a: string) {
   return a.length > 24 ? `${a.slice(0, 10)}…` : a
 }
 
-export default async function Image({ params }: { params: { address: string } }) {
-  const raw = decodeURIComponent(params.address || '').trim()
+export default async function Image({ params }: { params: Promise<{ address: string }> }) {
+  const { address } = await params
+  const raw = decodeURIComponent(address || '').trim()
   const addrOk = isAddress(raw)
 
   let displayAddr = shortAddr(raw)

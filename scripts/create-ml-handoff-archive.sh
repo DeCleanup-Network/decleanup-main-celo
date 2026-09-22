@@ -9,6 +9,7 @@
 #
 #   2. Create archive (password via env or prompt):
 #        HANDOFF_ZIP_PASSWORD='your-strong-password' ./scripts/create-ml-handoff-archive.sh
+# nosec: the password string above is usage documentation, not a real secret.
 #
 #   3. Share zip + password with dev on separate channels.
 #

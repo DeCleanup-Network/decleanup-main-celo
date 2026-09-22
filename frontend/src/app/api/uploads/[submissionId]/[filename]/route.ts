@@ -15,12 +15,10 @@ const UPLOAD_DIR = resolveUploadDir()
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ submissionId: string; filename: string }> | { submissionId: string; filename: string } }
+  context: { params: Promise<{ submissionId: string; filename: string }> }
 ) {
   try {
-    // Handle both sync and async params (Next.js 13 vs 14)
-    const params = 'then' in context.params ? await context.params : context.params
-    const { submissionId, filename } = params
+    const { submissionId, filename } = await context.params
     
     // Security: Validate filename (only allow .jpg, .jpeg, .png)
     if (!/^before\.(jpg|jpeg|png)$|^after\.(jpg|jpeg|png)$/i.test(filename)) {

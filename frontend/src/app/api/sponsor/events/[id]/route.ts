@@ -23,13 +23,13 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     if (!isSponsorshipDbConfigured()) {
       return NextResponse.json({ error: 'Sponsorship database not configured' }, { status: 503 })
     }
-    const { id } = context.params
+    const { id } = await context.params
     const event = await getSponsorEventById(id)
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -81,14 +81,14 @@ type Body = {
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     if (!isSponsorshipDbConfigured()) {
       return NextResponse.json({ error: 'Sponsorship database not configured' }, { status: 503 })
     }
 
-    const { id } = context.params
+    const { id } = await context.params
     const body = (await request.json()) as Body
     const limited = await enforceApiRateLimit({
       request,

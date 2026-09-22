@@ -4,10 +4,11 @@ import { buildPageMetadata } from '@/lib/seo/metadata'
 import { sponsorEventPath } from '@/lib/sponsor/display'
 import { getSponsorEventById, isSponsorshipDbConfigured } from '@/lib/supabase/sponsorship-events'
 
-type PageProps = { params: { id: string } }
+type PageProps = { params: Promise<{ id: string }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const path = sponsorEventPath(params.id)
+  const { id } = await params
+  const path = sponsorEventPath(id)
   const fallback = buildPageMetadata({
     title: 'Cleanup fundraiser',
     description: 'Open this DeCleanup campaign, read the story, then donate with cUSD on Celo.',
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   try {
     if (!isSponsorshipDbConfigured()) return fallback
-    const event = await getSponsorEventById(params.id)
+    const event = await getSponsorEventById(id)
     if (!event) return fallback
     const description = (
       event.whyFunding?.trim() ||
@@ -32,10 +33,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default function SponsorEventSharePage({ params }: PageProps) {
+export default async function SponsorEventSharePage({ params }: PageProps) {
+  const { id } = await params
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-background">
-      <SponsorEventSharePanel eventId={params.id} />
+      <SponsorEventSharePanel eventId={id} />
     </main>
   )
 }

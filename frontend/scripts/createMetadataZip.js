@@ -1,35 +1,45 @@
 /**
  * Create a zip file of metadata for easy upload to Pinata
- * 
+ *
  * Usage:
  *   node scripts/createMetadataZip.js
- * 
+ *
  * Then upload the generated zip file to Pinata web UI
  */
 
 const fs = require('fs')
 const path = require('path')
-const { execSync } = require('child_process')
+const { spawnSync } = require('child_process')
 
 const METADATA_DIR = path.join(__dirname, '..', 'metadata', 'impact-products')
 const ZIP_FILE = path.join(__dirname, '..', 'metadata-impact-products.zip')
 
 try {
-  // Check if zip command is available
-  try {
-    execSync('which zip', { stdio: 'ignore' })
-  } catch (e) {
+  const check = spawnSync('zip', ['-h'], { stdio: 'ignore' })
+  if (check.error) {
     throw new Error('zip command not found. On macOS, install with: brew install zip')
   }
 
-  // Remove old zip if exists
+  if (!fs.existsSync(METADATA_DIR)) {
+    throw new Error(`Metadata directory not found: ${METADATA_DIR}`)
+  }
+
+  const files = fs.readdirSync(METADATA_DIR).filter((name) => name.endsWith('.json'))
+  if (files.length === 0) {
+    throw new Error('No JSON metadata files found')
+  }
+
   if (fs.existsSync(ZIP_FILE)) {
     fs.unlinkSync(ZIP_FILE)
   }
 
-  // Create zip file
   console.log('Creating zip file...')
-  execSync(`cd "${METADATA_DIR}" && zip -r "${ZIP_FILE}" *.json`, { stdio: 'inherit' })
+  const result = spawnSync('zip', ['-r', ZIP_FILE, ...files], {
+    cwd: METADATA_DIR,
+    stdio: 'inherit',
+  })
+  if (result.error) throw result.error
+  if (result.status !== 0) throw new Error('zip failed')
 
   console.log('')
   console.log('✅ Zip file created:', ZIP_FILE)
@@ -45,4 +55,3 @@ try {
   console.error('❌ Error:', error.message)
   process.exit(1)
 }
-

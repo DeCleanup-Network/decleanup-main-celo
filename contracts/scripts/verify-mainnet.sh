@@ -17,6 +17,7 @@ set -uo pipefail
 NETWORK="celo"
 
 # Mainnet addresses (lowercase or checksum both fine for hardhat-verify)
+# nosec: public Celoscan contract addresses, not API keys or private keys.
 DCU_REWARD_MANAGER="0x1936270b066ebadedc2d84f4ce3b488729d1d638"
 IMPACT_PRODUCT_NFT="0x97fa526fba91f01b5a4e0f25c71751e474cb6f45"
 SUBMISSION="0x2f3654f0ad8117c41185c589dcd0ea22522fe5af"
