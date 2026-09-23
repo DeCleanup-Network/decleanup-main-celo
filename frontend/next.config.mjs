@@ -98,6 +98,8 @@ const nextConfig = {
       ...config.resolve.alias,
       // MetaMask SDK / Web3Auth (browser build doesn't need React Native async storage)
       '@react-native-async-storage/async-storage': false,
+      // Wagmi may nest an older copy; one resolved SDK avoids missing index.node.js after install.
+      '@base-org/account': join(__dirname, 'node_modules/@base-org/account'),
       // Fix Privy build error: dangling Farcaster dependencies
       '@farcaster/mini-app-solana': false,
       '@farcaster/mini-app-sdk': false,

@@ -1,10 +1,10 @@
 import { isAddress, getAddress } from 'viem'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
-export const MAX_PAYMENT_METHODS = 2
+export const MAX_PAYMENT_METHODS = 3
 export const PAYMENT_NOTES_MAX = 500
 
-export type PaymentMethodKind = 'bank' | 'local' | 'crypto'
+export type PaymentMethodKind = 'bank' | 'local' | 'crypto' | 'crypto-base'
 
 export type SponsorPaymentMethod = {
   kind: PaymentMethodKind
@@ -22,12 +22,18 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethodKind, string> = {
   bank: 'Bank account',
   local: 'Other local payment method',
   crypto: 'Crypto (cUSD on Celo)',
+  'crypto-base': 'Crypto on Base',
 }
 
 export const PAYMENT_METHOD_HINT: Record<PaymentMethodKind, string> = {
   bank: 'Account name, bank, and number for a manual transfer.',
   local: 'PromptPay, GCash, or another local rail. Add a QR and notes.',
   crypto: 'Donors send cUSD in the app with MiniPay or a wallet.',
+  'crypto-base': 'Donors pay USDC with Base Pay. No Celo wallet needed.',
+}
+
+export function isOnchainPaymentKind(kind: PaymentMethodKind): boolean {
+  return kind === 'crypto' || kind === 'crypto-base'
 }
 
 function clip(value: unknown, max = PAYMENT_NOTES_MAX): string {
@@ -43,7 +49,7 @@ export function parsePaymentMethods(raw: unknown): SponsorPaymentMethod[] {
     if (!item || typeof item !== 'object') continue
     const rec = item as Record<string, unknown>
     const kind = rec.kind
-    if (kind !== 'bank' && kind !== 'local' && kind !== 'crypto') continue
+    if (kind !== 'bank' && kind !== 'local' && kind !== 'crypto' && kind !== 'crypto-base') continue
     if (seen.has(kind)) continue
     seen.add(kind)
     const method: SponsorPaymentMethod = { kind }
@@ -58,7 +64,7 @@ export function parsePaymentMethods(raw: unknown): SponsorPaymentMethod[] {
       method.localDetails = clip(rec.localDetails)
       method.qrImageCid = clip(rec.qrImageCid, 128)
     }
-    if (kind === 'crypto') {
+    if (isOnchainPaymentKind(kind)) {
       const addr = clip(rec.recipientAddress, 64)
       method.recipientAddress = isAddress(addr) ? getAddress(addr) : ''
     }
@@ -82,9 +88,11 @@ export function validatePaymentMethods(methods: SponsorPaymentMethod[]): string 
         return 'Add a local method name, details, or a QR code.'
       }
     }
-    if (method.kind === 'crypto') {
+    if (isOnchainPaymentKind(method.kind)) {
       if (!method.recipientAddress || !isAddress(method.recipientAddress)) {
-        return 'Crypto needs a valid 0x recipient wallet.'
+        return method.kind === 'crypto-base'
+          ? 'Crypto on Base needs a valid 0x recipient wallet.'
+          : 'Crypto needs a valid 0x recipient wallet.'
       }
     }
   }
@@ -104,7 +112,8 @@ export function cryptoRecipientFromMethods(
   methods: SponsorPaymentMethod[],
   fallbackAddress?: string | null
 ): string {
-  const crypto = methods.find((m) => m.kind === 'crypto')
+  const crypto =
+    methods.find((m) => m.kind === 'crypto') || methods.find((m) => m.kind === 'crypto-base')
   if (crypto?.recipientAddress && isAddress(crypto.recipientAddress)) {
     return getAddress(crypto.recipientAddress)
   }

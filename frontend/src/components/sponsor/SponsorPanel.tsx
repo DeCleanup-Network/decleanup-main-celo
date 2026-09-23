@@ -81,7 +81,7 @@ export function SponsorPanel() {
         <SponsorExitLinks />
         <h1 className={`mt-4 ${campaignText.title}`}>Sponsor a cleanup</h1>
         <p className={`mt-1 ${campaignText.note}`}>
-          Open a campaign to see the story, then donate with cUSD if you want to help.
+          Open a campaign to see the story, then donate with cUSD on Celo or USDC on Base.
         </p>
       </div>
 

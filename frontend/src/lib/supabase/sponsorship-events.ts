@@ -5,6 +5,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import type { SponsorEventDto, SponsorEventInput, SponsorEventStatus } from '@/lib/sponsor/types'
 import {
   cryptoRecipientFromMethods,
+  isOnchainPaymentKind,
   parsePaymentMethods,
   validatePaymentMethods,
 } from '@/lib/sponsor/payment-methods'
@@ -160,8 +161,9 @@ export async function createSponsorEvent(input: SponsorEventInput): Promise<Spon
   const paymentError = validatePaymentMethods(paymentMethods)
   if (paymentError) throw new Error(paymentError)
   const recipientAddress =
-    input.recipientAddress && isAddress(input.recipientAddress) ? getAddress(input.recipientAddress) : null
-  if (paymentMethods.some((m) => m.kind === 'crypto') && !recipientAddress) {
+    cryptoRecipientFromMethods(paymentMethods, input.recipientAddress) ||
+    (input.recipientAddress && isAddress(input.recipientAddress) ? getAddress(input.recipientAddress) : null)
+  if (paymentMethods.some((m) => isOnchainPaymentKind(m.kind)) && !recipientAddress) {
     throw new Error('Invalid recipient address')
   }
   if (!(input.fundingGoalCusd > 0) || !Number.isFinite(input.fundingGoalCusd)) {
@@ -232,7 +234,7 @@ export async function updateSponsorEventFields(
   const recipientAddress =
     cryptoRecipientFromMethods(paymentMethods, input.recipientAddress) ||
     (input.recipientAddress && isAddress(input.recipientAddress) ? getAddress(input.recipientAddress) : null)
-  if (paymentMethods.some((m) => m.kind === 'crypto') && !recipientAddress) {
+  if (paymentMethods.some((m) => isOnchainPaymentKind(m.kind)) && !recipientAddress) {
     throw new Error('Invalid recipient address')
   }
   if (!(input.fundingGoalCusd > 0) || !Number.isFinite(input.fundingGoalCusd)) {
