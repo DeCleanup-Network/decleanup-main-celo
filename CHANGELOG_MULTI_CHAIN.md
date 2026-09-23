@@ -48,10 +48,14 @@ Integrate the Base network (8453) into the dApp as a "Simple" option (basic clea
 - Selection persists in `localStorage` and triggers a page reload to apply the new chain configuration.
 - Refined `NetworkChecker.tsx` to validate against the dynamically selected `REQUIRED_CHAIN_ID` instead of a hardcoded chain, fixing false "Wrong Network" warnings during multi-chain switching.
 
+### 7. Conditional UI Rendering (Base Simple Mode)
+- Updated `frontend/src/app/page.tsx` to filter dashboard breakdown stats (e.g., Hypercerts, Recyclables, Impact Reports) so they only appear on Celo networks.
+- Updated `frontend/src/components/dashboard/DashboardActions.tsx` to hide Celo-specific action buttons (Impact Certificate/Hypercerts, Apply for funding/Sponsor, Create/Join Impact Circle) when the user is on the Base network.
+- Ensured the Base experience focuses strictly on the simple cleanup loop (Submit -> Verify -> Claim).
+
 ## Next Steps (Pending Proposal Approval)
 
 - **Base Simple Flow Wiring**: Test submit/verify/claim flows on Base against the mapped contracts.
-- **Route Group / Feature Flags**: Hide Celo-specific panels (Hypercerts, Gardens) when Base is selected.
 - **Conversion Ratio & ClaimVault UI**: Once the governance proposal passes, implement the `$bDCU -> $cDCU` conversion UI on the Celo side.
 - **ENV Template Update**: Update `frontend/ENV_TEMPLATE.md` with the new Base variables (`NEXT_PUBLIC_BASE_RPC_URL`, `NEXT_PUBLIC_BASE_BDCU_TOKEN_ADDRESS`, etc.).
 - **QA/Security**: Verify ABI parity between Celo and Base contracts.
