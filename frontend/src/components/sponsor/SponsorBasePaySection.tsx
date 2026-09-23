@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { isAddress } from 'viem'
-import { BasePayButton } from '@base-org/account-ui/react'
-import { getPaymentStatus, pay } from '@base-org/account'
+import { getPaymentStatus, pay } from '@base-org/account/payment'
+import { Button } from '@/components/ui/button'
 import { campaignText, formatCusd, shortAddr } from '@/lib/sponsor/display'
 import {
   BASESCAN_TX,
@@ -148,9 +148,9 @@ export function SponsorBasePaySection({ event, recipientAddress, onRecorded }: P
             className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-base text-white outline-none focus:border-brand-green/50"
           />
         </label>
-        <div className={busy ? 'pointer-events-none opacity-60' : undefined}>
-          <BasePayButton colorScheme="dark" onClick={() => void handlePay()} />
-        </div>
+        <Button type="button" className="w-full" disabled={busy || !usd || !recipientOk} onClick={() => void handlePay()}>
+          {busy ? 'Confirm in Base Pay…' : 'Pay with Base Pay'}
+        </Button>
         {!usd ? (
           <p className={campaignText.meta}>Enter an amount, then tap Base Pay.</p>
         ) : null}

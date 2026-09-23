@@ -36,7 +36,6 @@
     "@atproto/api": "^0.17.7",
     "@auth/prisma-adapter": "^2.11.2",
     "@base-org/account": "^2.4.0",
-    "@base-org/account-ui": "^1.0.1",
     "@celo/contractkit": "^10.0.2",
     "@hypercerts-org/lexicon": "^1.0.0",
     "@prisma/adapter-pg": "^5.22.0",
