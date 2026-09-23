@@ -1,4 +1,4 @@
-import { celo, mainnet } from 'wagmi/chains'
+import { celo, mainnet, base } from 'wagmi/chains'
 import { defineChain, type Chain } from 'viem'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { http } from 'wagmi'
@@ -8,6 +8,10 @@ import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
 /** Browser-safe default: public forno sepolia often has no CORS; same-origin proxy + drpc fallback. */
 const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
+
+// Base RPC URLs (fallback to public if env not set)
+const baseMainnetRpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'
+const baseSepoliaRpcUrl = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
 
 const celoMainnet = {
   ...celo,
@@ -53,7 +57,13 @@ const celoSepoliaChain = defineChain({
 })
 
 // Include Ethereum mainnet for ENS resolution (RainbowKit can resolve ENS even when on Celo)
-const configuredChains: [Chain, ...Chain[]] = [celoSepoliaChain, celoMainnet, mainnet]
+// Now also including Base and Base Sepolia
+const configuredChains: [Chain, ...Chain[]] = [
+  celoSepoliaChain, 
+  celoMainnet, 
+  base, // Base Mainnet (id: 8453)
+  mainnet
+]
 
 const APP_NAME = 'DeCleanup Rewards'
 
@@ -76,7 +86,7 @@ function getWalletConnectAppUrl(): string {
 }
 
 const APP_URL = getWalletConnectAppUrl()
-const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo.'
+const APP_DESCRIPTION = 'Clean up, share proof, and earn tokenized environmental rewards on Celo and Base.'
 const APP_ICON_URL =
   process.env.NEXT_PUBLIC_APP_ICON_URL ||
   'https://gateway.pinata.cloud/ipfs/bafkreia2bx2ofiutdzyxyry5wfaq5kj7bcd4wvutpiw6bhbl35qdbmsat4?filename=iconDCU.png'
@@ -97,6 +107,7 @@ export const config = getDefaultConfig({
   transports: {
     [celoMainnet.id]: http(celoMainnetRpcUrl),
     [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
+    [base.id]: http(baseMainnetRpcUrl), // Transport for Base Mainnet
     [mainnet.id]: http(), // Public RPC for ENS resolution
   },
   ssr: true, // Enable SSR support for Next.js
@@ -115,4 +126,3 @@ export {
   REQUIRED_CHAIN_IS_TESTNET,
   CONTRACT_ADDRESSES,
 } from './chain-constants'
-
