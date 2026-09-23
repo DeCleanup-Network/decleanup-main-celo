@@ -1,21 +1,19 @@
-# Cursor prompt: match DeCleanup Network landing design (Base mini app)
+# Archived: design prompt for the Base / Farcaster Mini App
 
-Copy everything below the line into Cursor for your **Base / Farcaster mini app** repo. Reference implementation: **Celo dapp** (`decleanup-main-celo` / `dapp.decleanup.net`) and visual source **`DeCleanup-Network/decleanup-landing-standalone`** ([decleanup-network.vercel.app](https://decleanup-network.vercel.app)).
+**Do not use.** The Mini App is being wound down. Base cleanup now lives inside `dapp.decleanup.net`. See [FARCASTER_MINIAPP_SUNSET.md](./FARCASTER_MINIAPP_SUNSET.md) and [BASE_TO_DAPP_DEV_BRIEF.md](./BASE_TO_DAPP_DEV_BRIEF.md).
+
+The empty prompt below is leftover from when this file was a Cursor paste-target for [Farcaster-Mini-App](https://github.com/DeCleanup-Network/Farcaster-Mini-App).
 
 ---
 
-## Prompt (copy from here)
+## Prompt (historical)
 
-m
----
+*(empty — the copy-paste block was never filled in this repo)*
 
-## End of prompt
-
-### Quick links for humans
+### Quick links
 
 | Resource | URL |
 |----------|-----|
-| Landing live | https://decleanup-network.vercel.app |
+| Unified dApp | https://dapp.decleanup.net |
+| Landing | https://decleanup-network.vercel.app |
 | Landing repo | https://github.com/DeCleanup-Network/decleanup-landing-standalone |
-| Celo dapp | https://dapp.decleanup.net |
-| Public impact API | `docs/PUBLIC_IMPACT_API.md` in main celo repo |

@@ -118,6 +118,7 @@ EMAIL_FROM=DeCleanup <onboarding@resend.dev>
 # Legacy SMTP (only if you do not use RESEND_API_KEY):
 # EMAIL_SERVER=smtp://resend:re_YOUR_API_KEY@smtp.resend.com:587
 # NEXT_PUBLIC_PIMLICO_API_KEY=
+# Same key for Celo + Base. Enable those chains on the Pimlico sponsorship policy.
 
 # ============================================
 # ClaimVault signer (server only)

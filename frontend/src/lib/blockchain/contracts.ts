@@ -18,6 +18,7 @@ import {
 } from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
 import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID } from './chain-constants'
+import { getActiveAaChain } from './aa-chain'
 import { getSmartAccountAddressFromClient } from './smart-account'
 import { keccak256, toBytes } from 'viem'
 import { getLogs as viemGetLogs } from 'viem/actions'
@@ -134,14 +135,8 @@ const TX_WAIT_OPTS = {
 }
 
 function getRequiredChainPublicClient() {
-  const isMainnet = REQUIRED_CHAIN_ID === 42220
   return createPublicClient({
-    chain: {
-      id: REQUIRED_CHAIN_ID,
-      name: isMainnet ? 'Celo' : 'Celo Sepolia',
-      nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
-      rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
-    },
+    chain: getActiveAaChain(),
     transport: http(REQUIRED_RPC_URL),
   })
 }

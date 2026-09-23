@@ -40,6 +40,7 @@ import type { EncryptedWalletBlob, LocalWalletRecord } from '@/lib/client-wallet
 import { WALLET_PASSKEY, WALLET_PASSKEY_POSSESSIVE } from '@/lib/client-wallet/copy'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { predictSafeAddress } from '@/lib/smart-account/predict-safe'
+import { predictSafeAddressFromOwnerAddress } from '@/lib/wallet/predict-safe-from-address'
 import {
   createClientSmartAccountClient,
   getClientSmartAccountBalance,
@@ -244,6 +245,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // balance fetch is best-effort
     }
   }, [smartAccountAddress])
+
+  // Same EOA, different Safe per chain. Do not persist the Base Safe over the Celo wallet row.
+  useEffect(() => {
+    if (!eoaAddress) return
+    if (chainId != null && chainId === REQUIRED_CHAIN_ID) return
+    if (chainId == null) return
+    let cancelled = false
+    void predictSafeAddressFromOwnerAddress(eoaAddress)
+      .then((smart) => {
+        if (cancelled) return
+        setSmartAccountAddress(smart)
+        return getClientSmartAccountBalance(smart).then((bal) => {
+          if (!cancelled) setBalance(bal)
+        })
+      })
+      .catch(() => {
+        /* prediction is best-effort when switching chains */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [eoaAddress, chainId])
 
   const applyRecord = useCallback((record: LocalWalletRecord, unlocked: boolean) => {
     localRecordRef.current = record

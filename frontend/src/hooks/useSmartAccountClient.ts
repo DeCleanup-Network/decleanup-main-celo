@@ -25,7 +25,7 @@ type EmbeddedPath = 'unset' | 'yes' | 'no'
 /**
  * Smart account + Pimlico paymaster when:
  * - AA auth: user unlocked embedded wallet (WalletProvider signing session), or
- * - Privy/Web3Auth: embedded social/email wallet on Celo Sepolia (not external WC/MetaMask).
+ * - Privy/Web3Auth: embedded social/email wallet on the active chain (not external WC/MetaMask).
  *
  * `publicWalletAddress` — EOA (user-visible identity).
  * `onchainOwnerAddress` / `submissionOwnerAddress` — Safe when gasless, else EOA (submissions + claims).

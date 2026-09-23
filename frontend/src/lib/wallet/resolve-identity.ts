@@ -3,7 +3,8 @@ import 'server-only'
 import type { Address, PublicClient } from 'viem'
 import { getAddress, isAddress } from 'viem'
 import { createPublicClient, http } from 'viem'
-import { REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { getActiveAaChain } from '@/lib/blockchain/aa-chain'
 import { prisma } from '@/lib/db/prisma'
 import { predictSafeAddressFromOwnerAddress } from '@/lib/wallet/predict-safe-from-address'
 
@@ -27,14 +28,8 @@ export type ResolvedWalletIdentity = {
 }
 
 function publicClient(): PublicClient {
-  const isMainnet = REQUIRED_CHAIN_ID === 42220
   return createPublicClient({
-    chain: {
-      id: REQUIRED_CHAIN_ID,
-      name: isMainnet ? 'Celo' : 'Celo Sepolia',
-      nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
-      rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
-    },
+    chain: getActiveAaChain(),
     transport: http(REQUIRED_RPC_URL),
   })
 }
