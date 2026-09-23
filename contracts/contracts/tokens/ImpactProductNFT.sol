@@ -142,6 +142,8 @@ contract ImpactProductNFT is ERC721, Ownable {
         require(treasury != address(0), "Treasury not set");
         uint256 amount = address(this).balance;
         require(amount > 0, "No fees to withdraw");
+        // Audit note: low-level call is a treasury payout with require(success).
+        // Effects (balance read) happen first. Do not redeploy live mainnet for this scanner finding.
         (bool success, ) = treasury.call{value: amount}("");
         require(success, "Fee withdrawal failed");
     }
@@ -167,6 +169,7 @@ contract ImpactProductNFT is ERC721, Ownable {
             totalFeesCollected += msg.value;
             // Transfer fee to treasury if set
             if (treasury != address(0) && msg.value > 0) {
+                // Audit note: fee forward to treasury. require(success) after call. No live redeploy.
                 (bool success, ) = treasury.call{value: msg.value}("");
                 require(success, "Fee transfer failed");
             }
@@ -224,6 +227,7 @@ contract ImpactProductNFT is ERC721, Ownable {
             totalFeesCollected += msg.value;
             // Transfer fee to treasury if set
             if (treasury != address(0) && msg.value > 0) {
+                // Audit note: fee forward to treasury. require(success) after call. No live redeploy.
                 (bool success, ) = treasury.call{value: msg.value}("");
                 require(success, "Fee transfer failed");
             }

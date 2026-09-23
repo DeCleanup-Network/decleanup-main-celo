@@ -26,10 +26,15 @@ function loginHref(search: Search): string {
   return query ? `/login?${query}` : '/login'
 }
 
-export default function LoginPage({ searchParams }: { searchParams: Search }) {
-  const raw = first(searchParams.callbackUrl)
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Search>
+}) {
+  const resolved = await searchParams
+  const raw = first(resolved.callbackUrl)
   if (raw && safeCallbackUrl(raw) === '/' && raw !== '/') {
-    redirect(loginHref(searchParams))
+    redirect(loginHref(resolved))
   }
 
   return <LoginPageClient emailLoginEnabled={isEmailLoginEnabled()} />

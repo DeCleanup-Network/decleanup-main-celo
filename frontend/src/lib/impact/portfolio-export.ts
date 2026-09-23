@@ -138,8 +138,12 @@ td,th{border:1px solid #ccc;padding:0.5rem;text-align:left;font-size:0.85rem} th
 }
 
 export function openReportPrintWindow(html: string) {
-  const w = window.open('', '_blank', 'noopener,noreferrer')
-  if (!w) return
-  w.document.write(html)
-  w.document.close()
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const opened = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!opened) {
+    URL.revokeObjectURL(url)
+    return
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

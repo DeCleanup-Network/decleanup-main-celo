@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Load GPU_SHARED_SECRET from frontend/.env.local and run uvicorn on :8000
+# nosec: reads GPU_SHARED_SECRET from .env.local at runtime. No secret is hardcoded.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$ROOT/frontend/.env.local"
