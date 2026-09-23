@@ -73,7 +73,7 @@ export function SponsorSubmitPanel() {
           <PageBackButton />
           <h1 className={`mt-4 ${campaignText.title}`}>Apply for funding</h1>
           <p className={`mt-1 ${campaignText.note}`}>
-            Two paths. Start with community donations (MiniPay / cUSD). Gardens unlocks later.
+            Two paths. Start with community donations (MiniPay / cUSD, or USDC on Base). Gardens unlocks later.
           </p>
         </div>
 
@@ -105,7 +105,7 @@ export function SponsorSubmitPanel() {
               </span>
               <div>
                 <p className={campaignText.cardTitle}>Community donations</p>
-                <p className={campaignText.cardHint}>MiniPay · share link · cUSD on Celo</p>
+                <p className={campaignText.cardHint}>MiniPay · Base Pay · share link · cUSD or USDC</p>
               </div>
             </div>
             {communityUnlocked ? (

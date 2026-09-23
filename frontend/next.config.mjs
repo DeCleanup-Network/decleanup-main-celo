@@ -98,6 +98,13 @@ const nextConfig = {
       ...config.resolve.alias,
       // MetaMask SDK / Web3Auth (browser build doesn't need React Native async storage)
       '@react-native-async-storage/async-storage': false,
+      // Wagmi may nest an older copy; pin the ESM entry so `pay` is a named export
+      // (the package "browser" field points at a UMD bundle that webpack cannot tree-shake).
+      '@base-org/account$': join(__dirname, 'node_modules/@base-org/account/dist/index.js'),
+      '@base-org/account/payment': join(
+        __dirname,
+        'node_modules/@base-org/account/dist/interface/payment/index.js'
+      ),
       // Fix Privy build error: dangling Farcaster dependencies
       '@farcaster/mini-app-solana': false,
       '@farcaster/mini-app-sdk': false,

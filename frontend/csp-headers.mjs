@@ -33,6 +33,28 @@ const WALLETCONNECT_FRAMES = [
   'https://appkit-wallet.reown.com',
 ].join(' ')
 
+/** Base Pay / Coinbase Wallet popup + RPC (sponsor USDC donations). */
+const BASE_PAY_CONNECT = [
+  'https://*.base.org',
+  'https://mainnet.base.org',
+  'https://sepolia.base.org',
+  'https://*.coinbase.com',
+  'https://api.developer.coinbase.com',
+  'https://api.cdp.coinbase.com',
+  'https://keys.coinbase.com',
+  'https://*.wallet.coinbase.com',
+  'https://www.walletlink.org',
+  'wss://www.walletlink.org',
+  'wss://*.walletlink.org',
+].join(' ')
+
+const BASE_PAY_FRAMES = [
+  'https://keys.coinbase.com',
+  'https://*.coinbase.com',
+  'https://*.base.org',
+  'https://www.walletlink.org',
+].join(' ')
+
 /** WalletConnect / Reown AppKit + relay (required when RainbowKit or WC is on the page). */
 const WALLETCONNECT_CONNECT = [
   'https://pulse.walletconnect.org',
@@ -91,6 +113,7 @@ export function buildContentSecurityPolicy(isDev) {
     GOOGLE_AUTH,
     WALLET_EXTENSION_RPC,
     WALLETCONNECT_CONNECT,
+    BASE_PAY_CONNECT,
     rpcConnectOrigins(),
     ethereumConnectOrigins(),
     'https://*.celo-testnet.org',
@@ -109,7 +132,7 @@ export function buildContentSecurityPolicy(isDev) {
     "media-src 'self' blob: data: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${connectSrc}`,
-    `frame-src 'self' ${WALLETCONNECT_FRAMES} ${GOOGLE_AUTH}`,
+    `frame-src 'self' ${WALLETCONNECT_FRAMES} ${BASE_PAY_FRAMES} ${GOOGLE_AUTH}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -127,7 +150,7 @@ export const SECURITY_HEADERS = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(self), payment=()',
+    value: 'camera=(), microphone=(), geolocation=(self), payment=(self)',
   },
   { key: 'X-XSS-Protection', value: '0' },
 ]

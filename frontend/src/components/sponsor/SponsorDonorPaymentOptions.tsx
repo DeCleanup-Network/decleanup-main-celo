@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Landmark, QrCode, Wallet } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { CircleDollarSign, Landmark, QrCode, Wallet } from 'lucide-react'
 import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-shared'
 import {
   eventPaymentMethods,
@@ -13,10 +14,19 @@ import { SponsorDonateSection } from '@/components/sponsor/SponsorDonateSection'
 import { campaignText } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
+const SponsorBasePaySection = dynamic(
+  () => import('@/components/sponsor/SponsorBasePaySection').then((m) => m.SponsorBasePaySection),
+  {
+    ssr: false,
+    loading: () => <p className={campaignText.note}>Loading Base Pay…</p>,
+  }
+)
+
 const ICONS = {
   bank: Landmark,
   local: QrCode,
   crypto: Wallet,
+  'crypto-base': CircleDollarSign,
 } as const
 
 function ManualNotice() {
@@ -92,7 +102,8 @@ export function SponsorDonorPaymentOptions({
       <div className="space-y-2">
         <h2 className={campaignText.section}>How to donate</h2>
         <p className={campaignText.noteBox}>
-          Pick a method this cleanup accepts. Bank and local payments are manual. Crypto is sent in this app.
+          Pick a method this cleanup accepts. Bank and local payments are manual. Celo cUSD and Base
+          USDC are sent in this app.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-2">
@@ -115,7 +126,11 @@ export function SponsorDonorPaymentOptions({
                 {PAYMENT_METHOD_LABEL[method.kind]}
               </span>
               <span className={campaignText.cardHint}>
-                {method.kind === 'crypto' ? 'Pay in the app with MiniPay or a wallet.' : 'Manual payment, outside the app.'}
+                {method.kind === 'crypto'
+                  ? 'Pay in the app with MiniPay or a wallet.'
+                  : method.kind === 'crypto-base'
+                    ? 'Pay USDC with Base Pay.'
+                    : 'Manual payment, outside the app.'}
               </span>
             </button>
           )
@@ -135,7 +150,18 @@ export function SponsorDonorPaymentOptions({
         </div>
       ) : null}
 
-      {active && active.kind !== 'crypto' ? (
+      {active?.kind === 'crypto-base' ? (
+        <div className="space-y-3">
+          <p className={campaignText.noteBox}>Base Pay sends USDC on Base. You do not need MiniPay.</p>
+          <SponsorBasePaySection
+            event={event}
+            recipientAddress={active.recipientAddress || event.recipientAddress}
+            onRecorded={onRecorded}
+          />
+        </div>
+      ) : null}
+
+      {active && active.kind !== 'crypto' && active.kind !== 'crypto-base' ? (
         <div className="rounded-xl border border-white/10 bg-zinc-950/80 p-4">
           <MethodDetails method={active} />
         </div>
