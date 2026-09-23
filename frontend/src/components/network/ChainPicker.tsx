@@ -14,12 +14,22 @@ const CHAIN_PREFERENCE_KEY = 'decleanup-chain-id'
 
 export function ChainPicker() {
   const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Wagmi hooks must not run during `/_not-found` SSG (Vercel prerender crash).
+  if (!mounted) return null
+  return <ChainPickerReady />
+}
+
+function ChainPickerReady() {
   const [showModal, setShowModal] = useState(false)
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
 
   useEffect(() => {
-    setMounted(true)
     const pref = localStorage.getItem(CHAIN_PREFERENCE_KEY)
     if (!pref) {
       setShowModal(true)
@@ -38,8 +48,6 @@ export function ChainPicker() {
     
     window.location.reload()
   }
-
-  if (!mounted) return null
 
   const currentConfig = CHAIN_CONFIGS[chainId as SupportedChainId]
   const currentName = currentConfig?.name || 'Select Network'

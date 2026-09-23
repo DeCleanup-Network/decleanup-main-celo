@@ -10,10 +10,17 @@ import { HypercertPublishedNotifier } from '@/components/hypercerts/HypercertPub
 import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner'
 import { PwaUpdateToast } from '@/components/pwa/PwaUpdateToast'
 import { useAutoSwitchToAppChain } from '@/hooks/useAutoSwitchToAppChain'
+import { useClientMounted } from '@/hooks/useClientMounted'
 import { usePathname } from 'next/navigation'
 import type { State } from 'wagmi'
 
 function AutoSwitchToAppChain() {
+  const mounted = useClientMounted()
+  if (!mounted) return null
+  return <AutoSwitchToAppChainReady />
+}
+
+function AutoSwitchToAppChainReady() {
   useAutoSwitchToAppChain()
   return null
 }

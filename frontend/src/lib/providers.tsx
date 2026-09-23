@@ -27,25 +27,20 @@ export function Providers({
   children: React.ReactNode
   wagmiInitialState?: State
 }) {
-  if (isAaAuthEnabledClient()) {
-    return (
-      <MinimalWagmiProviders initialState={wagmiInitialState}>
-        <AaSessionProvider>
-          <WalletProvider>{children}</WalletProvider>
-        </AaSessionProvider>
-      </MinimalWagmiProviders>
-    )
-  }
-
-  const isPrivyEnabled = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)
-
-  if (isPrivyEnabled) {
-    return <PrivyProviders>{children}</PrivyProviders>
-  }
-
-  return (
+  // SessionProvider must wrap every path: Header/NotificationBell and
+  // useAutoSwitchToAppChain call useSession(). Without it, Vercel SSG of
+  // `/_not-found` throws "Cannot destructure property 'data'".
+  const inner = isAaAuthEnabledClient() ? (
+    <MinimalWagmiProviders initialState={wagmiInitialState}>
+      <WalletProvider>{children}</WalletProvider>
+    </MinimalWagmiProviders>
+  ) : process.env.NEXT_PUBLIC_PRIVY_APP_ID ? (
+    <PrivyProviders>{children}</PrivyProviders>
+  ) : (
     <Suspense fallback={<ProvidersFallback />}>
       <RainbowKitProviders>{children}</RainbowKitProviders>
     </Suspense>
   )
+
+  return <AaSessionProvider>{inner}</AaSessionProvider>
 }

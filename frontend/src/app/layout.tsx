@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import { getServerMinimalWagmiConfig } from "@/lib/blockchain/minimal-wagmi-config";
@@ -8,7 +8,7 @@ import { rootSiteMetadata } from "@/lib/seo/metadata";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import "./globals.css";
 
-const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"), {
+const RootClientBody = nextDynamic(() => import("@/components/layout/RootClientBody"), {
   ssr: true,
   loading: () => (
     <div className="flex min-h-screen flex-col bg-black">
@@ -21,6 +21,9 @@ const RootClientBody = dynamic(() => import("@/components/layout/RootClientBody"
 });
 
 export const metadata: Metadata = rootSiteMetadata();
+
+/** Wallet providers + `headers()` cannot statically prerender `/_not-found` on Vercel. */
+export const dynamic = 'force-dynamic'
 
 export const viewport = {
   width: "device-width",
