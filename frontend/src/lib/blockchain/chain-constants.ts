@@ -4,6 +4,8 @@
  * (which loads RainbowKit/Lit and triggers "Lit is in dev mode" etc.).
  */
 
+import { resolveCeloSepoliaUpstreamRpc, CELO_SEPOLIA_FORNO_RPC } from './celo-sepolia-upstream-rpc'
+
 export const CELO_MAINNET_CHAIN_ID = 42220
 export const CELO_SEPOLIA_CHAIN_ID = 11142220
 export const BASE_MAINNET_CHAIN_ID = 8453
@@ -44,10 +46,18 @@ export const CHAIN_CONFIGS: Record<
     blockExplorerUrl: 'https://celoscan.io',
     pimlicoSlug: 'celo',
     contracts: {
-      IMPACT_PRODUCT: process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT || '',
+      IMPACT_PRODUCT:
+        process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT ||
+        process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS ||
+        process.env.NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT ||
+        '',
       VERIFICATION: process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT || '',
-      REWARD_DISTRIBUTOR: process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT || '',
-      DCU_TOKEN: process.env.NEXT_PUBLIC_CDCU_TOKEN_ADDRESS || '',
+      REWARD_DISTRIBUTOR:
+        process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT ||
+        process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS ||
+        '',
+      DCU_TOKEN:
+        process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT || process.env.NEXT_PUBLIC_CDCU_TOKEN_ADDRESS || '',
       CLAIMVAULT: process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS || '',
     },
   },
@@ -55,14 +65,24 @@ export const CHAIN_CONFIGS: Record<
     id: CELO_SEPOLIA_CHAIN_ID,
     name: 'Celo Sepolia Testnet',
     isTestnet: true,
-    rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org',
+    rpcUrl: resolveCeloSepoliaUpstreamRpc(
+      process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || CELO_SEPOLIA_FORNO_RPC
+    ),
     blockExplorerUrl: 'https://celo-sepolia.blockscout.com',
     pimlicoSlug: 'celo-sepolia',
     contracts: {
-      IMPACT_PRODUCT: process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT || '',
+      IMPACT_PRODUCT:
+        process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT ||
+        process.env.NEXT_PUBLIC_IMPACT_PRODUCT_NFT_ADDRESS ||
+        process.env.NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT ||
+        '',
       VERIFICATION: process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT || '',
-      REWARD_DISTRIBUTOR: process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT || '',
-      DCU_TOKEN: process.env.NEXT_PUBLIC_CDCU_TOKEN_ADDRESS || '',
+      REWARD_DISTRIBUTOR:
+        process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT ||
+        process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_ADDRESS ||
+        '',
+      DCU_TOKEN:
+        process.env.NEXT_PUBLIC_DCU_TOKEN_CONTRACT || process.env.NEXT_PUBLIC_CDCU_TOKEN_ADDRESS || '',
       CLAIMVAULT: process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS || '',
     },
   },
