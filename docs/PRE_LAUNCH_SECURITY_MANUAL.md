@@ -155,6 +155,8 @@ Dashboard shows **“No repository connected”**.
 - [ ] No secrets in git history (`git log -p` spot-check or use GitHub secret scanning)
 - [ ] Production deploy uses `SUPABASE_SERVICE_ROLE_KEY` (never `NEXT_PUBLIC_`)
 - [ ] Counsel sign-off recorded for privacy policy + terms
+- [ ] Vercel Firewall: scanner-path deny is in `frontend/vercel.json`; confirm Attack Challenge does **not** block real Googlebot on `/robots.txt` and `/sitemap.xml` (Firewall → Monitoring). Exclude those two paths from Challenge if crawl fails.
+- [ ] `vercel login` on a team machine so production logs can be pulled (`vercel logs dapp.decleanup.net`) after HelpRent-style fake-Googlebot scans
 
 ---
 

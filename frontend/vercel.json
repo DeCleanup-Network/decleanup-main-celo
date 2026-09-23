@@ -1,9 +1,16 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
+  "routes": [
+    {
+      "src": "^/(\\.(env(\\..+)?|git(/.*)?|svn(/.*)?|hg(/.*)?|DS_Store|htaccess|htpasswd|aws(/.*)?)|wp-admin(/.*)?|wp-login\\.php|wp-config\\.php|xmlrpc\\.php|phpmyadmin(/.*)?|pma(/.*)?|phpinfo\\.php|vendor/phpunit(/.*)?|actuator(/.*)?|server-status|cgi-bin(/.*)?|backup\\.sql|dump\\.sql|config\\.php)$",
+      "mitigate": { "action": "deny" }
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/streak-reminders",
