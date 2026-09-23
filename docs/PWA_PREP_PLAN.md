@@ -235,7 +235,7 @@ External wallets (MetaMask app): OS handles app switch; PWA does not replace dee
 - Push notifications
 - Background sync for submissions
 - Offline cleanup submit (needs queue + conflict resolution)
-- Farcaster mini-app duplicate install path
+- Farcaster Mini App install path (retired — see `docs/FARCASTER_MINIAPP_SUNSET.md`)
 
 ---
 

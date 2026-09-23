@@ -11,6 +11,9 @@ export const CELO_SEPOLIA_CHAIN_ID = 11142220
 export const BASE_MAINNET_CHAIN_ID = 8453
 export const BASE_SEPOLIA_CHAIN_ID = 84532
 
+/** localStorage key for Celo vs Base experience. Read in getInitialChainId(). */
+export const CHAIN_PREFERENCE_KEY = 'decleanup-chain-id'
+
 export type SupportedChainId =
   | typeof CELO_MAINNET_CHAIN_ID
   | typeof CELO_SEPOLIA_CHAIN_ID
@@ -135,7 +138,7 @@ function getInitialChainId(): SupportedChainId {
   ) as SupportedChainId
 
   if (typeof window !== 'undefined') {
-    const stored = window.localStorage.getItem('decleanup-chain-id')
+    const stored = window.localStorage.getItem(CHAIN_PREFERENCE_KEY)
     if (stored) {
       const id = Number(stored) as SupportedChainId
       if (CHAIN_CONFIGS[id]) return id

@@ -3,17 +3,8 @@
 import type { Address, Hex } from 'viem'
 import { createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
-
-function getChain() {
-  const isMainnet = REQUIRED_CHAIN_ID === 42220
-  return {
-    id: REQUIRED_CHAIN_ID,
-    name: isMainnet ? 'Celo' : 'Celo Sepolia',
-    nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
-    rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
-  } as const
-}
+import { REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { getActiveAaChain } from '@/lib/blockchain/aa-chain'
 
 export type EmbeddedEoaWriteParams = {
   address: Address
@@ -23,13 +14,13 @@ export type EmbeddedEoaWriteParams = {
   value?: bigint
 }
 
-/** Contract write from the embedded Google/email EOA (pays gas on Celo; no wagmi / WalletConnect). */
+/** Contract write from the embedded Google/email EOA (pays its own gas; no wagmi / WalletConnect). */
 export async function writeContractWithEmbeddedEoa(
   privateKeyHex: Hex,
   params: EmbeddedEoaWriteParams
 ): Promise<Hex> {
   const account = privateKeyToAccount(privateKeyHex)
-  const chain = getChain()
+  const chain = getActiveAaChain()
   const client = createWalletClient({
     account,
     chain,

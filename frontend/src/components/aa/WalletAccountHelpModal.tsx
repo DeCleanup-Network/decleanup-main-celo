@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { WalletHelpTopic } from '@/components/aa/WalletHelpTopic'
-import { REQUIRED_RPC_URL, REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
 import type { Address } from 'viem'
 
 type Props = {
@@ -24,8 +24,7 @@ export function WalletAccountHelpModal({
 }: Props) {
   if (!open) return null
 
-  const celoRpc =
-    chainId === 42220 ? 'https://forno.celo.org' : REQUIRED_RPC_URL
+  const rpcUrl = REQUIRED_RPC_URL
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
@@ -51,9 +50,9 @@ export function WalletAccountHelpModal({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <WalletHelpTopic label="Your wallet address">
-            Your signer address on Celo — the same one MetaMask shows after you export your private key.
-            $cDCU balance and airdrops use this address. Impact portfolio and onchain cleanups use your
-            smart account behind the scenes.
+            Your signer address on the selected network — the same one MetaMask shows after you export
+            your private key. Token balances and airdrops use this address. Impact portfolio and onchain
+            cleanups use your smart account behind the scenes.
             <span className="mt-2 block font-mono text-[10px] text-gray-500">{walletAddress}</span>
           </WalletHelpTopic>
 
@@ -64,8 +63,8 @@ export function WalletAccountHelpModal({
 
           <WalletHelpTopic label="Gas sponsorship">
             {gaslessEnabled
-              ? 'Celo transaction fees for routine DeCleanup actions are covered by the protocol when sponsorship is on.'
-              : 'Gas sponsorship is off for this session. You may need a small CELO balance for transactions.'}
+              ? 'Network fees for routine DeCleanup actions are covered by the protocol when sponsorship is on (CELO on Celo, ETH on Base).'
+              : 'Gas sponsorship is off for this session. You may need a small CELO (Celo) or ETH (Base) balance for transactions.'}
           </WalletHelpTopic>
 
           <WalletHelpTopic label="ERC-4337">
@@ -75,7 +74,7 @@ export function WalletAccountHelpModal({
 
           <WalletHelpTopic label="Network">
             Chain: {chainLabel} (ID {chainId}). RPC:{' '}
-            <span className="font-mono text-[10px] text-gray-500 break-all">{celoRpc}</span>
+            <span className="font-mono text-[10px] text-gray-500 break-all">{rpcUrl}</span>
           </WalletHelpTopic>
 
           <WalletHelpTopic label="Lost access?">
@@ -100,5 +99,7 @@ export function WalletAccountHelpModal({
 export function chainLabelFromId(chainId: number): string {
   if (chainId === 42220) return 'Celo Mainnet'
   if (chainId === 11142220) return 'Celo Sepolia'
+  if (chainId === 8453) return 'Base'
+  if (chainId === 84532) return 'Base Sepolia'
   return `Chain ${chainId}`
 }

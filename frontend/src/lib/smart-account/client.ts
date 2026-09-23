@@ -4,25 +4,15 @@ import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { createPublicClient, erc20Abi, formatEther, http, isAddress } from 'viem'
 import { entryPoint07Address } from 'viem/account-abstraction'
-import { CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { CONTRACT_ADDRESSES, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { getActiveAaChain, getPimlicoBundlerUrl } from '@/lib/blockchain/aa-chain'
 
 const entryPoint = { address: entryPoint07Address as Address, version: '0.7' as const }
-
-function getChain() {
-  const isMainnet = REQUIRED_CHAIN_ID === 42220
-  return {
-    id: REQUIRED_CHAIN_ID,
-    name: isMainnet ? 'Celo' : 'Celo Sepolia',
-    nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
-    rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
-  } as const
-}
 
 function getPimlicoUrl(): string {
   const apiKey = process.env.NEXT_PUBLIC_PIMLICO_API_KEY?.trim()
   if (!apiKey) throw new Error('NEXT_PUBLIC_PIMLICO_API_KEY is not set')
-  const slug = REQUIRED_CHAIN_ID === 42220 ? 'celo' : 'celo-sepolia'
-  return `https://api.pimlico.io/v2/${slug}/rpc?apikey=${apiKey}`
+  return getPimlicoBundlerUrl(apiKey)
 }
 
 export async function createClientSmartAccountClient(privateKeyHex: Hex) {
@@ -32,7 +22,7 @@ export async function createClientSmartAccountClient(privateKeyHex: Hex) {
   const { toSafeSmartAccount } = await import('permissionless/accounts')
   const { createPimlicoClient } = await import('permissionless/clients/pimlico')
 
-  const chain = getChain()
+  const chain = getActiveAaChain()
   const publicClient = createPublicClient({ chain, transport: http(REQUIRED_RPC_URL) })
 
   const safeAccount = await toSafeSmartAccount({
@@ -76,7 +66,7 @@ export async function sendGaslessUserOperation(
 
 export async function getClientSmartAccountBalance(address: Address): Promise<string> {
   const publicClient = createPublicClient({
-    chain: getChain(),
+    chain: getActiveAaChain(),
     transport: http(REQUIRED_RPC_URL),
   })
   const wei = await publicClient.getBalance({ address })
@@ -89,7 +79,7 @@ export async function getClientCdcuTokenBalance(address: Address): Promise<strin
   if (!token || !isAddress(token) || !isAddress(address)) return null
   try {
     const publicClient = createPublicClient({
-      chain: getChain(),
+      chain: getActiveAaChain(),
       transport: http(REQUIRED_RPC_URL),
     })
     const raw = await publicClient.readContract({

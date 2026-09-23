@@ -2,11 +2,12 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 import { LoginOptions } from '@/components/auth/LoginOptions'
 import { campaignText } from '@/lib/sponsor/display'
+import { isBaseExperience } from '@/lib/blockchain/chain-preference'
 
 type Props = {
   emailLoginEnabled: boolean
@@ -20,6 +21,10 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
   const authError = searchParams.get('error')
   const emailSent = searchParams.get('email') === 'sent'
   const aaEnabled = isAaAuthEnabledClient()
+  const [basePath, setBasePath] = useState(false)
+  useEffect(() => {
+    setBasePath(isBaseExperience())
+  }, [])
   const errorMessage =
     authError === 'Configuration'
       ? 'Sign-in could not finish. The app could not save your account to Postgres. In frontend/: run npm run db:check. Fix DATABASE_URL (postgresql://…?sslmode=require), run npm run db:push, or paste prisma/supabase-full-schema.sql into Supabase SQL Editor. Then restart npm run dev.'
@@ -49,7 +54,9 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <h1 className={`text-center ${campaignText.title}`}>Sign in</h1>
       <p className={`mt-2 text-center ${campaignText.note}`}>
-        Pick one way in. You can add the others later.
+        {basePath
+          ? 'Base cleanup path. After sign-in you will get the Base how-it-works guide.'
+          : 'Pick one way in. You can add the others later.'}
       </p>
 
       {(errorMessage || emailSent) && (

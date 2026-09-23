@@ -1,10 +1,9 @@
 import 'server-only'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { getActivePimlicoSlug, getPimlicoBundlerUrl } from '@/lib/blockchain/aa-chain'
 
-const CELO_MAINNET = 42220
-
-export function getPimlicoChainSlug(): 'celo' | 'celo-sepolia' {
-  return REQUIRED_CHAIN_ID === CELO_MAINNET ? 'celo' : 'celo-sepolia'
+/** @deprecated Use getActivePimlicoSlug — kept for existing imports. */
+export function getPimlicoChainSlug(): string {
+  return getActivePimlicoSlug()
 }
 
 export function getPimlicoApiKey(): string | null {
@@ -20,7 +19,7 @@ export function getPimlicoRpcUrl(): string {
   if (!apiKey) {
     throw new Error('PIMLICO_API_KEY or NEXT_PUBLIC_PIMLICO_API_KEY is not set.')
   }
-  return `https://api.pimlico.io/v2/${getPimlicoChainSlug()}/rpc?apikey=${apiKey}`
+  return getPimlicoBundlerUrl(apiKey)
 }
 
 export function isPimlicoConfigured(): boolean {

@@ -1,10 +1,12 @@
-import { celo } from 'viem/chains'
+import { base, baseSepolia, celo } from 'viem/chains'
 import { defineChain, type Chain } from 'viem'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
 import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
 const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
+const baseMainnetRpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'
+const baseSepoliaRpcUrl = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
 
 export const celoMainnetChain = {
   ...celo,
@@ -28,8 +30,28 @@ export const celoSepoliaChain = defineChain({
   testnet: true,
 })
 
-/** Celo chains only — omit Ethereum mainnet so WC sessions default to Celo, not chain 1. */
+export const baseMainnetChain = {
+  ...base,
+  rpcUrls: {
+    default: { http: [baseMainnetRpcUrl] },
+    public: { http: [baseMainnetRpcUrl] },
+  },
+} satisfies Chain
+
+export const baseSepoliaChain = {
+  ...baseSepolia,
+  rpcUrls: {
+    default: { http: [baseSepoliaRpcUrl] },
+    public: { http: [baseSepoliaRpcUrl] },
+  },
+} satisfies Chain
+
+/** Active chain first so WalletConnect / AA sessions default to the picker choice. */
 export const aaWagmiChains: readonly [Chain, ...Chain[]] =
-  REQUIRED_CHAIN_ID === 42220
-    ? ([celoMainnetChain, celoSepoliaChain] as const)
-    : ([celoSepoliaChain, celoMainnetChain] as const)
+  REQUIRED_CHAIN_ID === 8453
+    ? ([baseMainnetChain, celoMainnetChain, celoSepoliaChain, baseSepoliaChain] as const)
+    : REQUIRED_CHAIN_ID === 84532
+      ? ([baseSepoliaChain, celoMainnetChain, celoSepoliaChain, baseMainnetChain] as const)
+      : REQUIRED_CHAIN_ID === 42220
+        ? ([celoMainnetChain, baseMainnetChain, celoSepoliaChain, baseSepoliaChain] as const)
+        : ([celoSepoliaChain, celoMainnetChain, baseMainnetChain, baseSepoliaChain] as const)

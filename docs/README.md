@@ -19,6 +19,9 @@
 | **`TERMS_OF_SERVICE.md`** | Terms (`/terms`) |
 | **`PRIVACY_POLICY.md`** | Privacy (`/privacy`) |
 | **`PARTNERSHIP_OPPORTUNITIES.md`** | Outreach scratchpad (non-technical) |
+| **`BASE_TO_DAPP_DEV_BRIEF.md`** | Base as a simple chain inside the dApp (not a Mini App) |
+| **`FARCASTER_MINIAPP_SUNSET.md`** | How to unpublish the separate Farcaster Mini App |
+| **`DESIGN_SYSTEM_BASE_MINIAPP_PROMPT.md`** | Archived — do not use |
 
 **Onchain addresses:** `contracts/scripts/deployed_addresses.json` (Celo mainnet `42220`).
 

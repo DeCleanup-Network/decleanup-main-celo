@@ -76,7 +76,6 @@ module.exports = {
       NEXT_PUBLIC_IMPACT_IMAGES_CID: getEnv('NEXT_PUBLIC_IMPACT_IMAGES_CID', 'bafybeifygxoux2l63muhba4j6gez3vlbe7enjnlkpjwfupylnkhgkqg54y'),
       
       // App Configuration
-      NEXT_PUBLIC_MINIAPP_URL: getEnv('NEXT_PUBLIC_MINIAPP_URL', 'http://207.180.203.243:3000'),
       NEXT_PUBLIC_SITE_URL: getEnv('NEXT_PUBLIC_SITE_URL', 'http://207.180.203.243:3000'),
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getEnv('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID', '3a8170812b534d0ff9d794f19a901d64'),
       

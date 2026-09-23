@@ -21,6 +21,9 @@ export async function upsertWalletMetadata(params: {
   chainId?: number
 }): Promise<WalletMetadata> {
   const chainId = params.chainId ?? REQUIRED_CHAIN_ID
+  const existing = await prisma.userWallet.findUnique({ where: { userId: params.userId } })
+  const keepCanonicalSafe = Boolean(existing && existing.chainId !== chainId)
+
   const row = await prisma.userWallet.upsert({
     where: { userId: params.userId },
     create: {
@@ -33,10 +36,14 @@ export async function upsertWalletMetadata(params: {
     },
     update: {
       address: params.address.toLowerCase(),
-      smartAccountAddress: params.smartAccountAddress.toLowerCase(),
       encryptedBlob: params.encryptedBlob as unknown as Prisma.InputJsonValue,
-      chainId,
       walletVersion: 2,
+      ...(keepCanonicalSafe
+        ? {}
+        : {
+            smartAccountAddress: params.smartAccountAddress.toLowerCase(),
+            chainId,
+          }),
     },
   })
   return {

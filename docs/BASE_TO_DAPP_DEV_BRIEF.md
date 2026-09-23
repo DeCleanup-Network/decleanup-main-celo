@@ -1,7 +1,7 @@
 # Developer brief: Base → dapp.decleanup.net (post–Farcaster Mini App)
 
 **Audience:** Protocol / frontend / contracts developer on `decleanup-main-celo`  
-**Status:** Implementation plan if / when the governance proposal passes  
+**Status:** Dual-chain work is in the dApp. The Farcaster Mini App is **not** in this repo — finish the unpublish steps in [FARCASTER_MINIAPP_SUNSET.md](./FARCASTER_MINIAPP_SUNSET.md).  
 **Product decision:** Wind down Farcaster Mini App. Keep Base as a **simple** chain inside `dapp.decleanup.net` alongside Celo (deeper participation + Gardens governance). `$bDCU` → `$cDCU` conversion on request so Base users can join governance when ready.
 
 ---
@@ -53,17 +53,21 @@ Base user opens a **Convert `$bDCU` → `$cDCU`** interface on the dApp. Backend
 
 ### D. Wind down Farcaster Mini App
 
-1. List Mini App repo(s), Vercel/Warpcast manifests, deep links, Frame URLs.
-2. Soft-sunset: banner in Mini App → “Continue on dapp.decleanup.net (Base)”.
-3. Remove Farcaster-only auth paths from marketing; update landing CTAs to unified dApp.
-4. Archive Mini App repo README with pointer to `dapp.decleanup.net` + this brief.
-5. Cancel unused Mini App infra (RPC keys, Frame hosts) after traffic migrates.
+**This repo:** done. No Mini App SDK, no `/.well-known/farcaster.json`, no Frame host.
+
+**Still live outside this repo** (checklist: [FARCASTER_MINIAPP_SUNSET.md](./FARCASTER_MINIAPP_SUNSET.md)):
+
+1. Warpcast listing: https://farcaster.xyz/miniapps/SfsGBDcHpuSA/decleanup-rewards
+2. Host: https://miniapp.decleanup.net + Vercel project for [Farcaster-Mini-App](https://github.com/DeCleanup-Network/Farcaster-Mini-App)
+3. Archive that repo README with a pointer to `https://dapp.decleanup.net`
+4. Landing CTAs in `decleanup-landing-standalone` if they still promote the Mini App
+5. Cancel unused Mini App RPC / Frame keys after traffic migrates — keep Base **contracts**
 
 ### E. Docs & GitHub (explicit)
 
 | Item | Action |
 |------|--------|
-| `docs/DESIGN_SYSTEM_BASE_MINIAPP_PROMPT.md` | Retarget or archive: “Base lives inside main dApp”, link this brief |
+| `docs/DESIGN_SYSTEM_BASE_MINIAPP_PROMPT.md` | Archived — Base lives inside the main dApp |
 | `docs/TOKEN_SPEC.md` / `B_CDCU_ONLY_ARCHITECTURE.md` | Add `$bDCU` / dual-chain / conversion section |
 | `docs/system-architecture.md` | Dual-chain diagram: Base simple loop vs Celo governance |
 | `frontend/ENV_TEMPLATE.md` | Base RPC, Base contract envs, conversion signer |
@@ -88,7 +92,7 @@ Base user opens a **Convert `$bDCU` → `$cDCU`** interface on the dApp. Backend
 1. **Docs + address inventory** (no user-facing change)  
 2. **Multi-chain config + chain picker** (read-only Base balances)  
 3. **Base simple flow wired** (submit/verify/claim against existing Base contracts)  
-4. **Sunset Mini App** traffic  
+4. **Sunset Mini App** traffic (Warpcast + `miniapp.decleanup.net` — not this repo)  
 5. **Conversion ratio + ClaimVault/converter + UI**  
 6. **Polish, monitoring, org-repo address sync**
 
@@ -105,6 +109,7 @@ Base user opens a **Convert `$bDCU` → `$cDCU`** interface on the dApp. Backend
 ## 5. Related repos
 
 - App: https://github.com/DeCleanup-Network/decleanup-main-celo  
+- Mini App (sunset, do not treat as product): https://github.com/DeCleanup-Network/Farcaster-Mini-App  
 - Contracts extract: https://github.com/DeCleanup-Network/community-action-contracts  
 - Onboarding extract: https://github.com/DeCleanup-Network/web3-community-onboarding  
 - Landing: https://github.com/DeCleanup-Network/decleanup-landing-standalone  

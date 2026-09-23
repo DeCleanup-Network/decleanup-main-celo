@@ -1,7 +1,7 @@
 # Multi-Chain & Base Integration Changelog
 
 ## Objective
-Integrate the Base network (8453) into the dApp as a "Simple" option (basic cleanup loop), while keeping Celo as the "Deep" option (governance and hypercerts). This follows the `BASE_TO_DAPP_DEV_BRIEF.md` plan, explicitly skipping Workstream D (Mini App Soft-sunset) as per the audio briefing.
+Integrate the Base network (8453) into the dApp as a "Simple" option (basic cleanup loop), while keeping Celo as the "Deep" option (governance and hypercerts). This follows the `docs/BASE_TO_DAPP_DEV_BRIEF.md` plan. Workstream D (unpublish the Farcaster Mini App) is tracked in `docs/FARCASTER_MINIAPP_SUNSET.md` — it is not implemented in this repo.
 
 ## Step 1: Synchronization and Initial Setup
 - [x] Fork synced with `upstream/main`.
@@ -59,4 +59,4 @@ Integrate the Base network (8453) into the dApp as a "Simple" option (basic clea
 - **Conversion Ratio & ClaimVault UI**: Once the governance proposal passes, implement the `$bDCU -> $cDCU` conversion UI on the Celo side.
 - **ENV Template Update**: Update `frontend/ENV_TEMPLATE.md` with the new Base variables (`NEXT_PUBLIC_BASE_RPC_URL`, `NEXT_PUBLIC_BASE_BDCU_TOKEN_ADDRESS`, etc.).
 - **QA/Security**: Verify ABI parity between Celo and Base contracts.
-- **Workstream D (Mini App Sunset)**: Explicitly skipped per audio briefing instructions.
+- **Workstream D (Mini App Sunset)**: This repo has no Mini App. Remaining unpublish steps: `docs/FARCASTER_MINIAPP_SUNSET.md`.

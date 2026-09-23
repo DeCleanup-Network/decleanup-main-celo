@@ -66,6 +66,8 @@ import { AirdropPendingBanner } from '@/components/airdrop/AirdropPendingBanner'
 import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributorAirdropStrip'
 import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
+import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
+import { isBaseExperience } from '@/lib/blockchain/chain-preference'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
 import { buildImpactProductClaimMessage, impactProductNftVerb } from '@/lib/notifications/claim-success-copy'
@@ -384,7 +386,9 @@ function HomeContent() {
                 <span className="text-foreground">REWARDS</span>
               </h1>
               <p className="text-landing-lede mx-auto max-w-2xl normal-case animate-fade-in-up">
-                Log cleanups. Build a verified record. Earn your voice in the network.
+                {isBaseExperience()
+                  ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
+                  : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
               </p>
             </div>
 
@@ -407,27 +411,22 @@ function HomeContent() {
             )}
             <p className="text-landing-hint">
               {aaAuth
-                ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
+                ? isBaseExperience()
+                  ? 'Sign in, then read the Base how-it-works guide.'
+                  : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
                 : 'Connect your wallet to start cleaning'}
             </p>
           </div>
         </div>
 
-        <PastContributorAirdropStrip variant="prelogin" />
+        {isBaseExperience() ? null : <PastContributorAirdropStrip variant="prelogin" />}
 
         {/* Footer */}
         <footer className="border-t border-white/10 py-8 flex-shrink-0">
           <div className="container mx-auto px-4">
             <div className="flex flex-col items-center gap-5">
               <SiteFooterLinks />
-              <div className="font-meta flex items-center justify-center gap-2 opacity-50">
-                <span>Built on</span>
-                <img
-                  src="/celo-celo-logo.svg"
-                  alt="Celo"
-                  className="h-5 w-auto rounded-sm sm:h-6"
-                />
-              </div>
+              <BuiltOnNetwork />
             </div>
           </div>
         </footer>
@@ -480,7 +479,7 @@ function HomeContent() {
             .
           </div>
         )}
-        <AirdropPendingBanner />
+        {isBaseExperience() ? null : <AirdropPendingBanner />}
         {/* HERO — primary CTA first */}
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
@@ -702,7 +701,7 @@ function HomeContent() {
                     </p>
                     <p className="mt-1 text-[10px] leading-snug text-muted-foreground">Total network points from all activities</p>
                   </div>
-                  {publicWalletAddress && onchainOwnerAddress ? (
+                  {publicWalletAddress && onchainOwnerAddress && !isBaseExperience() ? (
                     <div className="min-w-0 w-full">
                       <DashboardClaimCdcu rewardAddress={publicWalletAddress} payoutAddress={publicWalletAddress} />
                     </div>
@@ -1107,21 +1106,14 @@ function HomeContent() {
         </div>
       )}
 
-      <PastContributorAirdropStrip variant="app" />
+      {isBaseExperience() ? null : <PastContributorAirdropStrip variant="app" />}
 
       <footer className="border-t border-white/10 py-8 mt-0 flex-shrink-0">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-5">
             <SiteFooterLinks />
 
-            <div className="font-meta flex items-center justify-center gap-2 opacity-50 select-none">
-              <span>Built on</span>
-              <img
-                src="/celo-celo-logo.svg"
-                alt="Celo"
-                className="h-5 w-auto rounded-sm sm:h-6"
-              />
-            </div>
+            <BuiltOnNetwork />
           </div>
         </div>
       </footer>

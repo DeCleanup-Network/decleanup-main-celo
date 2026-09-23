@@ -12,6 +12,7 @@ import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { useWallet } from '@/providers/WalletProvider'
 import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
+import { isBaseExperience } from '@/lib/blockchain/chain-preference'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -44,6 +45,7 @@ export function DashboardProfileCard({
       ? eoaAddress
       : (submissionOwnerAddress ?? address)
   const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
+  const showAirdropBadge = showPastContributorBadge && !isBaseExperience()
 
   /** Impact / onchain activity is keyed by smart account when gasless. */
   const portfolioOwner =
@@ -55,7 +57,7 @@ export function DashboardProfileCard({
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
       <SectionHeading icon={TrendingUp}>Profile and Rewards</SectionHeading>
-      {showPastContributorBadge ? (
+      {showAirdropBadge ? (
         <div className="mb-2">
           <PastContributorBadge size="md" />
         </div>
