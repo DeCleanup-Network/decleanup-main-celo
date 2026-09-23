@@ -7,12 +7,18 @@ import { FeeDisplay } from '@/components/ui/fee-display'
 import { ActionHint } from '@/components/ui/action-hint'
 import { TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
-import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import { 
+  MAX_IMPACT_PRODUCT_LEVEL, 
+  REQUIRED_CHAIN_ID, 
+  CELO_MAINNET_CHAIN_ID, 
+  CELO_SEPOLIA_CHAIN_ID 
+} from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
 import { useVerifierAccess } from '@/hooks/useVerifierAccess'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
+
 interface DashboardActionsProps {
     address: string
     /** Current Impact Product level (0-10). At max level, submit cleanup is locked. */
@@ -61,6 +67,9 @@ export function DashboardActions({
     const { eligibility } = useVerifierEligibility()
     const { showVerifierFeatures } = useVerifierAccess()
     const { walletReady } = useAppWalletAddress()
+
+    // Multi-chain: Check if we are on a Celo network (Deep mode)
+    const isCeloNetwork = REQUIRED_CHAIN_ID === CELO_MAINNET_CHAIN_ID || REQUIRED_CHAIN_ID === CELO_SEPOLIA_CHAIN_ID
 
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
@@ -175,19 +184,25 @@ export function DashboardActions({
                     </ActionHint>
                 )}
 
-                <ActionHint hint={hypercertHint}>
-                    <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
-                        <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        Impact certificate
-                    </Link>
-                </ActionHint>
+                {/* Hide Hypercerts on Base */}
+                {isCeloNetwork && (
+                    <ActionHint hint={hypercertHint}>
+                        <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
+                            <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            Impact certificate
+                        </Link>
+                    </ActionHint>
+                )}
 
-                <ActionHint hint={`Community cUSD donations after Impact Product level ${SPONSOR_CONFIG.minLevelToPropose}+`}>
-                    <Link href="/sponsor/submit" className={stepClass(userImpactLevel >= SPONSOR_CONFIG.minLevelToPropose)}>
-                        <HandCoins className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        Apply for funding
-                    </Link>
-                </ActionHint>
+                {/* Hide Sponsor/Funding on Base */}
+                {isCeloNetwork && (
+                    <ActionHint hint={`Community cUSD donations after Impact Product level ${SPONSOR_CONFIG.minLevelToPropose}+`}>
+                        <Link href="/sponsor/submit" className={stepClass(userImpactLevel >= SPONSOR_CONFIG.minLevelToPropose)}>
+                            <HandCoins className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            Apply for funding
+                        </Link>
+                    </ActionHint>
+                )}
             </div>
 
             {isClaiming ? (
@@ -196,36 +211,39 @@ export function DashboardActions({
               </div>
             ) : null}
 
-            <div className="mx-auto mt-4 w-full max-w-2xl border-t border-border/50 pt-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
-                    <div className="relative w-full">
-                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-heading text-muted-foreground shadow-sm">
-                            SOON
-                        </span>
-                        <Button
-                            type="button"
-                            disabled
-                            variant="outline"
-                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-heading text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
-                        >
-                            Create Impact Circle
-                        </Button>
-                    </div>
-                    <div className="relative w-full">
-                        <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-heading text-muted-foreground shadow-sm">
-                            SOON
-                        </span>
-                        <Button
-                            type="button"
-                            disabled
-                            variant="outline"
-                            className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-heading text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
-                        >
-                            Join Impact Circle
-                        </Button>
+            {/* Hide Impact Circles on Base */}
+            {isCeloNetwork && (
+                <div className="mx-auto mt-4 w-full max-w-2xl border-t border-border/50 pt-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
+                        <div className="relative w-full">
+                            <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-heading text-muted-foreground shadow-sm">
+                                SOON
+                            </span>
+                            <Button
+                                type="button"
+                                disabled
+                                variant="outline"
+                                className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-heading text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
+                            >
+                                Create Impact Circle
+                            </Button>
+                        </div>
+                        <div className="relative w-full">
+                            <span className="absolute right-2 top-2 z-[1] rounded border border-border bg-background/95 px-1.5 py-0.5 text-[9px] font-heading text-muted-foreground shadow-sm">
+                                SOON
+                            </span>
+                            <Button
+                                type="button"
+                                disabled
+                                variant="outline"
+                                className="h-auto min-h-[3.25rem] w-full cursor-not-allowed border-dashed px-3 py-4 pr-14 pt-9 text-center font-heading text-sm leading-tight text-muted-foreground sm:min-h-[3.5rem] sm:px-4"
+                            >
+                                Join Impact Circle
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {cleanupStatus?.canClaim && claimFeeInfo && claimFeeInfo.enabled && claimFeeInfo.fee > 0n ? (
                 <div className="mt-3 flex justify-center">
