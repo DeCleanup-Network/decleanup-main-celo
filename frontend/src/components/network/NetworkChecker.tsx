@@ -9,6 +9,10 @@ import { AlertCircle } from 'lucide-react'
 import {
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
+  CELO_MAINNET_CHAIN_ID,
+  CELO_SEPOLIA_CHAIN_ID,
+  BASE_MAINNET_CHAIN_ID,
+  BASE_SEPOLIA_CHAIN_ID
 } from '@/lib/blockchain/chain-constants'
 import { AlertModal } from '@/components/ui/alert-modal'
 import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
@@ -59,8 +63,12 @@ function NetworkCheckerWagmi() {
   const [isPending, setIsPending] = useState(false)
 
   useEffect(() => {
-    if (isConnected && chainId && chainId !== REQUIRED_CHAIN_ID) setShowWarning(true)
-    else setShowWarning(false)
+    // Multi-chain: Only show warning if connected to a network that is not the required one.
+    if (isConnected && chainId && chainId !== REQUIRED_CHAIN_ID) {
+      setShowWarning(true)
+    } else {
+      setShowWarning(false)
+    }
   }, [isConnected, chainId])
 
   const handleSwitchNetwork = async () => {
@@ -190,4 +198,3 @@ export function NetworkChecker() {
   if (isPrivyEnabled && !isAaAuthEnabledClient()) return <NetworkCheckerEmbedded />
   return <NetworkCheckerWagmi />
 }
-

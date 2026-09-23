@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { checkInMemoryRateLimit, getRateLimitKey } from '@/lib/server/rate-limit'
+import { checkInMemoryRateLimit, getClientIp, getRateLimitKey } from '@/lib/server/edge-rate-limit'
+import {
+  classifyGoogleCrawler,
+  isScannerProbePath,
+  shouldBlockSpoofedGooglebot,
+} from '@/lib/server/googlebot'
 
 /**
- * Edge rate limiting for wallet APIs. In-memory buckets are per-instance on serverless
- * but still slow credential stuffing and challenge spam. Prefer Upstash for strict global limits.
+ * Edge gate: scanner-path 404, spoofed-Googlebot write block, wallet API rate limits.
+ * User-Agent is never trusted alone — Google crawlers must match published CIDRs.
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  if (isScannerProbePath(pathname)) {
+    return new NextResponse(null, { status: 404 })
+  }
+
+  const crawler = classifyGoogleCrawler(request.headers.get('user-agent'), getClientIp(request))
+  if (crawler === 'spoofed' && shouldBlockSpoofedGooglebot(pathname, request.method)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   if (
     pathname.startsWith('/api/passkey') ||
@@ -37,5 +51,39 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/passkey/:path*', '/api/aa/:path*', '/api/auth/wallet/:path*'],
+  // Do not match `/` or `/_not-found` — a catch-all Edge matcher pulled Node
+  // Upstash into the middleware graph and broke `next build` prerender.
+  matcher: [
+    '/api/:path*',
+    '/.env',
+    '/.env.local',
+    '/.env.production',
+    '/.env.development',
+    '/.git',
+    '/.git/:path*',
+    '/.svn/:path*',
+    '/.hg/:path*',
+    '/.DS_Store',
+    '/.htaccess',
+    '/.htpasswd',
+    '/.aws/:path*',
+    '/wp-admin',
+    '/wp-admin/:path*',
+    '/wp-login.php',
+    '/wp-config.php',
+    '/xmlrpc.php',
+    '/phpmyadmin',
+    '/phpmyadmin/:path*',
+    '/pma',
+    '/pma/:path*',
+    '/phpinfo.php',
+    '/vendor/phpunit/:path*',
+    '/actuator/:path*',
+    '/server-status',
+    '/cgi-bin',
+    '/cgi-bin/:path*',
+    '/backup.sql',
+    '/dump.sql',
+    '/config.php',
+  ],
 }

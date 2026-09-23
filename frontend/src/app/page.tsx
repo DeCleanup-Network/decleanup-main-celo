@@ -28,7 +28,15 @@ import {
 } from '@/lib/blockchain/contracts'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
-import { CONTRACT_ADDRESSES, MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import { 
+  CONTRACT_ADDRESSES, 
+  MAX_IMPACT_PRODUCT_LEVEL, 
+  REQUIRED_CHAIN_ID, 
+  CELO_MAINNET_CHAIN_ID, 
+  BASE_MAINNET_CHAIN_ID, 
+  CELO_SEPOLIA_CHAIN_ID, 
+  BASE_SEPOLIA_CHAIN_ID 
+} from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
 import { ImpactProductLevelHelp } from '@/components/dashboard/ImpactProductLevelHelp'
@@ -744,42 +752,58 @@ function HomeContent() {
                   </p>
                 )}
               <div className="grid grid-cols-2 gap-2">
-                {[
+                                {[
                   {
                     label: 'Cleanups',
                     value: rewardStats.cleanupsDCU.toFixed(0),
                     showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
                   },
                   {
                     label: 'Referrals',
                     value: rewardStats.referralsDCU.toFixed(0),
                     showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
                   },
-                  { label: 'Streak', value: rewardStats.streakDCU.toFixed(0), showToken: true },
+                  { 
+                    label: 'Streak', 
+                    value: rewardStats.streakDCU.toFixed(0), 
+                    showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                  },
                   {
                     label: 'Impact reports',
                     value: rewardStats.reportsDCU.toFixed(0),
                     showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID] // Celo only
                   },
                   {
                     label: 'Recyclables',
                     value: rewardStats.recyclablesDCU.toFixed(0),
                     showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID] // Celo only
                   },
                   {
                     label: 'Hypercerts',
                     hint: 'impact certificates',
                     value: rewardStats.hypercertsDCU.toFixed(0),
                     showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID] // Celo only
                   },
-                  { label: 'Verifier', value: rewardStats.verifierDCU.toFixed(0), showToken: true },
+                  { 
+                    label: 'Verifier', 
+                    value: rewardStats.verifierDCU.toFixed(0), 
+                    showToken: true,
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                  },
                   {
                     label: 'Contributed',
                     hint: 'cleanups',
                     value: String(rewardStats.contributorCleanupCount),
                     showToken: false,
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
                   },
-                ].map((stat) => (
+                ].filter(stat => stat.chains.includes(REQUIRED_CHAIN_ID)).map((stat) => (
                   <div
                     key={stat.label}
                     className="min-w-0 rounded-lg border border-border bg-background/50 p-2.5 transition-all hover:border-brand-green/50 hover:bg-background sm:p-3"
@@ -794,7 +818,7 @@ function HomeContent() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="min-w-0 font-heading text-lg leading-tight text-foreground sm:text-xl">
+                                       <p className="min-w-0 font-heading text-lg leading-tight text-foreground sm:text-xl">
                       {!hasLoadedDashboardOnce ? (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
                       ) : (

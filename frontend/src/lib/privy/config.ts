@@ -2,17 +2,20 @@
 
 import { createConfig } from '@privy-io/wagmi'
 import { http } from 'wagmi'
-import { mainnet } from 'wagmi/chains'
+import { mainnet, base, baseSepolia } from 'wagmi/chains'
 import { defineChain } from 'viem'
 import {
   REQUIRED_CHAIN_ID,
   REQUIRED_RPC_URL,
-  REQUIRED_CHAIN_NAME,
   REQUIRED_BLOCK_EXPLORER_URL,
+  CELO_MAINNET_CHAIN_ID,
+  CELO_SEPOLIA_CHAIN_ID,
+  BASE_MAINNET_CHAIN_ID,
+  BASE_SEPOLIA_CHAIN_ID
 } from '@/lib/blockchain/chain-constants'
 
 const celoSepolia = defineChain({
-  id: 11142220,
+  id: CELO_SEPOLIA_CHAIN_ID,
   name: 'Celo Sepolia Testnet',
   nativeCurrency: {
     decimals: 18,
@@ -37,7 +40,7 @@ const celoSepolia = defineChain({
 })
 
 const celoMainnet = defineChain({
-  id: 42220,
+  id: CELO_MAINNET_CHAIN_ID,
   name: 'Celo Mainnet',
   nativeCurrency: {
     decimals: 18,
@@ -60,13 +63,24 @@ const celoMainnet = defineChain({
   },
 })
 
-const activeChain = REQUIRED_CHAIN_ID === 42220 ? celoMainnet : celoSepolia
+// Define active chain based on the build-time env variable
+const activeChain =
+  REQUIRED_CHAIN_ID === CELO_MAINNET_CHAIN_ID
+    ? celoMainnet
+    : REQUIRED_CHAIN_ID === BASE_MAINNET_CHAIN_ID
+    ? base
+    : REQUIRED_CHAIN_ID === BASE_SEPOLIA_CHAIN_ID
+    ? baseSepolia
+    : celoSepolia
 
 export const config = createConfig({
-  chains: [activeChain, mainnet], // Include mainnet for ENS resolution
+  // Include all supported chains so Privy allows switching to Base in the future
+  chains: [activeChain, celoSepolia, celoMainnet, base, baseSepolia, mainnet], 
   transports: {
     [celoSepolia.id]: http(),
     [celoMainnet.id]: http(),
+    [base.id]: http(),
+    [baseSepolia.id]: http(),
     [mainnet.id]: http(),
   },
 })

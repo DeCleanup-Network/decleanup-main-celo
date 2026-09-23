@@ -29,7 +29,8 @@
     "db:local:push": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/decleanup?sslmode=disable prisma db push",
     "db:local:check": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/decleanup?sslmode=disable node scripts/check-auth-db.mjs",
     "db:studio": "prisma studio",
-    "support:wallet-reset": "node scripts/reset-user-wallet.mjs"
+    "support:wallet-reset": "node scripts/reset-user-wallet.mjs",
+    "security:googlebot-cidrs": "node scripts/refresh-googlebot-cidrs.mjs"
   },
   "dependencies": {
     "@atproto/api": "^0.17.7",
