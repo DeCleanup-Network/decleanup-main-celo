@@ -26,7 +26,15 @@ import {
   getSubmissionAddress,
   requireRewardManagerAddress,
   requireSubmissionAddress,
+  usesBaseMiniAppSubmission,
 } from './active-contracts'
+import {
+  BASE_MINIAPP_NFT_ABI,
+  BASE_MINIAPP_POINTS_ABI,
+  BASE_MINIAPP_VERIFICATION_ABI,
+  basePointsToWei,
+  nextBaseImpactLevel,
+} from './base-miniapp'
 import { getSmartAccountAddressFromClient } from './smart-account'
 import { keccak256, toBytes } from 'viem'
 import { getLogs as viemGetLogs } from 'viem/actions'
@@ -191,19 +199,37 @@ const SUBMISSION_CREATED_EVENT_ABI = [
   },
 ] as const
 
-/** Prefer SubmissionCreated log over submissionCount-1 (stale RPC after AA UserOps). */
+const BASE_MINIAPP_SUBMISSION_ABI = BASE_MINIAPP_VERIFICATION_ABI
+
+function toUint256Coord(scaled: bigint): bigint {
+  return scaled < 0n ? (1n << 256n) + scaled : scaled
+}
+
+/** Prefer create/submit logs over count-1 (stale RPC after AA UserOps). */
 function submissionIdFromReceipt(receipt: TransactionReceipt): bigint | null {
   try {
-    const logs = parseEventLogs({
+    const created = parseEventLogs({
       abi: SUBMISSION_CREATED_EVENT_ABI,
       eventName: 'SubmissionCreated',
       logs: receipt.logs,
     })
-    const id = logs[0]?.args?.submissionId
-    return typeof id === 'bigint' ? id : null
+    const createdId = created[0]?.args?.submissionId
+    if (typeof createdId === 'bigint') return createdId
   } catch {
-    return null
+    /* try Mini App event */
   }
+  try {
+    const submitted = parseEventLogs({
+      abi: BASE_MINIAPP_SUBMISSION_ABI,
+      eventName: 'CleanupSubmitted',
+      logs: receipt.logs,
+    })
+    const cleanupId = submitted[0]?.args?.cleanupId
+    if (typeof cleanupId === 'bigint') return cleanupId
+  } catch {
+    /* fall through */
+  }
+  return null
 }
 
 /**
@@ -531,14 +557,15 @@ export async function submitCleanup(
   const impactFormDataHash = _hasImpactForm && trimmedImpact ? trimmedImpact : ''
   const recyclablesPhoto = options?.recyclablesPhotoHash?.trim() ?? ''
   const recyclablesReceipt = options?.recyclablesReceiptHash?.trim() ?? ''
+  const useBaseMiniApp = usesBaseMiniAppSubmission(chainId)
   const useCombinedRecyclablesSubmit =
-    isAtomicContractTxEnabled() && recyclablesPhoto.length > 0
+    !useBaseMiniApp && isAtomicContractTxEnabled() && recyclablesPhoto.length > 0
 
   // Declared here (not inside try) so it survives into the catch for graceful recovery.
   let hash: `0x${string}` | undefined
 
   try {
-    const baseArgs = [
+    const celoArgs = [
       dataURI,
       beforeHash,
       afterHash,
@@ -548,13 +575,26 @@ export async function submitCleanup(
       referrer,
     ] as const
 
-    const args = useCombinedRecyclablesSubmit
-      ? ([...baseArgs, recyclablesPhoto, recyclablesReceipt || ''] as const)
-      : baseArgs
+    const functionName = useBaseMiniApp
+      ? 'submitCleanup'
+      : useCombinedRecyclablesSubmit
+        ? 'createSubmissionWithRecyclables'
+        : 'createSubmission'
 
-    const functionName = useCombinedRecyclablesSubmit
-      ? 'createSubmissionWithRecyclables'
-      : 'createSubmission'
+    const submitAbi = useBaseMiniApp ? BASE_MINIAPP_SUBMISSION_ABI : SUBMISSION_ABI
+    const args = useBaseMiniApp
+      ? ([
+          beforeHash,
+          afterHash,
+          toUint256Coord(latInt256),
+          toUint256Coord(lngInt256),
+          referrer,
+          _hasImpactForm && !!trimmedImpact,
+          impactFormDataHash,
+        ] as const)
+      : useCombinedRecyclablesSubmit
+        ? ([...celoArgs, recyclablesPhoto, recyclablesReceipt || ''] as const)
+        : celoArgs
 
     console.log('Submitting transaction with args:', {
       functionName,
@@ -574,7 +614,7 @@ export async function submitCleanup(
 
     if (options?.gaslessClient) {
       const data = encodeFunctionData({
-        abi: SUBMISSION_ABI,
+        abi: submitAbi,
         functionName,
         args,
       })
@@ -586,7 +626,7 @@ export async function submitCleanup(
     } else {
       const contractConfig: any = {
         address: submissionAddress,
-        abi: SUBMISSION_ABI,
+        abi: submitAbi,
         functionName,
         args,
         account: account!.address,
@@ -619,18 +659,22 @@ export async function submitCleanup(
       if (fromEvent != null && fromEvent >= 0n) {
         return { submissionId: fromEvent, txHash, confirmed: true }
       }
-      console.warn(
-        '[submitCleanup] SubmissionCreated log missing; falling back to submissionCount - 1'
-      )
-      const submissionCountAfter = await readContract(getConfig(), {
-        chainId,
-        address: submissionAddress,
-        abi: SUBMISSION_ABI,
-        functionName: 'submissionCount',
-      })
-      const submissionId = (submissionCountAfter as bigint) - 1n
-      if (submissionId >= 0n) {
-        return { submissionId, txHash, confirmed: true }
+      if (useBaseMiniApp) {
+        console.warn('[submitCleanup] CleanupSubmitted log missing; skipping Celo submissionCount fallback')
+      } else {
+        console.warn(
+          '[submitCleanup] SubmissionCreated log missing; falling back to submissionCount - 1'
+        )
+        const submissionCountAfter = await readContract(getConfig(), {
+          chainId,
+          address: submissionAddress,
+          abi: SUBMISSION_ABI,
+          functionName: 'submissionCount',
+        })
+        const submissionId = (submissionCountAfter as bigint) - 1n
+        if (submissionId >= 0n) {
+          return { submissionId, txHash, confirmed: true }
+        }
       }
     } catch (idError) {
       console.warn(`Cleanup confirmed (hash: ${txHash}) but id lookup failed:`, idError)
@@ -686,6 +730,53 @@ async function getCleanupDetailsImpl(
   }
 
   try {
+    if (usesBaseMiniAppSubmission()) {
+      const result: any = await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: submissionAddress,
+        abi: BASE_MINIAPP_VERIFICATION_ABI,
+        functionName: 'getCleanup',
+        args: [cleanupId],
+      })
+      const user = (result.user || result[0]) as Address
+      if (!user || user === '0x0000000000000000000000000000000000000000') {
+        return {
+          id: cleanupId,
+          user: '0x0000000000000000000000000000000000000000',
+          beforePhotoHash: '',
+          afterPhotoHash: '',
+          timestamp: 0n,
+          latitude: 0n,
+          longitude: 0n,
+          verified: false,
+          claimed: false,
+          rejected: false,
+          level: 0,
+        }
+      }
+      const verified = Boolean(result.verified ?? result[6])
+      const claimed = Boolean(result.claimed ?? result[7])
+      const rejected = Boolean(result.rejected ?? result[8])
+      const level = Number(result.level ?? result[9] ?? 0)
+      return {
+        id: cleanupId,
+        user,
+        beforePhotoHash: String(result.beforePhotoHash ?? result[1] ?? ''),
+        afterPhotoHash: String(result.afterPhotoHash ?? result[2] ?? ''),
+        timestamp: BigInt(result.timestamp ?? result[3] ?? 0),
+        latitude: BigInt(result.latitude ?? result[4] ?? 0),
+        longitude: BigInt(result.longitude ?? result[5] ?? 0),
+        verified,
+        claimed,
+        rejected,
+        level: verified ? level : 0,
+        impactFormDataHash: String(result.impactReportHash ?? result[12] ?? ''),
+        hasImpactForm: Boolean(result.hasImpactForm ?? result[11]),
+        rewarded: claimed,
+        referrer: (result.referrer ?? result[10]) as Address | undefined,
+      }
+    }
+
     const result: any = await readContract(getConfig(), {
       chainId: getActiveAppChainId(),
       address: submissionAddress,
@@ -786,6 +877,15 @@ export async function getCleanupDetailsAt(
 export async function getCleanupCounterAt(submissionAddress: Address): Promise<bigint> {
   if (!submissionAddress) return 0n
   try {
+    if (usesBaseMiniAppSubmission()) {
+      const nextId = (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: submissionAddress,
+        abi: BASE_MINIAPP_VERIFICATION_ABI,
+        functionName: 'cleanupCounter',
+      })) as bigint
+      return nextId > 0n ? nextId - 1n : 0n
+    }
     const count = await readContract(getConfig(), {
       chainId: getActiveAppChainId(),
       address: submissionAddress,
@@ -812,6 +912,40 @@ async function getUserSubmissionsImpl(user: Address): Promise<bigint[]> {
   }
 
   try {
+    if (usesBaseMiniAppSubmission()) {
+      const nextId = (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: requireSubmissionAddress(),
+        abi: BASE_MINIAPP_VERIFICATION_ABI,
+        functionName: 'cleanupCounter',
+      })) as bigint
+      const ids: bigint[] = []
+      const target = user.toLowerCase()
+      const last = nextId > 1n ? nextId - 1n : 0n
+      const batchSize = 40n
+      for (let start = 1n; start <= last; start += batchSize) {
+        const end = start + batchSize - 1n > last ? last : start + batchSize - 1n
+        const batch: bigint[] = []
+        for (let id = start; id <= end; id++) batch.push(id)
+        const rows = await Promise.all(
+          batch.map((id) =>
+            readContract(getConfig(), {
+              chainId: getActiveAppChainId(),
+              address: requireSubmissionAddress(),
+              abi: BASE_MINIAPP_VERIFICATION_ABI,
+              functionName: 'getCleanup',
+              args: [id],
+            }).catch(() => null)
+          )
+        )
+        rows.forEach((row, i) => {
+          const owner = ((row as { user?: Address } | null)?.user ||
+            (row as unknown as Address[] | null)?.[0]) as Address | undefined
+          if (owner && owner.toLowerCase() === target) ids.push(batch[i])
+        })
+      }
+      return ids
+    }
     const submissionIds = await readContract(getConfig(), {
       chainId: getActiveAppChainId(),
       address: requireSubmissionAddress(),
@@ -844,6 +978,10 @@ export async function getUserSubmissionsFresh(user: Address): Promise<bigint[]> 
  */
 export async function getVerifierRewardsCount(verifierAddress: Address): Promise<number> {
   if (!getSubmissionAddress()) {
+    return 0
+  }
+
+  if (usesBaseMiniAppSubmission()) {
     return 0
   }
 
@@ -1084,6 +1222,16 @@ export async function isVerifier(_address: Address): Promise<boolean> {
   }
 
   try {
+    if (usesBaseMiniAppSubmission()) {
+      return (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: requireSubmissionAddress(),
+        abi: BASE_MINIAPP_VERIFICATION_ABI,
+        functionName: 'isVerifier',
+        args: [_address],
+      })) as boolean
+    }
+
     const verifierRole = await readContract(getConfig(), {
       chainId: getActiveAppChainId(),
       address: requireSubmissionAddress(),
@@ -1136,9 +1284,17 @@ export async function verifyCleanup(
     hash = await lockedWriteContract(getConfig(), {
       chainId: getActiveAppChainId(),
       address: requireSubmissionAddress(),
-      abi: SUBMISSION_ABI,
-      functionName: 'approveSubmission',
-      args: [cleanupId],
+      ...(usesBaseMiniAppSubmission()
+        ? {
+            abi: BASE_MINIAPP_VERIFICATION_ABI,
+            functionName: 'verifyCleanup' as const,
+            args: [cleanupId, nextBaseImpactLevel(level)] as const,
+          }
+        : {
+            abi: SUBMISSION_ABI,
+            functionName: 'approveSubmission' as const,
+            args: [cleanupId] as const,
+          }),
       account: account.address,
     })
 
@@ -1243,9 +1399,17 @@ export async function rejectCleanup(
     hash = await lockedWriteContract(getConfig(), {
       chainId: getActiveAppChainId(),
       address: requireSubmissionAddress(),
-      abi: SUBMISSION_ABI,
-      functionName: 'rejectSubmission',
-      args: [cleanupId],
+      ...(usesBaseMiniAppSubmission()
+        ? {
+            abi: BASE_MINIAPP_VERIFICATION_ABI,
+            functionName: 'rejectCleanup' as const,
+            args: [cleanupId] as const,
+          }
+        : {
+            abi: SUBMISSION_ABI,
+            functionName: 'rejectSubmission' as const,
+            args: [cleanupId] as const,
+          }),
       account: account.address,
     })
 
@@ -1342,6 +1506,16 @@ async function getDCUBalanceImpl(userAddress: Address): Promise<bigint> {
   }
 
   try {
+    if (usesBaseMiniAppSubmission()) {
+      const points = (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: requireRewardManagerAddress(),
+        abi: BASE_MINIAPP_POINTS_ABI,
+        functionName: 'getPointsBalance',
+        args: [userAddress],
+      })) as bigint
+      return basePointsToWei(points)
+    }
     const REWARD_MANAGER_BALANCE_ABI = [
       {
         type: 'function',
@@ -1473,6 +1647,44 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
     return emptyUserRewardStats()
   }
 
+  if (usesBaseMiniAppSubmission()) {
+    try {
+      const [points, claimed] = await Promise.all([
+        readContract(getConfig(), {
+          chainId: getActiveAppChainId(),
+          address: requireRewardManagerAddress(),
+          abi: BASE_MINIAPP_POINTS_ABI,
+          functionName: 'getPointsBalance',
+          args: [userAddress],
+        }) as Promise<bigint>,
+        readContract(getConfig(), {
+          chainId: getActiveAppChainId(),
+          address: requireRewardManagerAddress(),
+          abi: BASE_MINIAPP_POINTS_ABI,
+          functionName: 'getPointsClaimed',
+          args: [userAddress],
+        }) as Promise<bigint>,
+      ])
+      const current = basePointsToWei(points)
+      const claimedWei = basePointsToWei(claimed)
+      return {
+        currentBalance: current,
+        totalEarned: current + claimedWei,
+        totalClaimed: claimedWei,
+        claimRewardsAmount: current,
+        streakRewardsAmount: 0n,
+        referralRewardsAmount: 0n,
+        impactReportRewardsAmount: 0n,
+        recyclablesRewardsAmount: 0n,
+      }
+    } catch (error) {
+      if (!isNoDataOrWrongChainError(error)) {
+        console.warn('Error reading Base points:', error)
+      }
+      return emptyUserRewardStats()
+    }
+  }
+
   const recyclablesLedgerP = readRecyclablesRewardsLedger(userAddress)
 
   try {
@@ -1590,6 +1802,17 @@ async function getUserLevelImpl(userAddress: Address): Promise<number> {
   }
 
   try {
+    if (usesBaseMiniAppSubmission()) {
+      const level = (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: getImpactProductAddress() as Address,
+        abi: BASE_MINIAPP_NFT_ABI,
+        functionName: 'userCurrentLevel',
+        args: [userAddress],
+      })) as number
+      return Number(level)
+    }
+
     const IMPACT_PRODUCT_ABI = [
       {
         type: 'function',
@@ -1647,6 +1870,64 @@ export type ClaimImpactProductResult = {
   hasRecyclables: boolean
 }
 
+async function claimBaseImpactProduct(
+  cleanupId: bigint,
+  options?: GaslessClaimOptions
+): Promise<ClaimImpactProductResult> {
+  const { eoaAddress, smartAccountAddress: smartFromClient, gasless } = resolveClaimIdentity(options)
+  const cleanupDetails = await getCleanupDetails(cleanupId)
+
+  if (!cleanupDetails.verified) {
+    throw new Error('Cleanup is not approved. Please wait for verification.')
+  }
+  if (cleanupDetails.rejected) {
+    throw new Error('Cleanup was rejected. Cannot claim rewards.')
+  }
+  if (cleanupDetails.claimed || cleanupDetails.rewarded) {
+    throw new Error('This cleanup was already claimed.')
+  }
+
+  const ownerLower = cleanupDetails.user.toLowerCase()
+  const matchesEoa = !!(eoaAddress && ownerLower === eoaAddress.toLowerCase())
+  const matchesSmart = !!(smartFromClient && ownerLower === smartFromClient.toLowerCase())
+  if (!matchesEoa && !matchesSmart) {
+    throw new Error('You can only claim rewards for your own cleanups.')
+  }
+
+  const useGasless = matchesSmart && gasless && !matchesEoa
+  const priorLevel = await getUserLevel(cleanupDetails.user)
+  const { fee, enabled } = await getClaimFee()
+  const value = enabled && fee > 0n ? fee : 0n
+
+  const hash = await writeClaimContract(
+    {
+      address: requireSubmissionAddress(),
+      abi: BASE_MINIAPP_VERIFICATION_ABI,
+      functionName: 'claimImpactProduct',
+      args: [cleanupId],
+      value,
+      account: eoaAddress,
+    },
+    useGasless || options?.embeddedEoaWrite ? options : undefined
+  )
+
+  await waitForOnChainConfirmation(hash, useGasless, { gaslessTimeoutMs: 300_000 })
+  invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
+  invalidateImpactProductClaimCaches()
+
+  const stats = await getUserRewardStats(cleanupDetails.user).catch(() => emptyUserRewardStats())
+  return {
+    hash,
+    nftTxHash: hash,
+    nftAction: priorLevel === 0 ? 'minted' : 'upgraded',
+    bonusClaimed: true,
+    impactReportRewardsWei: stats.impactReportRewardsAmount,
+    recyclablesRewardsWei: 0n,
+    hasImpactReport: Boolean(cleanupDetails.hasImpactForm),
+    hasRecyclables: false,
+  }
+}
+
 export async function claimImpactProductFromVerification(
   cleanupId: bigint,
   options?: GaslessClaimOptions
@@ -1662,6 +1943,10 @@ export async function claimImpactProductFromVerification(
   const { eoaAddress, smartAccountAddress: smartFromClient, gasless } = resolveClaimIdentity(options)
   if (!gasless && !eoaAddress) {
     throw new Error('Wallet not connected')
+  }
+
+  if (usesBaseMiniAppSubmission()) {
+    return claimBaseImpactProduct(cleanupId, options)
   }
 
   const cleanupDetails = await getCleanupDetails(cleanupId)
@@ -1942,6 +2227,17 @@ export async function getUserTokenId(userAddress: Address): Promise<bigint | nul
   }
 
   try {
+    if (usesBaseMiniAppSubmission()) {
+      const tokenId = (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: getImpactProductAddress() as Address,
+        abi: BASE_MINIAPP_NFT_ABI,
+        functionName: 'getUserTokenId',
+        args: [userAddress],
+      })) as bigint
+      return tokenId > 0n ? tokenId : null
+    }
+
     const IMPACT_PRODUCT_ABI = [
       {
         type: 'function',
@@ -2011,6 +2307,21 @@ export async function getTokenURIForLevel(level: number): Promise<string> {
 }
 
 export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> {
+  if (usesBaseMiniAppSubmission() && getSubmissionAddress()) {
+    try {
+      const result = (await readContract(getConfig(), {
+        chainId: getActiveAppChainId(),
+        address: requireSubmissionAddress(),
+        abi: BASE_MINIAPP_VERIFICATION_ABI,
+        functionName: 'getClaimFee',
+      })) as readonly [bigint, boolean]
+      return { fee: result[0], enabled: result[1] }
+    } catch (error) {
+      if (!isNoDataOrWrongChainError(error)) console.warn('Failed to fetch Base claim fee:', error)
+      return { fee: 0n, enabled: false }
+    }
+  }
+
   if (!getImpactProductAddress()) {
     return { fee: 0n, enabled: false }
   }
@@ -2209,6 +2520,9 @@ export async function attachRecyclablesToSubmission(
   recyclablesReceiptHash: string,
   options?: { gaslessClient?: GaslessClient }
 ): Promise<`0x${string}`> {
+  if (usesBaseMiniAppSubmission()) {
+    throw new Error('Recyclables are not on the Base Mini App contracts. Submit without recyclables on Base.')
+  }
   if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }
@@ -2260,6 +2574,9 @@ export async function attachRecyclablesToSubmission(
 /* -------------------------------------------------------------------------- */
 
 export async function grantVerifierRole(targetAddress: Address): Promise<`0x${string}`> {
+  if (usesBaseMiniAppSubmission()) {
+    throw new Error('Base verifiers are managed with addVerifier on the Mini App contract (owner only).')
+  }
   if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }

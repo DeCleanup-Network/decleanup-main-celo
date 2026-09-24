@@ -32,9 +32,6 @@ export function SiteFooterLinks() {
         ))}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-x-5">
-        <Link href="/guide" className="footer-link">
-          User Guide
-        </Link>
         <Link href="/terms" className="footer-link">
           Terms of Service
         </Link>

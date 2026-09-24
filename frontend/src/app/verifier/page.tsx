@@ -11,6 +11,7 @@ import {
     isVerifier,
     getCleanupCounter,
     getCleanupDetailsFresh,
+    getUserLevel,
     verifyCleanup,
     rejectCleanup,
     grantVerifierRole
@@ -630,10 +631,14 @@ export default function VerifierPage() {
         setProcessingId(id)
         setError(null)
         try {
-            // Level arg is inert on Celo: verifyCleanup() calls Submission.approveSubmission(id),
-            // which ignores level. The user's Impact Product level is set when they mint/upgrade.
-            console.log('Starting verification for submission:', id.toString())
-            const txHash = await verifyCleanup(id, 1)
+            // Celo ignores level (approveSubmission). Base Mini App needs the next Impact Product level.
+            const details = await getCleanupDetailsFresh(id)
+            const currentLevel = details.user
+              ? await getUserLevel(details.user).catch(() => 0)
+              : 0
+            const nextLevel = Math.min(10, Math.max(1, currentLevel + 1))
+            console.log('Starting verification for submission:', id.toString(), 'level', nextLevel)
+            const txHash = await verifyCleanup(id, nextLevel)
             console.log('Verification successful, transaction hash:', txHash)
             if (address) {
                 setCleanups((prev) =>

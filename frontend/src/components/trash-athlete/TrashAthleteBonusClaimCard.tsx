@@ -7,6 +7,7 @@ import {
   TRASH_ATHLETE_DCU_POINTS,
   TRASH_ATHLETE_LEVEL_COPY,
 } from '@/lib/trash-athlete/constants'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 
 type Props = {
   challenge: TrashAthleteChallenge
@@ -14,6 +15,7 @@ type Props = {
 
 /** Approved status — rewards are sent manually by ops to the signer EOA. */
 export function TrashAthleteBonusClaimCard({ challenge }: Props) {
+  const { isBase } = useExperienceChain()
   const amountLabel = challenge.bonusCdcuAmount || TRASH_ATHLETE_BONUS_CDCU
   const signer = challenge.walletAddress
 
@@ -54,9 +56,19 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
         Challenge approved
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        Verified. The team will send {amountLabel} $cDCU tokens, {TRASH_ATHLETE_LEVEL_COPY} (mint if you have no NFT;
-        otherwise Claim/Upgrade once in the app), and {TRASH_ATHLETE_DCU_POINTS} DCU to your address:{' '}
-        <span className="break-all font-mono text-[11px] text-foreground">{signer}</span>
+        {isBase ? (
+          <>
+            Verified. Keep using Base cleanups to claim your Impact Product and DCU points onchain. The {amountLabel}{' '}
+            $cDCU bonus is paid on Celo — switch experience to Celo when ops send it to{' '}
+            <span className="break-all font-mono text-[11px] text-foreground">{signer}</span>.
+          </>
+        ) : (
+          <>
+            Verified. The team will send {amountLabel} $cDCU tokens, {TRASH_ATHLETE_LEVEL_COPY} (mint if you have no NFT;
+            otherwise Claim/Upgrade once in the app), and {TRASH_ATHLETE_DCU_POINTS} DCU to your address:{' '}
+            <span className="break-all font-mono text-[11px] text-foreground">{signer}</span>
+          </>
+        )}
       </p>
     </div>
   )

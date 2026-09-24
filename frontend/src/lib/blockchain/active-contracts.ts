@@ -5,6 +5,7 @@ import {
   type SupportedChainId,
 } from './chain-constants'
 import { isSupportedChainId, resolveActiveChainId } from './aa-chain'
+import { isBaseExperience } from './chain-preference'
 
 /** Live experience chain (localStorage pick in the browser, env on the server). */
 export function getActiveAppChainId(): SupportedChainId {
@@ -18,6 +19,11 @@ export function getActiveAppContracts() {
 
 export function getActiveAppRpcUrl(): string {
   return getChainConfig(getActiveAppChainId()).rpcUrl
+}
+
+/** Live Base Submission is the Mini App proxy (`submitCleanup`), not Celo `createSubmission`. */
+export function usesBaseMiniAppSubmission(chainId: number = getActiveAppChainId()): boolean {
+  return isBaseExperience(chainId)
 }
 
 export function getSubmissionAddress(): Address | undefined {

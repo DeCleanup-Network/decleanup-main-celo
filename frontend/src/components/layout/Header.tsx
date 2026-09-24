@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { CircleHelp } from 'lucide-react'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { WalletErrorBoundary } from '@/features/wallet/components/WalletErrorBoundary'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
@@ -25,6 +26,14 @@ export function Header() {
 
           <div className="min-w-0 flex-shrink flex items-center justify-end gap-1 sm:gap-2">
             <ChainPicker />
+            <Link
+              href="/guide"
+              aria-label="User Guide"
+              title="User Guide"
+              className="flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <CircleHelp className="h-5 w-5" aria-hidden />
+            </Link>
             <NotificationBell />
             <WalletErrorBoundary>
               <WalletConnect />
