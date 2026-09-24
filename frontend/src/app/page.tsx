@@ -42,7 +42,6 @@ import { ImpactProductLevelHelp } from '@/components/dashboard/ImpactProductLeve
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { DashboardClaimCdcu } from '@/components/dashboard/DashboardClaimCdcu'
-import { DashboardExperienceToken } from '@/components/dashboard/DashboardExperienceToken'
 import { DashboardProfileCard } from '@/components/dashboard/DashboardProfileCard'
 import { DashboardVerifierExtras } from '@/components/dashboard/DashboardVerifierExtras'
 import { AlertModal } from '@/components/ui/alert-modal'
@@ -711,11 +710,7 @@ function HomeContent() {
                     <div className="min-w-0 w-full">
                       <DashboardClaimCdcu rewardAddress={publicWalletAddress} payoutAddress={publicWalletAddress} />
                     </div>
-                  ) : (
-                    <div className="min-w-0 w-full">
-                      <DashboardExperienceToken chainId={experienceChainId} />
-                    </div>
-                  )}
+                  ) : null}
                 </div>
 
                 <button

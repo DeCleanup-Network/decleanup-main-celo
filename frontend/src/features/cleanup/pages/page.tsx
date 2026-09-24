@@ -34,7 +34,6 @@ import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import type { Address } from 'viem'
 import { normalizeReferrerAddress } from '@/lib/wallet/normalize-referrer-address'
 import {
-  CONTRACT_ADDRESSES,
   MAX_IMPACT_PRODUCT_LEVEL,
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
@@ -42,6 +41,7 @@ import {
   REQUIRED_BLOCK_EXPLORER_URL,
   REQUIRED_CHAIN_IS_TESTNET,
 } from '@/lib/blockchain/chain-constants'
+import { getActiveAppChainId, getSubmissionAddress } from '@/lib/blockchain/active-contracts'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
@@ -1225,7 +1225,7 @@ function CleanupContent() {
     }
 
     // Check if contracts are deployed
-    if (!CONTRACT_ADDRESSES.VERIFICATION) {
+    if (!getSubmissionAddress()) {
       setAlertModal({ message: 'Contracts not deployed yet. Please deploy contracts first and set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local', variant: 'error' })
       return
     }
@@ -1385,7 +1385,8 @@ function CleanupContent() {
 
       // Submit to contract
       console.log('Submitting to contract...')
-      console.log('Contract address:', CONTRACT_ADDRESSES.VERIFICATION)
+      console.log('Contract address:', getSubmissionAddress())
+      console.log('Active experience chain ID:', getActiveAppChainId())
       console.log('Current chain ID:', chainId)
       console.log('Gasless status:', {
         paymasterConfigured: isPaymasterConfigured(),
@@ -1608,8 +1609,8 @@ function CleanupContent() {
           localStorage.removeItem('pending_cleanup_id')
           localStorage.removeItem('pending_cleanup_location')
 
-          invalidateUserSubmissionsCache(REQUIRED_CHAIN_ID, onchainOwner)
-          invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+          invalidateUserSubmissionsCache(getActiveAppChainId(), onchainOwner)
+          invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
           window.dispatchEvent(
             new CustomEvent('decleanup:cleanup-submitted', {
               detail: { cleanupId: cleanupId.toString(), owner: onchainOwner },

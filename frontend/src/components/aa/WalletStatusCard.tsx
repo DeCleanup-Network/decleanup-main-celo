@@ -173,37 +173,6 @@ export function WalletStatusCard({ wallet, loading }: Props) {
         </div>
 
         <CopyableAddress address={displayAddress} truncate={false} className="text-sm text-gray-200" />
-        <a
-          href={chain.addressExplorerHref(displayAddress)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex text-sm font-medium text-brand-green hover:underline"
-        >
-          View on {chain.explorerName}
-        </a>
-
-        {chain.tokenAddress ? (
-          <div className="rounded-lg border border-gray-800 bg-black/30 px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              {chain.tokenSymbol} on {chain.networkName}
-            </p>
-            <CopyableAddress
-              address={chain.tokenAddress}
-              truncate
-              className="mt-1 text-xs text-gray-200"
-            />
-            {chain.tokenExplorerHref ? (
-              <a
-                href={chain.tokenExplorerHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-flex text-xs text-brand-green hover:underline"
-              >
-                {chain.tokenTicker} contract · {chain.explorerName}
-              </a>
-            ) : null}
-          </div>
-        ) : null}
 
         <Link
           href={portfolioHref}
@@ -212,29 +181,44 @@ export function WalletStatusCard({ wallet, loading }: Props) {
           View impact portfolio
         </Link>
 
-        <div className="flex flex-wrap gap-6 border-t border-gray-800 pt-4 text-sm">
-          <div>
-            <span className="text-gray-500">Balance </span>
-            <span className="font-medium text-white">{wallet.balance} {chain.gasSymbol}</span>
-          </div>
-          {tokenBalance ? (
+        <div className="space-y-2 border-t border-gray-800 pt-4">
+          <div className="flex flex-wrap gap-6 text-sm">
             <div>
-              <span className="text-gray-500">{chain.tokenSymbol} </span>
-              <span className="font-medium text-white">{formatTokenDisplay(tokenBalance)}</span>
+              <span className="text-gray-500">Balance </span>
+              <span className="font-medium text-white">{wallet.balance} {chain.gasSymbol}</span>
             </div>
-          ) : null}
-          <div className="inline-flex items-center gap-1.5">
-            <span className="text-gray-500">Network </span>
-            <span className="font-medium text-white">{networkShort}</span>
-            <button
-              type="button"
-              onClick={() => setNetworkHelpOpen(true)}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-gray-800 hover:text-brand-green"
-              aria-label={`About ${networkShort}`}
-            >
-              <HelpCircle className="h-3.5 w-3.5" aria-hidden />
-            </button>
+            {tokenBalance ? (
+              <div>
+                <span className="text-gray-500">{chain.tokenSymbol} </span>
+                <span className="font-medium text-white">{formatTokenDisplay(tokenBalance)}</span>
+              </div>
+            ) : null}
+            <div className="inline-flex items-center gap-1.5">
+              <span className="text-gray-500">Network </span>
+              <span className="font-medium text-white">{networkShort}</span>
+              <button
+                type="button"
+                onClick={() => setNetworkHelpOpen(true)}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-gray-800 hover:text-brand-green"
+                aria-label={`About ${networkShort}`}
+              >
+                <HelpCircle className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
           </div>
+          {chain.tokenExplorerHref ? (
+            <p className="text-[11px] text-gray-500">
+              {chain.tokenSymbol} contract:{' '}
+              <a
+                href={chain.tokenExplorerHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-green hover:underline"
+              >
+                {chain.explorerName}
+              </a>
+            </p>
+          ) : null}
         </div>
       </div>
 

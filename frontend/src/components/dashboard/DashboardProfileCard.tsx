@@ -118,33 +118,20 @@ export function DashboardProfileCard({
             <span className="text-muted-foreground">({chain.chainId})</span>
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">Gas: {chain.gasSymbol}</p>
-        </div>
-        {chain.tokenAddress ? (
-          <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {chain.tokenSymbol} token
-            </p>
-            <CopyableAddress
-              address={chain.tokenAddress}
-              truncate
-              className="text-xs text-foreground sm:text-sm"
-            />
-            {chain.tokenExplorerHref ? (
+          {chain.tokenExplorerHref ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {chain.tokenSymbol} contract:{' '}
               <a
                 href={chain.tokenExplorerHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-green hover:underline"
+                className="text-brand-green hover:underline"
               >
-                {chain.tokenTicker} on {chain.explorerName}
-                <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                {chain.explorerName}
               </a>
-            ) : null}
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Add this contract in your wallet. Symbol {chain.tokenTicker}, 18 decimals.
             </p>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
       <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
         <Link href={impactHref} className="inline-flex items-center justify-center gap-2">

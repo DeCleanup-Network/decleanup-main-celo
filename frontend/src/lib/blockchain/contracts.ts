@@ -9,7 +9,6 @@ import {
 } from 'viem'
 import { readContract, getAccount, waitForTransactionReceipt, getPublicClient } from '@wagmi/core'
 import { lockedWriteContract } from '@/lib/blockchain/wallet-write-mutex'
-import { REQUIRED_RPC_URL } from './chain-constants'
 import {
   withContractCache,
   CONTRACT_READ_TTL_MS,
@@ -17,8 +16,17 @@ import {
   invalidateSubmissionDetailsCache,
 } from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
-import { REQUIRED_BLOCK_EXPLORER_URL, CONTRACT_ADDRESSES, REQUIRED_CHAIN_ID } from './chain-constants'
+import { REQUIRED_BLOCK_EXPLORER_URL } from './chain-constants'
 import { getActiveAaChain } from './aa-chain'
+import {
+  getActiveAppChainId,
+  getActiveAppRpcUrl,
+  getImpactProductAddress,
+  getRewardManagerAddress,
+  getSubmissionAddress,
+  requireRewardManagerAddress,
+  requireSubmissionAddress,
+} from './active-contracts'
 import { getSmartAccountAddressFromClient } from './smart-account'
 import { keccak256, toBytes } from 'viem'
 import { getLogs as viemGetLogs } from 'viem/actions'
@@ -84,7 +92,7 @@ async function writeClaimContract(
     throw new Error('Wallet not connected')
   }
   return lockedWriteContract(getConfig(), {
-    chainId: REQUIRED_CHAIN_ID,
+    chainId: getActiveAppChainId(),
     address: params.address,
     abi: params.abi,
     functionName: params.functionName,
@@ -135,9 +143,10 @@ const TX_WAIT_OPTS = {
 }
 
 function getRequiredChainPublicClient() {
+  const chainId = getActiveAppChainId()
   return createPublicClient({
-    chain: getActiveAaChain(),
-    transport: http(REQUIRED_RPC_URL),
+    chain: getActiveAaChain(chainId),
+    transport: http(getActiveAppRpcUrl()),
   })
 }
 
@@ -163,7 +172,7 @@ async function waitForOnChainConfirmation(
     })
   }
   return waitForTransactionReceipt(getConfig(), {
-    chainId: REQUIRED_CHAIN_ID,
+    chainId: getActiveAppChainId(),
     hash,
     ...TX_WAIT_OPTS,
   })
@@ -275,12 +284,6 @@ export interface CleanupDetails {
   referrer?: Address // Referrer address if user was referred
   processedTimestamp?: bigint
 }
-
-const SUBMISSION_ADDRESS =
-  process.env.NEXT_PUBLIC_SUBMISSION_CONTRACT as Address | undefined
-
-const REWARD_MANAGER_ADDRESS =
-  process.env.NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT as Address | undefined
 
 const SUBMISSION_ABI = [
   {
@@ -501,9 +504,8 @@ export async function submitCleanup(
     recyclablesReceiptHash?: string
   }
 ): Promise<SubmitCleanupResult> {
-  if (!SUBMISSION_ADDRESS) {
-    throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
-  }
+  const submissionAddress = requireSubmissionAddress()
+  const chainId = getActiveAppChainId()
 
   const gasless = !!options?.gaslessClient
   const account = gasless ? null : getAccount(getConfig())
@@ -556,6 +558,8 @@ export async function submitCleanup(
 
     console.log('Submitting transaction with args:', {
       functionName,
+      chainId,
+      submission: submissionAddress,
       dataURI: dataURI.substring(0, 50) + '...',
       beforeHash: beforeHash.substring(0, 20) + '...',
       afterHash: afterHash.substring(0, 20) + '...',
@@ -575,20 +579,20 @@ export async function submitCleanup(
         args,
       })
       hash = await options.gaslessClient.sendTransaction({
-        to: SUBMISSION_ADDRESS,
+        to: submissionAddress,
         data,
         value: _fee ?? 0n,
       })
     } else {
       const contractConfig: any = {
-        address: SUBMISSION_ADDRESS,
+        address: submissionAddress,
         abi: SUBMISSION_ABI,
         functionName,
         args,
         account: account!.address,
       }
       if (_fee && _fee > 0n) contractConfig.value = _fee
-      hash = await lockedWriteContract(getConfig(), { ...contractConfig, chainId: REQUIRED_CHAIN_ID })
+      hash = await lockedWriteContract(getConfig(), { ...contractConfig, chainId })
     }
 
     // Confirm the receipt. If the receipt can't be fetched (transient RPC/timeout), the tx was
@@ -619,8 +623,8 @@ export async function submitCleanup(
         '[submitCleanup] SubmissionCreated log missing; falling back to submissionCount - 1'
       )
       const submissionCountAfter = await readContract(getConfig(), {
-        chainId: REQUIRED_CHAIN_ID,
-        address: SUBMISSION_ADDRESS,
+        chainId,
+        address: submissionAddress,
         abi: SUBMISSION_ABI,
         functionName: 'submissionCount',
       })
@@ -663,7 +667,7 @@ export async function submitCleanup(
 
 async function getCleanupDetailsImpl(
   cleanupId: bigint,
-  submissionAddress: Address = SUBMISSION_ADDRESS as Address
+  submissionAddress: Address = requireSubmissionAddress()
 ): Promise<CleanupDetails> {
   if (!submissionAddress) {
     return {
@@ -683,7 +687,7 @@ async function getCleanupDetailsImpl(
 
   try {
     const result: any = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
+      chainId: getActiveAppChainId(),
       address: submissionAddress,
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionDetails',
@@ -760,7 +764,7 @@ async function getCleanupDetailsImpl(
 
 export async function getCleanupDetails(cleanupId: bigint): Promise<CleanupDetails> {
   return withContractCache(
-    `details:${REQUIRED_CHAIN_ID}:${cleanupId.toString()}`,
+    `details:${getActiveAppChainId()}:${cleanupId.toString()}`,
     CONTRACT_READ_TTL_MS,
     () => getCleanupDetailsImpl(cleanupId)
   )
@@ -783,7 +787,7 @@ export async function getCleanupCounterAt(submissionAddress: Address): Promise<b
   if (!submissionAddress) return 0n
   try {
     const count = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
+      chainId: getActiveAppChainId(),
       address: submissionAddress,
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
@@ -796,21 +800,21 @@ export async function getCleanupCounterAt(submissionAddress: Address): Promise<b
 }
 
 export async function getCleanupCounter(): Promise<bigint> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     return 0n
   }
-  return getCleanupCounterAt(SUBMISSION_ADDRESS)
+  return getCleanupCounterAt(requireSubmissionAddress())
 }
 
 async function getUserSubmissionsImpl(user: Address): Promise<bigint[]> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     return []
   }
 
   try {
     const submissionIds = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'getSubmissionsByUser',
       args: [user],
@@ -824,7 +828,7 @@ async function getUserSubmissionsImpl(user: Address): Promise<bigint[]> {
 
 export async function getUserSubmissions(user: Address): Promise<bigint[]> {
   return withContractCache(
-    `submissions:${REQUIRED_CHAIN_ID}:${user.toLowerCase()}`,
+    `submissions:${getActiveAppChainId()}:${user.toLowerCase()}`,
     CONTRACT_READ_TTL_MS,
     () => getUserSubmissionsImpl(user)
   )
@@ -839,15 +843,15 @@ export async function getUserSubmissionsFresh(user: Address): Promise<bigint[]> 
  * Each verification earns 1 $cDCU, so the count equals the DCU amount
  */
 export async function getVerifierRewardsCount(verifierAddress: Address): Promise<number> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     return 0
   }
 
   try {
     // Get total submission count
     const totalSubmissions = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'submissionCount',
       args: [],
@@ -912,14 +916,14 @@ export async function getVerifierRewardsCount(verifierAddress: Address): Promise
  * Returns null if user was not referred
  */
 export async function getUserReferrer(user: Address): Promise<Address | null> {
-  if (!REWARD_MANAGER_ADDRESS) {
+  if (!getRewardManagerAddress()) {
     return null
   }
 
   try {
     const referrer = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: REWARD_MANAGER_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireRewardManagerAddress(),
       abi: [
         {
           type: 'function',
@@ -1075,21 +1079,21 @@ export async function getSubmissionFee(): Promise<{
 }
 
 export async function isVerifier(_address: Address): Promise<boolean> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     return false
   }
 
   try {
     const verifierRole = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'VERIFIER_ROLE',
     })
 
     const hasRole = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'hasRole',
       args: [verifierRole as `0x${string}`, _address],
@@ -1106,7 +1110,7 @@ export async function verifyCleanup(
   cleanupId: bigint,
   level: number
 ): Promise<`0x${string}`> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }
 
@@ -1125,13 +1129,13 @@ export async function verifyCleanup(
   try {
     console.log('Verifying cleanup:', {
       submissionId: cleanupId.toString(),
-      contractAddress: SUBMISSION_ADDRESS,
+      contractAddress: requireSubmissionAddress(),
       account: account.address,
     })
 
     hash = await lockedWriteContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'approveSubmission',
       args: [cleanupId],
@@ -1149,7 +1153,7 @@ export async function verifyCleanup(
     while (retries < maxRetries) {
       try {
         receipt = await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID, 
+      chainId: getActiveAppChainId(), 
           hash,
           confirmations: 1, // Wait for 1 confirmation
           pollingInterval: 2000, // Poll every 2 seconds
@@ -1185,7 +1189,7 @@ export async function verifyCleanup(
       throw new Error('Transaction reverted onchain')
     }
 
-    invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+    invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
     return hash
   } catch (error: any) {
     console.error('Error verifying cleanup:', error)
@@ -1219,7 +1223,7 @@ export async function verifyCleanup(
 export async function rejectCleanup(
   cleanupId: bigint
 ): Promise<`0x${string}`> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }
 
@@ -1232,13 +1236,13 @@ export async function rejectCleanup(
   try {
     console.log('Rejecting cleanup:', {
       submissionId: cleanupId.toString(),
-      contractAddress: SUBMISSION_ADDRESS,
+      contractAddress: requireSubmissionAddress(),
       account: account.address,
     })
 
     hash = await lockedWriteContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'rejectSubmission',
       args: [cleanupId],
@@ -1256,7 +1260,7 @@ export async function rejectCleanup(
     while (retries < maxRetries) {
       try {
         receipt = await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID, 
+      chainId: getActiveAppChainId(), 
           hash,
           confirmations: 1, // Wait for 1 confirmation
           pollingInterval: 2000, // Poll every 2 seconds
@@ -1293,7 +1297,7 @@ export async function rejectCleanup(
       throw new Error('Transaction reverted onchain')
     }
 
-    invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+    invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
     return hash
   } catch (error: any) {
     console.error('Error rejecting cleanup:', error)
@@ -1333,7 +1337,7 @@ export async function getClaimableRewards(
 }
 
 async function getDCUBalanceImpl(userAddress: Address): Promise<bigint> {
-  if (!REWARD_MANAGER_ADDRESS) {
+  if (!getRewardManagerAddress()) {
     return 0n
   }
 
@@ -1349,8 +1353,8 @@ async function getDCUBalanceImpl(userAddress: Address): Promise<bigint> {
     ] as const
 
     return (await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: REWARD_MANAGER_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireRewardManagerAddress(),
       abi: REWARD_MANAGER_BALANCE_ABI,
       functionName: 'getBalance',
       args: [userAddress],
@@ -1363,7 +1367,7 @@ async function getDCUBalanceImpl(userAddress: Address): Promise<bigint> {
 
 export async function getDCUBalance(userAddress: Address): Promise<bigint> {
   return withContractCache(
-    `dcuBalance:${REQUIRED_CHAIN_ID}:${userAddress.toLowerCase()}`,
+    `dcuBalance:${getActiveAppChainId()}:${userAddress.toLowerCase()}`,
     CONTRACT_READ_TTL_MS,
     () => getDCUBalanceImpl(userAddress)
   )
@@ -1434,11 +1438,11 @@ const REWARD_MANAGER_RECYCLABLES_LEDGER_ABI = [
 ] as const
 
 async function readRecyclablesRewardsLedger(userAddress: Address): Promise<bigint> {
-  if (!REWARD_MANAGER_ADDRESS) return 0n
+  if (!getRewardManagerAddress()) return 0n
   try {
     return (await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: REWARD_MANAGER_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireRewardManagerAddress(),
       abi: REWARD_MANAGER_RECYCLABLES_LEDGER_ABI,
       functionName: 'recyclablesRewardsAmount',
       args: [userAddress],
@@ -1465,7 +1469,7 @@ function emptyUserRewardStats(): UserRewardStats {
 }
 
 export async function getUserRewardStats(userAddress: Address): Promise<UserRewardStats> {
-  if (!REWARD_MANAGER_ADDRESS) {
+  if (!getRewardManagerAddress()) {
     return emptyUserRewardStats()
   }
 
@@ -1473,8 +1477,8 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
 
   try {
     const result = (await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: REWARD_MANAGER_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireRewardManagerAddress(),
       abi: REWARD_MANAGER_STATS_ABI_8,
       functionName: 'getUserRewardStats',
       args: [userAddress],
@@ -1497,8 +1501,8 @@ export async function getUserRewardStats(userAddress: Address): Promise<UserRewa
   } catch (error8) {
     try {
       const result = (await readContract(getConfig(), {
-        chainId: REQUIRED_CHAIN_ID,
-        address: REWARD_MANAGER_ADDRESS,
+        chainId: getActiveAppChainId(),
+        address: requireRewardManagerAddress(),
         abi: REWARD_MANAGER_STATS_ABI_7,
         functionName: 'getUserRewardStats',
         args: [userAddress],
@@ -1537,7 +1541,7 @@ export async function verifyRewardManagerSetup(): Promise<{
   dcuTokenAddress: Address | null
   error?: string
 }> {
-  if (!REWARD_MANAGER_ADDRESS) {
+  if (!getRewardManagerAddress()) {
     return {
       ledgerReadable: false,
       rewardManagerAddress: null,
@@ -1558,8 +1562,8 @@ export async function verifyRewardManagerSetup(): Promise<{
     ] as const
 
     await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: REWARD_MANAGER_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireRewardManagerAddress(),
       abi: REWARD_MANAGER_BALANCE_ABI,
       functionName: 'getBalance',
       args: ['0x0000000000000000000000000000000000000000'],
@@ -1567,13 +1571,13 @@ export async function verifyRewardManagerSetup(): Promise<{
 
     return {
       ledgerReadable: true,
-      rewardManagerAddress: REWARD_MANAGER_ADDRESS,
+      rewardManagerAddress: requireRewardManagerAddress(),
       dcuTokenAddress: null,
     }
   } catch (error: any) {
     return {
       ledgerReadable: false,
-      rewardManagerAddress: REWARD_MANAGER_ADDRESS,
+      rewardManagerAddress: requireRewardManagerAddress(),
       dcuTokenAddress: null,
       error: error?.message || 'Failed to verify setup',
     }
@@ -1581,7 +1585,7 @@ export async function verifyRewardManagerSetup(): Promise<{
 }
 
 async function getUserLevelImpl(userAddress: Address): Promise<number> {
-  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+  if (!getImpactProductAddress()) {
     return 0
   }
 
@@ -1601,8 +1605,8 @@ async function getUserLevelImpl(userAddress: Address): Promise<number> {
     ] as const
 
     const result = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+      chainId: getActiveAppChainId(),
+      address: getImpactProductAddress() as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'getUserNFTData',
       args: [userAddress],
@@ -1619,7 +1623,7 @@ async function getUserLevelImpl(userAddress: Address): Promise<number> {
 
 export async function getUserLevel(userAddress: Address): Promise<number> {
   return withContractCache(
-    `userLevel:${REQUIRED_CHAIN_ID}:${userAddress.toLowerCase()}`,
+    `userLevel:${getActiveAppChainId()}:${userAddress.toLowerCase()}`,
     CONTRACT_READ_TTL_MS,
     () => getUserLevelImpl(userAddress)
   )
@@ -1647,11 +1651,11 @@ export async function claimImpactProductFromVerification(
   cleanupId: bigint,
   options?: GaslessClaimOptions
 ): Promise<ClaimImpactProductResult> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured. Please set NEXT_PUBLIC_SUBMISSION_CONTRACT in .env.local')
   }
 
-  if (!REWARD_MANAGER_ADDRESS) {
+  if (!getRewardManagerAddress()) {
     throw new Error('Reward Manager contract address not configured. Please set NEXT_PUBLIC_REWARD_DISTRIBUTOR_CONTRACT in .env.local')
   }
 
@@ -1723,7 +1727,7 @@ export async function claimImpactProductFromVerification(
   try {
     let nftStepRequired = false
 
-    if (CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+    if (getImpactProductAddress()) {
       const currentTokenId = await getUserTokenId(submissionOwner)
       const currentLevel = await getUserLevel(submissionOwner)
 
@@ -1773,7 +1777,7 @@ export async function claimImpactProductFromVerification(
       isAtomicContractTxEnabled() && isSubmissionBonusClaimEnabled() && nftStepRequired
     if (usedAtomicBonusClaim && hash) {
       bonusClaimed = true
-      invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+      invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
       try {
         const stats = await getUserRewardStats(submissionOwner)
         impactReportRewardsWei = stats.impactReportRewardsAmount
@@ -1808,14 +1812,14 @@ export async function claimImpactProductFromVerification(
             args: [cleanupId],
           })
           bonusHash = await options!.gaslessClient!.sendTransaction({
-            to: SUBMISSION_ADDRESS,
+            to: requireSubmissionAddress(),
             data,
             value: 0n,
           })
         } else {
           bonusHash = await writeClaimContract(
             {
-              address: SUBMISSION_ADDRESS,
+              address: requireSubmissionAddress(),
               abi: SUBMISSION_BONUS_ABI,
               functionName: 'claimSubmissionBonusRewards',
               args: [cleanupId],
@@ -1828,7 +1832,7 @@ export async function claimImpactProductFromVerification(
         await waitForOnChainConfirmation(bonusHash, useGasless, { gaslessTimeoutMs: 300_000 })
         console.log('✅ Submission bonus rewards claimed:', bonusHash)
         bonusClaimed = true
-        invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+        invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
         try {
           const d = await getCleanupDetails(cleanupId)
           const stats = await getUserRewardStats(submissionOwner)
@@ -1888,7 +1892,7 @@ export async function claimImpactProductFromVerification(
     }
 
     invalidateImpactProductClaimCaches({
-      chainId: REQUIRED_CHAIN_ID,
+      chainId: getActiveAppChainId(),
       ownerAddress: submissionOwner,
       cleanupId,
     })
@@ -1933,7 +1937,7 @@ export async function getStakedDCU(_: Address): Promise<bigint> {
 }
 
 export async function getUserTokenId(userAddress: Address): Promise<bigint | null> {
-  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+  if (!getImpactProductAddress()) {
     return null
   }
 
@@ -1953,8 +1957,8 @@ export async function getUserTokenId(userAddress: Address): Promise<bigint | nul
     ] as const
 
     const result = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+      chainId: getActiveAppChainId(),
+      address: getImpactProductAddress() as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'getUserNFTData',
       args: [userAddress],
@@ -1967,7 +1971,7 @@ export async function getUserTokenId(userAddress: Address): Promise<bigint | nul
 }
 
 export async function getTokenURI(tokenId: bigint): Promise<string> {
-  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+  if (!getImpactProductAddress()) {
     return ''
   }
 
@@ -1983,8 +1987,8 @@ export async function getTokenURI(tokenId: bigint): Promise<string> {
     ] as const
 
     const uri = await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+      chainId: getActiveAppChainId(),
+      address: getImpactProductAddress() as Address,
       abi: IMPACT_PRODUCT_ABI,
       functionName: 'tokenURI',
       args: [tokenId],
@@ -2007,7 +2011,7 @@ export async function getTokenURIForLevel(level: number): Promise<string> {
 }
 
 export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> {
-  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+  if (!getImpactProductAddress()) {
     return { fee: 0n, enabled: false }
   }
 
@@ -2031,14 +2035,14 @@ export async function getClaimFee(): Promise<{ fee: bigint; enabled: boolean }> 
 
     const [fee, enabled] = await Promise.all([
       readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+      chainId: getActiveAppChainId(),
+        address: getImpactProductAddress() as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'claimFee',
       }) as Promise<bigint>,
       readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+      chainId: getActiveAppChainId(),
+        address: getImpactProductAddress() as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: 'feeEnabled',
       }) as Promise<boolean>,
@@ -2055,7 +2059,7 @@ export async function mintImpactProductNFT(
   options?: GaslessClaimOptions,
   bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
-  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+  if (!getImpactProductAddress()) {
     throw new Error('Impact Product NFT contract address not configured')
   }
 
@@ -2091,7 +2095,7 @@ export async function mintImpactProductNFT(
   try {
     const hash = await writeClaimContract(
       {
-        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        address: getImpactProductAddress() as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: useBonus ? 'safeMintWithBonus' : 'safeMint',
         args: useBonus ? [bonusSubmissionId] : [],
@@ -2123,7 +2127,7 @@ export async function upgradeImpactProductNFT(
   options?: GaslessClaimOptions,
   bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
-  if (!CONTRACT_ADDRESSES.IMPACT_PRODUCT) {
+  if (!getImpactProductAddress()) {
     throw new Error('Impact Product NFT contract address not configured')
   }
 
@@ -2162,7 +2166,7 @@ export async function upgradeImpactProductNFT(
   try {
     const hash = await writeClaimContract(
       {
-        address: CONTRACT_ADDRESSES.IMPACT_PRODUCT as Address,
+        address: getImpactProductAddress() as Address,
         abi: IMPACT_PRODUCT_ABI,
         functionName: useBonus ? 'upgradeNFTWithBonus' : 'upgradeNFT',
         args: useBonus ? [tokenId, bonusSubmissionId] : [tokenId],
@@ -2205,7 +2209,7 @@ export async function attachRecyclablesToSubmission(
   recyclablesReceiptHash: string,
   options?: { gaslessClient?: GaslessClient }
 ): Promise<`0x${string}`> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }
 
@@ -2227,14 +2231,14 @@ export async function attachRecyclablesToSubmission(
         args,
       })
       hash = await options!.gaslessClient!.sendTransaction({
-        to: SUBMISSION_ADDRESS,
+        to: requireSubmissionAddress(),
         data,
         value: 0n,
       })
     } else {
       hash = await lockedWriteContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-        address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+        address: requireSubmissionAddress(),
         abi: SUBMISSION_ABI,
         functionName: 'attachRecyclables',
         args,
@@ -2256,7 +2260,7 @@ export async function attachRecyclablesToSubmission(
 /* -------------------------------------------------------------------------- */
 
 export async function grantVerifierRole(targetAddress: Address): Promise<`0x${string}`> {
-  if (!SUBMISSION_ADDRESS) {
+  if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }
 
@@ -2271,15 +2275,15 @@ export async function grantVerifierRole(targetAddress: Address): Promise<`0x${st
 
   try {
     const verifierRole = (await readContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'VERIFIER_ROLE',
     })) as `0x${string}`
 
     const hash = await lockedWriteContract(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
-      address: SUBMISSION_ADDRESS,
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
       abi: SUBMISSION_ABI,
       functionName: 'grantRole',
       args: [verifierRole, targetAddress],
@@ -2287,7 +2291,7 @@ export async function grantVerifierRole(targetAddress: Address): Promise<`0x${st
     })
 
     await waitForTransactionReceipt(getConfig(), {
-      chainId: REQUIRED_CHAIN_ID,
+      chainId: getActiveAppChainId(),
       hash,
       confirmations: 1,
       pollingInterval: 2000,

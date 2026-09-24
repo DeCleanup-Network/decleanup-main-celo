@@ -8,43 +8,31 @@
  */
 import type { Config } from 'wagmi'
 import { createConfig, http } from 'wagmi'
-import { celo } from 'viem/chains'
-import { defineChain } from 'viem'
-import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
-import { REQUIRED_CHAIN_ID } from './chain-constants'
+import {
+  aaWagmiChains,
+  baseMainnetChain,
+  baseSepoliaChain,
+  celoMainnetChain,
+  celoSepoliaChain,
+} from '@/lib/blockchain/aa-wagmi-chains'
 
 let current: Config | null = null
 let serverReadConfig: Config | null = null
 
-const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
-const celoSepoliaRpcUrl = getCeloSepoliaHttpRpcUrl()
-
-const celoMainnet = {
-  ...celo,
-  rpcUrls: {
-    default: { http: [celoMainnetRpcUrl] },
-    public: { http: [celoMainnetRpcUrl] },
-  },
+function rpc(chain: { rpcUrls: { default: { http: readonly string[] } } }, fallback: string) {
+  return chain.rpcUrls.default.http[0] ?? fallback
 }
-
-const celoSepoliaChain = defineChain({
-  id: 11142220,
-  name: 'Celo Sepolia Testnet',
-  nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
-  rpcUrls: {
-    default: { http: [celoSepoliaRpcUrl] },
-    public: { http: [celoSepoliaRpcUrl] },
-  },
-})
 
 function getServerReadConfig(): Config {
   if (serverReadConfig) return serverReadConfig
 
   serverReadConfig = createConfig({
-    chains: [celoSepoliaChain, celoMainnet],
+    chains: [...aaWagmiChains],
     transports: {
-      [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
-      [celoMainnet.id]: http(celoMainnetRpcUrl),
+      [celoSepoliaChain.id]: http(rpc(celoSepoliaChain, 'https://forno.celo.org')),
+      [celoMainnetChain.id]: http(rpc(celoMainnetChain, 'https://forno.celo.org')),
+      [baseMainnetChain.id]: http(rpc(baseMainnetChain, 'https://mainnet.base.org')),
+      [baseSepoliaChain.id]: http(rpc(baseSepoliaChain, 'https://sepolia.base.org')),
     },
   })
 
