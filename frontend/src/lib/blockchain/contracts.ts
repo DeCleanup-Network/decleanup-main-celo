@@ -1913,7 +1913,11 @@ async function claimBaseImpactProduct(
 
   await waitForOnChainConfirmation(hash, useGasless, { gaslessTimeoutMs: 300_000 })
   invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
-  invalidateImpactProductClaimCaches()
+  invalidateImpactProductClaimCaches({
+    chainId: getActiveAppChainId(),
+    ownerAddress: cleanupDetails.user,
+    cleanupId,
+  })
 
   const stats = await getUserRewardStats(cleanupDetails.user).catch(() => emptyUserRewardStats())
   return {
