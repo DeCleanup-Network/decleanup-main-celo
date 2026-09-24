@@ -9,7 +9,9 @@ import { GasSponsorshipBadge } from '@/components/aa/GasSponsorshipBadge'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { Button } from '@/components/ui/button'
 import { chainLabelFromId } from '@/components/aa/WalletAccountHelpModal'
-import { getClientCdcuTokenBalance } from '@/lib/smart-account/client'
+import { getClientExperienceTokenBalance } from '@/lib/smart-account/client'
+import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 
 type Props = {
   wallet: AaWalletState | null
@@ -25,11 +27,12 @@ function formatTokenDisplay(raw: string): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 6 })
 }
 
-function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: () => void; chainId: number }) {
+function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: () => void; chainId: number }) {
   if (!open) return null
 
-  const isMainnet = chainId === 42220
-  const title = isMainnet ? 'Celo Mainnet' : chainLabelFromId(chainId)
+  const title = chainLabelFromId(chainId)
+  const isCeloMainnet = chainId === 42220
+  const isBase = chainId === 8453 || chainId === 84532
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
@@ -37,10 +40,10 @@ function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClo
         className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="celo-network-help-title"
+        aria-labelledby="network-help-title"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 id="celo-network-help-title" className="text-lg font-semibold text-white">
+          <h2 id="network-help-title" className="text-lg font-semibold text-white">
             {title}
           </h2>
           <button
@@ -53,11 +56,11 @@ function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClo
           </button>
         </div>
         <div className="space-y-3 text-sm leading-relaxed text-gray-300">
-          {isMainnet ? (
+          {isCeloMainnet ? (
             <>
               <p>
                 <strong className="text-white">Celo Mainnet</strong> is the live blockchain DeCleanup Rewards uses
-                for cleanups, rewards, and $cDCU.
+                for the full app: cleanups, rewards, and $cDCU.
               </p>
               <p className="text-gray-400">
                 Chain ID <span className="font-mono text-gray-300">42220</span>. Public RPC:{' '}
@@ -75,10 +78,30 @@ function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClo
                 </a>
               </p>
             </>
+          ) : isBase ? (
+            <>
+              <p>
+                <strong className="text-white">Base</strong> is the simple cleanup path: sign in, submit proof, earn
+                $bDCU. Gas is ETH.
+              </p>
+              <p className="text-gray-400">
+                Chain ID <span className="font-mono text-gray-300">{chainId}</span>.
+              </p>
+              <p className="text-gray-400">
+                Explorer:{' '}
+                <a
+                  href={chainId === 8453 ? 'https://basescan.org' : 'https://sepolia.basescan.org'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-green hover:underline"
+                >
+                  {chainId === 8453 ? 'basescan.org' : 'sepolia.basescan.org'}
+                </a>
+              </p>
+            </>
           ) : (
             <p>
-              You are connected to {title} (chain ID {chainId}). Production DeCleanup Rewards uses Celo Mainnet
-              (42220).
+              You are connected to {title} (chain ID {chainId}).
             </p>
           )}
         </div>
@@ -94,32 +117,34 @@ function CeloNetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClo
 
 export function WalletStatusCard({ wallet, loading }: Props) {
   const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
-  const [cdcuBalance, setCdcuBalance] = useState<string | null>(null)
+  const [tokenBalance, setTokenBalance] = useState<string | null>(null)
+  const { chainId: experienceChainId } = useExperienceChain()
+  const chain = getExperienceDisplay(experienceChainId)
 
-  /** Display identity + $cDCU: signer EOA (MetaMask / import). CELO gas may still sit on the smart account. */
+  /** Display identity: signer EOA (MetaMask / import). */
   const displayAddress = wallet?.eoaAddress || wallet?.smartAccountAddress
-  const cdcuBalanceAddress = (wallet?.eoaAddress || wallet?.smartAccountAddress) as Address | undefined
+  const tokenBalanceAddress = (wallet?.eoaAddress || wallet?.smartAccountAddress) as Address | undefined
 
   useEffect(() => {
-    if (!cdcuBalanceAddress) {
-      setCdcuBalance(null)
+    if (!tokenBalanceAddress) {
+      setTokenBalance(null)
       return
     }
     let cancelled = false
     void (async () => {
-      const bal = await getClientCdcuTokenBalance(cdcuBalanceAddress)
+      const bal = await getClientExperienceTokenBalance(tokenBalanceAddress, experienceChainId)
       if (cancelled) return
       if (bal == null) {
-        setCdcuBalance(null)
+        setTokenBalance(null)
         return
       }
       const n = Number(bal)
-      setCdcuBalance(Number.isFinite(n) && n > 0 ? bal : null)
+      setTokenBalance(Number.isFinite(n) && n > 0 ? bal : null)
     })()
     return () => {
       cancelled = true
     }
-  }, [cdcuBalanceAddress])
+  }, [tokenBalanceAddress, experienceChainId])
 
   if (loading && !wallet) {
     return (
@@ -133,8 +158,8 @@ export function WalletStatusCard({ wallet, loading }: Props) {
 
   if (!wallet || !displayAddress) return null
 
-  const networkShort =
-    wallet.chainId === 42220 || wallet.chainId === 11142220 ? 'Celo' : chainLabelFromId(wallet.chainId)
+  const displayChainId = experienceChainId || wallet.chainId
+  const networkShort = chainLabelFromId(displayChainId)
   const portfolioHref = `/impact/${displayAddress}`
 
   return (
@@ -148,6 +173,37 @@ export function WalletStatusCard({ wallet, loading }: Props) {
         </div>
 
         <CopyableAddress address={displayAddress} truncate={false} className="text-sm text-gray-200" />
+        <a
+          href={chain.addressExplorerHref(displayAddress)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex text-sm font-medium text-brand-green hover:underline"
+        >
+          View on {chain.explorerName}
+        </a>
+
+        {chain.tokenAddress ? (
+          <div className="rounded-lg border border-gray-800 bg-black/30 px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              {chain.tokenSymbol} on {chain.networkName}
+            </p>
+            <CopyableAddress
+              address={chain.tokenAddress}
+              truncate
+              className="mt-1 text-xs text-gray-200"
+            />
+            {chain.tokenExplorerHref ? (
+              <a
+                href={chain.tokenExplorerHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex text-xs text-brand-green hover:underline"
+              >
+                {chain.tokenTicker} contract · {chain.explorerName}
+              </a>
+            ) : null}
+          </div>
+        ) : null}
 
         <Link
           href={portfolioHref}
@@ -159,12 +215,12 @@ export function WalletStatusCard({ wallet, loading }: Props) {
         <div className="flex flex-wrap gap-6 border-t border-gray-800 pt-4 text-sm">
           <div>
             <span className="text-gray-500">Balance </span>
-            <span className="font-medium text-white">{wallet.balance} CELO</span>
+            <span className="font-medium text-white">{wallet.balance} {chain.gasSymbol}</span>
           </div>
-          {cdcuBalance ? (
+          {tokenBalance ? (
             <div>
-              <span className="text-gray-500">$cDCU </span>
-              <span className="font-medium text-white">{formatTokenDisplay(cdcuBalance)}</span>
+              <span className="text-gray-500">{chain.tokenSymbol} </span>
+              <span className="font-medium text-white">{formatTokenDisplay(tokenBalance)}</span>
             </div>
           ) : null}
           <div className="inline-flex items-center gap-1.5">
@@ -174,7 +230,7 @@ export function WalletStatusCard({ wallet, loading }: Props) {
               type="button"
               onClick={() => setNetworkHelpOpen(true)}
               className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-gray-800 hover:text-brand-green"
-              aria-label="What is Celo Mainnet?"
+              aria-label={`About ${networkShort}`}
             >
               <HelpCircle className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -182,10 +238,10 @@ export function WalletStatusCard({ wallet, loading }: Props) {
         </div>
       </div>
 
-      <CeloNetworkHelpModal
+      <NetworkHelpModal
         open={networkHelpOpen}
         onClose={() => setNetworkHelpOpen(false)}
-        chainId={wallet.chainId}
+        chainId={displayChainId}
       />
     </>
   )

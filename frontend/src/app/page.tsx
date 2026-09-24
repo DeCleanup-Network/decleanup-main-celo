@@ -31,7 +31,6 @@ import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import { 
   CONTRACT_ADDRESSES, 
   MAX_IMPACT_PRODUCT_LEVEL, 
-  REQUIRED_CHAIN_ID, 
   CELO_MAINNET_CHAIN_ID, 
   BASE_MAINNET_CHAIN_ID, 
   CELO_SEPOLIA_CHAIN_ID, 
@@ -43,6 +42,7 @@ import { ImpactProductLevelHelp } from '@/components/dashboard/ImpactProductLeve
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { DashboardActions } from '@/components/dashboard/DashboardActions'
 import { DashboardClaimCdcu } from '@/components/dashboard/DashboardClaimCdcu'
+import { DashboardExperienceToken } from '@/components/dashboard/DashboardExperienceToken'
 import { DashboardProfileCard } from '@/components/dashboard/DashboardProfileCard'
 import { DashboardVerifierExtras } from '@/components/dashboard/DashboardVerifierExtras'
 import { AlertModal } from '@/components/ui/alert-modal'
@@ -68,6 +68,7 @@ import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
 import { isBaseExperience } from '@/lib/blockchain/chain-preference'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
 import { buildImpactProductClaimMessage, impactProductNftVerb } from '@/lib/notifications/claim-success-copy'
@@ -93,6 +94,7 @@ const WalletConnect = dynamic(
 
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
+  const { chainId: experienceChainId, isCelo } = useExperienceChain()
   const aaAuth = isAaAuthEnabledClient()
   const {
     address,
@@ -479,7 +481,7 @@ function HomeContent() {
             .
           </div>
         )}
-        {isBaseExperience() ? null : <AirdropPendingBanner />}
+        {isCelo ? <AirdropPendingBanner /> : null}
         {/* HERO — primary CTA first */}
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
@@ -687,7 +689,11 @@ function HomeContent() {
                         type="button"
                         onClick={() => setShowEarnModal(true)}
                         className="inline-flex rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
-                        aria-label="About DCU points, $cDCU, eligibility, and how to earn more"
+                        aria-label={
+                          isCelo
+                            ? 'About DCU points, $cDCU, eligibility, and how to earn more'
+                            : 'About DCU points and how to earn more on Base'
+                        }
                       >
                         <HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
                       </button>
@@ -701,11 +707,15 @@ function HomeContent() {
                     </p>
                     <p className="mt-1 text-[10px] leading-snug text-muted-foreground">Total network points from all activities</p>
                   </div>
-                  {publicWalletAddress && onchainOwnerAddress && !isBaseExperience() ? (
+                  {publicWalletAddress && onchainOwnerAddress && isCelo ? (
                     <div className="min-w-0 w-full">
                       <DashboardClaimCdcu rewardAddress={publicWalletAddress} payoutAddress={publicWalletAddress} />
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="min-w-0 w-full">
+                      <DashboardExperienceToken chainId={experienceChainId} />
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -802,7 +812,7 @@ function HomeContent() {
                     showToken: false,
                     chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
                   },
-                ].filter(stat => stat.chains.includes(REQUIRED_CHAIN_ID)).map((stat) => (
+                ].filter(stat => stat.chains.includes(experienceChainId)).map((stat) => (
                   <div
                     key={stat.label}
                     className="min-w-0 rounded-lg border border-border bg-background/50 p-2.5 transition-all hover:border-brand-green/50 hover:bg-background sm:p-3"
@@ -854,7 +864,11 @@ function HomeContent() {
 
         <DashboardVerifierExtras />
 
-        <div className="mt-2 grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 sm:mt-4">
+        <div
+          className={`mt-2 grid grid-cols-1 gap-3 sm:mt-4 ${
+            isCelo ? 'min-[480px]:grid-cols-3' : 'min-[480px]:grid-cols-2'
+          }`}
+        >
           <Link href="/leaderboard" className="block min-h-[88px]">
             <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
               <Trophy className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
@@ -871,19 +885,21 @@ function HomeContent() {
               </div>
             </Link>
           )}
-          <Link href="/hypercerts" className="block min-h-[88px]">
-            <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
-              <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
-              <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">HYPERCERTS</h3>
-              <p className="text-xs text-muted-foreground">
-                {hypercertEligibility?.isEligible
-                  ? 'Ready to request certificate'
-                  : hypercertEligibility
-                    ? `${hypercertEligibility.cleanupsCount}/${hypercertEligibility.nextMilestoneCleanups} verified cleanups`
-                    : 'Impact certification'}
-              </p>
-            </div>
-          </Link>
+          {isCelo ? (
+            <Link href="/hypercerts" className="block min-h-[88px]">
+              <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
+                <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
+                <h3 className="mb-1 font-heading text-sm tracking-wider text-foreground">HYPERCERTS</h3>
+                <p className="text-xs text-muted-foreground">
+                  {hypercertEligibility?.isEligible
+                    ? 'Ready to request certificate'
+                    : hypercertEligibility
+                      ? `${hypercertEligibility.cleanupsCount}/${hypercertEligibility.nextMilestoneCleanups} verified cleanups`
+                      : 'Impact certification'}
+                </p>
+              </div>
+            </Link>
+          ) : null}
         </div>
       </main>
 
@@ -1030,8 +1046,10 @@ function HomeContent() {
             <div className="mb-6 space-y-3 rounded-lg border border-border bg-background/80 p-4 text-sm text-muted-foreground">
               <p>
                 <strong className="text-foreground">What is DCU?</strong> DCU (DeCleanup Units) are participation points you
-                earn onchain for cleanups, referrals, streaks, reports, verification work, Hypercerts, and similar activity.
+                earn onchain for cleanups, referrals, streaks
+                {isCelo ? ', reports, verification work, Hypercerts, and similar activity' : ', and verification work'}.
               </p>
+              {isCelo ? (
               <p>
                 <strong className="text-foreground">Converting to $cDCU.</strong> Every{' '}
                 <strong className="text-foreground">50 DCU</strong> slice can unlock a claim: use{' '}
@@ -1039,6 +1057,12 @@ function HomeContent() {
                 in your wallet. How much $cDCU you mint per slice can grow with your activity (multiplier). If the card says
                 you still need DCU, keep contributing until the next threshold.
               </p>
+              ) : (
+              <p>
+                <strong className="text-foreground">Rewards on Base.</strong> Verified cleanups can pay $bDCU. There is no
+                $cDCU claim or Hypercerts hub on this path.
+              </p>
+              )}
               <p>
                 <strong className="text-foreground">Claims.</strong> You also need an active Claim Vault and token on this
                 network, and no conflicting pending claim for your address. Exact amounts follow the live eligibility check and
@@ -1087,6 +1111,7 @@ function HomeContent() {
                 </p>
               </div>
 
+              {isCelo ? (
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">6. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
@@ -1094,6 +1119,7 @@ function HomeContent() {
                   impact certificate via the Hypercerts hub (verifier approval required).
                 </p>
               </div>
+              ) : null}
             </div>
 
             <Button
@@ -1106,7 +1132,7 @@ function HomeContent() {
         </div>
       )}
 
-      {isBaseExperience() ? null : <PastContributorAirdropStrip variant="app" />}
+      {isCelo ? <PastContributorAirdropStrip variant="app" /> : null}
 
       <footer className="border-t border-white/10 py-8 mt-0 flex-shrink-0">
         <div className="container mx-auto px-4">
