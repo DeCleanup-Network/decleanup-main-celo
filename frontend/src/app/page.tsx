@@ -412,7 +412,7 @@ function HomeContent() {
             <p className="text-landing-hint">
               {aaAuth
                 ? isBaseExperience()
-                  ? 'Sign in, then read the Base how-it-works guide.'
+                  ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards on Base.'
                   : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
                 : 'Connect your wallet to start cleaning'}
             </p>

@@ -55,7 +55,7 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
       <h1 className={`text-center ${campaignText.title}`}>Sign in</h1>
       <p className={`mt-2 text-center ${campaignText.note}`}>
         {basePath
-          ? 'Base cleanup path. After sign-in you will get the Base how-it-works guide.'
+          ? 'Base cleanup path. Sign in, then use DeCleanup Rewards.'
           : 'Pick one way in. You can add the others later.'}
       </p>
 
