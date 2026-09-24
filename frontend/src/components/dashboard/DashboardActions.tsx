@@ -7,12 +7,9 @@ import { FeeDisplay } from '@/components/ui/fee-display'
 import { ActionHint } from '@/components/ui/action-hint'
 import { TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
-import { 
-  MAX_IMPACT_PRODUCT_LEVEL, 
-  REQUIRED_CHAIN_ID, 
-  CELO_MAINNET_CHAIN_ID, 
-  CELO_SEPOLIA_CHAIN_ID 
-} from '@/lib/blockchain/chain-constants'
+import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { getActiveNativeGasSymbol } from '@/lib/blockchain/aa-chain'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
 import { useVerifierEligibility } from '@/hooks/useVerifierEligibility'
@@ -67,9 +64,7 @@ export function DashboardActions({
     const { eligibility } = useVerifierEligibility()
     const { showVerifierFeatures } = useVerifierAccess()
     const { walletReady } = useAppWalletAddress()
-
-    // Multi-chain: Check if we are on a Celo network (Deep mode)
-    const isCeloNetwork = REQUIRED_CHAIN_ID === CELO_MAINNET_CHAIN_ID || REQUIRED_CHAIN_ID === CELO_SEPOLIA_CHAIN_ID
+    const { isCelo: isCeloNetwork, chainId: experienceChainId } = useExperienceChain()
 
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
@@ -247,7 +242,7 @@ export function DashboardActions({
 
             {cleanupStatus?.canClaim && claimFeeInfo && claimFeeInfo.enabled && claimFeeInfo.fee > 0n ? (
                 <div className="mt-3 flex justify-center">
-                    <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol="CELO" type="claim" className="mt-1" />
+                    <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol={getActiveNativeGasSymbol(experienceChainId)} type="claim" className="mt-1" />
                 </div>
             ) : null}
 

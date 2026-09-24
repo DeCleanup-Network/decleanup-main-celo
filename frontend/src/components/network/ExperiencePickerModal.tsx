@@ -49,7 +49,7 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
             className="flex flex-col items-center gap-2 rounded-lg border-2 border-white/10 p-4 hover:border-brand-green hover:bg-gray-800 transition-colors"
           >
             <span className="text-lg font-bold text-white">Celo</span>
-            <span className="text-xs text-gray-400 text-center">Full participation, $cDCU, and the Celo user guide</span>
+            <span className="text-xs text-gray-400 text-center">Full participation and $cDCU</span>
           </button>
           <button
             type="button"
@@ -57,7 +57,7 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
             className="flex flex-col items-center gap-2 rounded-lg border-2 border-white/10 p-4 hover:border-brand-green hover:bg-gray-800 transition-colors"
           >
             <span className="text-lg font-bold text-white">Base</span>
-            <span className="text-xs text-gray-400 text-center">Sign in, then the Base cleanup guide. Earn $bDCU</span>
+            <span className="text-xs text-gray-400 text-center">Simple cleanup path. Earn $bDCU</span>
           </button>
         </div>
       </div>

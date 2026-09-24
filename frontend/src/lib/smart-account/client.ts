@@ -6,6 +6,7 @@ import { createPublicClient, erc20Abi, formatEther, http, isAddress } from 'viem
 import { entryPoint07Address } from 'viem/account-abstraction'
 import { CONTRACT_ADDRESSES, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
 import { getActiveAaChain, getPimlicoBundlerUrl } from '@/lib/blockchain/aa-chain'
+import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
 
 const entryPoint = { address: entryPoint07Address as Address, version: '0.7' as const }
 
@@ -73,14 +74,18 @@ export async function getClientSmartAccountBalance(address: Address): Promise<st
   return formatEther(wei)
 }
 
-/** ERC-20 $cDCU balance on an address (smart account or EOA). Returns null if token not configured. */
-export async function getClientCdcuTokenBalance(address: Address): Promise<string | null> {
-  const token = CONTRACT_ADDRESSES.DCU_TOKEN?.trim()
+/** ERC-20 reward token ($cDCU or $bDCU) for a specific experience chain. */
+export async function getClientExperienceTokenBalance(
+  address: Address,
+  chainId?: number
+): Promise<string | null> {
+  const display = getExperienceDisplay(chainId)
+  const token = display.tokenAddress
   if (!token || !isAddress(token) || !isAddress(address)) return null
   try {
     const publicClient = createPublicClient({
-      chain: getActiveAaChain(),
-      transport: http(REQUIRED_RPC_URL),
+      chain: getActiveAaChain(display.chainId),
+      transport: http(display.rpcUrl),
     })
     const raw = await publicClient.readContract({
       address: token as Address,
@@ -92,6 +97,13 @@ export async function getClientCdcuTokenBalance(address: Address): Promise<strin
   } catch {
     return null
   }
+}
+
+/** ERC-20 $cDCU balance on an address (smart account or EOA). Returns null if token not configured. */
+export async function getClientCdcuTokenBalance(address: Address): Promise<string | null> {
+  const token = CONTRACT_ADDRESSES.DCU_TOKEN?.trim()
+  if (!token || !isAddress(token) || !isAddress(address)) return null
+  return getClientExperienceTokenBalance(address)
 }
 
 export { getClientUserOperationReceiptSafe as getClientUserOperationReceipt } from '@/lib/smart-account/wait-user-op'

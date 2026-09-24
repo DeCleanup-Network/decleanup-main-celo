@@ -15,6 +15,7 @@ import {
 } from '@/lib/blockchain/hypercerts/publish-notification'
 import type { HypercertRequest } from '@/lib/blockchain/hypercerts/types'
 import { AlertModal } from '@/components/ui/alert-modal'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 
 function pickLatestUnnotifiedPublished(
   requests: HypercertRequest[],
@@ -35,6 +36,7 @@ function pickLatestUnnotifiedPublished(
  */
 export function HypercertPublishedNotifier() {
   const { showMainApp } = useAppWalletAddress()
+  const { isCelo } = useExperienceChain()
   const { eoaAddress, eligibilityAddress } = useHypercertWallet()
   const [pending, setPending] = useState<HypercertRequest | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -42,7 +44,7 @@ export function HypercertPublishedNotifier() {
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
   useEffect(() => {
-    if (!showMainApp || !eoaAddress) {
+    if (!showMainApp || !eoaAddress || !isCelo) {
       setPending(null)
       return
     }
@@ -70,7 +72,7 @@ export function HypercertPublishedNotifier() {
     return () => {
       cancelled = true
     }
-  }, [showMainApp, eoaAddress, eligibilityAddress, refreshKey])
+  }, [showMainApp, isCelo, eoaAddress, eligibilityAddress, refreshKey])
 
   useEffect(() => {
     if (!showMainApp) return

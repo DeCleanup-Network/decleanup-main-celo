@@ -4,7 +4,9 @@ import {
   getActivePimlicoSlug,
   getPimlicoBundlerUrl,
   isSupportedChainId,
+  resolveActiveChainId,
 } from '@/lib/blockchain/aa-chain'
+import { CHAIN_PREFERENCE_KEY } from '@/lib/blockchain/chain-constants'
 
 describe('AA chain helpers', () => {
   it('maps Pimlico slugs for Celo and Base', () => {
@@ -35,5 +37,14 @@ describe('AA chain helpers', () => {
     expect(getActiveAaChain(42220).id).toBe(42220)
     expect(isSupportedChainId(8453)).toBe(true)
     expect(isSupportedChainId(1)).toBe(false)
+  })
+
+  it('reads the stored experience when no chainId is passed', () => {
+    window.localStorage.setItem(CHAIN_PREFERENCE_KEY, '8453')
+    expect(resolveActiveChainId()).toBe(8453)
+    expect(getActivePimlicoSlug()).toBe('base')
+    window.localStorage.setItem(CHAIN_PREFERENCE_KEY, '42220')
+    expect(getActivePimlicoSlug()).toBe('celo')
+    window.localStorage.removeItem(CHAIN_PREFERENCE_KEY)
   })
 })

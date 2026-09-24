@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BASE_MAINNET_CHAIN_ID, type SupportedChainId } from '@/lib/blockchain/chain-constants'
+import { type SupportedChainId } from '@/lib/blockchain/chain-constants'
 import { readChainPreference, writeChainPreference } from '@/lib/blockchain/chain-preference'
 import { ExperiencePickerModal } from '@/components/network/ExperiencePickerModal'
 
@@ -14,10 +14,6 @@ export function FirstVisitExperienceGate() {
 
   const handleSelect = (chainId: SupportedChainId) => {
     writeChainPreference(chainId)
-    if (chainId === BASE_MAINNET_CHAIN_ID) {
-      window.location.assign('/login?callbackUrl=/guide')
-      return
-    }
     window.location.assign('/')
   }
 

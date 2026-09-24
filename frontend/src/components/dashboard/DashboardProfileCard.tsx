@@ -12,7 +12,8 @@ import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { useWallet } from '@/providers/WalletProvider'
 import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
-import { isBaseExperience } from '@/lib/blockchain/chain-preference'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -45,7 +46,9 @@ export function DashboardProfileCard({
       ? eoaAddress
       : (submissionOwnerAddress ?? address)
   const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
-  const showAirdropBadge = showPastContributorBadge && !isBaseExperience()
+  const { chainId: experienceChainId, isCelo } = useExperienceChain()
+  const chain = getExperienceDisplay(experienceChainId)
+  const showAirdropBadge = showPastContributorBadge && isCelo
 
   /** Impact / onchain activity is keyed by smart account when gasless. */
   const portfolioOwner =
@@ -90,11 +93,58 @@ export function DashboardProfileCard({
           <p className="break-all text-xs text-foreground sm:text-sm">{accountEmail}</p>
         </div>
       ) : null}
-      <div className="mb-4">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Your address
-        </p>
-        <CopyableAddress address={displayAddress} truncate className="text-xs text-foreground sm:text-sm" />
+      <div className="mb-4 space-y-3">
+        <div>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Your address
+          </p>
+          <CopyableAddress address={displayAddress} truncate className="text-xs text-foreground sm:text-sm" />
+          <a
+            href={chain.addressExplorerHref(displayAddress)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-green hover:underline"
+          >
+            View on {chain.explorerName}
+            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+          </a>
+        </div>
+        <div>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Network
+          </p>
+          <p className="text-xs text-foreground sm:text-sm">
+            {chain.networkName}{' '}
+            <span className="text-muted-foreground">({chain.chainId})</span>
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Gas: {chain.gasSymbol}</p>
+        </div>
+        {chain.tokenAddress ? (
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {chain.tokenSymbol} token
+            </p>
+            <CopyableAddress
+              address={chain.tokenAddress}
+              truncate
+              className="text-xs text-foreground sm:text-sm"
+            />
+            {chain.tokenExplorerHref ? (
+              <a
+                href={chain.tokenExplorerHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-green hover:underline"
+              >
+                {chain.tokenTicker} on {chain.explorerName}
+                <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+              </a>
+            ) : null}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Add this contract in your wallet. Symbol {chain.tokenTicker}, 18 decimals.
+            </p>
+          </div>
+        ) : null}
       </div>
       <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
         <Link href={impactHref} className="inline-flex items-center justify-center gap-2">
@@ -104,7 +154,7 @@ export function DashboardProfileCard({
       </Button>
       {cleanupStatus?.canClaim && claimFeeInfo?.enabled && claimFeeInfo.fee > 0n ? (
         <div className="mt-3">
-          <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol="CELO" type="claim" className="mt-1" />
+          <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol={chain.gasSymbol} type="claim" className="mt-1" />
         </div>
       ) : null}
     </div>
