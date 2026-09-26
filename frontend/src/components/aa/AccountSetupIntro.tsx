@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { WALLET_PASSCODE_LOWER } from '@/lib/client-wallet/copy'
 
 /** Shown on Account settings until account passcode is set. */
@@ -11,9 +10,14 @@ export function AccountSetupIntro() {
         Pick 6 digits for your {WALLET_PASSCODE_LOWER}. On a new device, sign in with the same Google or
         email account, then enter the same passcode. Optionally export your signer key to MetaMask when you
         are ready.{' '}
-        <Link href="/guide#embedded-wallet" className="text-brand-green hover:underline">
+        <a
+          href="https://www.decleanup.net/public/guides/celo"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-brand-green hover:underline"
+        >
           How it works
-        </Link>
+        </a>
         .
       </p>
     </section>

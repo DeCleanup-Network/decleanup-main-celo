@@ -7,6 +7,7 @@ import {
   type SupportedChainId,
 } from '@/lib/blockchain/chain-constants'
 import { readChainPreference, writeChainPreference } from '@/lib/blockchain/chain-preference'
+import { websiteGuideUrl } from '@/lib/guides/website-guides'
 import { ExperiencePickerModal } from '@/components/network/ExperiencePickerModal'
 
 function preferenceFromQuery(): SupportedChainId | null {
@@ -32,9 +33,9 @@ export function FirstVisitExperienceGate() {
 
   const handleSelect = (chainId: SupportedChainId) => {
     writeChainPreference(chainId)
-    // Stay on guide (or current path) when deep-linked; otherwise go home.
+    // Old /guide bookmarks go to the website guide for the chosen chain.
     if (window.location.pathname.startsWith('/guide')) {
-      window.location.assign(`/guide?chain=${chainId === BASE_MAINNET_CHAIN_ID ? 'base' : 'celo'}`)
+      window.location.assign(websiteGuideUrl(chainId))
       return
     }
     window.location.assign('/')

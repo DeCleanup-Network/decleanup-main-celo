@@ -67,6 +67,7 @@ import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
 import { isBaseExperience } from '@/lib/blockchain/chain-preference'
+import { websiteGuideUrl } from '@/lib/guides/website-guides'
 import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
@@ -398,7 +399,9 @@ function HomeContent() {
               <div className="pt-1 animate-fade-in-up">
                 <InlineLoginCta callbackUrl="/">
                   <Button asChild variant="brandGhost" size="default">
-                    <Link href="/guide">How it works</Link>
+                    <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
+                      How it works
+                    </a>
                   </Button>
                 </InlineLoginCta>
               </div>
@@ -406,7 +409,9 @@ function HomeContent() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
                 <WalletConnect />
                 <Button asChild variant="brandGhost" size="default">
-                  <Link href="/guide">How it works</Link>
+                  <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
+                    How it works
+                  </a>
                 </Button>
               </div>
             )}

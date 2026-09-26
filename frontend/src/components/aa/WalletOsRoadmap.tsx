@@ -1,7 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-
 export function WalletOsRoadmap() {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-6 space-y-4">
@@ -36,9 +34,14 @@ export function WalletOsRoadmap() {
         </div>
       </div>
 
-      <Link href="/guide#embedded-wallet" className="text-xs text-brand-green underline">
+      <a
+        href="https://www.decleanup.net/public/guides/celo"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-brand-green underline"
+      >
         Wallet security guide
-      </Link>
+      </a>
     </div>
   )
 }
