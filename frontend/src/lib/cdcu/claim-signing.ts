@@ -14,6 +14,7 @@ import {
   type Address,
   hexToSignature,
   parseAbiItem,
+  parseEventLogs,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -21,6 +22,7 @@ import {
   getStoredMilestones,
   setMilestones,
 } from '@/lib/cdcu/issued-store'
+import { getReceiptWithRetry } from '@/lib/server/tx-receipt'
 
 /** ClaimVault `ClaimCategory.CleanupCampaign` (same as server `CLAIM_CATEGORY.CleanupCampaign`). */
 const CLEANUP_CAMPAIGN_CATEGORY = 1
@@ -315,6 +317,39 @@ export async function getCleanupCampaignClaimCountForRecipient(mintRecipient: Ad
     console.warn('[getCleanupCampaignClaimCountForRecipient] getLogs failed:', e)
     return 0
   }
+}
+
+/**
+ * CleanupCampaign `Claimed` events emitted by the configured ClaimVault in a successful tx.
+ * Returns [] when the tx is missing, reverted, or not a ClaimVault claim.
+ */
+export async function getCleanupCampaignClaimsInTx(
+  txHash: `0x${string}`
+): Promise<{ recipient: Address; amount: bigint }[]> {
+  const claimVaultAddress = process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS as Address | undefined
+  if (!claimVaultAddress) return []
+
+  const { id: chainId, rpc } = getChain()
+  const client = createPublicClient({
+    chain: {
+      id: chainId,
+      name: 'Celo',
+      nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
+      rpcUrls: { default: { http: [rpc] } },
+    },
+    transport: http(rpc),
+  })
+
+  const receipt = await getReceiptWithRetry(client, txHash)
+  if (!receipt || receipt.status !== 'success') return []
+
+  return parseEventLogs({ abi: [CLAIMED_EVENT], logs: receipt.logs })
+    .filter(
+      (l) =>
+        l.address.toLowerCase() === claimVaultAddress.toLowerCase() &&
+        Number(l.args.category) === CLEANUP_CAMPAIGN_CATEGORY
+    )
+    .map((l) => ({ recipient: l.args.recipient, amount: l.args.amount }))
 }
 
 /**

@@ -308,7 +308,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
         setClaimPhase('Submitting sponsored claim…')
       }
 
-      await claimCdcu(
+      const { hash } = await claimCdcu(
         {
           recipient: signed.recipient,
           amount: signed.amount,
@@ -330,7 +330,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
       await fetch('/api/airdrop/record-issued', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: result.walletAddress }),
+        body: JSON.stringify({ recipient: result.walletAddress, txHash: hash }),
       })
 
       clearPendingAirdropAddress()

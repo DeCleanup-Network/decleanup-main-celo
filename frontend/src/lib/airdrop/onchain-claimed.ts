@@ -1,7 +1,8 @@
 import 'server-only'
 
-import { createPublicClient, http, type Address, parseAbiItem } from 'viem'
+import { createPublicClient, http, type Address, parseAbiItem, parseEventLogs } from 'viem'
 import { REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
+import { getReceiptWithRetry } from '@/lib/server/tx-receipt'
 
 /** ClaimVault PublicDistribution — airdrop category. */
 const AIRDROP_CLAIM_CATEGORY = 2
@@ -80,4 +81,33 @@ export async function hasAirdropClaimOnChain(recipient: Address): Promise<boolea
     console.warn('[airdrop] onchain claimed check failed:', e)
     return false
   }
+}
+
+/** True if `txHash` succeeded and contains a PublicDistribution ClaimVault claim to `recipient`. */
+export async function hasAirdropClaimInTx(
+  recipient: Address,
+  txHash: `0x${string}`
+): Promise<boolean> {
+  const claimVaultAddress = process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS as Address | undefined
+  if (!claimVaultAddress) return false
+
+  const client = createPublicClient({
+    chain: {
+      id: REQUIRED_CHAIN_ID,
+      name: 'Celo',
+      nativeCurrency: { decimals: 18, name: 'CELO', symbol: 'CELO' },
+      rpcUrls: { default: { http: [REQUIRED_RPC_URL] } },
+    },
+    transport: http(REQUIRED_RPC_URL),
+  })
+
+  const receipt = await getReceiptWithRetry(client, txHash)
+  if (!receipt || receipt.status !== 'success') return false
+
+  return parseEventLogs({ abi: [CLAIMED_EVENT], logs: receipt.logs }).some(
+    (l) =>
+      l.address.toLowerCase() === claimVaultAddress.toLowerCase() &&
+      l.args.recipient.toLowerCase() === recipient.toLowerCase() &&
+      Number(l.args.category) === AIRDROP_CLAIM_CATEGORY
+  )
 }
