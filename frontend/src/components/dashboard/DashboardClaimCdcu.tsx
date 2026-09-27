@@ -203,7 +203,7 @@ export function DashboardClaimCdcu({ rewardAddress, payoutAddress }: DashboardCl
       const recordIssuedResponse = await fetch('/api/cdcu/record-issued', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: rewardAddress, amount: data.amount }),
+        body: JSON.stringify({ recipient: rewardAddress, amount: data.amount, txHash: hash }),
       })
       if (!recordIssuedResponse.ok) {
         console.warn('[DashboardClaimCdcu] Failed to persist issued claim on server.', await recordIssuedResponse.text().catch(() => ''))

@@ -6,14 +6,13 @@
  * signs EIP-712 Claim, and returns signature + params for the user to submit via ClaimVault.claim().
  *
  * Body: { recipient: string, source?: string }.
- * - recipient: wallet that receives minted cDCU (e.g. social EOA)
+ * - recipient: wallet that receives minted cDCU; must be the reward EOA or its canonical Safe
  * - source: optional reward identity used for eligibility + tranche accounting
  * Returns: { recipient, amount, category, nonce, expiry, v, r, s } or 400/500.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { type Address, isAddress } from 'viem'
-import { randomBytes } from 'crypto'
+import { encodePacked, keccak256, type Address, isAddress } from 'viem'
 import {
   getEligibilityAndClaimable,
   signClaimVaultClaim,
@@ -21,7 +20,7 @@ import {
   setPendingWei,
   CLAIM_CATEGORY,
 } from '@/lib/cdcu/claim-signing'
-import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
+import { isAllowedRecipient, resolveClaimIdentity } from '@/lib/cdcu/claim-auth'
 import { enforceApiRateLimit } from '@/lib/server/rate-limit'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 
@@ -75,18 +74,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const identity = await resolveWalletIdentity(source)
-    const rewardIdentity = (identity?.publicAddress ?? source) as Address
-    const linkedAccount =
-      identity?.smartAccountAddress &&
-      identity.smartAccountAddress.toLowerCase() !== rewardIdentity.toLowerCase()
-        ? identity.smartAccountAddress
-        : undefined
+    const identity = await resolveClaimIdentity(source)
+    const { rewardIdentity, linkedAccount } = identity
+    let mintTo = recipient as Address
+    if (!isAllowedRecipient(identity, recipient)) {
+      // Non-canonical smart wallets (e.g. Safe{Wallet} 1.3.0 connected directly) resolve to their
+      // owner EOA as reward identity; pay that EOA rather than a wallet we cannot tie to it.
+      if (recipient.toLowerCase() !== source.toLowerCase()) {
+        return NextResponse.json(
+          { error: 'Recipient must be the reward wallet or its linked smart account.' },
+          { status: 403 }
+        )
+      }
+      mintTo = rewardIdentity
+    }
 
-    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(rewardIdentity, {
-      mintRecipient: recipient as Address,
-      linkedAccount,
-    })
+    const { eligible, claimableNextTrancheWei, milestonesClaimed } = await getEligibilityAndClaimable(
+      rewardIdentity,
+      {
+        mintRecipient: recipient as Address,
+        linkedAccount,
+      }
+    )
     if (!eligible) {
       return NextResponse.json(
         {
@@ -109,11 +118,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const nonce = BigInt('0x' + randomBytes(16).toString('hex'))
+    // One nonce per (identity, tranche, amount) so clear-pending cannot mint the same slice twice.
+    const nonce = BigInt(
+      keccak256(
+        encodePacked(
+          ['address', 'uint256', 'uint8', 'uint256'],
+          [rewardIdentity, BigInt(milestonesClaimed), CLAIM_CATEGORY.CleanupCampaign, claimable]
+        )
+      )
+    )
     const expiry = Math.floor(Date.now() / 1000) + MAX_EXPIRY_SECONDS
 
     const payload = {
-      recipient: recipient as Address,
+      recipient: mintTo,
       amount: claimable,
       category: CLAIM_CATEGORY.CleanupCampaign,
       nonce,

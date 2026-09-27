@@ -1,6 +1,6 @@
 /**
- * IPCC AR6 plastic displacement factor (kg CO2e per kg plastic collected and
- * diverted from open burning or landfill).
+ * IPCC AR6 plastic displacement factor (kg CO2e per kg plastic collected).
+ * This is an estimate, not a measured avoided-emissions claim.
  */
 export const PLASTIC_CO2E_FACTOR_KG = 3.6
 

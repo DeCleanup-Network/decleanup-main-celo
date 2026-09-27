@@ -26,7 +26,7 @@ export function buildCleanupSummary(
     const co2eKg = estimatePlasticCo2eKg(row.weight_kg)
     parts.push(`Removed ${fmtNum(row.weight_kg)} kg of waste`)
     if (co2eKg > 0) {
-      parts.push(`≈ ${fmtNum(co2eKg)} kg CO2e avoided`)
+      parts.push(`≈ ${fmtNum(co2eKg)} kg CO2e estimated equivalent`)
     }
   } else {
     parts.push('Verified cleanup')

@@ -15,6 +15,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const MILESTONES_SUFFIX = ':milestones'
 const PENDING_PREFIX = 'pending_'
+const RECORDED_TX_PREFIX = 'recorded_tx_'
 
 let supabaseClient: SupabaseClient | null = null
 let supabaseChecked = false
@@ -183,6 +184,24 @@ export async function recordIssued(recipient: string, amountWei: bigint): Promis
   const ms = (await getStoredMilestones(recipient)) ?? 0
   await setMilestones(recipient, ms + 1)
   await setPendingWei(recipient, 0n)
+}
+
+/**
+ * Mark a ClaimVault tx as recorded. Returns false if it was already recorded, so one onchain
+ * claim cannot advance milestones twice. Supabase path relies on the unique `key` column.
+ */
+export async function markClaimTxRecorded(txHash: string): Promise<boolean> {
+  const key = `${RECORDED_TX_PREFIX}${txHash.toLowerCase()}`
+  const client = getSupabase()
+  if (!client) {
+    if ((await getValue(key)) != null) return false
+    await setValue(key, '1')
+    return true
+  }
+  const { error } = await client.from('cdcu_issued_store').insert({ key, value: '1' })
+  if (!error) return true
+  if (error.code === '23505') return false
+  throw new Error(`cdcu issued-store: failed to mark claim tx (${error.message})`)
 }
 
 /** Drop the pending signature so the user can request a new one. */

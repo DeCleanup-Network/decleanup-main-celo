@@ -74,7 +74,7 @@ export async function getClientSmartAccountBalance(address: Address): Promise<st
   return formatEther(wei)
 }
 
-/** ERC-20 reward token ($cDCU or $bDCU) for a specific experience chain. */
+/** ERC-20 reward token ($cDCU, $bDCU, or $rDCU) for a specific experience chain. */
 export async function getClientExperienceTokenBalance(
   address: Address,
   chainId?: number

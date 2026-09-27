@@ -491,7 +491,7 @@ export default function VerifierPage() {
       }
 
       // Verify with automatically calculated level - pass chainId to avoid false detection
-      const hash = await verifyCleanup(cleanupId, nextLevel)
+      const { hash, rdcuMintHash } = await verifyCleanup(cleanupId, nextLevel)
       setActiveTx({ cleanupId, hash })
       console.log(`Verifying cleanup ${cleanupId.toString()} with level ${nextLevel}`)
       console.log(`Transaction hash: ${hash}`)
@@ -535,7 +535,10 @@ export default function VerifierPage() {
                 message: (
                   <>
                     <p className="mb-3 text-gray-300">
-                      Cleanup {cleanupId.toString()} is now verified!
+                      Cleanup {cleanupId.toString()} is now verified
+                      {rdcuMintHash
+                        ? '. $rDCU settled for the cleanup, plus any streak or verifier amount.'
+                        : '!'}
                     </p>
                     <a
                       href={explorerUrl}

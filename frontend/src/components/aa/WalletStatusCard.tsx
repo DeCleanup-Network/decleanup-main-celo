@@ -33,6 +33,7 @@ function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: 
   const title = chainLabelFromId(chainId)
   const isCeloMainnet = chainId === 42220
   const isBase = chainId === 8453 || chainId === 84532
+  const isRobinhood = chainId === 46630
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
@@ -75,6 +76,27 @@ function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: 
                   className="text-brand-green hover:underline"
                 >
                   celoscan.io
+                </a>
+              </p>
+            </>
+          ) : isRobinhood ? (
+            <>
+              <p>
+                <strong className="text-white">Robinhood Chain testnet</strong> is the demo path: submit one cleanup,
+                verify it, mint a Hypercert, and hold $rDCU. Gas is test ETH.
+              </p>
+              <p className="text-gray-400">
+                Chain ID <span className="font-mono text-gray-300">46630</span>.
+              </p>
+              <p className="text-gray-400">
+                Explorer:{' '}
+                <a
+                  href="https://explorer.testnet.chain.robinhood.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-green hover:underline"
+                >
+                  explorer.testnet.chain.robinhood.com
                 </a>
               </p>
             </>
@@ -172,7 +194,12 @@ export function WalletStatusCard({ wallet, loading }: Props) {
           <GasSponsorshipBadge enabled={wallet.gaslessEnabled} />
         </div>
 
-        <CopyableAddress address={displayAddress} truncate={false} className="text-sm text-gray-200" />
+        <CopyableAddress
+          address={displayAddress}
+          truncate={false}
+          href={chain.addressExplorerHref(displayAddress)}
+          className="text-sm text-gray-200"
+        />
 
         <Link
           href={portfolioHref}
@@ -189,7 +216,19 @@ export function WalletStatusCard({ wallet, loading }: Props) {
             </div>
             {tokenBalance ? (
               <div>
-                <span className="text-gray-500">{chain.tokenSymbol} </span>
+                {chain.tokenExplorerHref ? (
+                  <a
+                    href={chain.tokenExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`View ${chain.tokenSymbol} on explorer`}
+                    className="text-gray-500 hover:text-brand-green hover:underline"
+                  >
+                    {chain.tokenSymbol}{' '}
+                  </a>
+                ) : (
+                  <span className="text-gray-500">{chain.tokenSymbol} </span>
+                )}
                 <span className="font-medium text-white">{formatTokenDisplay(tokenBalance)}</span>
               </div>
             ) : null}
@@ -206,18 +245,16 @@ export function WalletStatusCard({ wallet, loading }: Props) {
               </button>
             </div>
           </div>
-          {chain.tokenExplorerHref ? (
-            <p className="text-[11px] text-gray-500">
-              {chain.tokenSymbol} contract:{' '}
-              <a
-                href={chain.tokenExplorerHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-green hover:underline"
-              >
-                {chain.explorerName}
-              </a>
-            </p>
+          {chain.tokenExplorerHref && !tokenBalance ? (
+            <a
+              href={chain.tokenExplorerHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`View ${chain.tokenSymbol} on explorer`}
+              className="text-[11px] font-medium text-brand-green hover:underline"
+            >
+              {chain.tokenSymbol}
+            </a>
           ) : null}
         </div>
       </div>

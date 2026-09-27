@@ -44,6 +44,8 @@ import {
 } from '@/lib/blockchain/chain-constants'
 import { getActiveAppChainId, getSubmissionAddress } from '@/lib/blockchain/active-contracts'
 import { getConfig } from '@/lib/blockchain/get-wagmi-config'
+import { lockedSignMessage } from '@/lib/blockchain/wallet-write-mutex'
+import { buildCleanupMetaSignMessage } from '@/lib/impact/cleanup-meta-sign'
 import { switchToExperienceChain } from '@/lib/blockchain/switch-to-required-chain'
 import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
@@ -320,8 +322,12 @@ function CleanupContent() {
     setMounted(true)
     if (typeof window !== 'undefined') {
       setHostName(window.location.hostname)
+      if (sessionStorage.getItem('decleanup:robinhood-home-after-submit') === '1') {
+        sessionStorage.removeItem('decleanup:robinhood-home-after-submit')
+        router.replace('/')
+      }
     }
-  }, [])
+  }, [router])
 
   // Sticky app header (~4.5–5.5rem): scroll each step so the title + intro sit below it, not mid-form.
   useLayoutEffect(() => {
@@ -1372,9 +1378,9 @@ function CleanupContent() {
             hours: enhancedData.hours,
             minutes: enhancedData.minutes,
             wasteTypes: enhancedData.wasteTypes,
-            contributors: enhancedData.contributors
+            contributorsCount: enhancedData.contributors
               .map((email) => email.trim().toLowerCase())
-              .filter((email) => email.length > 0),
+              .filter((email) => email.length > 0).length,
             scopeOfWork: enhancedData.scopeOfWork,
             rightsAssignment: enhancedData.rightsAssignment,
             environmentalChallenges: enhancedData.environmentalChallenges,
@@ -1468,6 +1474,11 @@ function CleanupContent() {
         // steps — never a false "submission failed".
         if (cleanupId === null) {
           setIsSubmitting(false)
+          if (isRobinhood) {
+            sessionStorage.setItem('decleanup:robinhood-home-after-submit', '1')
+            router.replace('/')
+            return
+          }
           setStep('review')
           setAlertModal({
             title: 'Cleanup submitted',
@@ -1549,17 +1560,30 @@ function CleanupContent() {
         }
 
         const saveRecyclablesMeta = () => {
-          void fetch('/api/impact/cleanup-meta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          void (async () => {
+            if (!address) return
+            const timestamp = Date.now()
+            const payload = {
               submissionId: cleanupId.toString(),
               amount: Number(recyclablesAmount),
               unit: recyclablesUnit,
-            }),
-          }).catch((err) =>
-            console.warn('[cleanup-meta] Failed to save recyclables amount for feed:', err)
-          )
+              address,
+              timestamp,
+            }
+            try {
+              const signature = await lockedSignMessage(getConfig(), {
+                message: buildCleanupMetaSignMessage(payload),
+                account: address,
+              })
+              await fetch('/api/impact/cleanup-meta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...payload, signature }),
+              })
+            } catch (err) {
+              console.warn('[cleanup-meta] Failed to save recyclables amount for feed:', err)
+            }
+          })()
         }
 
         // Attach recyclables to submission if provided (legacy two-tx path)
@@ -1670,6 +1694,11 @@ function CleanupContent() {
         }
 
         setIsSubmitting(false)
+        if (isRobinhood) {
+          sessionStorage.setItem('decleanup:robinhood-home-after-submit', '1')
+          router.replace('/')
+          return
+        }
         setStep('review')
 
         const mlPublicOff = process.env.NEXT_PUBLIC_ML_VERIFICATION_ENABLED === 'false'

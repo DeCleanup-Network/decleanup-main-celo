@@ -1067,7 +1067,7 @@ function PublicPortfolioContent() {
               <div className="rounded-xl border border-border bg-card p-4">
                 <h3 className="font-heading text-lg tracking-wider">GHG Equivalency</h3>
                 <p className="mt-2 text-2xl font-heading text-brand-green">
-                  ≈ {formatNum(co2eEstimate, 1)} kg CO₂e avoided
+                  ≈ {formatNum(co2eEstimate, 1)} kg CO₂e estimated equivalent
                 </p>
                 <p
                   className="mt-2 text-xs text-muted-foreground"
@@ -1371,7 +1371,7 @@ function PublicPortfolioContent() {
                             <p className="text-muted-foreground">Climate estimate</p>
                             <p className="mt-1 text-brand-green">
                               {eventCo2e > 0
-                                ? `≈ ${formatNum(eventCo2e, 1)} kg CO₂e avoided`
+                                ? `≈ ${formatNum(eventCo2e, 1)} kg CO₂e estimated equivalent`
                                 : 'Add weight in the impact report'}
                             </p>
                           </div>
@@ -1431,7 +1431,7 @@ function PublicPortfolioContent() {
                                   areaSqm: `${formatNum(metrics.areaSqm, 1)} m²`,
                                   co2eKg:
                                     eventCo2e > 0
-                                      ? `≈ ${formatNum(eventCo2e, 1)} kg CO2e avoided`
+                                      ? `≈ ${formatNum(eventCo2e, 1)} kg CO2e estimated equivalent`
                                       : '-',
                                   cid,
                                   portfolioUrl: shareUrl || window.location.href,

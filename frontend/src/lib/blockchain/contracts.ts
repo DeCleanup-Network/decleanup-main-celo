@@ -16,7 +16,7 @@ import {
   invalidateSubmissionDetailsCache,
 } from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
-import { REQUIRED_BLOCK_EXPLORER_URL } from './chain-constants'
+import { REQUIRED_BLOCK_EXPLORER_URL, ROBINHOOD_TESTNET_CHAIN_ID, getChainConfig } from './chain-constants'
 import { getActiveAaChain } from './aa-chain'
 import {
   getActiveAppChainId,
@@ -1254,10 +1254,77 @@ export async function isVerifier(_address: Address): Promise<boolean> {
   }
 }
 
+const RDCU_TOKEN_ABI = [
+  {
+    type: 'function',
+    name: 'settleAfterVerify',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'submissionId', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'settleUser',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [],
+  },
+] as const
+
+export type VerifyCleanupResult = {
+  hash: `0x${string}`
+  rdcuMintHash?: `0x${string}`
+}
+
+function getRobinhoodRdcuTokenAddress(): Address | undefined {
+  const token = getChainConfig(ROBINHOOD_TESTNET_CHAIN_ID).contracts.DCU_TOKEN?.trim()
+  return token ? (token as Address) : undefined
+}
+
+async function writeRobinhoodRdcu(
+  functionName: 'settleAfterVerify' | 'settleUser',
+  args: readonly [bigint] | readonly [Address]
+): Promise<`0x${string}` | undefined> {
+  if (getActiveAppChainId() !== ROBINHOOD_TESTNET_CHAIN_ID) return undefined
+  const token = getRobinhoodRdcuTokenAddress()
+  const account = getAccount(getConfig())
+  if (!token || !account.address) return undefined
+
+  const mintHash = await lockedWriteContract(getConfig(), {
+    chainId: ROBINHOOD_TESTNET_CHAIN_ID,
+    address: token,
+    abi: RDCU_TOKEN_ABI,
+    functionName,
+    args: args as [bigint] | [Address],
+    account: account.address,
+  })
+
+  await waitForTransactionReceipt(getConfig(), {
+    chainId: ROBINHOOD_TESTNET_CHAIN_ID,
+    hash: mintHash,
+    confirmations: 1,
+    pollingInterval: 2000,
+    timeout: 120000,
+  })
+  return mintHash
+}
+
+async function settleRobinhoodRdcuAfterVerify(
+  submissionId: bigint
+): Promise<`0x${string}` | undefined> {
+  return writeRobinhoodRdcu('settleAfterVerify', [submissionId])
+}
+
+async function settleRobinhoodRdcuForUser(
+  user: Address
+): Promise<`0x${string}` | undefined> {
+  return writeRobinhoodRdcu('settleUser', [user])
+}
+
 export async function verifyCleanup(
   cleanupId: bigint,
   level: number
-): Promise<`0x${string}`> {
+): Promise<VerifyCleanupResult> {
   if (!getSubmissionAddress()) {
     throw new Error('Submission contract address not configured')
   }
@@ -1270,7 +1337,7 @@ export async function verifyCleanup(
   // Hard guard: a verifier must never verify their own submission.
   // Robinhood testnet demo allows one-wallet verify so the loop can be shown.
   const details = await getCleanupDetails(cleanupId)
-  const robinhoodDemo = getActiveAppChainId() === 46630
+  const robinhoodDemo = getActiveAppChainId() === ROBINHOOD_TESTNET_CHAIN_ID
   if (
     !robinhoodDemo &&
     details.user &&
@@ -1352,7 +1419,24 @@ export async function verifyCleanup(
     }
 
     invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
-    return hash
+
+    let rdcuMintHash: `0x${string}` | undefined
+    if (robinhoodDemo) {
+      try {
+        rdcuMintHash = await settleRobinhoodRdcuAfterVerify(cleanupId)
+      } catch (mintError) {
+        const mintMessage = mintError instanceof Error ? mintError.message : String(mintError)
+        if (!/AlreadyMinted|already minted/i.test(mintMessage)) {
+          console.warn('Robinhood $rDCU mint-on-verify skipped:', mintError)
+        }
+      }
+    }
+
+    if (!hash) {
+      throw new Error('Missing verify transaction hash')
+    }
+
+    return { hash, rdcuMintHash }
   } catch (error: any) {
     console.error('Error verifying cleanup:', error)
     let errorMessage = 'Unknown error'
@@ -1862,6 +1946,31 @@ export async function getUserLevelFresh(userAddress: Address): Promise<number> {
   return getUserLevelImpl(userAddress)
 }
 
+/** Approved-cleanup count used to keep tRWA upgrades at one level per cleanup. */
+export async function getUserCleanupCount(userAddress: Address): Promise<number | null> {
+  if (!getSubmissionAddress() || usesBaseMiniAppSubmission()) return null
+  try {
+    const count = await readContract(getConfig(), {
+      chainId: getActiveAppChainId(),
+      address: requireSubmissionAddress(),
+      abi: [
+        {
+          type: 'function',
+          name: 'userCleanupCount',
+          stateMutability: 'view',
+          inputs: [{ name: 'user', type: 'address' }],
+          outputs: [{ type: 'uint256' }],
+        },
+      ] as const,
+      functionName: 'userCleanupCount',
+      args: [userAddress],
+    })
+    return Number(count)
+  } catch {
+    return null
+  }
+}
+
 export type ClaimImpactProductResult = {
   hash: `0x${string}`
   nftTxHash: `0x${string}` | null
@@ -2028,9 +2137,13 @@ export async function claimImpactProductFromVerification(
 
       console.log('Current NFT state:', { tokenId: currentTokenId?.toString() ?? 'null', level: currentLevel })
 
+      const approvedCount = await getUserCleanupCount(submissionOwner)
       const needsMint = currentTokenId === null && currentLevel === 0
       const needsUpgrade =
-        currentTokenId !== null && currentLevel > 0 && currentLevel < 10
+        currentTokenId !== null &&
+        currentLevel > 0 &&
+        currentLevel < 10 &&
+        (approvedCount == null || approvedCount > currentLevel)
 
       nftStepRequired = needsMint || needsUpgrade
 
@@ -2191,6 +2304,15 @@ export async function claimImpactProductFromVerification(
       ownerAddress: submissionOwner,
       cleanupId,
     })
+
+    if (getActiveAppChainId() === ROBINHOOD_TESTNET_CHAIN_ID) {
+      try {
+        await settleRobinhoodRdcuForUser(submissionOwner)
+      } catch (settleError) {
+        console.warn('Robinhood $rDCU settle after tRWA claim skipped:', settleError)
+      }
+    }
+
     return {
       hash,
       nftTxHash,
@@ -2462,6 +2584,17 @@ export async function upgradeImpactProductNFT(
   // Get claim fee
   const { fee, enabled } = await getClaimFee()
   const value = enabled ? fee : 0n
+
+  const user = (account?.address ?? options?.eoaAddress ?? options?.smartAccountAddress) as
+    | Address
+    | undefined
+  if (user) {
+    const currentLevel = await getUserLevel(user)
+    const approvedCount = await getUserCleanupCount(user)
+    if (approvedCount != null && currentLevel + 1 > approvedCount) {
+      throw new Error('Upgrade requires one approved cleanup per tRWA level.')
+    }
+  }
 
   const useBonus = bonusSubmissionId != null
   const IMPACT_PRODUCT_ABI = [

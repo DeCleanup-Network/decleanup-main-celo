@@ -21,6 +21,7 @@
  */
 
 import { getCleanupDetails, getCleanupCounter, getCleanupDetailsAt, getCleanupCounterAt } from '@/lib/blockchain/contracts'
+import { getActiveAppChainId } from '@/lib/blockchain/active-contracts'
 import { isExcludedSubmissionId } from '@/lib/submission/excluded-ids'
 import { fetchIpfsByCid } from '@/lib/utils/ipfs-gateway-proxy'
 import { parseCoordsFromContractRaw } from './coords-from-contract'
@@ -94,7 +95,7 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
         (submission) =>
           submission.verified === true &&
           submission.rejected !== true &&
-          !isExcludedSubmissionId(submission.id)
+          !isExcludedSubmissionId(submission.id, getActiveAppChainId())
       )
     
     console.log(`✅ Filtered to ${approvedSubmissions.length} approved submissions`)
@@ -107,7 +108,7 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
     const normalizedEntries = entries
       .filter((entry): entry is ImpactEntry => entry !== null)
       .map(normalizeEntry)
-      .filter((entry) => !isExcludedSubmissionId(entry.submissionId))
+      .filter((entry) => !isExcludedSubmissionId(entry.submissionId, getActiveAppChainId()))
     
     const expiresAt = now + CACHE_TTL_MINUTES * 60 * 1000
     cachedIndex = {

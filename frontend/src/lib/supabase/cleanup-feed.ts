@@ -268,6 +268,7 @@ export async function getCleanupFeedGlobalStats(chainId: number): Promise<{
       'submission_id, weight_kg, area_sqm, bags, duration_minutes, has_recyclables, recyclables_amount_kg, waste_types, location_type, location_label'
     )
     .eq('chain_id', chainId)
+    .not('verified_at', 'is', null)
 
   if (error) throw new Error(`Failed to aggregate cleanup feed: ${error.message}`)
 

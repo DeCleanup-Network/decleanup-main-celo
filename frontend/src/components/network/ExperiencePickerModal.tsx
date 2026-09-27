@@ -70,7 +70,7 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
             className="flex flex-col items-center gap-2 rounded-lg border-2 border-white/10 p-4 hover:border-brand-green hover:bg-gray-800 transition-colors"
           >
             <span className="text-lg font-bold text-white">Robinhood</span>
-            <span className="text-xs text-gray-400 text-center">Testnet demo. One cleanup, then mint</span>
+            <span className="text-xs text-gray-400 text-center">Testnet demo. Cleanup, Hypercert, $rDCU</span>
           </button>
         </div>
       </div>

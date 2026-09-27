@@ -19,6 +19,7 @@ import {
 import { getIPFSUrl } from '@/lib/blockchain/ipfs'
 import type { Address } from 'viem'
 import { REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/wagmi'
+import { buildSignedActionMessage } from '@/lib/auth/signed-action-message'
 import { ImpactReportDetails } from '@/components/verifier/ImpactReportDetails'
 import {
     fetchHypercertRequestsByStatus,
@@ -37,6 +38,9 @@ import { TrashAthleteVerifierSection } from '@/components/verifier/TrashAthleteV
 import { FundingApplicationsVerifierSection } from '@/components/verifier/FundingApplicationsVerifierSection'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 import { filterExcludedSubmissionIds } from '@/lib/submission/excluded-ids'
+import { getActiveAppChainId } from '@/lib/blockchain/active-contracts'
+import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
+import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
 import type { TrashAthleteChallenge } from '@/lib/trash-athlete/types'
 
 const BLOCK_EXPLORER_URL = REQUIRED_BLOCK_EXPLORER_URL || 'https://celo-sepolia.blockscout.com'
@@ -103,6 +107,7 @@ export default function VerifierPage() {
     isVerifierUserRef.current = isVerifierUser
     /** Stale list reads after reject/approve: keep terminal status until the next fetch matches the server. */
     const verifierTerminalPatchRef = useRef<Map<string, VerifierApplicationRow>>(new Map())
+    const adminListAuthRef = useRef<{ address: string; timestamp: number; signature: string } | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -158,7 +163,14 @@ export default function VerifierPage() {
                     }
                     setNeedsSignature(false)
                     setLoading(false)
-                    router.replace('/')
+                    setError(
+                      `This wallet is not a verifier on ${getExperienceDisplay(getActiveAppChainId()).networkName}.`
+                    )
+                    return
+                }
+
+                if (isRobinhoodExperience(getActiveAppChainId())) {
+                    await verifyAgainstContract(wallet)
                     return
                 }
 
@@ -311,7 +323,7 @@ export default function VerifierPage() {
                     console.warn(`Failed to fetch cleanup ${id}`, err)
                 }
             }
-            setCleanups(filterExcludedSubmissionIds(submissions, (s) => s.id))
+            setCleanups(filterExcludedSubmissionIds(submissions, (s) => s.id, getActiveAppChainId()))
 
             if (isVerifierUserRef.current) {
                 try {
@@ -349,10 +361,39 @@ export default function VerifierPage() {
         }
     }
 
+    const getAdminListHeaders = async () => {
+        if (!address) throw new Error('Wallet not connected')
+        const cached = adminListAuthRef.current
+        if (
+            cached &&
+            cached.address.toLowerCase() === address.toLowerCase() &&
+            Date.now() - cached.timestamp < 10 * 60 * 1000
+        ) {
+            return {
+                'x-admin-address': cached.address,
+                'x-admin-timestamp': String(cached.timestamp),
+                'x-admin-signature': cached.signature,
+            }
+        }
+        const timestamp = Date.now()
+        const signature = await signMessageForWallet({
+            message: buildSignedActionMessage('verifier-applications', {}, timestamp),
+        })
+        adminListAuthRef.current = { address, timestamp, signature }
+        return {
+            'x-admin-address': address,
+            'x-admin-timestamp': String(timestamp),
+            'x-admin-signature': signature,
+        }
+    }
+
     const fetchVerifierApplications = async () => {
         setLoadingVerifierApplications(true)
         try {
-            const response = await fetch(`/api/verifier/applications?t=${Date.now()}`, { cache: 'no-store' })
+            const response = await fetch(`/api/verifier/applications?t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: await getAdminListHeaders(),
+            })
             const payload = await response.json()
             if (!response.ok || !payload?.success) {
                 throw new Error(payload?.error || 'Failed to load verifier applications')
@@ -429,12 +470,22 @@ export default function VerifierPage() {
         setProcessingVerifierAppId(application.id)
         setError(null)
         try {
+            const timestamp = Date.now()
+            const signature = await signMessageForWallet({
+                message: buildSignedActionMessage(
+                    'verifier-review-init',
+                    { applicationId: application.id },
+                    timestamp
+                ),
+            })
             const initRes = await fetch('/api/verifier/review/init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     applicationId: application.id,
                     reviewedBy: address,
+                    timestamp,
+                    signature,
                 }),
             })
             const initPayload = await initRes.json()
@@ -515,6 +566,14 @@ export default function VerifierPage() {
         setProcessingVerifierAppId(application.id)
         setError(null)
         try {
+            const timestamp = Date.now()
+            const signature = await signMessageForWallet({
+                message: buildSignedActionMessage(
+                    'verifier-review',
+                    { applicationId: application.id, decision: 'REJECT' },
+                    timestamp
+                ),
+            })
             const response = await fetch('/api/verifier/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -522,6 +581,8 @@ export default function VerifierPage() {
                     applicationId: application.id,
                     decision: 'REJECT',
                     reviewedBy: address,
+                    timestamp,
+                    signature,
                 }),
             })
             const payload = await response.json()
@@ -638,8 +699,8 @@ export default function VerifierPage() {
               : 0
             const nextLevel = Math.min(10, Math.max(1, currentLevel + 1))
             console.log('Starting verification for submission:', id.toString(), 'level', nextLevel)
-            const txHash = await verifyCleanup(id, nextLevel)
-            console.log('Verification successful, transaction hash:', txHash)
+            const { hash: txHash, rdcuMintHash } = await verifyCleanup(id, nextLevel)
+            console.log('Verification successful, transaction hash:', txHash, 'rDCU mint:', rdcuMintHash)
             if (address) {
                 setCleanups((prev) =>
                     prev.map((c) =>
@@ -660,7 +721,12 @@ export default function VerifierPage() {
             const txUrl = `${BLOCK_EXPLORER_URL}/tx/${txHash}`
             const message = (
                 <>
-                    <p className="mb-3 text-gray-300">Cleanup verified successfully.</p>
+                    <p className="mb-3 text-gray-300">
+                      Cleanup verified successfully
+                      {rdcuMintHash
+                        ? '. $rDCU settled for the cleanup, plus any streak or verifier amount.'
+                        : '.'}
+                    </p>
                     <p className="mb-3 font-mono text-xs text-gray-400 break-all">
                         {txHash.slice(0, 10)}…{txHash.slice(-8)}
                     </p>
@@ -993,7 +1059,9 @@ export default function VerifierPage() {
                             Verifier access only
                         </h2>
                         <p className="mb-4 text-sm text-muted-foreground">
-                            This wallet is not on the verifier list. Apply from Home if you want to review cleanups.
+                            {isRobinhoodExperience(getActiveAppChainId())
+                              ? 'On Robinhood testnet the cabinet is on-chain VERIFIER_ROLE only. Connect 0x7D85…bF95 or 0xA495…3601, and keep Robinhood Chain Testnet selected.'
+                              : 'This wallet is not on the verifier list. Apply from Home if you want to review cleanups.'}
                         </p>
                         {error && (
                             <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-400">
