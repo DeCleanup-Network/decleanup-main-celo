@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ExternalWalletLogin } from '@/components/auth/ExternalWalletLogin'
 import { LoginEmailForm } from '@/components/auth/LoginEmailForm'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 
 type Props = {
   callbackUrl: string
@@ -19,8 +20,10 @@ type Props = {
 /** Sign-in options: Google, email (expands for the address), or a wallet. */
 export function LoginOptions({ callbackUrl, emailLoginEnabled, className }: Props) {
   const { disconnect } = useDisconnect()
+  const { isRobinhood } = useExperienceChain()
   const [emailOpen, setEmailOpen] = useState(false)
   const [emailEnabled, setEmailEnabled] = useState(emailLoginEnabled ?? false)
+  const socialDisabled = isRobinhood
 
   useEffect(() => {
     if (emailLoginEnabled !== undefined) return
@@ -37,10 +40,19 @@ export function LoginOptions({ callbackUrl, emailLoginEnabled, className }: Prop
 
   return (
     <div className={cn('space-y-2', className)}>
+      {socialDisabled ? (
+        <p className="text-center text-xs text-zinc-400">
+          Robinhood demo uses a wallet. Google and email are off.
+        </p>
+      ) : null}
+
       <Button
         type="button"
         className="w-full"
+        disabled={socialDisabled}
+        aria-disabled={socialDisabled}
         onClick={() => {
+          if (socialDisabled) return
           disconnect()
           void signIn('google', { callbackUrl })
         }}
@@ -48,14 +60,19 @@ export function LoginOptions({ callbackUrl, emailLoginEnabled, className }: Prop
         Continue with Google
       </Button>
 
-      {emailEnabled ? (
+      {emailEnabled || socialDisabled ? (
         <div className="space-y-2">
           <Button
             type="button"
             className="w-full"
+            disabled={socialDisabled}
+            aria-disabled={socialDisabled}
             aria-expanded={emailOpen}
             aria-controls="login-email-panel"
-            onClick={() => setEmailOpen((value) => !value)}
+            onClick={() => {
+              if (socialDisabled) return
+              setEmailOpen((value) => !value)
+            }}
           >
             Continue with email
             <ChevronDown
@@ -68,7 +85,7 @@ export function LoginOptions({ callbackUrl, emailLoginEnabled, className }: Prop
           </Button>
           <div
             id="login-email-panel"
-            hidden={!emailOpen}
+            hidden={!emailOpen || socialDisabled}
             className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-3"
           >
             <LoginEmailForm callbackUrl={callbackUrl} />

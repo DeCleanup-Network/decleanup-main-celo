@@ -418,7 +418,7 @@ export function VerifierApplyCard() {
             <p className="mb-2 font-medium">You meet all requirements:</p>
             <ul className="space-y-1 text-xs text-muted-foreground">
               <li>
-                ✓ Impact Product level: {eligibility?.metrics.level} / {minLevel}
+                ✓ tRWA asset level: {eligibility?.metrics.level} / {minLevel}
               </li>
               <li>✓ DCU: {eligibility?.metrics.dcuBalance.toFixed(2)} / {minDCUBalance}</li>
               <li>

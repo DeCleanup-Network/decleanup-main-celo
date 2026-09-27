@@ -70,7 +70,11 @@ beforeEach(() => {
   mockPredictSafe.mockImplementation(async (owner: string) =>
     owner.toLowerCase() === VICTIM.toLowerCase() ? VICTIM_SAFE : '0x5555555555555555555555555555555555555555'
   )
-  mockEligibility.mockResolvedValue({ eligible: true, claimableNextTrancheWei: 10n ** 20n })
+  mockEligibility.mockResolvedValue({
+    eligible: true,
+    claimableNextTrancheWei: 10n ** 20n,
+    milestonesClaimed: 0,
+  })
   mockSign.mockImplementation(async (p: { recipient: string; amount: bigint }) => ({
     ...p,
     v: 27,
@@ -100,7 +104,7 @@ describe('claim-auth', () => {
 })
 
 describe('POST /api/cdcu/claim-request', () => {
-  it('rejects paying another user\'s points to a third-party wallet', async () => {
+  it("rejects paying another user's points to a third-party wallet", async () => {
     const { POST } = await import('@/app/api/cdcu/claim-request/route')
     const res = await POST(post({ source: VICTIM, recipient: ATTACKER }) as never)
     expect(res.status).toBe(403)

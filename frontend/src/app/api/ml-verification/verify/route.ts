@@ -93,6 +93,26 @@ export async function POST(request: NextRequest) {
 
     const { submissionId, beforeImageCid, afterImageCid } = body
 
+    if (/^\d+$/.test(String(submissionId))) {
+      const { getCleanupDetailsFresh } = await import('@/lib/blockchain/contracts')
+      const details = await getCleanupDetailsFresh(BigInt(submissionId))
+      const normalizeCid = (value: string) =>
+        value.replace(/^ipfs:\/\//i, '').replace(/^\/ipfs\//i, '').trim().toLowerCase()
+      const onChainBefore = normalizeCid(details.beforePhotoHash || '')
+      const onChainAfter = normalizeCid(details.afterPhotoHash || '')
+      if (
+        !onChainBefore ||
+        !onChainAfter ||
+        normalizeCid(beforeImageCid) !== onChainBefore ||
+        normalizeCid(afterImageCid) !== onChainAfter
+      ) {
+        return NextResponse.json(
+          { error: 'Image CIDs do not match the on-chain submission' },
+          { status: 400 }
+        )
+      }
+    }
+
     console.log(`[ML Verification] Processing submission ${submissionId}...`)
 
     console.log(`[ML Verification] Downloading and storing photos...`)

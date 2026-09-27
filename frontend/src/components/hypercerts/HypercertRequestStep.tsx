@@ -9,13 +9,21 @@ type Props = {
   pending: boolean
   submitResult?: string
   onRequest: () => void
+  mode?: 'request' | 'onchain-mint'
 }
 
-export function HypercertRequestStep({ canRequest, pending, submitResult, onRequest }: Props) {
+export function HypercertRequestStep({
+  canRequest,
+  pending,
+  submitResult,
+  onRequest,
+  mode = 'request',
+}: Props) {
+  const onchain = mode === 'onchain-mint'
   return (
     <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
       <h2 className="mb-6 font-heading text-2xl uppercase tracking-wider text-foreground sm:text-3xl">
-        Step 3: Submit Hypercert
+        {onchain ? 'Step 3: Mint Hypercert' : 'Step 3: Submit Hypercert'}
       </h2>
 
       <TransactionActionBlock pending={pending} showHint={false}>
@@ -31,13 +39,17 @@ export function HypercertRequestStep({ canRequest, pending, submitResult, onRequ
           )}
         >
           {pending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : null}
-          Request Hypercert
+          {onchain ? 'Mint Hypercert' : 'Request Hypercert'}
         </button>
       </TransactionActionBlock>
 
       <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span>Sends your certificate to a verifier for review. After approval it publishes to Hyperscan automatically.</span>
+        <span>
+          {onchain
+            ? 'Mints an ERC-1155 Hypercert on Robinhood Chain testnet after one verified cleanup.'
+            : 'Sends your certificate to a verifier for review. After approval it publishes to Hyperscan automatically.'}
+        </span>
       </p>
 
       {submitResult?.startsWith('Error') ? (

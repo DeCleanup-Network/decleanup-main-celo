@@ -8,14 +8,16 @@ import {
 import { formatUsdAmount, normalizeBasePaymentTxHash, pickBasePayPayer } from '@/lib/sponsor/base-pay'
 
 describe('sponsor payment methods', () => {
-  it('parses Celo and Base crypto cards', () => {
+  it('parses Celo, Base, and Robinhood crypto cards', () => {
     const methods = parsePaymentMethods([
       { kind: 'crypto', recipientAddress: '0x1111111111111111111111111111111111111111' },
       { kind: 'crypto-base', recipientAddress: '0x2222222222222222222222222222222222222222' },
+      { kind: 'crypto-robinhood', recipientAddress: '0x3333333333333333333333333333333333333333' },
     ])
-    expect(methods).toHaveLength(2)
+    expect(methods).toHaveLength(3)
     expect(methods[0]?.kind).toBe('crypto')
     expect(methods[1]?.kind).toBe('crypto-base')
+    expect(methods[2]?.kind).toBe('crypto-robinhood')
     expect(MAX_PAYMENT_METHODS).toBe(3)
   })
 
@@ -24,6 +26,17 @@ describe('sponsor payment methods', () => {
     expect(
       validatePaymentMethods([
         { kind: 'crypto-base', recipientAddress: '0x1111111111111111111111111111111111111111' },
+      ])
+    ).toBeNull()
+  })
+
+  it('requires a recipient for Robinhood crypto', () => {
+    expect(validatePaymentMethods([{ kind: 'crypto-robinhood', recipientAddress: '' }])).toMatch(
+      /Robinhood/
+    )
+    expect(
+      validatePaymentMethods([
+        { kind: 'crypto-robinhood', recipientAddress: '0x1111111111111111111111111111111111111111' },
       ])
     ).toBeNull()
   })
@@ -40,6 +53,11 @@ describe('sponsor payment methods', () => {
         { kind: 'crypto-base', recipientAddress: '0x2222222222222222222222222222222222222222' },
       ])
     ).toBe(getAddress('0x1111111111111111111111111111111111111111'))
+    expect(
+      cryptoRecipientFromMethods([
+        { kind: 'crypto-robinhood', recipientAddress: '0x3333333333333333333333333333333333333333' },
+      ])
+    ).toBe(getAddress('0x3333333333333333333333333333333333333333'))
   })
 })
 

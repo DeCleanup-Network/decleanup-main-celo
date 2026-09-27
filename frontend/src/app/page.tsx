@@ -66,7 +66,6 @@ import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributo
 import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
-import { isBaseExperience } from '@/lib/blockchain/chain-preference'
 import { websiteGuideUrl } from '@/lib/guides/website-guides'
 import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { useWallet } from '@/providers/WalletProvider'
@@ -94,7 +93,7 @@ const WalletConnect = dynamic(
 
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
-  const { chainId: experienceChainId, isCelo } = useExperienceChain()
+  const { chainId: experienceChainId, isCelo, isBase, isRobinhood } = useExperienceChain()
   const aaAuth = isAaAuthEnabledClient()
   const {
     address,
@@ -130,6 +129,9 @@ function HomeContent() {
 
   useEffect(() => {
     setMounted(true)
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('decleanup:robinhood-home-after-submit')
+    }
   }, [])
 
   useEffect(() => {
@@ -228,7 +230,7 @@ function HomeContent() {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-          purpose: 'claim your Impact Product level',
+          purpose: 'claim your tRWA asset level',
         })
         return
       }
@@ -236,14 +238,14 @@ function HomeContent() {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-          purpose: 'claim your Impact Product level',
+          purpose: 'claim your tRWA asset level',
         })
         return
       }
     } else if (eoaOwnsCleanupOnChain && isEmbeddedAccount && !canTransact) {
       setSignGate({
         mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-        purpose: 'claim your Impact Product level',
+        purpose: 'claim your tRWA asset level',
       })
       return
     } else if (!wagmiIsConnected && !wagmiConnected) {
@@ -327,7 +329,7 @@ function HomeContent() {
 
       setClaimModal({
         variant: claimResult.bonusError ? 'warning' : 'success',
-        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'Impact Product claimed',
+        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'tRWA claimed',
         message: successMessage,
       })
 
@@ -388,9 +390,11 @@ function HomeContent() {
                 <span className="text-foreground">REWARDS</span>
               </h1>
               <p className="text-landing-lede mx-auto max-w-2xl normal-case animate-fade-in-up">
-                {isBaseExperience()
-                  ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
-                  : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
+                {isRobinhood
+                  ? 'Robinhood testnet demo. Submit one cleanup, verify it, mint a Hypercert, and hold $rDCU.'
+                  : isBase
+                    ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
+                    : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
               </p>
             </div>
 
@@ -398,34 +402,40 @@ function HomeContent() {
             {aaAuth ? (
               <div className="pt-1 animate-fade-in-up">
                 <InlineLoginCta callbackUrl="/">
-                  <Button asChild variant="brandGhost" size="default">
-                    <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
-                      How it works
-                    </a>
-                  </Button>
+                  {isRobinhood ? null : (
+                    <Button asChild variant="brandGhost" size="default">
+                      <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
+                        How it works
+                      </a>
+                    </Button>
+                  )}
                 </InlineLoginCta>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
                 <WalletConnect />
-                <Button asChild variant="brandGhost" size="default">
-                  <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
-                    How it works
-                  </a>
-                </Button>
+                {isRobinhood ? null : (
+                  <Button asChild variant="brandGhost" size="default">
+                    <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
+                      How it works
+                    </a>
+                  </Button>
+                )}
               </div>
             )}
             <p className="text-landing-hint">
               {aaAuth
-                ? isBaseExperience()
-                  ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards on Base.'
-                  : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
+                ? isRobinhood
+                  ? 'Connect a wallet on Robinhood Chain testnet. You need a little test ETH for gas. Demo $rDCU is on this chain.'
+                  : isBase
+                    ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards on Base.'
+                    : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
                 : 'Connect your wallet to start cleaning'}
             </p>
           </div>
         </div>
 
-        {isBaseExperience() ? null : <PastContributorAirdropStrip variant="prelogin" />}
+        {isBase || isRobinhood ? null : <PastContributorAirdropStrip variant="prelogin" />}
 
         {/* Footer */}
         <footer className="border-t border-white/10 py-8 flex-shrink-0">
@@ -519,7 +529,7 @@ function HomeContent() {
             )}
             {heroMaxLevelLocked && !showHeroClaimCta && !showHeroUnderReview && (
               <p className="max-w-md text-center text-sm text-muted-foreground sm:text-left">
-                Maximum Impact Product level reached. New submissions are closed for this program phase.
+                Maximum tRWA asset level reached. New submissions are closed for this program phase.
               </p>
             )}
             {showHeroClaimCta && (
@@ -629,12 +639,12 @@ function HomeContent() {
           ) : cleanupStatus?.canClaim ? (
             <div className="dcu-card dcu-card-glow flex min-h-0 flex-1 flex-col border-brand-yellow/30 p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
-                Your Impact Product level
+                Your tRWA asset level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    Your cleanup is verified. Claim level above to mint your Impact Product
+                    Your cleanup is verified. Claim level above to mint your tRWA
                   </p>
                 </div>
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
@@ -646,7 +656,7 @@ function HomeContent() {
           ) : (
             <div className="dcu-card flex min-h-0 flex-1 flex-col p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
-                Your Impact Product level
+                Your tRWA asset level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 rounded-[10px] border border-white/10 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
@@ -654,7 +664,7 @@ function HomeContent() {
                 </div>
                 <h3 className="mb-2 font-heading text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
                 <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
-                  Submit your first cleanup to mint your Impact Product. Use <span className="text-foreground">Submit cleanup</span>{' '}
+                  Submit your first cleanup to mint your tRWA. Use <span className="text-foreground">Submit cleanup</span>{' '}
                   at the top of the page to begin.
                 </p>
               </div>
@@ -734,7 +744,7 @@ function HomeContent() {
                 {showBreakdown ? (
                   <div className="mt-3 space-y-4 border-t border-border/50 pt-3">
               <div className="mb-4 rounded-xl border border-border/80 bg-background/40 p-3 sm:p-4">
-                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">Impact Product level</h3>
+                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">tRWA asset level</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Level {hasLoadedDashboardOnce ? rewardStats.userLevel : '-'} of {MAX_IMPACT_PRODUCT_LEVEL}
                 </p>
@@ -755,7 +765,7 @@ function HomeContent() {
                   <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
                     You have {rewardStats.verifiedCleanupsCount} verified cleanup
                     {rewardStats.verifiedCleanupsCount === 1 ? '' : 's'} onchain, but &quot;Impact level DCU&quot; is still
-                    0. That bucket fills when you claim Impact Product levels after verification (and only if the
+                    0. That bucket fills when you claim tRWA asset levels after verification (and only if the
                     deployed NFT has impact rewards enabled). Other rows (reports, recyclables, etc.) can still show
                     DCU from their own contracts.
                   </p>
@@ -921,7 +931,7 @@ function HomeContent() {
           }}
           title={
             claimModal.title ??
-            (claimModal.variant === 'success' ? 'Impact Product claimed' : 'Claim failed')
+            (claimModal.variant === 'success' ? 'tRWA claimed' : 'Claim failed')
           }
           message={claimModal.message}
           variant={claimModal.variant}
@@ -972,7 +982,7 @@ function HomeContent() {
               </button>
             </div>
             <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-              New verifier applicants need Impact Product level{' '}
+              New verifier applicants need tRWA asset level{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minLevel}</strong>, at least{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minDCUBalance}</strong> DCU, and{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minApprovedCleanups}</strong> verified
@@ -1057,57 +1067,70 @@ function HomeContent() {
                 in your wallet. How much $cDCU you mint per slice can grow with your activity (multiplier). If the card says
                 you still need DCU, keep contributing until the next threshold.
               </p>
+              ) : isRobinhood ? (
+              <p>
+                <strong className="text-foreground">Rewards on Robinhood.</strong> $rDCU mints when the action
+                happens: 10 on verify, then streak, referral, tRWA claim, reports, and verifier work follow the same
+                DCU amounts. Gas is test ETH. There is no $cDCU claim vault on this path.
+              </p>
               ) : (
               <p>
                 <strong className="text-foreground">Rewards on Base.</strong> Verified cleanups can pay $bDCU. There is no
                 $cDCU claim or Hypercerts hub on this path.
               </p>
               )}
+              {isRobinhood ? (
+              <p>
+                <strong className="text-foreground">When it pays.</strong> Confirm the follow-up wallet prompt after
+                verify or tRWA claim. That prompt mints any new $rDCU for that action. Streaks need another verified
+                cleanup within 7 days. Referrals pay when the invited person claims their first tRWA.
+              </p>
+              ) : (
               <p>
                 <strong className="text-foreground">Claims.</strong> You also need an active Claim Vault and token on this
                 network, and no conflicting pending claim for your address. Exact amounts follow the live eligibility check and
                 contracts.
               </p>
+              )}
             </div>
 
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-heading text-lg text-brand-green">1. Impact Products</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">1. tRWA</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">10 DCU</strong> per level by submitting before-and-after cleanup
-                  photos and passing verification. Ten levels are live today; more may follow.
+                  Earn <strong className="text-foreground">{isRobinhood ? '10 $rDCU' : '10 DCU'}</strong> per level by submitting before-and-after cleanup
+                  photos and passing verification{isRobinhood ? '. On Robinhood, 10 $rDCU also mints at verify, then another 10 when you claim the tRWA.' : '. Ten levels are live today; more may follow.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">2. Referrals</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">3 DCU</strong> when someone joins through your link and completes a
-                  verified cleanup.
+                  Earn <strong className="text-foreground">{isRobinhood ? '3 $rDCU' : '3 DCU'}</strong> when someone joins through your link and {isRobinhood ? 'claims their first tRWA. Both of you are paid in that claim settle.' : 'completes a verified cleanup.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">3. Streaks</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">3 DCU</strong> per streak level by submitting at least one cleanup
-                  each calendar week.
+                  Earn <strong className="text-foreground">{isRobinhood ? '3 $rDCU' : '3 DCU'}</strong> per streak level by submitting at least one cleanup
+                  {isRobinhood ? ' that gets verified within 7 days of your last approved cleanup.' : ' each calendar week.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">4. Reports &amp; recyclables</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">5 DCU</strong> for each verified impact report or recyclables
-                  submission tied to a cleanup.
+                  Earn <strong className="text-foreground">{isRobinhood ? '5 $rDCU' : '5 DCU'}</strong> for each verified impact report or recyclables
+                  submission tied to a cleanup{isRobinhood ? ', minted when you claim the tRWA.' : '.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">5. Verifier work</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">1 DCU</strong> per submission you review (approved or rejected
-                  with a clear reason) once you are an active verifier.
+                  Earn <strong className="text-foreground">{isRobinhood ? '1 $rDCU' : '1 DCU'}</strong> per submission you review (approved or rejected
+                  with a clear reason) once you are an active verifier{isRobinhood ? '. Paid in the same settle as verify.' : '.'}
                 </p>
               </div>
 

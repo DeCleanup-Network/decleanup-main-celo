@@ -33,6 +33,8 @@ export const VerifierReviewSchema = z.object({
   decision: z.enum(['APPROVE', 'REJECT']),
   reviewedBy: WalletAddressSchema,
   notes: z.string().max(500, 'Notes too long').optional(),
+  timestamp: z.number().int(),
+  signature: z.string().min(1),
 })
 
 export type VerifierReviewInput = z.infer<typeof VerifierReviewSchema>
@@ -44,6 +46,8 @@ export const VerifierReviewInitSchema = z.object({
   applicationId: z.string().uuid('Invalid application ID'),
   reviewedBy: WalletAddressSchema,
   notes: z.string().max(500, 'Notes too long').optional(),
+  timestamp: z.number().int(),
+  signature: z.string().min(1),
 })
 
 export type VerifierReviewInitInput = z.infer<typeof VerifierReviewInitSchema>

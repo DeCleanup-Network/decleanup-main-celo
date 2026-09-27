@@ -98,16 +98,12 @@ export function DashboardProfileCard({
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Your address
           </p>
-          <CopyableAddress address={displayAddress} truncate className="text-xs text-foreground sm:text-sm" />
-          <a
+          <CopyableAddress
+            address={displayAddress}
+            truncate
             href={chain.addressExplorerHref(displayAddress)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-green hover:underline"
-          >
-            View on {chain.explorerName}
-            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
-          </a>
+            className="text-xs text-foreground sm:text-sm"
+          />
         </div>
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -117,20 +113,23 @@ export function DashboardProfileCard({
             {chain.networkName}{' '}
             <span className="text-muted-foreground">({chain.chainId})</span>
           </p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Gas: {chain.gasSymbol}</p>
-          {chain.tokenExplorerHref ? (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {chain.tokenSymbol} contract:{' '}
-              <a
-                href={chain.tokenExplorerHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-green hover:underline"
-              >
-                {chain.explorerName}
-              </a>
-            </p>
-          ) : null}
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Gas: {chain.gasSymbol}
+            {chain.tokenExplorerHref ? (
+              <>
+                {' · '}
+                <a
+                  href={chain.tokenExplorerHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`View ${chain.tokenSymbol} on explorer`}
+                  className="font-medium text-brand-green hover:underline"
+                >
+                  {chain.tokenSymbol}
+                </a>
+              </>
+            ) : null}
+          </p>
         </div>
       </div>
       <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">

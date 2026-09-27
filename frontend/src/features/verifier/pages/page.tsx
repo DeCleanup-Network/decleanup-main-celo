@@ -477,7 +477,7 @@ export default function VerifierPage() {
         throw new Error('Cleanup not found')
       }
 
-      // Get user's current level from Impact Product NFT
+      // Get user's current level from tRWA NFT
       let nextLevel = 1 // Default to level 1 for new users
       try {
         const currentLevel = await getUserLevel(cleanup.user)
@@ -491,7 +491,7 @@ export default function VerifierPage() {
       }
 
       // Verify with automatically calculated level - pass chainId to avoid false detection
-      const hash = await verifyCleanup(cleanupId, nextLevel)
+      const { hash, rdcuMintHash } = await verifyCleanup(cleanupId, nextLevel)
       setActiveTx({ cleanupId, hash })
       console.log(`Verifying cleanup ${cleanupId.toString()} with level ${nextLevel}`)
       console.log(`Transaction hash: ${hash}`)
@@ -535,7 +535,10 @@ export default function VerifierPage() {
                 message: (
                   <>
                     <p className="mb-3 text-gray-300">
-                      Cleanup {cleanupId.toString()} is now verified!
+                      Cleanup {cleanupId.toString()} is now verified
+                      {rdcuMintHash
+                        ? '. $rDCU settled for the cleanup, plus any streak or verifier amount.'
+                        : '!'}
                     </p>
                     <a
                       href={explorerUrl}
@@ -1715,7 +1718,7 @@ export default function VerifierPage() {
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-gray-400">
-                      Level will be assigned automatically based on user's current Impact Product level (next level up, max 10)
+                      Level will be assigned automatically based on user's current tRWA asset level (next level up, max 10)
                     </div>
                     <div className="flex gap-3">
                       <Button

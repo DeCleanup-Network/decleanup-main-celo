@@ -15,6 +15,7 @@ import {
 } from '@/lib/supabase/applications'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 import { validateInput, VerifierReviewInitSchema } from '@/lib/validation/verifier-schemas'
+import { verifySignedAction } from '@/lib/server/signed-wallet-action'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,8 +37,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { applicationId: appId, reviewedBy, notes } = validation.data
+    const { applicationId: appId, reviewedBy, notes, timestamp, signature } = validation.data
     applicationId = appId
+
+    const signedAdmin = await verifySignedAction({
+      address: reviewedBy,
+      signature,
+      action: 'verifier-review-init',
+      extra: { applicationId: appId },
+      timestamp,
+    })
+    if (!signedAdmin) {
+      return NextResponse.json({ error: 'Admin signature required' }, { status: 403 })
+    }
 
     const isAdmin = await isAdminOnChain(reviewedBy)
     if (!isAdmin) {

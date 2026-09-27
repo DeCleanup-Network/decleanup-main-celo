@@ -5,7 +5,7 @@
 
 import type { Config } from 'wagmi'
 import { getAccount, getChainId, reconnect } from '@wagmi/core'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { resolveActiveChainId } from '@/lib/blockchain/aa-chain'
 import { waitForUserReturnFromWallet } from '@/lib/blockchain/wait-for-wallet-return'
 import { isMobileBrowser } from '@/lib/blockchain/wallet-provider-write'
 
@@ -13,11 +13,12 @@ function settleDelayMs(): number {
   return isMobileBrowser() ? 500 : 150
 }
 
-/** Wait for wagmi + WalletConnect to report REQUIRED_CHAIN_ID after a switch. */
+/** Wait for wagmi + WalletConnect to report the experience chain after a switch. */
 export async function waitForWalletConnectChainReady(
   config: Config,
-  options?: { skipVisibilityWait?: boolean; maxMs?: number }
+  options?: { skipVisibilityWait?: boolean; maxMs?: number; chainId?: number }
 ): Promise<boolean> {
+  const targetChainId = options?.chainId ?? resolveActiveChainId()
   if (!options?.skipVisibilityWait) {
     await waitForUserReturnFromWallet(options?.maxMs ?? 90_000)
   }
@@ -35,12 +36,12 @@ export async function waitForWalletConnectChainReady(
         /* ignore */
       }
     }
-    if (chainId === REQUIRED_CHAIN_ID) {
+    if (chainId === targetChainId) {
       await new Promise((r) => setTimeout(r, isMobileBrowser() ? 100 : 0))
       return true
     }
     await new Promise((r) => setTimeout(r, 400))
   }
 
-  return getAccount(config).chainId === REQUIRED_CHAIN_ID
+  return getAccount(config).chainId === targetChainId
 }

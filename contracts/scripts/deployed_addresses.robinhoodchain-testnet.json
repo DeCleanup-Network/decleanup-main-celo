@@ -1,0 +1,21 @@
+{
+  "DCURewardManager": "0x9423d79dcd7f108dF5749a537fbE92577CdE1902",
+  "ImpactProductNFT": "0xC6523bF318e39B6d9DfBcd95aed9d5C3c5d041d1",
+  "Submission": "0xdB960937821678fb7d029d1611059a04bf1F3046",
+  "HypercertMinterUUPS": "0xC6a7eC8B1695023D3EE74ADC29972cD341AbA3Ea",
+  "network": "robinhoodchain-testnet",
+  "chainId": 46630,
+  "deployer": "0xA495467Bd90A3f4f6c20254685eDCc5ffde13601",
+  "deployedAt": "2026-09-27T03:57:00.604Z",
+  "note": "Robinhood Chain testnet demo stack. Celo-style Submission + official HypercertMinter UUPS.",
+  "RDCUToken": "0x569a7Fd5B15ca7E6aCc8840CaE0735eCb5416A5F",
+  "rDCUMintedTo": [
+    "0xA495467Bd90A3f4f6c20254685eDCc5ffde13601",
+    "0x7D85fCbB505D48E6176483733b62b51704e0bF95"
+  ],
+  "rDCUDeployedAt": "2026-09-27T13:16:49.162Z",
+  "previousRDCUToken": "0x839c6C2E7007bfE44cDf5Af5A6a108c8ef3c1B31",
+  "rDCUSubmission": "0xdB960937821678fb7d029d1611059a04bf1F3046",
+  "rDCUVerifyReward": "10",
+  "rDCURewardManager": "0x9423d79dcd7f108dF5749a537fbE92577CdE1902"
+}

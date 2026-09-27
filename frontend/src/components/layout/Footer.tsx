@@ -14,7 +14,7 @@ export function Footer() {
                             DeCleanup Network
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                            Tokenizing environmental cleanup outcomes into onchain Impact Products.
+                            Tokenizing environmental cleanup outcomes into onchain tRWAs.
                             Making a real difference, one cleanup at a time.
                         </p>
                     </div>

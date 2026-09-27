@@ -38,7 +38,7 @@ type DeployedAddresses = {
 async function main() {
   if (process.env.CONFIRM_DEPLOY_CORE_STACK !== "YES") {
     throw new Error(
-      "Refusing to deploy. Set CONFIRM_DEPLOY_CORE_STACK=YES (writes new addresses to contracts/scripts/deployed_addresses.json)."
+      "Refusing to deploy. Set CONFIRM_DEPLOY_CORE_STACK=YES (writes new addresses to DEPLOY_ADDRESSES_PATH or contracts/scripts/deployed_addresses.json)."
     )
   }
 
@@ -95,7 +95,9 @@ async function main() {
     console.log("Skipped impactClaimRewardsEnabled (DEPLOY_IMPACT_CLAIM_REWARDS_ENABLED=false)")
   }
 
-  const deployedPath = path.join(__dirname, "deployed_addresses.json")
+  const deployedPath = process.env.DEPLOY_ADDRESSES_PATH
+    ? path.resolve(process.env.DEPLOY_ADDRESSES_PATH)
+    : path.join(__dirname, "deployed_addresses.json")
   let previous: Record<string, unknown> = {}
   if (fs.existsSync(deployedPath)) {
     try {

@@ -8,6 +8,7 @@ import { WalletErrorBoundary } from '@/features/wallet/components/WalletErrorBou
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { ChainPicker } from '@/components/network/ChainPicker'
 import { websiteGuideUrl } from '@/lib/guides/website-guides'
+import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
 
 export function Header() {
   return (
@@ -42,10 +43,14 @@ export function Header() {
 
 function GuideHelpLink() {
   const [href, setHref] = useState(websiteGuideUrl())
+  const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
     setHref(websiteGuideUrl())
+    setHidden(isRobinhoodExperience())
   }, [])
+
+  if (hidden) return null
 
   return (
     <a

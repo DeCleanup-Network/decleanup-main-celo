@@ -101,5 +101,6 @@ export function chainLabelFromId(chainId: number): string {
   if (chainId === 11142220) return 'Celo Sepolia'
   if (chainId === 8453) return 'Base'
   if (chainId === 84532) return 'Base Sepolia'
+  if (chainId === 46630) return 'Robinhood Chain Testnet'
   return `Chain ${chainId}`
 }

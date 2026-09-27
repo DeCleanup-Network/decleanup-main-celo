@@ -10,6 +10,7 @@ import { createPublicClient, http } from 'viem'
 import { entryPoint07Address } from 'viem/account-abstraction'
 import { REQUIRED_RPC_URL } from './chain-constants'
 import { getActiveAaChain, getPimlicoBundlerUrl } from './aa-chain'
+import { isRobinhoodExperience } from './chain-preference'
 
 function getPimlicoUrl(): string | null {
   const apiKey =
@@ -46,6 +47,7 @@ export const getPimlicoCeloSepoliaUrl = getPimlicoActiveChainUrl
 
 /** Whether gasless (paymaster) is configured for the active chain. */
 export function isPaymasterConfigured(): boolean {
+  if (isRobinhoodExperience()) return false
   return getPimlicoUrl() != null
 }
 

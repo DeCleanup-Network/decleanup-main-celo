@@ -7,7 +7,7 @@ import { isAaAuthEnabledClient } from '@/lib/auth/is-aa-auth-enabled'
 import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 import { LoginOptions } from '@/components/auth/LoginOptions'
 import { campaignText } from '@/lib/sponsor/display'
-import { isBaseExperience } from '@/lib/blockchain/chain-preference'
+import { isBaseExperience, isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
 
 type Props = {
   emailLoginEnabled: boolean
@@ -22,8 +22,10 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
   const emailSent = searchParams.get('email') === 'sent'
   const aaEnabled = isAaAuthEnabledClient()
   const [basePath, setBasePath] = useState(false)
+  const [robinhoodPath, setRobinhoodPath] = useState(false)
   useEffect(() => {
     setBasePath(isBaseExperience())
+    setRobinhoodPath(isRobinhoodExperience())
   }, [])
   const errorMessage =
     authError === 'Configuration'
@@ -54,9 +56,11 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <h1 className={`text-center ${campaignText.title}`}>Sign in</h1>
       <p className={`mt-2 text-center ${campaignText.note}`}>
-        {basePath
-          ? 'Base cleanup path. Sign in, then use DeCleanup Rewards.'
-          : 'Pick one way in. You can add the others later.'}
+        {robinhoodPath
+          ? 'Robinhood testnet demo. Connect a wallet. Google and email are off.'
+          : basePath
+            ? 'Base cleanup path. Sign in, then use DeCleanup Rewards.'
+            : 'Pick one way in. You can add the others later.'}
       </p>
 
       {(errorMessage || emailSent) && (

@@ -36,8 +36,8 @@ export async function generateMetadata({
     const imageUrl = SHARE_IMAGE_URL // Same preview image for both referral and claim
 
     if (type === 'claim' && level) {
-        title = `Just minted Level ${level} Impact Product! - DeCleanup Rewards`
-        description = `Just minted Level ${level} Impact Product for my recent cleanup. Earn tokens and trade on Celo with DeCleanup Rewards.`
+        title = `Just minted Level ${level} tRWA! - DeCleanup Rewards`
+        description = `Just minted Level ${level} tRWA for my recent cleanup. Earn tokens and trade on Celo with DeCleanup Rewards.`
     } else if (type === 'referral') {
         title = 'Join DeCleanup Rewards — Log cleanups. Verified impact onchain.'
         description = 'Join me in DeCleanup Rewards! Clean up, share proof, earn tokens, and trade on Celo.'

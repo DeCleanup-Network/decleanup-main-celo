@@ -125,7 +125,7 @@ export function DashboardPersonalStats({
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-heading text-lg text-black">1</span>
-                                    <h4 className="font-heading text-xl tracking-wide text-brand-green">Impact Products</h4>
+                                    <h4 className="font-heading text-xl tracking-wide text-brand-green">tRWAs</h4>
                                 </div>
                                 <p className="text-sm text-gray-300">
                                     Earn <span className="font-bold text-brand-green">10 DCU</span> per level with verified

@@ -12,8 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { type Address, isAddress } from 'viem'
-import { randomBytes } from 'crypto'
+import { encodePacked, keccak256, type Address, isAddress } from 'viem'
 import {
   getEligibilityAndClaimable,
   signClaimVaultClaim,
@@ -90,10 +89,13 @@ export async function POST(request: NextRequest) {
       mintTo = rewardIdentity
     }
 
-    const { eligible, claimableNextTrancheWei } = await getEligibilityAndClaimable(rewardIdentity, {
-      mintRecipient: recipient as Address,
-      linkedAccount,
-    })
+    const { eligible, claimableNextTrancheWei, milestonesClaimed } = await getEligibilityAndClaimable(
+      rewardIdentity,
+      {
+        mintRecipient: recipient as Address,
+        linkedAccount,
+      }
+    )
     if (!eligible) {
       return NextResponse.json(
         {
@@ -116,7 +118,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const nonce = BigInt('0x' + randomBytes(16).toString('hex'))
+    // One nonce per (identity, tranche, amount) so clear-pending cannot mint the same slice twice.
+    const nonce = BigInt(
+      keccak256(
+        encodePacked(
+          ['address', 'uint256', 'uint8', 'uint256'],
+          [rewardIdentity, BigInt(milestonesClaimed), CLAIM_CATEGORY.CleanupCampaign, claimable]
+        )
+      )
+    )
     const expiry = Math.floor(Date.now() / 1000) + MAX_EXPIRY_SECONDS
 
     const payload = {

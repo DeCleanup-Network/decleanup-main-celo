@@ -7,6 +7,8 @@
 
 import { NextResponse } from 'next/server'
 import { getAllApplications, getApplicationStats, getLatestApplicationByAddress } from '@/lib/supabase/applications'
+import { isAdminOnChain } from '@/lib/verifier/admin-check'
+import { verifySignedAction } from '@/lib/server/signed-wallet-action'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +48,20 @@ export async function GET(request: Request) {
           }
         )
       }
+    }
+
+    const adminAddress = request.headers.get('x-admin-address')?.trim() || ''
+    const adminSignature = request.headers.get('x-admin-signature')?.trim() || ''
+    const adminTimestamp = Number(request.headers.get('x-admin-timestamp') || '')
+    const signedAdmin = await verifySignedAction({
+      address: adminAddress,
+      signature: adminSignature,
+      action: 'verifier-applications',
+      extra: {},
+      timestamp: adminTimestamp,
+    })
+    if (!signedAdmin || !(await isAdminOnChain(signedAdmin))) {
+      return NextResponse.json({ error: 'Admin signature required' }, { status: 403 })
     }
 
     // Fetch applications and stats (degrade gracefully — same as ?address= branch)

@@ -1,18 +1,8 @@
-import { cookieStorage, createConfig, createStorage, http, type Config } from 'wagmi'
+import { cookieStorage, createConfig, createStorage, type Config } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
-import {
-  aaWagmiChains,
-  baseMainnetChain,
-  baseSepoliaChain,
-  celoMainnetChain,
-  celoSepoliaChain,
-} from '@/lib/blockchain/aa-wagmi-chains'
+import { aaWagmiChains } from '@/lib/blockchain/aa-wagmi-chains'
+import { aaWagmiHttpTransports } from '@/lib/blockchain/aa-wagmi-transports'
 import { getWalletConnectMetadata } from '@/lib/blockchain/wallet-connect-metadata'
-
-const celoMainnetRpcUrl = celoMainnetChain.rpcUrls.default.http[0] ?? 'https://forno.celo.org'
-const celoSepoliaRpcUrl = celoSepoliaChain.rpcUrls.default.http[0] ?? 'https://forno.celo.org'
-const baseMainnetRpcUrl = baseMainnetChain.rpcUrls.default.http[0] ?? 'https://mainnet.base.org'
-const baseSepoliaRpcUrl = baseSepoliaChain.rpcUrls.default.http[0] ?? 'https://sepolia.base.org'
 
 const walletConnectProjectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() || '3a8170812b534d0ff9d794f19a901d64'
@@ -35,13 +25,19 @@ function buildMinimalWagmiConfig(): Config {
       }),
     ],
     storage: createStorage({ storage: cookieStorage }),
-    transports: {
-      [celoMainnetChain.id]: http(celoMainnetRpcUrl),
-      [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
-      [baseMainnetChain.id]: http(baseMainnetRpcUrl),
-      [baseSepoliaChain.id]: http(baseSepoliaRpcUrl),
-    },
+    transports: aaWagmiHttpTransports(),
     ssr: true,
+  })
+}
+
+function missingAaTransport(config: Config): boolean {
+  return aaWagmiChains.some((chain) => {
+    try {
+      config.getClient({ chainId: chain.id })
+      return false
+    } catch {
+      return true
+    }
   })
 }
 
@@ -50,12 +46,14 @@ let clientSingleton: Config | null = null
 
 /** SSR cookie hydration only — same connector options as client. */
 export function getServerMinimalWagmiConfig(): Config {
+  if (serverSingleton && missingAaTransport(serverSingleton)) serverSingleton = null
   if (!serverSingleton) serverSingleton = buildMinimalWagmiConfig()
   return serverSingleton
 }
 
 /** Client wagmi (created once per browser tab). */
 export function createMinimalWagmiConfig(): Config {
+  if (clientSingleton && missingAaTransport(clientSingleton)) clientSingleton = null
   if (!clientSingleton) clientSingleton = buildMinimalWagmiConfig()
   return clientSingleton
 }

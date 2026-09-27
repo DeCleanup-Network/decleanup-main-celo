@@ -1,7 +1,12 @@
 'use client'
 
 import { Network, X } from 'lucide-react'
-import { BASE_MAINNET_CHAIN_ID, CELO_MAINNET_CHAIN_ID, type SupportedChainId } from '@/lib/blockchain/chain-constants'
+import {
+  BASE_MAINNET_CHAIN_ID,
+  CELO_MAINNET_CHAIN_ID,
+  ROBINHOOD_TESTNET_CHAIN_ID,
+  type SupportedChainId,
+} from '@/lib/blockchain/chain-constants'
 
 type Props = {
   onSelect: (chainId: SupportedChainId) => void
@@ -17,7 +22,7 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
       aria-modal="true"
       aria-labelledby="experience-picker-title"
     >
-      <div className="relative mx-4 w-full max-w-lg rounded-lg border-2 border-brand-green bg-gray-900 p-6 shadow-2xl">
+      <div className="relative mx-4 w-full max-w-2xl rounded-lg border-2 border-brand-green bg-gray-900 p-6 shadow-2xl">
         {onDismiss ? (
           <button
             type="button"
@@ -40,9 +45,9 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
           Choose your experience
         </h2>
         <p className="mb-6 text-center text-sm text-gray-300 leading-relaxed">
-          Pick a network first. Celo is the full app. Base is the simple cleanup path.
+          Pick a network first. Celo is the full app. Base is the simple cleanup path. Robinhood Testnet is the submit and Hypercert mint demo.
         </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => onSelect(CELO_MAINNET_CHAIN_ID)}
@@ -58,6 +63,14 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
           >
             <span className="text-lg font-bold text-white">Base</span>
             <span className="text-xs text-gray-400 text-center">Simple cleanup path. Earn $bDCU</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelect(ROBINHOOD_TESTNET_CHAIN_ID)}
+            className="flex flex-col items-center gap-2 rounded-lg border-2 border-white/10 p-4 hover:border-brand-green hover:bg-gray-800 transition-colors"
+          >
+            <span className="text-lg font-bold text-white">Robinhood</span>
+            <span className="text-xs text-gray-400 text-center">Testnet demo. Cleanup, Hypercert, $rDCU</span>
           </button>
         </div>
       </div>

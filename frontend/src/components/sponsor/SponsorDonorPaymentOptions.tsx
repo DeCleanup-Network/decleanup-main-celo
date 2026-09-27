@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { CircleDollarSign, Landmark, QrCode, Wallet } from 'lucide-react'
+import { CircleDollarSign, Coins, Landmark, QrCode, Wallet } from 'lucide-react'
 import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-shared'
 import {
   eventPaymentMethods,
@@ -11,6 +11,7 @@ import {
   type SponsorPaymentMethod,
 } from '@/lib/sponsor/payment-methods'
 import { SponsorDonateSection } from '@/components/sponsor/SponsorDonateSection'
+import { SponsorRobinhoodDonateSection } from '@/components/sponsor/SponsorRobinhoodDonateSection'
 import { campaignText } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
@@ -27,6 +28,7 @@ const ICONS = {
   local: QrCode,
   crypto: Wallet,
   'crypto-base': CircleDollarSign,
+  'crypto-robinhood': Coins,
 } as const
 
 function ManualNotice() {
@@ -102,8 +104,8 @@ export function SponsorDonorPaymentOptions({
       <div className="space-y-2">
         <h2 className={campaignText.section}>How to donate</h2>
         <p className={campaignText.noteBox}>
-          Pick a method this cleanup accepts. Bank and local payments are manual. Celo cUSD and Base
-          USDC are sent in this app.
+          Pick a method this cleanup accepts. Bank and local payments are manual. Celo cUSD, Base
+          USDC, and Robinhood ETH are sent in this app.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-2">
@@ -130,7 +132,9 @@ export function SponsorDonorPaymentOptions({
                   ? 'Pay in the app with MiniPay or a wallet.'
                   : method.kind === 'crypto-base'
                     ? 'Pay USDC with Base Pay.'
-                    : 'Manual payment, outside the app.'}
+                    : method.kind === 'crypto-robinhood'
+                      ? 'Pay test ETH on Robinhood Chain.'
+                      : 'Manual payment, outside the app.'}
               </span>
             </button>
           )
@@ -161,7 +165,23 @@ export function SponsorDonorPaymentOptions({
         </div>
       ) : null}
 
-      {active && active.kind !== 'crypto' && active.kind !== 'crypto-base' ? (
+      {active?.kind === 'crypto-robinhood' ? (
+        <div className="space-y-3">
+          <p className={campaignText.noteBox}>
+            Connect a wallet on Robinhood Chain testnet. You need a little test ETH for gas and the gift.
+          </p>
+          <SponsorRobinhoodDonateSection
+            event={event}
+            recipientAddress={active.recipientAddress || event.recipientAddress}
+            onRecorded={onRecorded}
+          />
+        </div>
+      ) : null}
+
+      {active &&
+      active.kind !== 'crypto' &&
+      active.kind !== 'crypto-base' &&
+      active.kind !== 'crypto-robinhood' ? (
         <div className="rounded-xl border border-white/10 bg-zinc-950/80 p-4">
           <MethodDetails method={active} />
         </div>

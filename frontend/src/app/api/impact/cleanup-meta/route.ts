@@ -20,8 +20,11 @@ import {
   isCleanupFeedConfigured,
   upsertCleanupFeedRows,
 } from '@/lib/supabase/cleanup-feed'
+import { isAddress, verifyMessage, type Hex } from 'viem'
 import { parseJsonBody } from '@/lib/server/api-request-guards'
 import { checkInMemoryRateLimit } from '@/lib/server/rate-limit'
+import { buildCleanupMetaSignMessage } from '@/lib/impact/cleanup-meta-sign'
+import { resolveWalletIdentity } from '@/lib/wallet/resolve-identity'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,6 +33,9 @@ const BodySchema = z.object({
   submissionId: z.string().regex(/^\d+$/),
   amount: z.number().positive(),
   unit: z.enum(['kg', 'g', 'lb', 'bag']),
+  address: z.string(),
+  timestamp: z.number().int(),
+  signature: z.string(),
 })
 
 export async function POST(request: NextRequest) {
@@ -54,9 +60,13 @@ export async function POST(request: NextRequest) {
   const parsed = await parseJsonBody(request, BodySchema)
   if (!parsed.ok) return parsed.response
 
-  const { submissionId, amount, unit } = parsed.data
+  const { submissionId, amount, unit, address, timestamp, signature } = parsed.data
 
   try {
+    if (!isAddress(address) || Math.abs(Date.now() - timestamp) > 15 * 60 * 1000) {
+      return NextResponse.json({ error: 'Invalid or expired signature' }, { status: 400 })
+    }
+
     const details = await getCleanupDetailsFresh(BigInt(submissionId))
     if (details.user === '0x0000000000000000000000000000000000000000') {
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
@@ -66,6 +76,36 @@ export async function POST(request: NextRequest) {
         { error: 'Submission has no recyclables on chain' },
         { status: 400 }
       )
+    }
+
+    const message = buildCleanupMetaSignMessage({ submissionId, amount, unit, timestamp })
+    const valid = await verifyMessage({
+      address,
+      message,
+      signature: signature as Hex,
+    })
+    if (!valid) {
+      return NextResponse.json({ error: 'Signature verification failed' }, { status: 403 })
+    }
+
+    const signerIdentity = await resolveWalletIdentity(address)
+    const ownerIdentity = await resolveWalletIdentity(details.user)
+    const asSet = (...values: Array<string | null | undefined>) =>
+      new Set(values.filter(Boolean).map((value) => String(value).toLowerCase()))
+    const signerSet = asSet(
+      address,
+      signerIdentity?.publicAddress,
+      signerIdentity?.eoaAddress,
+      signerIdentity?.smartAccountAddress
+    )
+    const ownerSet = asSet(
+      details.user,
+      ownerIdentity?.publicAddress,
+      ownerIdentity?.eoaAddress,
+      ownerIdentity?.smartAccountAddress
+    )
+    if (![...signerSet].some((value) => ownerSet.has(value))) {
+      return NextResponse.json({ error: 'Only the submission owner can update cleanup meta' }, { status: 403 })
     }
 
     const amountKg = recyclablesUnitToKg(amount, unit)

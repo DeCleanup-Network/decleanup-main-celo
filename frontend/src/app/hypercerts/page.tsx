@@ -12,6 +12,9 @@ import { getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contract
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { buildHypercertMetadata } from '@/lib/blockchain/hypercerts/metadata'
+import { mintHypercertOnRobinhood } from '@/lib/blockchain/hypercerts/onchain-mint'
+import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
+import { ROBINHOOD_TESTNET_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { uploadToIPFS } from '@/lib/blockchain/ipfs'
 import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
 import {
@@ -109,7 +112,14 @@ export default function HypercertsCertificationPage() {
           }
         }
 
-        const validChainId = chainId === 11142220 || chainId === 42220 ? chainId : 11142220
+        const validChainId =
+          chainId === 11142220 ||
+          chainId === 42220 ||
+          chainId === 8453 ||
+          chainId === 84532 ||
+          chainId === ROBINHOOD_TESTNET_CHAIN_ID
+            ? chainId
+            : 11142220
 
         let requests = userRequests
         if (eoaAddress) {
@@ -221,6 +231,35 @@ export default function HypercertsCertificationPage() {
       setCoverUploading(false)
     }
   }, [eoaAddress, eligibilityAddress])
+
+  const handleMintOnchain = async () => {
+    if (!metadata || !eoaAddress) return
+
+    setSubmitResult('')
+    setSubmitResult('Minting Hypercert...')
+    try {
+      const { txHash, uri } = await mintHypercertOnRobinhood({
+        account: eoaAddress as `0x${string}`,
+        metadata,
+      })
+      setSubmitResult('')
+      setActionModal({
+        title: 'Hypercert minted',
+        message:
+          `Your Hypercert was minted on Robinhood Chain testnet.\n\nTransaction: ${txHash}\nMetadata: ${uri}`,
+        variant: 'success',
+      })
+      setRequestsRefreshKey((k) => k + 1)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setSubmitResult('')
+      setActionModal({
+        title: 'Mint failed',
+        message,
+        variant: 'error',
+      })
+    }
+  }
 
   const handleSubmitRequest = async () => {
     if (!metadata || !eoaAddress || !canSignMessages) return
@@ -388,15 +427,21 @@ export default function HypercertsCertificationPage() {
         ? submittedBrandingReadiness
         : publishedBrandingReadiness ?? brandingReadiness
 
-  const canRequestHypercert =
-    Boolean(eligibility?.eligible) &&
-    !workflowBlocked &&
-    brandingReadiness.ready &&
-    canSignMessages &&
-    !needsUnlock
+  const robinhoodMint = isRobinhoodExperience(chainId)
 
-  const isTransactionPending = submitResult === 'Submitting request...'
-  const showRequestStep = !workflowBlocked && Boolean(eligibility?.eligible)
+  const canRequestHypercert = robinhoodMint
+    ? Boolean(eligibility?.eligible) && Boolean(metadata) && Boolean(eoaAddress) && !needsUnlock
+    : Boolean(eligibility?.eligible) &&
+      !workflowBlocked &&
+      brandingReadiness.ready &&
+      canSignMessages &&
+      !needsUnlock
+
+  const isTransactionPending =
+    submitResult === 'Submitting request...' || submitResult === 'Minting Hypercert...'
+  const showRequestStep = robinhoodMint
+    ? Boolean(eligibility?.eligible)
+    : !workflowBlocked && Boolean(eligibility?.eligible)
   const showNextMilestoneHint =
     publishedComplete && !workflowBlocked && !eligibility?.eligible && Boolean(eligibility?.reason)
 
@@ -470,7 +515,8 @@ export default function HypercertsCertificationPage() {
               canRequest={canRequestHypercert}
               pending={isTransactionPending}
               submitResult={submitResult}
-              onRequest={() => void handleSubmitRequest()}
+              mode={robinhoodMint ? 'onchain-mint' : 'request'}
+              onRequest={() => void (robinhoodMint ? handleMintOnchain() : handleSubmitRequest())}
             />
           ) : null}
 

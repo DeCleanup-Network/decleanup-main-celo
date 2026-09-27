@@ -33,7 +33,7 @@ export function getEligibilityMessage(metric: string, value: number, required: n
   const gap = required - value
   
   const messages: Record<string, (gap: number) => string> = {
-    level: (gap) => `Reach Impact Product level ${required}; ${gap} more needed`,
+    level: (gap) => `Reach tRWA asset level ${required}; ${gap} more needed`,
     dcuBalance: (gap) => `Earn at least ${required} DCU points; ${gap} more needed`,
     approvedCleanups: (gap) => `Complete ${required} approved cleanups; ${gap} more needed`,
   }

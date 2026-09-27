@@ -14,6 +14,7 @@ describe('AA chain helpers', () => {
     expect(getActivePimlicoSlug(11142220)).toBe('celo-sepolia')
     expect(getActivePimlicoSlug(8453)).toBe('base')
     expect(getActivePimlicoSlug(84532)).toBe('base-sepolia')
+    expect(getActivePimlicoSlug(46630)).toBe('robinhood-testnet')
   })
 
   it('builds the bundler URL from the slug', () => {
@@ -28,6 +29,7 @@ describe('AA chain helpers', () => {
   it('uses ETH on Base and CELO on Celo', () => {
     expect(getActiveNativeGasSymbol(8453)).toBe('ETH')
     expect(getActiveNativeGasSymbol(84532)).toBe('ETH')
+    expect(getActiveNativeGasSymbol(46630)).toBe('ETH')
     expect(getActiveNativeGasSymbol(42220)).toBe('CELO')
     expect(getActiveNativeGasSymbol(11142220)).toBe('CELO')
   })
@@ -35,7 +37,9 @@ describe('AA chain helpers', () => {
   it('returns a viem chain with the requested id', () => {
     expect(getActiveAaChain(8453).id).toBe(8453)
     expect(getActiveAaChain(42220).id).toBe(42220)
+    expect(getActiveAaChain(46630).id).toBe(46630)
     expect(isSupportedChainId(8453)).toBe(true)
+    expect(isSupportedChainId(46630)).toBe(true)
     expect(isSupportedChainId(1)).toBe(false)
   })
 

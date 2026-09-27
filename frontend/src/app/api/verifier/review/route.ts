@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApplicationById, updateApplicationStatus, lockApplication, unlockApplication, logAuditEvent } from '@/lib/supabase/applications'
 import { isAdminOnChain } from '@/lib/verifier/admin-check'
 import { validateInput, VerifierReviewSchema } from '@/lib/validation/verifier-schemas'
+import { verifySignedAction } from '@/lib/server/signed-wallet-action'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,8 +34,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { applicationId: appId, decision, reviewedBy, notes } = validation.data
+    const { applicationId: appId, decision, reviewedBy, notes, timestamp, signature } = validation.data
     applicationId = appId
+
+    const signedAdmin = await verifySignedAction({
+      address: reviewedBy,
+      signature,
+      action: 'verifier-review',
+      extra: { applicationId: appId, decision },
+      timestamp,
+    })
+    if (!signedAdmin) {
+      return NextResponse.json({ error: 'Admin signature required' }, { status: 403 })
+    }
 
     // STEP 2: 🔴 CRITICAL - Verify admin role onchain
     const isAdmin = await isAdminOnChain(reviewedBy)

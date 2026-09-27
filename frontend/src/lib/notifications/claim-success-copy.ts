@@ -1,4 +1,4 @@
-/** User-facing copy after Impact Product mint/upgrade claim. */
+/** User-facing copy after tRWA mint/upgrade claim. */
 export function buildImpactProductClaimMessage(opts: {
   nftAction?: 'minted' | 'upgraded' | null
   /** Used when nftAction is null — level before claim (>0 ⇒ upgraded). */
@@ -18,7 +18,7 @@ export function buildImpactProductClaimMessage(opts: {
           ? 'upgraded'
           : 'minted'
 
-  let message = `Your Impact Product was ${nftVerb}.`
+  let message = `Your tRWA was ${nftVerb}.`
 
   const reportParts: string[] = []
   if (opts.hasRecyclables) reportParts.push('recyclables report')

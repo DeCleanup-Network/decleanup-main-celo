@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   BASE_MAINNET_CHAIN_ID,
   CELO_MAINNET_CHAIN_ID,
+  ROBINHOOD_TESTNET_CHAIN_ID,
   type SupportedChainId,
 } from '@/lib/blockchain/chain-constants'
 import { readChainPreference, writeChainPreference } from '@/lib/blockchain/chain-preference'
@@ -15,6 +16,7 @@ function preferenceFromQuery(): SupportedChainId | null {
   const chain = (new URLSearchParams(window.location.search).get('chain') || '').toLowerCase()
   if (chain === 'base') return BASE_MAINNET_CHAIN_ID
   if (chain === 'celo') return CELO_MAINNET_CHAIN_ID
+  if (chain === 'robinhood') return ROBINHOOD_TESTNET_CHAIN_ID
   return null
 }
 

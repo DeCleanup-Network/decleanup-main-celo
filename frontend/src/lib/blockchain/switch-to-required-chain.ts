@@ -5,25 +5,43 @@
 
 import type { Config } from 'wagmi'
 import type { Hex } from 'viem'
-import { getAccount, getWalletClient, reconnect, switchChain } from '@wagmi/core'
+import { getAccount, getWalletClient, switchChain } from '@wagmi/core'
 import {
-  REQUIRED_BLOCK_EXPLORER_URL,
+  BASE_MAINNET_CHAIN_ID,
+  BASE_SEPOLIA_CHAIN_ID,
+  CHAIN_CONFIGS,
   REQUIRED_CHAIN_ID,
-  REQUIRED_CHAIN_NAME,
-  REQUIRED_RPC_URL,
+  ROBINHOOD_TESTNET_CHAIN_ID,
+  type SupportedChainId,
 } from '@/lib/blockchain/chain-constants'
+import { isSupportedChainId, resolveActiveChainId } from '@/lib/blockchain/aa-chain'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 
-const NATIVE = { name: 'CELO', symbol: 'CELO', decimals: 18 }
-
-function hexChainId(): Hex {
-  return `0x${REQUIRED_CHAIN_ID.toString(16)}` as Hex
+function nativeCurrencyFor(chainId: number) {
+  if (
+    chainId === ROBINHOOD_TESTNET_CHAIN_ID ||
+    chainId === BASE_MAINNET_CHAIN_ID ||
+    chainId === BASE_SEPOLIA_CHAIN_ID
+  ) {
+    return { name: 'ETH', symbol: 'ETH', decimals: 18 }
+  }
+  return { name: 'CELO', symbol: 'CELO', decimals: 18 }
 }
 
-async function providerSwitch(config: Config): Promise<void> {
+function addChainParams(chainId: SupportedChainId) {
+  const config = CHAIN_CONFIGS[chainId]
+  return {
+    chainId: `0x${chainId.toString(16)}` as Hex,
+    chainName: config.name,
+    rpcUrls: [config.rpcUrl],
+    blockExplorerUrls: [config.blockExplorerUrl].filter(Boolean),
+    nativeCurrency: nativeCurrencyFor(chainId),
+  }
+}
+
+async function providerSwitch(config: Config, chainId: SupportedChainId): Promise<void> {
   const client =
-    (await getWalletClient(config, { chainId: REQUIRED_CHAIN_ID })) ??
-    (await getWalletClient(config))
+    (await getWalletClient(config, { chainId })) ?? (await getWalletClient(config))
   if (!client?.request) {
     throw new Error('Wallet provider unavailable')
   }
@@ -33,74 +51,79 @@ async function providerSwitch(config: Config): Promise<void> {
     params?: unknown[]
   }) => Promise<unknown>
 
-  const chainIdHex = hexChainId()
+  const params = addChainParams(chainId)
 
   try {
     await request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: chainIdHex }],
+      params: [{ chainId: params.chainId }],
     })
     return
   } catch (e: unknown) {
     const code = (e as { code?: number })?.code
-    if (code !== 4902) throw e
+    const message = String((e as { message?: string })?.message ?? e)
+    // 4902 = chain not in wallet. MetaMask also throws "Unrecognized chain ID".
+    if (code !== 4902 && !/unrecognized chain id/i.test(message)) throw e
   }
 
   await request({
     method: 'wallet_addEthereumChain',
-    params: [
-      {
-        chainId: chainIdHex,
-        chainName: REQUIRED_CHAIN_NAME,
-        rpcUrls: [REQUIRED_RPC_URL],
-        blockExplorerUrls: [REQUIRED_BLOCK_EXPLORER_URL].filter(Boolean),
-        nativeCurrency: NATIVE,
-      },
-    ],
+    params: [params],
   })
   await request({
     method: 'wallet_switchEthereumChain',
-    params: [{ chainId: chainIdHex }],
+    params: [{ chainId: params.chainId }],
   })
 }
 
+function resolveTargetChainId(explicit?: number): SupportedChainId {
+  const id = explicit ?? resolveActiveChainId()
+  return isSupportedChainId(id) ? id : REQUIRED_CHAIN_ID
+}
+
 /**
- * Await chain switch, then settle WalletConnect without waiting for browser visibility.
- * This helps iOS MetaMask show tx prompt immediately after network switch.
+ * Switch the connected wallet to an experience chain, adding it if MetaMask
+ * does not know the chain id yet (Robinhood testnet 0xb626).
  */
-export async function switchToRequiredChain(config: Config): Promise<boolean> {
+export async function switchToExperienceChain(
+  config: Config,
+  chainId?: number
+): Promise<boolean> {
+  const targetChainId = resolveTargetChainId(chainId)
   const account = getAccount(config)
   if (process.env.NODE_ENV === 'development') {
-    console.log('[switchToRequiredChain] start', {
+    console.log('[switchToExperienceChain] start', {
       isConnected: account.isConnected,
       chainId: account.chainId,
+      targetChainId,
       connectorId: account.connector?.id,
       connectorName: account.connector?.name,
     })
   }
   if (!account.isConnected) return false
 
-  if (account.chainId !== REQUIRED_CHAIN_ID) {
+  if (account.chainId === targetChainId) {
+    return true
+  }
+
+  try {
+    await switchChain(config, { chainId: targetChainId })
+  } catch {
     try {
-      await switchChain(config, { chainId: REQUIRED_CHAIN_ID })
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[switchToRequiredChain] switchChain succeeded')
-      }
-    } catch {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[switchToRequiredChain] switchChain failed, trying providerSwitch')
-      }
-      try {
-        await providerSwitch(config)
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[switchToRequiredChain] providerSwitch succeeded')
-        }
-      } catch (e) {
-        console.warn('[switchToRequiredChain] failed:', e)
-        return false
-      }
+      await providerSwitch(config, targetChainId)
+    } catch (e) {
+      console.warn('[switchToExperienceChain] failed:', e)
+      return false
     }
   }
 
-  return waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+  return waitForWalletConnectChainReady(config, {
+    skipVisibilityWait: true,
+    chainId: targetChainId,
+  })
+}
+
+/** Await switch to the live picker chain (localStorage, else env). */
+export async function switchToRequiredChain(config: Config): Promise<boolean> {
+  return switchToExperienceChain(config)
 }

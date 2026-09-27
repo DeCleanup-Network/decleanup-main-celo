@@ -19,7 +19,7 @@ export function MinimalWagmiProviders({
   children: ReactNode
   initialState?: State
 }) {
-  const [config] = useState(createMinimalWagmiConfig)
+  const config = createMinimalWagmiConfig()
   const [queryClient] = useState(
     () =>
       new QueryClient({

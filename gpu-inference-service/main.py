@@ -46,11 +46,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware — do not pair wildcard origins with credentials.
+_cors_origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=_cors_origins or ["*"],
+    allow_credentials=bool(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -290,9 +291,29 @@ async def load_model():
         logger.error(f"Failed to load model: {e}")
         raise
 
+ALLOWED_IMAGE_HOSTS = {
+    host.strip().lower()
+    for host in os.getenv(
+        "ALLOWED_IMAGE_HOSTS",
+        "ipfs.io,gateway.pinata.cloud,cloudflare-ipfs.com,localhost,127.0.0.1",
+    ).split(",")
+    if host.strip()
+}
+LOCAL_IMAGE_ROOT = os.path.realpath(os.getenv("UPLOAD_DIR", "/app/uploads"))
+
+def _host_allowed(image_url: str) -> bool:
+    from urllib.parse import urlparse
+    parsed = urlparse(image_url)
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    return host in ALLOWED_IMAGE_HOSTS or host.endswith(".ipfs.dweb.link")
+
 def download_image(image_url: str) -> Image.Image:
     """Download image from URL and return PIL Image"""
     try:
+        if not _host_allowed(image_url):
+            raise HTTPException(status_code=400, detail="Image host is not allowlisted")
         response = requests.get(image_url, timeout=30)
         response.raise_for_status()
         content = response.content
@@ -327,6 +348,8 @@ def download_image(image_url: str) -> Image.Image:
 def load_image_from_local(local_path: str) -> Image.Image:
     """Load image from VPS filesystem (same host as Next.js uploads)."""
     resolved = os.path.realpath(local_path)
+    if resolved != LOCAL_IMAGE_ROOT and not resolved.startswith(LOCAL_IMAGE_ROOT + os.sep):
+        raise HTTPException(status_code=400, detail="Local image path is outside the upload directory")
     if not os.path.isfile(resolved):
         raise HTTPException(status_code=400, detail=f"Local image not found: {local_path}")
     try:
@@ -346,7 +369,8 @@ def load_image_from_local(local_path: str) -> Image.Image:
 def validate_request(authorization: Optional[str] = Header(None)):
     """Validate request using shared secret"""
     if not SHARED_SECRET:
-        # No secret configured, skip validation
+        if os.getenv("REQUIRE_SHARED_SECRET", "true").lower() in ("1", "true", "yes"):
+            raise HTTPException(status_code=503, detail="SHARED_SECRET is not configured")
         return True
     
     if not authorization:

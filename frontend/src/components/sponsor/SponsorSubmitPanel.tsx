@@ -8,7 +8,7 @@ import { Lock, Share2, Sprout, Unlock } from 'lucide-react'
 import { PageBackButton } from '@/components/layout/PageBackButton'
 import { Button } from '@/components/ui/button'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
-import { getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
+import { getMaxImpactProductLevel } from '@/lib/sponsor/impact-product-level'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { campaignText } from '@/lib/sponsor/display'
@@ -34,7 +34,7 @@ export function SponsorSubmitPanel() {
     }
     setLevelLoading(true)
     try {
-      setLevel(await getMergedUserLevel(rewardIdentity, submissionOwner ?? null))
+      setLevel(await getMaxImpactProductLevel(rewardIdentity, submissionOwner ?? null))
     } catch {
       setLevel(0)
     } finally {
@@ -73,13 +73,13 @@ export function SponsorSubmitPanel() {
           <PageBackButton />
           <h1 className={`mt-4 ${campaignText.title}`}>Apply for funding</h1>
           <p className={`mt-1 ${campaignText.note}`}>
-            Two paths. Start with community donations (MiniPay / cUSD, or USDC on Base). Gardens unlocks later.
+            Two paths. Start with community donations (cUSD on Celo, USDC on Base, or ETH on Robinhood). Gardens unlocks later.
           </p>
         </div>
 
         {!isConnected ? (
           <div className="space-y-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-            <p className={campaignText.body}>Connect the wallet that holds your Impact Product.</p>
+            <p className={campaignText.body}>Connect the wallet that holds your tRWA.</p>
             <Button type="button" className="w-full" disabled={isPending} onClick={() => void connect()}>
               {isPending ? 'Connecting…' : 'Connect wallet'}
             </Button>
@@ -105,7 +105,7 @@ export function SponsorSubmitPanel() {
               </span>
               <div>
                 <p className={campaignText.cardTitle}>Community donations</p>
-                <p className={campaignText.cardHint}>MiniPay · Base Pay · share link · cUSD or USDC</p>
+                <p className={campaignText.cardHint}>MiniPay · Base Pay · Robinhood ETH · share link</p>
               </div>
             </div>
             {communityUnlocked ? (
@@ -160,7 +160,7 @@ export function SponsorSubmitPanel() {
             </Link>
           ) : (
             <p className={campaignText.note}>
-              Reach Impact Product level {MIN_LEVEL}, then come back to apply. Verifiers will review
+              Reach tRWA asset level {MIN_LEVEL}, then come back to apply. Verifiers will review
               before your page goes live for donors.
             </p>
           )}

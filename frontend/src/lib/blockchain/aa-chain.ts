@@ -14,6 +14,7 @@ import {
   CHAIN_PREFERENCE_KEY,
   REQUIRED_CHAIN_ID,
   REQUIRED_RPC_URL,
+  ROBINHOOD_TESTNET_CHAIN_ID,
   getChainConfig,
   type SupportedChainId,
 } from './chain-constants'
@@ -35,7 +36,8 @@ export function isSupportedChainId(id: number): id is SupportedChainId {
   return id === CELO_MAINNET_CHAIN_ID ||
     id === CELO_SEPOLIA_CHAIN_ID ||
     id === BASE_MAINNET_CHAIN_ID ||
-    id === BASE_SEPOLIA_CHAIN_ID
+    id === BASE_SEPOLIA_CHAIN_ID ||
+    id === ROBINHOOD_TESTNET_CHAIN_ID
 }
 
 export function getActivePimlicoSlug(chainId?: number): string {
@@ -50,7 +52,11 @@ export function getPimlicoBundlerUrl(apiKey: string, chainId?: number): string {
 
 export function getActiveNativeGasSymbol(chainId?: number): string {
   const id = resolveActiveChainId(chainId)
-  return id === BASE_MAINNET_CHAIN_ID || id === BASE_SEPOLIA_CHAIN_ID ? 'ETH' : 'CELO'
+  return id === BASE_MAINNET_CHAIN_ID ||
+    id === BASE_SEPOLIA_CHAIN_ID ||
+    id === ROBINHOOD_TESTNET_CHAIN_ID
+    ? 'ETH'
+    : 'CELO'
 }
 
 export function getActiveAaChain(chainId?: number): Chain {
@@ -88,6 +94,22 @@ export function getActiveAaChain(chainId?: number): Chain {
         public: { http: [rpcUrl] },
       },
     }
+  }
+
+  if (config.id === ROBINHOOD_TESTNET_CHAIN_ID) {
+    return defineChain({
+      id: ROBINHOOD_TESTNET_CHAIN_ID,
+      name: config.name,
+      nativeCurrency: { decimals: 18, name: 'ETH', symbol: 'ETH' },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+      blockExplorers: {
+        default: { name: 'Robinhood Testnet Explorer', url: config.blockExplorerUrl },
+      },
+      testnet: true,
+    })
   }
 
   return defineChain({

@@ -11,6 +11,7 @@ import {
   pickOwnedVerifierApplication,
 } from '@/lib/verifier/owned-application'
 import { scheduleIdle } from '@/lib/dashboard/schedule-idle'
+import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
 
 type Options = {
   /** Wait until browser idle before hitting verifier APIs / on-chain role check. */
@@ -18,7 +19,7 @@ type Options = {
 }
 
 /**
- * Verifier UX is driven by an approved application — not raw on-chain VERIFIER_ROLE alone.
+ * Celo/Base cabinet UX follows an approved application. Robinhood testnet uses on-chain VERIFIER_ROLE.
  */
 export function useVerifierAccess(options?: Options) {
   const defer = options?.defer ?? false
@@ -41,8 +42,10 @@ export function useVerifierAccess(options?: Options) {
   }, [defer, active])
 
   const applicationApproved = latestApp?.status === 'APPROVED'
-  const showVerifierFeatures = active && applicationApproved
-  const showVerifierApplyCard = active && isAuthenticated && !applicationApproved
+  const robinhoodOnChain = isRobinhoodExperience() && onChainRole
+  const showVerifierFeatures = active && (applicationApproved || robinhoodOnChain)
+  const showVerifierApplyCard =
+    active && isAuthenticated && !applicationApproved && !isRobinhoodExperience()
 
   const loadApplication = useCallback(async () => {
     if (!active) return
@@ -83,14 +86,21 @@ export function useVerifierAccess(options?: Options) {
   }, [loadApplication])
 
   useEffect(() => {
-    if (!active || !rewardIdentity) {
+    if (!active) {
       setOnChainRole(false)
       return
     }
-    void isVerifierOnChain(rewardIdentity)
-      .then(setOnChainRole)
+    const candidates = [...new Set(
+      [address, submissionOwnerAddress].filter((value): value is Address => Boolean(value))
+    )]
+    if (!candidates.length) {
+      setOnChainRole(false)
+      return
+    }
+    void Promise.all(candidates.map((candidate) => isVerifierOnChain(candidate)))
+      .then((flags) => setOnChainRole(flags.some(Boolean)))
       .catch(() => setOnChainRole(false))
-  }, [active, rewardIdentity])
+  }, [active, address, submissionOwnerAddress])
 
   return {
     rewardIdentity,

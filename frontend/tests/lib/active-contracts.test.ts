@@ -24,6 +24,18 @@ describe('active contracts', () => {
     )
   })
 
+  it('uses Robinhood testnet Submission when the experience is Robinhood', () => {
+    window.localStorage.setItem(CHAIN_PREFERENCE_KEY, '46630')
+    expect(getActiveAppChainId()).toBe(46630)
+    expect(usesBaseMiniAppSubmission()).toBe(false)
+    expect(getSubmissionAddress()?.toLowerCase()).toBe(
+      '0xdb960937821678fb7d029d1611059a04bf1f3046'
+    )
+    expect(getRewardManagerAddress()?.toLowerCase()).toBe(
+      '0x9423d79dcd7f108df5749a537fbe92577cde1902'
+    )
+  })
+
   it('uses Celo env contracts when the experience is Celo', () => {
     window.localStorage.setItem(CHAIN_PREFERENCE_KEY, '42220')
     expect(getActiveAppChainId()).toBe(42220)

@@ -22,8 +22,8 @@ import type { Config } from 'wagmi'
 import type { Hex } from 'viem'
 import { getAccount, reconnect, signMessage, writeContract } from '@wagmi/core'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
-import { switchToRequiredChain } from '@/lib/blockchain/switch-to-required-chain'
+import { resolveActiveChainId } from '@/lib/blockchain/aa-chain'
+import { switchToExperienceChain } from '@/lib/blockchain/switch-to-required-chain'
 import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-chain-ready'
 
 /** Wagmi writeContract params (strict). */
@@ -65,6 +65,11 @@ export function lockedWriteContract(
   return enqueue(async () => {
     _busy = true
     try {
+      const targetChainId =
+        typeof (params as { chainId?: number }).chainId === 'number'
+          ? (params as { chainId: number }).chainId
+          : resolveActiveChainId()
+      await switchToExperienceChain(config, targetChainId)
       await prepareMobileWalletWrite(config)
       return await writeContract(config, params as WriteContractParams)
     } finally {
@@ -78,7 +83,7 @@ export function lockedWriteContract(
  * Prevents a chain switch from overlapping with an in-flight tx request.
  */
 export function lockedSwitchToRequiredChain(config: Config): Promise<boolean> {
-  return enqueue(() => switchToRequiredChain(config))
+  return enqueue(() => switchToExperienceChain(config))
 }
 
 /**
@@ -102,22 +107,29 @@ async function prepareMobileWalletWrite(config: Config): Promise<void> {
   if (!needsPrep) return
 
   await prepareWalletConnectSession(config)
-  let ready = await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+  const targetChainId = resolveActiveChainId()
+  let ready = await waitForWalletConnectChainReady(config, {
+    skipVisibilityWait: true,
+    chainId: targetChainId,
+  })
   let fresh = getAccount(config)
-  if (fresh.chainId != null && fresh.chainId !== REQUIRED_CHAIN_ID) {
-    const switched = await switchToRequiredChain(config)
+  if (fresh.chainId != null && fresh.chainId !== targetChainId) {
+    const switched = await switchToExperienceChain(config, targetChainId)
     if (switched) {
-      ready = await waitForWalletConnectChainReady(config, { skipVisibilityWait: true })
+      ready = await waitForWalletConnectChainReady(config, {
+        skipVisibilityWait: true,
+        chainId: targetChainId,
+      })
       fresh = getAccount(config)
     }
   }
   if (
     !ready &&
     fresh.chainId != null &&
-    fresh.chainId !== REQUIRED_CHAIN_ID
+    fresh.chainId !== targetChainId
   ) {
     throw new Error(
-      'Wallet is not on Celo yet. Switch in your wallet app, return to the browser, then try again.'
+      'Wallet is not on the app network yet. Approve the network in your wallet, then try again.'
     )
   }
 }

@@ -8,7 +8,7 @@ import { PageBackButton } from '@/components/layout/PageBackButton'
 import { Button } from '@/components/ui/button'
 import { SponsorCopyLinkButton } from '@/components/sponsor/SponsorCopyLinkButton'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
-import { getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
+import { getMaxImpactProductLevel } from '@/lib/sponsor/impact-product-level'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useEffect } from 'react'
@@ -82,7 +82,7 @@ export function SponsorFundingApplyForm() {
       }
       setChecking(true)
       try {
-        const level = await getMergedUserLevel(rewardIdentity, submissionOwner ?? null)
+        const level = await getMaxImpactProductLevel(rewardIdentity, submissionOwner ?? null)
         if (!cancelled) setEligible(level >= MIN_LEVEL)
       } catch {
         if (!cancelled) setEligible(false)
@@ -115,7 +115,7 @@ export function SponsorFundingApplyForm() {
     e.preventDefault()
     setError(null)
     if (!eligible || !rewardIdentity) {
-      setError(`Reach Impact Product level ${MIN_LEVEL} first.`)
+      setError(`Reach tRWA asset level ${MIN_LEVEL} first.`)
       return
     }
     if (!name.trim() || !location.trim() || !whyFunding.trim()) {
@@ -256,7 +256,7 @@ export function SponsorFundingApplyForm() {
               placeholder="~40 kg plastic per event, 200m shoreline"
             />
           </Field>
-          <Field label="Funding goal" hint="Target amount. Donors can send local currency or cUSD.">
+          <Field label="Funding goal" hint="Target amount. Donors can send local currency, cUSD, USDC, or ETH.">
             <input className={inputClass} inputMode="decimal" value={fundingGoal} onChange={(e) => setFundingGoal(e.target.value)} placeholder="300" />
           </Field>
           <Field label="Next event date (optional)">
