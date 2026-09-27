@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     if (level < minLevel) {
       return NextResponse.json(
         {
-          error: `Reach Impact Product level ${minLevel} to submit for donations (you are level ${level}).`,
+          error: `Reach tRWA asset level ${minLevel} to submit for donations (you are level ${level}).`,
           level,
           minLevel,
         },

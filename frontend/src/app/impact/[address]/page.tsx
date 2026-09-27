@@ -1469,15 +1469,15 @@ function PublicPortfolioContent() {
               timeframeEnd={data.aggregated?.timeframeEnd}
             />
 
-            {/* 9) Impact Product credential */}
+            {/* 9) tRWA credential */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <h2 className="font-heading text-xl tracking-wider">Cleanup Progression Credential</h2>
-              <p className="text-xs text-muted-foreground">ERC-1155 · field-verified cleanup progression</p>
+              <h2 className="font-heading text-xl tracking-wider">tRWA</h2>
+              <p className="text-xs text-muted-foreground">Tokenized RWA · field-verified cleanup progression</p>
               <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
                 <div className="overflow-hidden rounded-lg border border-border bg-black/40">
                   {data.impactProductImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={data.impactProductImageUrl} alt={`Impact Product level ${data.level}`} className="h-full w-full object-cover" />
+                    <img src={data.impactProductImageUrl} alt={`tRWA asset level ${data.level}`} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex aspect-square items-center justify-center">
                       <Award className="h-10 w-10 text-brand-green/40" />

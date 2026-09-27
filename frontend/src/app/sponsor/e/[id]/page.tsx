@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const path = sponsorEventPath(id)
   const fallback = buildPageMetadata({
     title: 'Cleanup fundraiser',
-    description: 'Open this DeCleanup campaign, read the story, then donate with cUSD on Celo or USDC on Base.',
+    description: 'Open this DeCleanup campaign, read the story, then donate with cUSD on Celo, USDC on Base, or ETH on Robinhood.',
     path,
   })
 
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     if (!event) return fallback
     const description = (
       event.whyFunding?.trim() ||
-      `Fund ${event.name} in ${event.location} with cUSD on Celo or USDC on Base.`
+      `Fund ${event.name} in ${event.location} with cUSD on Celo, USDC on Base, or ETH on Robinhood.`
     ).slice(0, 160)
     return buildPageMetadata({
       title: event.name,

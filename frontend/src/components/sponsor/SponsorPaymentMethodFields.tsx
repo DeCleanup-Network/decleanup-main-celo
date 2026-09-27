@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Landmark, QrCode, Wallet, CircleDollarSign, X } from 'lucide-react'
+import { Landmark, QrCode, Wallet, CircleDollarSign, Coins, X } from 'lucide-react'
 import { uploadToIPFS } from '@/lib/blockchain/ipfs'
 import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-shared'
 import {
@@ -17,17 +17,20 @@ import { campaignText } from '@/lib/sponsor/display'
 const inputClass =
   'w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-green/50'
 
-const KINDS: PaymentMethodKind[] = ['bank', 'local', 'crypto', 'crypto-base']
+const KINDS: PaymentMethodKind[] = ['bank', 'local', 'crypto', 'crypto-base', 'crypto-robinhood']
 
 const ICONS = {
   bank: Landmark,
   local: QrCode,
   crypto: Wallet,
   'crypto-base': CircleDollarSign,
+  'crypto-robinhood': Coins,
 } as const
 
 function emptyMethod(kind: PaymentMethodKind, recipientDefault = ''): SponsorPaymentMethod {
-  if (kind === 'crypto' || kind === 'crypto-base') return { kind, recipientAddress: recipientDefault }
+  if (kind === 'crypto' || kind === 'crypto-base' || kind === 'crypto-robinhood') {
+    return { kind, recipientAddress: recipientDefault }
+  }
   if (kind === 'bank') return { kind, bankName: '', accountName: '', accountNumber: '', notes: '' }
   return { kind, localMethodName: '', localDetails: '', qrImageCid: '' }
 }
@@ -103,7 +106,7 @@ export function SponsorPaymentMethodFields({
         <p className={campaignText.formLabel}>How can donors pay you?</p>
         <p className={`mt-1 ${campaignText.note}`}>
           Pick one method, then you can add up to two more. Bank and local payments happen outside the
-          app. Celo and Base crypto are both in-app.
+          app. Celo cUSD, Base USDC, and Robinhood ETH are in-app.
         </p>
       </div>
 
@@ -220,13 +223,21 @@ export function SponsorPaymentMethodFields({
             </>
           ) : null}
 
-          {method.kind === 'crypto' || method.kind === 'crypto-base' ? (
+          {method.kind === 'crypto' || method.kind === 'crypto-base' || method.kind === 'crypto-robinhood' ? (
             <Field
-              label={method.kind === 'crypto-base' ? 'Recipient wallet (USDC on Base)' : 'Recipient wallet (cUSD)'}
+              label={
+                method.kind === 'crypto-base'
+                  ? 'Recipient wallet (USDC on Base)'
+                  : method.kind === 'crypto-robinhood'
+                    ? 'Recipient wallet (ETH on Robinhood)'
+                    : 'Recipient wallet (cUSD)'
+              }
               hint={
                 method.kind === 'crypto-base'
                   ? 'Defaults to your connected wallet. Same 0x works on Base. Donors pay with Base Pay.'
-                  : 'Defaults to your connected wallet. Donors send cUSD in MiniPay or WalletConnect.'
+                  : method.kind === 'crypto-robinhood'
+                    ? 'Defaults to your connected wallet. Donors send test ETH on Robinhood Chain testnet.'
+                    : 'Defaults to your connected wallet. Donors send cUSD in MiniPay or WalletConnect.'
               }
             >
               <input

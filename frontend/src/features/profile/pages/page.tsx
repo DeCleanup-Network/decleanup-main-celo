@@ -559,7 +559,7 @@ useEffect(() => {
             hasActiveStreak={profileData.hasActiveStreak}
           />
 
-          {/* Middle Column: Impact Product */}
+          {/* Middle Column: tRWA */}
           <DashboardImpactProduct
             level={profileData.level}
             imageUrl={profileData.imageUrl}
@@ -766,7 +766,7 @@ useEffect(() => {
           onClose={() => setClaimModal(null)}
           title={
             claimModal.variant === 'success'
-              ? 'Impact Product claimed'
+              ? 'tRWA claimed'
               : claimModal.variant === 'warning'
                 ? 'Level claimed, bonuses pending'
                 : 'Claim failed'

@@ -227,7 +227,7 @@ function HomeContent() {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-          purpose: 'claim your Impact Product level',
+          purpose: 'claim your tRWA asset level',
         })
         return
       }
@@ -235,14 +235,14 @@ function HomeContent() {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-          purpose: 'claim your Impact Product level',
+          purpose: 'claim your tRWA asset level',
         })
         return
       }
     } else if (eoaOwnsCleanupOnChain && isEmbeddedAccount && !canTransact) {
       setSignGate({
         mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-        purpose: 'claim your Impact Product level',
+        purpose: 'claim your tRWA asset level',
       })
       return
     } else if (!wagmiIsConnected && !wagmiConnected) {
@@ -326,7 +326,7 @@ function HomeContent() {
 
       setClaimModal({
         variant: claimResult.bonusError ? 'warning' : 'success',
-        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'Impact Product claimed',
+        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'tRWA claimed',
         message: successMessage,
       })
 
@@ -399,21 +399,25 @@ function HomeContent() {
             {aaAuth ? (
               <div className="pt-1 animate-fade-in-up">
                 <InlineLoginCta callbackUrl="/">
-                  <Button asChild variant="brandGhost" size="default">
-                    <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
-                      How it works
-                    </a>
-                  </Button>
+                  {isRobinhood ? null : (
+                    <Button asChild variant="brandGhost" size="default">
+                      <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
+                        How it works
+                      </a>
+                    </Button>
+                  )}
                 </InlineLoginCta>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1 animate-fade-in-up">
                 <WalletConnect />
-                <Button asChild variant="brandGhost" size="default">
-                  <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
-                    How it works
-                  </a>
-                </Button>
+                {isRobinhood ? null : (
+                  <Button asChild variant="brandGhost" size="default">
+                    <a href={websiteGuideUrl()} target="_blank" rel="noopener noreferrer">
+                      How it works
+                    </a>
+                  </Button>
+                )}
               </div>
             )}
             <p className="text-landing-hint">
@@ -522,7 +526,7 @@ function HomeContent() {
             )}
             {heroMaxLevelLocked && !showHeroClaimCta && !showHeroUnderReview && (
               <p className="max-w-md text-center text-sm text-muted-foreground sm:text-left">
-                Maximum Impact Product level reached. New submissions are closed for this program phase.
+                Maximum tRWA asset level reached. New submissions are closed for this program phase.
               </p>
             )}
             {showHeroClaimCta && (
@@ -632,12 +636,12 @@ function HomeContent() {
           ) : cleanupStatus?.canClaim ? (
             <div className="dcu-card dcu-card-glow flex min-h-0 flex-1 flex-col border-brand-yellow/30 p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
-                Your Impact Product level
+                Your tRWA asset level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    Your cleanup is verified. Claim level above to mint your Impact Product
+                    Your cleanup is verified. Claim level above to mint your tRWA
                   </p>
                 </div>
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
@@ -649,7 +653,7 @@ function HomeContent() {
           ) : (
             <div className="dcu-card flex min-h-0 flex-1 flex-col p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
-                Your Impact Product level
+                Your tRWA asset level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 rounded-[10px] border border-white/10 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
@@ -657,7 +661,7 @@ function HomeContent() {
                 </div>
                 <h3 className="mb-2 font-heading text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
                 <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
-                  Submit your first cleanup to mint your Impact Product. Use <span className="text-foreground">Submit cleanup</span>{' '}
+                  Submit your first cleanup to mint your tRWA. Use <span className="text-foreground">Submit cleanup</span>{' '}
                   at the top of the page to begin.
                 </p>
               </div>
@@ -737,7 +741,7 @@ function HomeContent() {
                 {showBreakdown ? (
                   <div className="mt-3 space-y-4 border-t border-border/50 pt-3">
               <div className="mb-4 rounded-xl border border-border/80 bg-background/40 p-3 sm:p-4">
-                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">Impact Product level</h3>
+                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">tRWA asset level</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Level {hasLoadedDashboardOnce ? rewardStats.userLevel : '-'} of {MAX_IMPACT_PRODUCT_LEVEL}
                 </p>
@@ -758,7 +762,7 @@ function HomeContent() {
                   <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
                     You have {rewardStats.verifiedCleanupsCount} verified cleanup
                     {rewardStats.verifiedCleanupsCount === 1 ? '' : 's'} onchain, but &quot;Impact level DCU&quot; is still
-                    0. That bucket fills when you claim Impact Product levels after verification (and only if the
+                    0. That bucket fills when you claim tRWA asset levels after verification (and only if the
                     deployed NFT has impact rewards enabled). Other rows (reports, recyclables, etc.) can still show
                     DCU from their own contracts.
                   </p>
@@ -924,7 +928,7 @@ function HomeContent() {
           }}
           title={
             claimModal.title ??
-            (claimModal.variant === 'success' ? 'Impact Product claimed' : 'Claim failed')
+            (claimModal.variant === 'success' ? 'tRWA claimed' : 'Claim failed')
           }
           message={claimModal.message}
           variant={claimModal.variant}
@@ -975,7 +979,7 @@ function HomeContent() {
               </button>
             </div>
             <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-              New verifier applicants need Impact Product level{' '}
+              New verifier applicants need tRWA asset level{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minLevel}</strong>, at least{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minDCUBalance}</strong> DCU, and{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minApprovedCleanups}</strong> verified
@@ -1075,7 +1079,7 @@ function HomeContent() {
 
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-heading text-lg text-brand-green">1. Impact Products</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">1. tRWA</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">10 DCU</strong> per level by submitting before-and-after cleanup
                   photos and passing verification. Ten levels are live today; more may follow.

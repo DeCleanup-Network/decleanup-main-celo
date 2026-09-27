@@ -2064,7 +2064,7 @@ export async function claimImpactProductFromVerification(
       }
     } else {
       throw new Error(
-        'Impact Product NFT contract not configured. Set NEXT_PUBLIC_IMPACT_PRODUCT_NFT (or NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT) in the environment.'
+        'tRWA contract not configured. Set NEXT_PUBLIC_IMPACT_PRODUCT_NFT (or NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT) in the environment.'
       )
     }
 
@@ -2381,7 +2381,7 @@ export async function mintImpactProductNFT(
   bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
   if (!getImpactProductAddress()) {
-    throw new Error('Impact Product NFT contract address not configured')
+    throw new Error('tRWA contract address not configured')
   }
 
   const gasless = !!options?.gaslessClient
@@ -2433,13 +2433,13 @@ export async function mintImpactProductNFT(
     const errorMessage = error?.message || error?.shortMessage || 'Unknown error'
     if (errorMessage.includes('verified POI') || errorMessage.includes('not a verified POI')) {
       throw new Error(
-        'Not marked as a verified Proof of Impact (POI) on the Impact Product contract — minting requires that flag. ' +
-          'If your cleanup is already approved, the Submission contract may not be linked on Impact Product (deploy script should call setSubmissionContract), ' +
+        'Not marked as a verified Proof of Impact (POI) on the tRWA contract — minting requires that flag. ' +
+        'If your cleanup is already approved, the Submission contract may not be linked on tRWA (deploy script should call setSubmissionContract), ' +
           'or you were approved before that fix and need the contract owner to call verifyPOI for your address. ' +
           'Ask the team to run `npx hardhat run contracts/scripts/setup-roles.ts --network celoSepolia` and retry.'
       )
     }
-    throw new Error(`Failed to mint Impact Product NFT: ${errorMessage}`)
+    throw new Error(`Failed to mint tRWA: ${errorMessage}`)
   }
 }
 
@@ -2449,7 +2449,7 @@ export async function upgradeImpactProductNFT(
   bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
   if (!getImpactProductAddress()) {
-    throw new Error('Impact Product NFT contract address not configured')
+    throw new Error('tRWA contract address not configured')
   }
 
   const gasless = !!options?.gaslessClient
@@ -2508,7 +2508,7 @@ export async function upgradeImpactProductNFT(
     if (errorMessage.includes('maximum level')) {
       throw new Error('You have reached the maximum level (10).')
     }
-    throw new Error(`Failed to upgrade Impact Product NFT: ${errorMessage}`)
+    throw new Error(`Failed to upgrade tRWA: ${errorMessage}`)
   }
 }
 

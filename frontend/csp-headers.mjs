@@ -93,8 +93,9 @@ function ethereumConnectOrigins() {
 
 function rpcConnectOrigins() {
   const origins = new Set()
-  const rpc = process.env.NEXT_PUBLIC_RPC_URL?.trim()
-  if (rpc) {
+  for (const key of ['NEXT_PUBLIC_RPC_URL', 'NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC_URL']) {
+    const rpc = process.env[key]?.trim()
+    if (!rpc) continue
     try {
       origins.add(new URL(rpc).origin)
     } catch {
@@ -103,6 +104,9 @@ function rpcConnectOrigins() {
   }
   origins.add('https://forno.celo.org')
   origins.add('https://forno.celo-sepolia.celo-testnet.org')
+  // Robinhood Chain testnet (46630) — browser viem/wagmi reads hit this host.
+  origins.add('https://rpc.testnet.chain.robinhood.com')
+  origins.add('https://explorer.testnet.chain.robinhood.com')
   return [...origins].join(' ')
 }
 
@@ -117,6 +121,7 @@ export function buildContentSecurityPolicy(isDev) {
     rpcConnectOrigins(),
     ethereumConnectOrigins(),
     'https://*.celo-testnet.org',
+    'https://*.chain.robinhood.com',
     'wss:',
     ...(isDev ? ['ws://localhost:*', 'http://localhost:*'] : []),
   ].join(' ')

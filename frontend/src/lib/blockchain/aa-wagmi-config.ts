@@ -1,6 +1,6 @@
 import type { Config } from 'wagmi'
-import { http } from 'wagmi'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
+import { aaWagmiHttpTransports } from '@/lib/blockchain/aa-wagmi-transports'
 import {
   coinbaseWallet,
   metaMaskWallet,
@@ -8,22 +8,7 @@ import {
   walletConnectWallet,
 } from '@rainbow-me/rainbowkit/wallets'
 import { getWalletConnectAppUrl, getWalletConnectMetadata } from '@/lib/blockchain/wallet-connect-metadata'
-import {
-  aaWagmiChains,
-  baseMainnetChain,
-  baseSepoliaChain,
-  celoMainnetChain,
-  celoSepoliaChain,
-  robinhoodTestnetChain,
-} from '@/lib/blockchain/aa-wagmi-chains'
-
-const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
-const celoSepoliaRpcUrl =
-  celoSepoliaChain.rpcUrls.default.http[0] ?? 'https://forno.celo.org'
-const baseMainnetRpcUrl =
-  baseMainnetChain.rpcUrls.default.http[0] ?? 'https://mainnet.base.org'
-const baseSepoliaRpcUrl =
-  baseSepoliaChain.rpcUrls.default.http[0] ?? 'https://sepolia.base.org'
+import { aaWagmiChains } from '@/lib/blockchain/aa-wagmi-chains'
 
 const APP_NAME = 'DeCleanup Rewards'
 const APP_DESCRIPTION =
@@ -70,15 +55,7 @@ export function createAaRainbowKitConfig(): Config {
     walletConnectParameters: {
       metadata,
     },
-    transports: {
-      [celoMainnetChain.id]: http(celoMainnetRpcUrl),
-      [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
-      [baseMainnetChain.id]: http(baseMainnetRpcUrl),
-      [baseSepoliaChain.id]: http(baseSepoliaRpcUrl),
-      [robinhoodTestnetChain.id]: http(
-        robinhoodTestnetChain.rpcUrls.default.http[0] ?? 'https://rpc.testnet.chain.robinhood.com'
-      ),
-    },
+    transports: aaWagmiHttpTransports(),
   })
 }
 

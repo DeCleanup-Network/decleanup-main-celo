@@ -477,7 +477,7 @@ export default function VerifierPage() {
         throw new Error('Cleanup not found')
       }
 
-      // Get user's current level from Impact Product NFT
+      // Get user's current level from tRWA NFT
       let nextLevel = 1 // Default to level 1 for new users
       try {
         const currentLevel = await getUserLevel(cleanup.user)
@@ -1715,7 +1715,7 @@ export default function VerifierPage() {
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-gray-400">
-                      Level will be assigned automatically based on user's current Impact Product level (next level up, max 10)
+                      Level will be assigned automatically based on user's current tRWA asset level (next level up, max 10)
                     </div>
                     <div className="flex gap-3">
                       <Button

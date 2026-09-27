@@ -12,6 +12,18 @@ export function PwaUpdateToast() {
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
 
+    // Dev does not build Serwist; a leftover production sw.js still tries to
+    // precache hashed /_next assets that 404 on localhost.
+    if (process.env.NODE_ENV === 'development') {
+      void navigator.serviceWorker.getRegistrations().then((regs) => {
+        void Promise.all(regs.map((reg) => reg.unregister()))
+      })
+      if (typeof caches !== 'undefined') {
+        void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      }
+      return
+    }
+
     let cancelled = false
     let reg: ServiceWorkerRegistration | undefined
 

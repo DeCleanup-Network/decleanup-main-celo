@@ -7,37 +7,19 @@
  * contract reads work without a browser WagmiProvider.
  */
 import type { Config } from 'wagmi'
-import { createConfig, http } from 'wagmi'
-import {
-  aaWagmiChains,
-  baseMainnetChain,
-  baseSepoliaChain,
-  celoMainnetChain,
-  celoSepoliaChain,
-  robinhoodTestnetChain,
-} from '@/lib/blockchain/aa-wagmi-chains'
+import { createConfig } from 'wagmi'
+import { aaWagmiChains } from '@/lib/blockchain/aa-wagmi-chains'
+import { aaWagmiHttpTransports } from '@/lib/blockchain/aa-wagmi-transports'
 
 let current: Config | null = null
 let serverReadConfig: Config | null = null
-
-function rpc(chain: { rpcUrls: { default: { http: readonly string[] } } }, fallback: string) {
-  return chain.rpcUrls.default.http[0] ?? fallback
-}
 
 function getServerReadConfig(): Config {
   if (serverReadConfig) return serverReadConfig
 
   serverReadConfig = createConfig({
     chains: [...aaWagmiChains],
-    transports: {
-      [celoSepoliaChain.id]: http(rpc(celoSepoliaChain, 'https://forno.celo.org')),
-      [celoMainnetChain.id]: http(rpc(celoMainnetChain, 'https://forno.celo.org')),
-      [baseMainnetChain.id]: http(rpc(baseMainnetChain, 'https://mainnet.base.org')),
-      [baseSepoliaChain.id]: http(rpc(baseSepoliaChain, 'https://sepolia.base.org')),
-      [robinhoodTestnetChain.id]: http(
-        rpc(robinhoodTestnetChain, 'https://rpc.testnet.chain.robinhood.com')
-      ),
-    },
+    transports: aaWagmiHttpTransports(),
   })
 
   return serverReadConfig

@@ -12,7 +12,7 @@ type Props = {
   onClose: () => void
   onSuccess: () => void
   mode: SignUnlockModalMode
-  /** e.g. "submit this cleanup" or "claim your Impact Product level" */
+  /** e.g. "submit this cleanup" or "claim your tRWA asset level" */
   purpose: string
 }
 

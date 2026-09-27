@@ -11,8 +11,10 @@ import {
   CELO_MAINNET_CHAIN_ID,
   CELO_SEPOLIA_CHAIN_ID,
   BASE_MAINNET_CHAIN_ID,
-  BASE_SEPOLIA_CHAIN_ID
+  BASE_SEPOLIA_CHAIN_ID,
+  ROBINHOOD_TESTNET_CHAIN_ID,
 } from '@/lib/blockchain/chain-constants'
+import { robinhoodTestnetChain } from '@/lib/blockchain/aa-wagmi-chains'
 
 const celoSepolia = defineChain({
   id: CELO_SEPOLIA_CHAIN_ID,
@@ -71,16 +73,21 @@ const activeChain =
     ? base
     : REQUIRED_CHAIN_ID === BASE_SEPOLIA_CHAIN_ID
     ? baseSepolia
+    : REQUIRED_CHAIN_ID === ROBINHOOD_TESTNET_CHAIN_ID
+    ? robinhoodTestnetChain
     : celoSepolia
 
 export const config = createConfig({
   // Include all supported chains so Privy allows switching to Base in the future
-  chains: [activeChain, celoSepolia, celoMainnet, base, baseSepolia, mainnet], 
+  chains: [activeChain, celoSepolia, celoMainnet, base, baseSepolia, robinhoodTestnetChain, mainnet], 
   transports: {
     [celoSepolia.id]: http(),
     [celoMainnet.id]: http(),
     [base.id]: http(),
     [baseSepolia.id]: http(),
+    [robinhoodTestnetChain.id]: http(
+      robinhoodTestnetChain.rpcUrls.default.http[0] ?? 'https://rpc.testnet.chain.robinhood.com'
+    ),
     [mainnet.id]: http(),
   },
 })

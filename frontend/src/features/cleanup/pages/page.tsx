@@ -34,6 +34,7 @@ import { TransactionActionBlock } from '@/components/ui/transaction-wait-notice'
 import type { Address } from 'viem'
 import { normalizeReferrerAddress } from '@/lib/wallet/normalize-referrer-address'
 import {
+  CHAIN_CONFIGS,
   MAX_IMPACT_PRODUCT_LEVEL,
   REQUIRED_CHAIN_ID,
   REQUIRED_CHAIN_NAME,
@@ -42,6 +43,9 @@ import {
   REQUIRED_CHAIN_IS_TESTNET,
 } from '@/lib/blockchain/chain-constants'
 import { getActiveAppChainId, getSubmissionAddress } from '@/lib/blockchain/active-contracts'
+import { getConfig } from '@/lib/blockchain/get-wagmi-config'
+import { switchToExperienceChain } from '@/lib/blockchain/switch-to-required-chain'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
@@ -77,6 +81,12 @@ const describeChain = (id?: number) => {
       return 'Celo Mainnet'
     case 11142220:
       return 'Celo Sepolia'
+    case 8453:
+      return 'Base'
+    case 84532:
+      return 'Base Sepolia'
+    case 46630:
+      return 'Robinhood Chain Testnet'
     default:
       return 'Unknown Network'
   }
@@ -233,13 +243,14 @@ function CleanupContent() {
     isEmbeddedAccount,
     embeddedSponsoredSubmit,
   } = useAppWalletAddress()
+  const { isRobinhood } = useExperienceChain()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
     purpose: string
   } | null>(null)
   const pendingRecyclablesRef = useRef(false)
   const chainId = useResolvedChainId()
-  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  const { isPending: isSwitchingChain } = useSwitchChain()
   const {
     client: gaslessClient,
     submissionOwnerAddress,
@@ -1109,13 +1120,16 @@ function CleanupContent() {
   }, [validation, enhancedData])
 
   const handleEnhancedNext = () => {
-    if (chainId !== undefined && chainId !== REQUIRED_CHAIN_ID) {
-      setAlertModal({
-        title: 'Wrong network',
-        message:
-          `Switch to ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}) before continuing.\n\n` +
-          `MetaMask (especially on Safari) may not auto-switch: open the wallet, choose the network menu, pick Celo Mainnet or add it manually (RPC: ${REQUIRED_RPC_URL}).`,
-        variant: 'warning',
+    if (chainId !== undefined && chainId !== getActiveAppChainId()) {
+      void switchToExperienceChain(getConfig(), getActiveAppChainId()).then((switched) => {
+        if (!switched) {
+          const network = CHAIN_CONFIGS[getActiveAppChainId()]
+          setAlertModal({
+            title: 'Switch network',
+            message: `Approve adding ${network.name} in your wallet, then continue.`,
+            variant: 'warning',
+          })
+        }
       })
       return
     }
@@ -1244,16 +1258,23 @@ function CleanupContent() {
       return
     }
 
-    if (chainId !== undefined && chainId !== REQUIRED_CHAIN_ID) {
-      setAlertModal({
-        title: 'Wrong network',
-        message:
-          `You’re on Chain ID ${chainId}. Switch to ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}) before submitting.\n\n` +
-          `Photo upload does not require the right chain, but we ask you to switch first so the onchain transaction succeeds right after.\n\n` +
-          `MetaMask on Safari: open MetaMask → network dropdown → Celo Mainnet (add network if needed: RPC ${REQUIRED_RPC_URL}, symbol CELO).`,
-        variant: 'error',
-      })
-      return
+    setIsSubmitting(true)
+    const targetChainId = getActiveAppChainId()
+    if (!isEmbeddedAccount && chainId !== undefined && chainId !== targetChainId) {
+      setUploadPhase('Switching network…')
+      const switched = await switchToExperienceChain(getConfig(), targetChainId)
+      if (!switched) {
+        setIsSubmitting(false)
+        setUploadPhase(null)
+        const network = CHAIN_CONFIGS[targetChainId]
+        setAlertModal({
+          title: 'Switch network',
+          message:
+            `Approve adding ${network.name} (Chain ID ${targetChainId}) in your wallet, then tap Submit again.`,
+          variant: 'warning',
+        })
+        return
+      }
     }
 
     let resolvedGasless = (gaslessClient as GaslessClient | null) ?? null
@@ -1261,6 +1282,8 @@ function CleanupContent() {
       resolvedGasless = (await getGaslessClient()) as GaslessClient | null
     }
     if (embeddedSponsoredSubmit && isPaymasterConfigured() && !resolvedGasless) {
+      setIsSubmitting(false)
+      setUploadPhase(null)
       setAlertModal({
         title: 'Gasless wallet unavailable',
         message:
@@ -1270,8 +1293,6 @@ function CleanupContent() {
       })
       return
     }
-
-    setIsSubmitting(true)
     setMlVerificationLoading(false)
     setMlVerificationSummary(null)
     setMlVerificationStats(null)
@@ -1288,11 +1309,24 @@ function CleanupContent() {
       return
     }
     try {
-      // Upload photos to IPFS (sequential — more reliable on iPhone Safari)
+      // Upload photos to IPFS. Parallel on Robinhood so the wallet prompt is not
+      // delayed ~70s × 2; sequential elsewhere (more reliable on iPhone Safari).
       console.log('Uploading photos to IPFS...')
-      setUploadPhase('Uploading photos…')
-      const { beforeHash, afterHash } = await uploadCleanupPhotosSequentially(beforePhoto, afterPhoto)
-      setUploadPhase(null)
+      let beforeHash
+      let afterHash
+      if (isRobinhood) {
+        setUploadPhase('Uploading photos…')
+        ;[beforeHash, afterHash] = await Promise.all([
+          uploadToIPFS(beforePhoto, { pinataKeyvalueType: 'cleanup-before-photo' }),
+          uploadToIPFS(afterPhoto, { pinataKeyvalueType: 'cleanup-after-photo' }),
+        ])
+      } else {
+        setUploadPhase('Uploading before photo…')
+        const uploaded = await uploadCleanupPhotosSequentially(beforePhoto, afterPhoto)
+        beforeHash = uploaded.beforeHash
+        afterHash = uploaded.afterHash
+      }
+      setUploadPhase('Opening wallet…')
 
       console.log('Photos uploaded:', { beforeHash: beforeHash.hash, afterHash: afterHash.hash })
       console.log('Location:', { lat: location.lat, lng: location.lng })
@@ -1511,7 +1545,7 @@ function CleanupContent() {
 
         console.log('✅ Referrer address used in submission:', referrerAddress || 'none (no referrer)')
         if (referrerAddress && referrerAddress !== '0x0000000000000000000000000000000000000000') {
-          console.log('✅ Referral reward will be distributed when cleanup is verified and user claims their first Impact Product level!')
+          console.log('✅ Referral reward will be distributed when cleanup is verified and user claims their first tRWA asset level!')
         }
 
         const saveRecyclablesMeta = () => {
@@ -1933,7 +1967,7 @@ function CleanupContent() {
   }
 
   // Check if submission is disabled due to pending cleanup or wrong network
-  const isWrongNetwork = chainId !== REQUIRED_CHAIN_ID
+  const isWrongNetwork = chainId !== undefined && chainId !== getActiveAppChainId()
   // IMPORTANT: Check for null/undefined explicitly, not truthiness, because cleanup ID 0 is valid!
   const hasPendingCleanup = pendingCleanup !== null && pendingCleanup !== undefined
   const canClaimPendingLevel =
@@ -1944,8 +1978,7 @@ function CleanupContent() {
     (hasPendingCleanup && !pendingCleanup.verified) ||
     canClaimPendingLevel
 
-  const isSubmitFlowDisabled =
-    isNewSubmissionBlocked || isWrongNetwork || isSwitchingChain
+  const isSubmitFlowDisabled = isNewSubmissionBlocked || isSwitchingChain
 
   const isPhotoUploadDisabled = !walletReady && walletBootstrapping
 
@@ -1955,8 +1988,8 @@ function CleanupContent() {
     ? 'Your account is still setting up'
     : canClaimPendingLevel
       ? 'Verified: claim your level below'
-      : isWrongNetwork
-        ? `Switch to ${REQUIRED_CHAIN_NAME} (chain ${REQUIRED_CHAIN_ID})`
+        : isWrongNetwork
+        ? `Switch to ${CHAIN_CONFIGS[getActiveAppChainId()].name}`
         : 'Submission on cooldown'
 
   // Debug logging
@@ -2067,7 +2100,7 @@ function CleanupContent() {
           <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-6 space-y-3">
             <h2 className="text-xl font-heading tracking-wide text-foreground">SUBMISSION CLOSED</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              You&apos;ve reached Impact Product level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
+              You&apos;ve reached tRWA asset level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
               <Link
                 href={`/impact/${address as string}`}
                 className="text-brand-green underline"
@@ -2088,6 +2121,8 @@ function CleanupContent() {
 
     // Show wrong network warning first (higher priority)
     if (isWrongNetwork) {
+      const target = getActiveAppChainId()
+      const network = CHAIN_CONFIGS[target]
       return (
         <div className="mb-6 rounded-lg border border-red-500/50 bg-red-500/10 p-4">
           <div className="flex items-start gap-3">
@@ -2097,19 +2132,20 @@ function CleanupContent() {
               <p className="mb-3 text-sm text-gray-300">
                 You&apos;re on Chain ID {chainId} ({describeChain(chainId)}). Switch to{' '}
                 <strong className="text-white">
-                  {REQUIRED_CHAIN_NAME} ({REQUIRED_CHAIN_ID})
+                  {network.name} ({target})
                 </strong>
-                . In MetaMask: Networks, pick Celo Mainnet. If missing, add RPC {REQUIRED_RPC_URL}, symbol CELO.
+                .
               </p>
               <Button
                 onClick={async () => {
                   try {
-                    await switchChain({ chainId: REQUIRED_CHAIN_ID })
-                  } catch (error: any) {
+                    const ok = await switchToExperienceChain(getConfig(), target)
+                    if (!ok) throw new Error('switch failed')
+                  } catch {
                     setAlertModal({
-                      title: 'Switch in MetaMask',
+                      title: 'Switch in wallet',
                       message:
-                        `Could not switch in the browser. In MetaMask: Networks, select Celo Mainnet (Chain ID ${REQUIRED_CHAIN_ID}). On Safari, try MetaMask's in-app browser.`,
+                        `Approve adding ${network.name} (Chain ID ${target}) in your wallet, then try again.`,
                       variant: 'warning',
                     })
                   }
@@ -2118,7 +2154,7 @@ function CleanupContent() {
                 size="sm"
                 className=""
               >
-                {isSwitchingChain ? 'Switching...' : `Switch to ${REQUIRED_CHAIN_NAME}`}
+                {isSwitchingChain ? 'Switching...' : `Switch to ${network.name}`}
               </Button>
             </div>
           </div>
@@ -2136,7 +2172,7 @@ function CleanupContent() {
               <h3 className="text-sm font-semibold text-brand-yellow">Ready to claim</h3>
               <p className="text-sm text-gray-200">
                 Cleanup #{pendingCleanup.id.toString()} is verified. On home, tap{' '}
-                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your Impact Product.
+                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your tRWA.
               </p>
               <Button asChild className={claimLevelButtonClasses}>
                 <Link href="/" className="inline-flex items-center justify-center">
@@ -2610,7 +2646,7 @@ function CleanupContent() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
+                  {uploadPhase ?? 'Processing...'}
                 </>
               ) : (
                 <>

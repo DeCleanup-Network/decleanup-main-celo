@@ -53,8 +53,15 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" className={`dark ${landingFontClassName}`}>
-      <body className="antialiased flex flex-col min-h-screen bg-black">
+    <html
+      lang="en"
+      className={`dark ${landingFontClassName}`}
+      style={{ colorScheme: "dark", backgroundColor: "#0a0a0a" }}
+    >
+      <body
+        className="antialiased flex flex-col min-h-screen bg-black"
+        style={{ backgroundColor: "#0a0a0a" }}
+      >
         <SiteJsonLd />
         <RootClientBody wagmiInitialState={wagmiInitialState}>{children}</RootClientBody>
       </body>

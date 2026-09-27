@@ -3,6 +3,8 @@ import { defineChain, type Chain } from 'viem'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { http } from 'wagmi'
 import { getCeloSepoliaHttpRpcUrl } from '@/lib/blockchain/celo-sepolia-rpc-url'
+import { robinhoodTestnetChain } from '@/lib/blockchain/aa-wagmi-chains'
+import { aaWagmiHttpTransports } from '@/lib/blockchain/aa-wagmi-transports'
 
 // Must be Celo mainnet (42220), not a deprecated testnet RPC - wrong RPC causes CORS + wrong-chain reads.
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
@@ -58,10 +60,14 @@ const celoSepoliaChain = defineChain({
 
 // Include Ethereum mainnet for ENS resolution (RainbowKit can resolve ENS even when on Celo)
 // Now also including Base and Base Sepolia
+const robinhoodTestnetRpcUrl =
+  robinhoodTestnetChain.rpcUrls.default.http[0] ?? 'https://rpc.testnet.chain.robinhood.com'
+
 const configuredChains: [Chain, ...Chain[]] = [
   celoSepoliaChain, 
   celoMainnet, 
   base, // Base Mainnet (id: 8453)
+  robinhoodTestnetChain,
   mainnet
 ]
 
@@ -105,10 +111,12 @@ export const config = getDefaultConfig({
   projectId: walletConnectProjectId,
   chains: configuredChains,
   transports: {
+    ...aaWagmiHttpTransports(),
     [celoMainnet.id]: http(celoMainnetRpcUrl),
     [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
-    [base.id]: http(baseMainnetRpcUrl), // Transport for Base Mainnet
-    [mainnet.id]: http(), // Public RPC for ENS resolution
+    [base.id]: http(baseMainnetRpcUrl),
+    [robinhoodTestnetChain.id]: http(robinhoodTestnetRpcUrl),
+    [mainnet.id]: http(),
   },
   ssr: true, // Enable SSR support for Next.js
   appDescription: APP_DESCRIPTION,

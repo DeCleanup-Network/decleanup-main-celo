@@ -25,7 +25,7 @@ export const SITE_KEYWORDS = [
   'blockchain cleanup',
   'DCU',
   'cDCU',
-  'Impact Product',
+  'tRWA',
   'hypercerts',
   'community cleanup',
 ] as const

@@ -16,7 +16,7 @@ export function ReferralInviteMessage({ afterRewards }: Props) {
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-300">
         <li>Submit your first cleanup (before and after photos).</li>
         <li>Wait for verification — a human verifier approves it onchain.</li>
-        <li>Claim your first Impact Product level in the app.</li>
+        <li>Claim your first tRWA asset level in the app.</li>
       </ol>
       <p className="mt-2 text-sm text-gray-300">
         When you <strong className="text-white">claim that first level</strong>, you get the normal{' '}
