@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (!isHash(txHash)) {
       return NextResponse.json({ error: 'Invalid or missing txHash' }, { status: 400 })
     }
-    if (!(await hasAirdropClaimInTx(getAddress(recipient), txHash as `0x${string}`))) {
+    if (!(await hasAirdropClaimInTx(getAddress(recipient), txHash))) {
       return NextResponse.json(
         { error: 'Transaction does not contain an airdrop claim for this recipient' },
         { status: 400 }

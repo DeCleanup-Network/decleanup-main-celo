@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     const identity = await resolveClaimIdentity(recipient)
-    const claims = await getCleanupCampaignClaimsInTx(txHash as `0x${string}`)
+    const claims = await getCleanupCampaignClaimsInTx(txHash)
     const matches = claims.some(
       (c) => c.amount === amountWei && isAllowedRecipient(identity, c.recipient)
     )

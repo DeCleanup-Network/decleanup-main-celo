@@ -45,13 +45,11 @@ jest.mock('@/lib/server/rate-limit', () => ({
 
 function identityFor(input: string) {
   const i = input.toLowerCase()
-  if (i === VICTIM.toLowerCase()) {
+  if (i === VICTIM.toLowerCase())
     return { publicAddress: VICTIM, eoaAddress: VICTIM, smartAccountAddress: VICTIM_SAFE }
-  }
   // Attacker-made Safe whose first owner is the victim (or a forged DB link) resolves to the victim.
-  if (i === ATTACKER_SAFE.toLowerCase()) {
+  if (i === ATTACKER_SAFE.toLowerCase())
     return { publicAddress: VICTIM, eoaAddress: VICTIM, smartAccountAddress: ATTACKER_SAFE }
-  }
   return { publicAddress: input, eoaAddress: input, smartAccountAddress: null }
 }
 
@@ -70,9 +68,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_CLAIMVAULT_ADDRESS = '0x4f69a1170c8799b5bc1587275b2e7da5a8406ff0'
   mockResolveWalletIdentity.mockImplementation(async (a: string) => identityFor(a))
   mockPredictSafe.mockImplementation(async (owner: string) =>
-    owner.toLowerCase() === VICTIM.toLowerCase()
-      ? VICTIM_SAFE
-      : '0x5555555555555555555555555555555555555555'
+    owner.toLowerCase() === VICTIM.toLowerCase() ? VICTIM_SAFE : '0x5555555555555555555555555555555555555555'
   )
   mockEligibility.mockResolvedValue({
     eligible: true,
