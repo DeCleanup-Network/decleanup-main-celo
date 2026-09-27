@@ -1,3 +1,4 @@
+import { ROBINHOOD_TESTNET_CHAIN_ID } from '../chain-constants'
 import { HYPERCERTS_CONFIG } from './config'
 import { isTestingMode, useRelaxedHypercertThresholds } from './testing'
 import { HypercertEligibilityResult } from './types'
@@ -13,9 +14,12 @@ export function checkHypercertEligibility(params: {
   const relaxed = useRelaxedHypercertThresholds() && isTestingMode(params.chainId)
   const testing = relaxed
 
-  const thresholds = testing
-    ? HYPERCERTS_CONFIG.thresholds.testing
-    : HYPERCERTS_CONFIG.thresholds.production
+  const thresholds =
+    params.chainId === ROBINHOOD_TESTNET_CHAIN_ID
+      ? { minCleanups: 1, minReports: 0 }
+      : testing
+        ? HYPERCERTS_CONFIG.thresholds.testing
+        : HYPERCERTS_CONFIG.thresholds.production
 
   const nextMilestoneCleanups = thresholds.minCleanups * (publishedCount + 1)
   const meetsCleanups = params.cleanupsCount >= nextMilestoneCleanups

@@ -66,7 +66,6 @@ import { PastContributorAirdropStrip } from '@/components/airdrop/PastContributo
 import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
-import { isBaseExperience } from '@/lib/blockchain/chain-preference'
 import { websiteGuideUrl } from '@/lib/guides/website-guides'
 import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { useWallet } from '@/providers/WalletProvider'
@@ -94,7 +93,7 @@ const WalletConnect = dynamic(
 
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
-  const { chainId: experienceChainId, isCelo } = useExperienceChain()
+  const { chainId: experienceChainId, isCelo, isBase, isRobinhood } = useExperienceChain()
   const aaAuth = isAaAuthEnabledClient()
   const {
     address,
@@ -388,9 +387,11 @@ function HomeContent() {
                 <span className="text-foreground">REWARDS</span>
               </h1>
               <p className="text-landing-lede mx-auto max-w-2xl normal-case animate-fade-in-up">
-                {isBaseExperience()
-                  ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
-                  : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
+                {isRobinhood
+                  ? 'Robinhood testnet demo. Submit one cleanup, verify it, then mint a Hypercert.'
+                  : isBase
+                    ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
+                    : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
               </p>
             </div>
 
@@ -417,15 +418,17 @@ function HomeContent() {
             )}
             <p className="text-landing-hint">
               {aaAuth
-                ? isBaseExperience()
-                  ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards on Base.'
-                  : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
+                ? isRobinhood
+                  ? 'Connect a wallet on Robinhood Chain testnet. You need a little test ETH for gas.'
+                  : isBase
+                    ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards on Base.'
+                    : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
                 : 'Connect your wallet to start cleaning'}
             </p>
           </div>
         </div>
 
-        {isBaseExperience() ? null : <PastContributorAirdropStrip variant="prelogin" />}
+        {isBase || isRobinhood ? null : <PastContributorAirdropStrip variant="prelogin" />}
 
         {/* Footer */}
         <footer className="border-t border-white/10 py-8 flex-shrink-0">

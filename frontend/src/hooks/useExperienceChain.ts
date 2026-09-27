@@ -5,6 +5,7 @@ import { REQUIRED_CHAIN_ID, type SupportedChainId } from '@/lib/blockchain/chain
 import {
   isBaseExperience,
   isCeloExperience,
+  isRobinhoodExperience,
   readChainPreference,
 } from '@/lib/blockchain/chain-preference'
 
@@ -20,5 +21,6 @@ export function useExperienceChain() {
     chainId,
     isBase: isBaseExperience(chainId),
     isCelo: isCeloExperience(chainId),
+    isRobinhood: isRobinhoodExperience(chainId),
   }
 }

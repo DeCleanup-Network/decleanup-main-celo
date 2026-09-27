@@ -14,6 +14,7 @@ import {
   baseSepoliaChain,
   celoMainnetChain,
   celoSepoliaChain,
+  robinhoodTestnetChain,
 } from '@/lib/blockchain/aa-wagmi-chains'
 
 let current: Config | null = null
@@ -33,6 +34,9 @@ function getServerReadConfig(): Config {
       [celoMainnetChain.id]: http(rpc(celoMainnetChain, 'https://forno.celo.org')),
       [baseMainnetChain.id]: http(rpc(baseMainnetChain, 'https://mainnet.base.org')),
       [baseSepoliaChain.id]: http(rpc(baseSepoliaChain, 'https://sepolia.base.org')),
+      [robinhoodTestnetChain.id]: http(
+        rpc(robinhoodTestnetChain, 'https://rpc.testnet.chain.robinhood.com')
+      ),
     },
   })
 

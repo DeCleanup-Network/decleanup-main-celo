@@ -60,6 +60,14 @@ const config: HardhatUserConfig = {
       url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
       accounts: [PRIVATE_KEY],
       chainId: 84532
+    },
+
+    "robinhoodchain-testnet": {
+      url:
+        process.env.ROBINHOOD_TESTNET_RPC_URL ||
+        "https://rpc.testnet.chain.robinhood.com",
+      accounts: [PRIVATE_KEY],
+      chainId: 46630
     }
   },
 
@@ -98,6 +106,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://api-sepolia.basescan.org/api",
           browserURL: "https://sepolia.basescan.org/"
+        }
+      },
+      {
+        network: "robinhoodchain-testnet",
+        chainId: 46630,
+        urls: {
+          apiURL: "https://explorer.testnet.chain.robinhood.com/api",
+          browserURL: "https://explorer.testnet.chain.robinhood.com/"
         }
       }
     ]

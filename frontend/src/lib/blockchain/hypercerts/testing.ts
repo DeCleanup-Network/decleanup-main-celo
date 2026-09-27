@@ -1,4 +1,4 @@
-import { REQUIRED_CHAIN_IS_TESTNET, REQUIRED_CHAIN_ID } from '../chain-constants'
+import { REQUIRED_CHAIN_IS_TESTNET, REQUIRED_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID } from '../chain-constants'
 
 const CELO_MAINNET_CHAIN_ID = 42220
 
@@ -7,6 +7,7 @@ const CELO_MAINNET_CHAIN_ID = 42220
  * Default false: uses production thresholds (10 cleanups + reports) even on Celo Sepolia.
  */
 export function useRelaxedHypercertThresholds(): boolean {
+  if (REQUIRED_CHAIN_ID === ROBINHOOD_TESTNET_CHAIN_ID) return true
   if (typeof process === 'undefined') return false
   return process.env.NEXT_PUBLIC_HYPERCERT_RELAXED_ELIGIBILITY === 'true'
 }

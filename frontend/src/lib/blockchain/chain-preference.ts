@@ -6,6 +6,7 @@ import {
   CHAIN_CONFIGS,
   CHAIN_PREFERENCE_KEY,
   REQUIRED_CHAIN_ID,
+  ROBINHOOD_TESTNET_CHAIN_ID,
   type SupportedChainId,
 } from './chain-constants'
 
@@ -15,12 +16,20 @@ export function isSupportedExperienceChain(id: number): id is SupportedChainId {
   return id in CHAIN_CONFIGS
 }
 
-export function isCeloExperience(chainId: number = REQUIRED_CHAIN_ID): boolean {
+function liveExperienceChainId(): number {
+  return readChainPreference() ?? REQUIRED_CHAIN_ID
+}
+
+export function isCeloExperience(chainId: number = liveExperienceChainId()): boolean {
   return chainId === CELO_MAINNET_CHAIN_ID || chainId === CELO_SEPOLIA_CHAIN_ID
 }
 
-export function isBaseExperience(chainId: number = REQUIRED_CHAIN_ID): boolean {
+export function isBaseExperience(chainId: number = liveExperienceChainId()): boolean {
   return chainId === BASE_MAINNET_CHAIN_ID || chainId === BASE_SEPOLIA_CHAIN_ID
+}
+
+export function isRobinhoodExperience(chainId: number = liveExperienceChainId()): boolean {
+  return chainId === ROBINHOOD_TESTNET_CHAIN_ID
 }
 
 export function readChainPreference(): SupportedChainId | null {

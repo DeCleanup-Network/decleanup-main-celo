@@ -10,6 +10,9 @@ export const CELO_MAINNET_CHAIN_ID = 42220
 export const CELO_SEPOLIA_CHAIN_ID = 11142220
 export const BASE_MAINNET_CHAIN_ID = 8453
 export const BASE_SEPOLIA_CHAIN_ID = 84532
+export const ROBINHOOD_TESTNET_CHAIN_ID = 46630
+
+export const ROBINHOOD_HYPERCERT_MINTER = '0xC6a7eC8B1695023D3EE74ADC29972cD341AbA3Ea'
 
 /** localStorage key for Celo vs Base experience. Read in getInitialChainId(). */
 export const CHAIN_PREFERENCE_KEY = 'decleanup-chain-id'
@@ -19,6 +22,7 @@ export type SupportedChainId =
   | typeof CELO_SEPOLIA_CHAIN_ID
   | typeof BASE_MAINNET_CHAIN_ID
   | typeof BASE_SEPOLIA_CHAIN_ID
+  | typeof ROBINHOOD_TESTNET_CHAIN_ID
 
 /**
  * Multi-Chain configuration map.
@@ -119,6 +123,27 @@ export const CHAIN_CONFIGS: Record<
       CLAIMVAULT: process.env.NEXT_PUBLIC_BASE_CLAIMVAULT_ADDRESS || '',
     },
   },
+  [ROBINHOOD_TESTNET_CHAIN_ID]: {
+    id: ROBINHOOD_TESTNET_CHAIN_ID,
+    name: 'Robinhood Chain Testnet',
+    isTestnet: true,
+    rpcUrl: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC_URL || 'https://rpc.testnet.chain.robinhood.com',
+    blockExplorerUrl: 'https://explorer.testnet.chain.robinhood.com',
+    pimlicoSlug: 'robinhood-testnet',
+    contracts: {
+      IMPACT_PRODUCT:
+        process.env.NEXT_PUBLIC_ROBINHOOD_IMPACT_PRODUCT_NFT ||
+        '0xC6523bF318e39B6d9DfBcd95aed9d5C3c5d041d1',
+      VERIFICATION:
+        process.env.NEXT_PUBLIC_ROBINHOOD_SUBMISSION_CONTRACT ||
+        '0xdB960937821678fb7d029d1611059a04bf1F3046',
+      REWARD_DISTRIBUTOR:
+        process.env.NEXT_PUBLIC_ROBINHOOD_REWARD_DISTRIBUTOR_CONTRACT ||
+        '0x9423d79dcd7f108dF5749a537fbE92577CdE1902',
+      DCU_TOKEN: process.env.NEXT_PUBLIC_ROBINHOOD_DCU_TOKEN_ADDRESS || '',
+      CLAIMVAULT: process.env.NEXT_PUBLIC_ROBINHOOD_CLAIMVAULT_ADDRESS || '',
+    },
+  },
 }
 
 /**
@@ -132,7 +157,8 @@ function getInitialChainId(): SupportedChainId {
     envChainId === CELO_MAINNET_CHAIN_ID ||
     envChainId === CELO_SEPOLIA_CHAIN_ID ||
     envChainId === BASE_MAINNET_CHAIN_ID ||
-    envChainId === BASE_SEPOLIA_CHAIN_ID
+    envChainId === BASE_SEPOLIA_CHAIN_ID ||
+    envChainId === ROBINHOOD_TESTNET_CHAIN_ID
       ? envChainId
       : CELO_SEPOLIA_CHAIN_ID
   ) as SupportedChainId

@@ -14,6 +14,7 @@ import {
   baseSepoliaChain,
   celoMainnetChain,
   celoSepoliaChain,
+  robinhoodTestnetChain,
 } from '@/lib/blockchain/aa-wagmi-chains'
 
 const celoMainnetRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org'
@@ -46,6 +47,7 @@ export {
   baseSepoliaChain,
   celoMainnetChain,
   celoSepoliaChain,
+  robinhoodTestnetChain,
 } from '@/lib/blockchain/aa-wagmi-chains'
 
 export function createAaRainbowKitConfig(): Config {
@@ -73,6 +75,9 @@ export function createAaRainbowKitConfig(): Config {
       [celoSepoliaChain.id]: http(celoSepoliaRpcUrl),
       [baseMainnetChain.id]: http(baseMainnetRpcUrl),
       [baseSepoliaChain.id]: http(baseSepoliaRpcUrl),
+      [robinhoodTestnetChain.id]: http(
+        robinhoodTestnetChain.rpcUrls.default.http[0] ?? 'https://rpc.testnet.chain.robinhood.com'
+      ),
     },
   })
 }

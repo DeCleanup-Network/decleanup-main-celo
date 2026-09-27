@@ -1268,8 +1268,14 @@ export async function verifyCleanup(
   }
 
   // Hard guard: a verifier must never verify their own submission.
+  // Robinhood testnet demo allows one-wallet verify so the loop can be shown.
   const details = await getCleanupDetails(cleanupId)
-  if (details.user && details.user.toLowerCase() === account.address.toLowerCase()) {
+  const robinhoodDemo = getActiveAppChainId() === 46630
+  if (
+    !robinhoodDemo &&
+    details.user &&
+    details.user.toLowerCase() === account.address.toLowerCase()
+  ) {
     throw new Error('You cannot verify your own submission.')
   }
 
