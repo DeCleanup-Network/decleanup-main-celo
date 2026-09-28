@@ -1,7 +1,7 @@
 import { isAddress } from 'viem'
 
 /**
- * Client-safe ENS helpers — call same-origin API routes (CSP blocks direct Ethereum RPC from browser).
+ * Client-safe ENS helpers - call same-origin API routes (CSP blocks direct Ethereum RPC from browser).
  */
 
 export async function resolveEnsToAddress(ensOrAddress: string): Promise<string | null> {

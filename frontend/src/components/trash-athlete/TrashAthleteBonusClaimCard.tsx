@@ -13,7 +13,7 @@ type Props = {
   challenge: TrashAthleteChallenge
 }
 
-/** Approved status — rewards are sent manually by ops to the signer EOA. */
+/** Approved status - rewards are sent manually by ops to the signer EOA. */
 export function TrashAthleteBonusClaimCard({ challenge }: Props) {
   const { isBase } = useExperienceChain()
   const amountLabel = challenge.bonusCdcuAmount || TRASH_ATHLETE_BONUS_CDCU
@@ -58,8 +58,8 @@ export function TrashAthleteBonusClaimCard({ challenge }: Props) {
       <p className="mt-2 text-sm text-muted-foreground">
         {isBase ? (
           <>
-            Verified. Keep using Base cleanups to claim your tRWA and DCU points onchain. The {amountLabel}{' '}
-            $cDCU bonus is paid on Celo — switch experience to Celo when ops send it to{' '}
+            Verified. Keep using Base cleanups to claim your tRWI and DCU points onchain. The {amountLabel}{' '}
+            $cDCU bonus is paid on Celo - switch experience to Celo when ops send it to{' '}
             <span className="break-all font-mono text-[11px] text-foreground">{signer}</span>.
           </>
         ) : (

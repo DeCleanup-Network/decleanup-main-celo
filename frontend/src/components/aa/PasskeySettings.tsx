@@ -98,7 +98,7 @@ export function PasskeySettings() {
           Expand to turn Face ID / Touch ID on or off. Enabling asks for your {WALLET_PASSCODE_LOWER} once
           on this device.
           {!isPasskeyEnabled && serverCount > 0
-            ? ' After deleting the app, Face ID may still be on your iPhone — Enable re-links it (you will see Face ID, then enter your passcode).'
+            ? ' After deleting the app, Face ID may still be on your iPhone - Enable re-links it (you will see Face ID, then enter your passcode).'
             : ''}
         </p>
         {open && loading ? (

@@ -2,6 +2,10 @@
 
 YOLOv8 waste detection inference service for DeCleanup Network.
 
+**License: AGPL-3.0** - see [`LICENSE`](LICENSE). This worker is **not** covered
+by the repository’s MIT license. The Next.js app calls it over HTTP only.
+See the root [`NOTICE`](../NOTICE).
+
 ## Overview
 
 This service runs YOLOv8 fine-tuned on the TACO dataset for waste detection. It's designed to run on a GPU server and is called by the VPS backend.

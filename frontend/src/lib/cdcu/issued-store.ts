@@ -52,7 +52,7 @@ function pendingKey(recipient: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Local-file fallback (dev only — Vercel ephemeral filesystems will lose data)
+// Local-file fallback (dev only - Vercel ephemeral filesystems will lose data)
 // ---------------------------------------------------------------------------
 
 const DEFAULT_FILE_PATH = path.join(process.cwd(), 'data', 'cdcu-issued.json')
@@ -175,7 +175,7 @@ export async function setMilestones(recipient: string, count: number): Promise<v
  *   milestones += 1
  *   pending  = 0
  *
- * Not actually transactional — Supabase JS client doesn't expose multi-row tx.
+ * Not actually transactional - Supabase JS client doesn't expose multi-row tx.
  * Per-recipient races are mitigated by the `pending != 0` guard upstream.
  */
 export async function recordIssued(recipient: string, amountWei: bigint): Promise<void> {

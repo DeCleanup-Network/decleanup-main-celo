@@ -100,18 +100,18 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                <strong className="text-foreground">Supabase</strong> (database) — US East (Ohio), region code{' '}
+                <strong className="text-foreground">Supabase</strong> (database) - US East (Ohio), region code{' '}
                 <code className="text-xs">us-east-2</code>
               </li>
               <li>
-                <strong className="text-foreground">Vercel</strong> (web app and API hosting) — US East (
+                <strong className="text-foreground">Vercel</strong> (web app and API hosting) - US East (
                 <code className="text-xs">iad1</code>, Washington D.C.)
               </li>
               <li>
-                <strong className="text-foreground">Pinata</strong> (IPFS pinning) — per Pinata account configuration
+                <strong className="text-foreground">Pinata</strong> (IPFS pinning) - per Pinata account configuration
               </li>
               <li>
-                <strong className="text-foreground">Resend</strong> (email) — per Resend account configuration
+                <strong className="text-foreground">Resend</strong> (email) - per Resend account configuration
               </li>
             </ul>
             <p className="mt-3">

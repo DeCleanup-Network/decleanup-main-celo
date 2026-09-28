@@ -1,5 +1,5 @@
 /**
- * CSP + security headers for next.config.mjs (plain ESM — Node must not import .ts here).
+ * CSP + security headers for next.config.mjs (plain ESM - Node must not import .ts here).
  * @see https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
  */
 
@@ -9,7 +9,7 @@ const GOOGLE_AUTH = 'https://accounts.google.com https://oauth2.googleapis.com'
 /**
  * Injected wallet extensions (e.g. MetaMask inpage.js) may call Merkle RPC even when the
  * dApp uses Celo. MetaMask SDK / analytics also call cx.metamask.io when the metaMask
- * connector or SDK is present — blocking those breaks connect on desktop and mobile.
+ * connector or SDK is present - blocking those breaks connect on desktop and mobile.
  */
 const WALLET_EXTENSION_RPC = [
   'https://eth.merkle.io',
@@ -104,7 +104,7 @@ function rpcConnectOrigins() {
   }
   origins.add('https://forno.celo.org')
   origins.add('https://forno.celo-sepolia.celo-testnet.org')
-  // Robinhood Chain testnet (46630) — browser viem/wagmi reads hit this host.
+  // Robinhood Chain testnet (46630) - browser viem/wagmi reads hit this host.
   origins.add('https://rpc.testnet.chain.robinhood.com')
   origins.add('https://explorer.testnet.chain.robinhood.com')
   return [...origins].join(' ')
@@ -128,9 +128,10 @@ export function buildContentSecurityPolicy(isDev) {
 
   const directives = [
     "default-src 'self'",
-    isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-      : "script-src 'self' 'unsafe-inline'",
+    // WalletConnect / Reown QR modal, Lit, and injected wallets (MetaMask inpage)
+    // call `new Function`. wasm-unsafe-eval is not enough for that. Without
+    // unsafe-eval, production throws EvalError and /cleanup (and connect) die.
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
     // Cleanup optional video preview uses blob:; IPFS / Pinata playback uses https:

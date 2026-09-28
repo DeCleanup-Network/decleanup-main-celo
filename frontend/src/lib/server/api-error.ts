@@ -10,7 +10,7 @@ export function logApiError(context: string, error: unknown): void {
   console.error(`[${context}]`, error)
 }
 
-/** Safe client-facing message — full detail only in development. */
+/** Safe client-facing message - full detail only in development. */
 export function apiErrorMessage(error: unknown, fallback = GENERIC_MESSAGE): string {
   if (process.env.NODE_ENV === 'development') {
     return error instanceof Error ? error.message : String(error)

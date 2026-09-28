@@ -10,7 +10,7 @@ import { isValidWalletPasscode } from '@/lib/client-wallet/passcode'
 import { formatWebAuthnError } from '@/lib/passkey/errors'
 
 type Props = {
-  /** Required when wallet is locked — confirms the user knows their unlock passcode. */
+  /** Required when wallet is locked - confirms the user knows their unlock passcode. */
   requirePassword?: boolean
   /** Use immediately after wallet setup (passcode already verified). */
   presetPassword?: string

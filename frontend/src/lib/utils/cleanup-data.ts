@@ -88,7 +88,7 @@ export function getPendingCleanupId(userAddress: Address): string | null {
 }
 
 /**
- * Reset submission counting for one or more identities — clears all pending cleanup data.
+ * Reset submission counting for one or more identities - clears all pending cleanup data.
  * Use with caution - only if you're sure the cleanup is glitched or doesn't exist.
  */
 export function resetSubmissionCounting(...userAddresses: (Address | undefined | null)[]): void {

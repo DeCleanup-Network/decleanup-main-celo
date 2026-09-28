@@ -1,6 +1,6 @@
 /**
  * Ops: mint Trash Athlete 150 $cDCU via ClaimVault (EIP-712 + claim()).
- * Safe does not need a $cDCU balance — ClaimVault mints to the recipient.
+ * Safe does not need a $cDCU balance - ClaimVault mints to the recipient.
  *
  * Pass the **signer EOA** (MetaMask / import address from trash_athlete_challenges.wallet_address),
  * not the smart account.

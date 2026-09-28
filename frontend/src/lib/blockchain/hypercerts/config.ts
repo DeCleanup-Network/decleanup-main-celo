@@ -30,9 +30,9 @@ export function isAtProtoUiEnabled(): boolean {
   return process.env.NEXT_PUBLIC_HYPERCERTS_AT_ENABLED === 'true'
 }
 
-/** Bluesky handle resolver — works for accounts on any federated PDS. */
+/** Bluesky handle resolver - works for accounts on any federated PDS. */
 const DEFAULT_BSKY_RESOLVER = 'https://bsky.social'
-/** Certified production ePDS — for `*.certified.one` handles only. */
+/** Certified production ePDS - for `*.certified.one` handles only. */
 const DEFAULT_CERTIFIED_PDS = 'https://certified.one'
 
 function stripEnvQuotes(value: string): string {
@@ -74,13 +74,13 @@ export function normalizeAtProtoServiceUrl(raw?: string): string | null {
 /**
  * AT login / handle-resolver entry point for CredentialSession.
  *
- * Hypercerts supports publishing from **any** AT Protocol PDS — the login service must
+ * Hypercerts supports publishing from **any** AT Protocol PDS - the login service must
  * match where your org handle authenticates (home PDS), not a single vendor:
  *   Bluesky handle  → https://bsky.social (or omit; auto-detects)
  *   *.certified.one → https://certified.one
  *   Staging         → HYPERCERTS_ATPROTO_LOGIN_SERVICE=https://dev.certified.app
  *
- * Keep HYPERCERTS_ATPROTO_PDS_URL when it documents your intended login/PDS — do not remove
+ * Keep HYPERCERTS_ATPROTO_PDS_URL when it documents your intended login/PDS - do not remove
  * it just because you use a Bluesky account; set it to https://bsky.social if you want explicit config.
  *
  * @see https://docs.hypercerts.org/reference/certified-services
@@ -100,7 +100,7 @@ export function getAtProtoLoginService(): string {
   return DEFAULT_BSKY_RESOLVER
 }
 
-/** @deprecated Use getAtProtoLoginService — kept for diagnostic backward compatibility. */
+/** @deprecated Use getAtProtoLoginService - kept for diagnostic backward compatibility. */
 export function getAtProtoPdsUrl(): string {
   return getAtProtoLoginService()
 }

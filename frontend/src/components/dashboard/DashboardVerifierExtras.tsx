@@ -19,7 +19,7 @@ export function DashboardVerifierExtras() {
       {onChainRoleWithoutApplication && rewardIdentity ? (
         <p className="text-xs text-amber-300/90">
           Onchain verifier role is set for{' '}
-          <span className="font-mono">{rewardIdentity.slice(0, 10)}…</span> but no approved application — verifier UI
+          <span className="font-mono">{rewardIdentity.slice(0, 10)}…</span> but no approved application - verifier UI
           stays off until the team approves an application or revokes the role.
         </p>
       ) : null}

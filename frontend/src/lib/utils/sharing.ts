@@ -27,7 +27,7 @@ export function generateReferralLink(address: string, _platform: string = 'web')
  * @returns Formatted share message
  */
 export function formatImpactShareMessage(level: number, link: string, platform: string = 'web'): string {
-    return `Check out my Level ${level} tRWA on DeCleanup Rewards! Join me in making a real environmental impact. 🌱
+    return `Check out my Level ${level} tRWI on DeCleanup Rewards! Join me in making a real environmental impact. 🌱
 
 🔗 ${link}`
 }

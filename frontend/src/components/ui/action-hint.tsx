@@ -132,7 +132,7 @@ export function ActionHint({ hint, children }: ActionHintProps) {
           role="tooltip"
           className={cn(
             'pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 -translate-x-1/2 rounded-md border border-border bg-popover px-3 py-2.5 text-left text-xs leading-relaxed text-popover-foreground shadow-md sm:text-[13px]',
-            /* Wide reading column — avoids tall skinny tooltips */
+            /* Wide reading column - avoids tall skinny tooltips */
             'max-w-xl min-w-[min(17rem,calc(100vw-2rem))] w-[min(26rem,calc(100vw-1rem))]'
           )}
         >

@@ -29,7 +29,7 @@ export function needsWalletConnectSettle(config: Config): boolean {
 }
 
 /**
- * Submit contract write — switch (if needed), settle connector state, then writeContract.
+ * Submit contract write - switch (if needed), settle connector state, then writeContract.
  * Serialized through the global mutex so only one wallet op is in-flight at a time.
  */
 export async function writeContractViaWalletProvider(

@@ -15,7 +15,7 @@ export type HypercertRightsPreset = {
   id: HypercertRightsPresetId
   /** Short label for the impact report dropdown */
   label: string
-  /** Plain note shown under the field — maps to hypercert.rights */
+  /** Plain note shown under the field - maps to hypercert.rights */
   hypercertNote: string
   rightsValue: string[]
   displayValue: string

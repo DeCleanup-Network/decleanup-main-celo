@@ -9,7 +9,7 @@ export function WalletOsRoadmap() {
         <div>
           <p className="text-xs font-medium text-gray-300">Governance (ESX)</p>
           <p className="text-[11px] text-gray-500 mt-1">
-            Extend signing sessions for Snapshot, Tally, and Safe Apps — vote without exporting keys.
+            Extend signing sessions for Snapshot, Tally, and Safe Apps - vote without exporting keys.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {['Snapshot', 'Tally', 'Safe Apps'].map((tag) => (

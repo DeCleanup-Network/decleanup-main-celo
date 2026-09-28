@@ -17,7 +17,7 @@ const UPSTREAM = resolveCeloSepoliaUpstreamRpc(
     CELO_SEPOLIA_FORNO_RPC
 )
 
-/** Privy embedded wallet runs in an iframe on *.privy.io — needs CORS. */
+/** Privy embedded wallet runs in an iframe on *.privy.io - needs CORS. */
 function isEmbeddedWalletOrigin(origin: string | null): boolean {
   if (!origin || !origin.startsWith('https://')) return false
   try {

@@ -36,7 +36,7 @@ export default function TermsPage() {
             <h2 className="mb-2 font-heading text-xl tracking-wide text-foreground">2. Description of Service</h2>
             <p>
               DeCleanup Rewards provides interfaces for interacting with DeCleanup-related smart contracts deployed on
-              the Celo blockchain. Functionality includes cleanup submissions, reward distribution, tRWAs,
+              the Celo blockchain. Functionality includes cleanup submissions, reward distribution, tRWIs,
               optional Hypercerts (impact certificates published after verifier approval, when enabled), optional $cDCU
               token claims via ClaimVault, and public listings of cleanup funding campaigns. On those listings we
               publish organiser-supplied payment details only. We do not accept or process donations. Features may be

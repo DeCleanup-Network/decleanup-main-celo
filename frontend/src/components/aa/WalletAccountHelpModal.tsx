@@ -50,7 +50,7 @@ export function WalletAccountHelpModal({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <WalletHelpTopic label="Your wallet address">
-            Your signer address on the selected network — the same one MetaMask shows after you export
+            Your signer address on the selected network - the same one MetaMask shows after you export
             your private key. Token balances and airdrops use this address. Impact portfolio and onchain
             cleanups use your smart account behind the scenes.
             <span className="mt-2 block font-mono text-[10px] text-gray-500">{walletAddress}</span>
@@ -63,8 +63,8 @@ export function WalletAccountHelpModal({
 
           <WalletHelpTopic label="Gas sponsorship">
             {gaslessEnabled
-              ? 'Network fees for routine DeCleanup actions are covered by the protocol when sponsorship is on (CELO on Celo, ETH on Base).'
-              : 'Gas sponsorship is off for this session. You may need a small CELO (Celo) or ETH (Base) balance for transactions.'}
+              ? 'Network fees for routine DeCleanup actions are covered by the protocol when sponsorship is on (CELO on Celo, ETH on Base and Robinhood).'
+              : 'Gas sponsorship is off for this session. You may need a small CELO (Celo) or ETH (Base / Robinhood) balance for transactions.'}
           </WalletHelpTopic>
 
           <WalletHelpTopic label="ERC-4337">

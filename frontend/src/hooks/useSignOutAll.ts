@@ -1,24 +1,34 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { signOut } from 'next-auth/react'
-import { useDisconnect } from 'wagmi'
+import { useConfig } from 'wagmi'
+import { disconnectAllWallets } from '@/lib/blockchain/wallet-disconnect'
+import { useWalletOptional } from '@/providers/WalletProvider'
 
 type SignOutAllOptions = {
   callbackUrl?: string
   redirect?: boolean
 }
 
-/** Clears Auth.js session and disconnects wagmi (MetaMask, etc.). One sign-in method at a time. */
+/** Clears Auth.js session and fully disconnects wagmi so persist cannot bounce the same wallet back. */
 export function useSignOutAll() {
-  const { disconnect, isPending: disconnecting } = useDisconnect()
+  const config = useConfig()
+  const wallet = useWalletOptional()
+  const [disconnecting, setDisconnecting] = useState(false)
 
   const signOutAll = useCallback(
     async ({ callbackUrl = '/login', redirect = true }: SignOutAllOptions = {}) => {
-      disconnect()
-      await signOut({ callbackUrl, redirect })
+      setDisconnecting(true)
+      try {
+        await disconnectAllWallets(config)
+        await wallet?.clearLocalWallet().catch(() => undefined)
+        await signOut({ callbackUrl, redirect })
+      } finally {
+        setDisconnecting(false)
+      }
     },
-    [disconnect]
+    [config, wallet]
   )
 
   return { signOutAll, disconnecting }

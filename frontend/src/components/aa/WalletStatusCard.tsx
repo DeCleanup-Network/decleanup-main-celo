@@ -9,9 +9,12 @@ import { GasSponsorshipBadge } from '@/components/aa/GasSponsorshipBadge'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { Button } from '@/components/ui/button'
 import { chainLabelFromId } from '@/components/aa/WalletAccountHelpModal'
-import { getClientExperienceTokenBalance } from '@/lib/smart-account/client'
+import {
+  getClientExperienceNativeBalance,
+  getClientExperienceTokenBalance,
+} from '@/lib/smart-account/client'
 import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
-import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { useExperienceChain, useShowImpactPortfolio } from '@/hooks/useExperienceChain'
 
 type Props = {
   wallet: AaWalletState | null
@@ -140,7 +143,9 @@ function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: 
 export function WalletStatusCard({ wallet, loading }: Props) {
   const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
   const [tokenBalance, setTokenBalance] = useState<string | null>(null)
+  const [nativeBalance, setNativeBalance] = useState<string | null>(null)
   const { chainId: experienceChainId } = useExperienceChain()
+  const showImpactPortfolio = useShowImpactPortfolio()
   const chain = getExperienceDisplay(experienceChainId)
 
   /** Display identity: signer EOA (MetaMask / import). */
@@ -150,18 +155,18 @@ export function WalletStatusCard({ wallet, loading }: Props) {
   useEffect(() => {
     if (!tokenBalanceAddress) {
       setTokenBalance(null)
+      setNativeBalance(null)
       return
     }
     let cancelled = false
     void (async () => {
-      const bal = await getClientExperienceTokenBalance(tokenBalanceAddress, experienceChainId)
+      const [token, native] = await Promise.all([
+        getClientExperienceTokenBalance(tokenBalanceAddress, experienceChainId),
+        getClientExperienceNativeBalance(tokenBalanceAddress, experienceChainId),
+      ])
       if (cancelled) return
-      if (bal == null) {
-        setTokenBalance(null)
-        return
-      }
-      const n = Number(bal)
-      setTokenBalance(Number.isFinite(n) && n > 0 ? bal : null)
+      setTokenBalance(token)
+      setNativeBalance(native)
     })()
     return () => {
       cancelled = true
@@ -201,37 +206,41 @@ export function WalletStatusCard({ wallet, loading }: Props) {
           className="text-sm text-gray-200"
         />
 
-        <Link
-          href={portfolioHref}
-          className="inline-flex text-sm font-medium text-brand-green hover:underline"
-        >
-          View impact portfolio
-        </Link>
+        {showImpactPortfolio ? (
+          <Link
+            href={portfolioHref}
+            className="inline-flex text-sm font-medium text-brand-green hover:underline"
+          >
+            View impact portfolio
+          </Link>
+        ) : null}
 
         <div className="space-y-2 border-t border-gray-800 pt-4">
           <div className="flex flex-wrap gap-6 text-sm">
             <div>
               <span className="text-gray-500">Balance </span>
-              <span className="font-medium text-white">{wallet.balance} {chain.gasSymbol}</span>
+              <span className="font-medium text-white">
+                {formatTokenDisplay(nativeBalance ?? wallet.balance ?? '0')} {chain.gasSymbol}
+              </span>
             </div>
-            {tokenBalance ? (
-              <div>
-                {chain.tokenExplorerHref ? (
-                  <a
-                    href={chain.tokenExplorerHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`View ${chain.tokenSymbol} on explorer`}
-                    className="text-gray-500 hover:text-brand-green hover:underline"
-                  >
-                    {chain.tokenSymbol}{' '}
-                  </a>
-                ) : (
-                  <span className="text-gray-500">{chain.tokenSymbol} </span>
-                )}
-                <span className="font-medium text-white">{formatTokenDisplay(tokenBalance)}</span>
-              </div>
-            ) : null}
+            <div>
+              {chain.tokenExplorerHref ? (
+                <a
+                  href={chain.tokenExplorerHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`View ${chain.tokenSymbol} contract`}
+                  className="text-gray-500 hover:text-brand-green hover:underline"
+                >
+                  {chain.tokenSymbol}{' '}
+                </a>
+              ) : (
+                <span className="text-gray-500">{chain.tokenSymbol} </span>
+              )}
+              <span className="font-medium text-white">
+                {tokenBalance != null ? formatTokenDisplay(tokenBalance) : '-'}
+              </span>
+            </div>
             <div className="inline-flex items-center gap-1.5">
               <span className="text-gray-500">Network </span>
               <span className="font-medium text-white">{networkShort}</span>
@@ -245,15 +254,15 @@ export function WalletStatusCard({ wallet, loading }: Props) {
               </button>
             </div>
           </div>
-          {chain.tokenExplorerHref && !tokenBalance ? (
+          {chain.tokenExplorerHref ? (
             <a
               href={chain.tokenExplorerHref}
               target="_blank"
               rel="noopener noreferrer"
-              title={`View ${chain.tokenSymbol} on explorer`}
+              title={`View ${chain.tokenSymbol} contract`}
               className="text-[11px] font-medium text-brand-green hover:underline"
             >
-              {chain.tokenSymbol}
+              {chain.tokenSymbol} contract
             </a>
           ) : null}
         </div>

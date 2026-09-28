@@ -138,7 +138,7 @@ export async function fetchImageBufferFromIpfs(ipfsCid: string): Promise<Buffer>
           return Buffer.from(await response.arrayBuffer())
         }
         lastError = `HTTP ${response.status} from ${gateway}`
-        // A 4xx other than 429 won't improve on retry — skip to the next gateway.
+        // A 4xx other than 429 won't improve on retry - skip to the next gateway.
         if (response.status !== 429 && response.status < 500) break
       } catch (err) {
         lastError = `${err instanceof Error ? err.message : String(err)} from ${gateway}`
@@ -164,7 +164,7 @@ export async function downloadAndStoreFromIpfs(
 
 /**
  * Download both photos from IPFS and normalize to JPEG in memory, writing to disk only
- * after BOTH succeed — so a mid-way IPFS failure never leaves a fresh before.jpg paired
+ * after BOTH succeed - so a mid-way IPFS failure never leaves a fresh before.jpg paired
  * with a stale after.jpg from an earlier run.
  */
 export async function downloadAndStoreBothFromIpfs(

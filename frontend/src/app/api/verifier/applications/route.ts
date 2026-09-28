@@ -32,7 +32,7 @@ export async function GET(request: Request) {
           }
         )
       } catch (err) {
-        // Local/dev: missing service role, table not migrated, or bad JWT — do not break cleanup UX.
+        // Local/dev: missing service role, table not migrated, or bad JWT - do not break cleanup UX.
         console.error('GET /api/verifier/applications (by address):', err)
         return NextResponse.json(
           {
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Admin signature required' }, { status: 403 })
     }
 
-    // Fetch applications and stats (degrade gracefully — same as ?address= branch)
+    // Fetch applications and stats (degrade gracefully - same as ?address= branch)
     let applications: Awaited<ReturnType<typeof getAllApplications>> = []
     let stats: Awaited<ReturnType<typeof getApplicationStats>> = {
       total: 0,

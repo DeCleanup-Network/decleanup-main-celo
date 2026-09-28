@@ -160,7 +160,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
     await runCheck(inputAddress)
   }
 
-  // Restore address from URL, session, prop, or embedded signer EOA — then auto-check once
+  // Restore address from URL, session, prop, or embedded signer EOA - then auto-check once
   useEffect(() => {
     const fromUrl = searchParams.get('address')?.trim()
     const fromSession = readPendingAirdropAddress()
@@ -384,7 +384,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
             Wallet address (MetaMask / Gardens)
           </label>
           <p className="text-xs text-muted-foreground">
-            Use your signer address — the one MetaMask shows after export, not your DeCleanup smart account.
+            Use your signer address - the one MetaMask shows after export, not your DeCleanup smart account.
           </p>
           <input
             id="airdrop-address"
@@ -495,7 +495,7 @@ export function AirdropClaimPanel({ initialAddress }: Props) {
                   <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`} className="underline">
                     WalletConnect
                   </Link>{' '}
-                  — otherwise the claim transaction will not appear.
+                  - otherwise the claim transaction will not appear.
                 </p>
               )}
               {wrongNetwork && (

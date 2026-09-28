@@ -60,7 +60,7 @@ export default function UploadImpactProductsPage() {
               UPLOAD IMPACT PRODUCTS
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Upload all 10 tRWA images and metadata to IPFS
+              Upload all 10 tRWI images and metadata to IPFS
             </p>
           </div>
           <Link href="/">
@@ -88,7 +88,7 @@ export default function UploadImpactProductsPage() {
           <div className="space-y-4">
             <div>
               <label className="mb-2 block font-heading text-lg tracking-wider text-foreground">
-                tRWA Images (10 PNG files)
+                tRWI Images (10 PNG files)
               </label>
               <input
                 type="file"

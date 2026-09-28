@@ -2,7 +2,7 @@ import type { Connector } from 'wagmi'
 
 /**
  * MetaMask / WalletConnect / browser-extension wallets usually expose vendor flags on the EIP-1193 provider.
- * Web3Auth embedded (social / email) MPC wallet typically does not — use paymaster for that path.
+ * Web3Auth embedded (social / email) MPC wallet typically does not - use paymaster for that path.
  *
  * If detection fails, default to **external** (user pays) so we do not burn sponsorship budget.
  */

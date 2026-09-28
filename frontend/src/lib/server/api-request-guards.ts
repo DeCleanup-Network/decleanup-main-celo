@@ -107,11 +107,24 @@ const ALLOWED_IMAGE_MIME = new Set([
 export function isAllowedCleanupImageMime(file: File): boolean {
   const t = (file.type || '').toLowerCase().trim()
   if (ALLOWED_IMAGE_MIME.has(t)) return true
+  if (t.includes('heic') || t.includes('heif')) return true
   if (t === 'application/octet-stream' || t === '') {
     const name = (file.name || '').toLowerCase()
     return /\.(jpe?g|png|heic|heif|webp)$/.test(name)
   }
   return false
+}
+
+/** FormData files in Node/undici are sometimes Blob, not `File`. */
+export function toUploadedFile(entry: FormDataEntryValue | null): File | null {
+  if (!entry || typeof entry === 'string') return null
+  const blob = entry as Blob
+  if (typeof blob.arrayBuffer !== 'function' || blob.size < 32) return null
+  if (typeof File !== 'undefined' && entry instanceof File) return entry
+  const named = entry as Blob & { name?: string }
+  return new File([blob], named.name || 'photo.heic', {
+    type: blob.type || 'application/octet-stream',
+  })
 }
 
 export function isAllowedCleanupVideoMime(file: File): boolean {
@@ -151,7 +164,7 @@ export function isAllowedPinataJsonFile(file: File): boolean {
   return false
 }
 
-/** submissionId is used as an on-disk directory name — restrict to the same safe charset as the photo-serving route to block path traversal. */
+/** submissionId is used as an on-disk directory name - restrict to the same safe charset as the photo-serving route to block path traversal. */
 export const mlSubmissionId = z
   .coerce.string()
   .min(1)

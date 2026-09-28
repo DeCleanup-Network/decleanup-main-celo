@@ -12,7 +12,7 @@ function getPimlicoUrl(): string {
   return getPimlicoBundlerUrl(apiKey)
 }
 
-/** Bundler returns this while the UserOp is still pending — not a hard failure. */
+/** Bundler returns this while the UserOp is still pending - not a hard failure. */
 export function isUserOpReceiptPendingError(error: unknown): boolean {
   const msg =
     (error instanceof Error ? error.message : null) ??
@@ -70,7 +70,7 @@ export async function waitForGaslessUserOperationConfirmation(
     if (userOpReceipt?.receipt?.transactionHash) {
       if (userOpReceipt.success === false) {
         throw new Error(
-          `Gasless transaction failed onchain (UserOp ${hash}). The bundler or paymaster may have rejected it — check Pimlico dashboard and smart-account ${gasSymbol} balance if the action sends native value.`
+          `Gasless transaction failed onchain (UserOp ${hash}). The bundler or paymaster may have rejected it - check Pimlico dashboard and smart-account ${gasSymbol} balance if the action sends native value.`
         )
       }
       return {
@@ -102,7 +102,7 @@ export async function waitForGaslessUserOperationConfirmation(
 
   throw new Error(
     `Gasless transaction not confirmed after ${Math.round(timeoutMs / 1000)}s (UserOp ${hash}). ` +
-      `It may still be processing — wait a minute and refresh, or check the transaction on the block explorer. ` +
+      `It may still be processing - wait a minute and refresh, or check the transaction on the block explorer. ` +
       `If this keeps happening, confirm Pimlico supports this network (chain ${REQUIRED_CHAIN_ID}) and your API key is active.`
   )
 }

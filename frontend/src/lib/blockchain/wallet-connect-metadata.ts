@@ -1,5 +1,5 @@
 /**
- * WalletConnect metadata — url must match the live page origin (see wagmi.ts).
+ * WalletConnect metadata - url must match the live page origin (see wagmi.ts).
  */
 
 const APP_NAME = 'DeCleanup Rewards'

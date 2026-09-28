@@ -1,4 +1,4 @@
--- First-time setup only. If you see "relation User already exists", tables exist — stop.
+-- First-time setup only. If you see "relation User already exists", tables exist - stop.
 -- Safe re-run for auth only: prisma/supabase-auth-tables.sql (IF NOT EXISTS).
 -- See docs/AUTH_EMAIL_TROUBLESHOOTING.md
 

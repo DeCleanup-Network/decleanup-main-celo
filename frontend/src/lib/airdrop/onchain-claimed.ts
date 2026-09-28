@@ -4,7 +4,7 @@ import { createPublicClient, http, type Address, parseAbiItem, parseEventLogs } 
 import { REQUIRED_CHAIN_ID, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
 import { getReceiptWithRetry } from '@/lib/server/tx-receipt'
 
-/** ClaimVault PublicDistribution — airdrop category. */
+/** ClaimVault PublicDistribution - airdrop category. */
 const AIRDROP_CLAIM_CATEGORY = 2
 
 const CLAIMED_EVENT = parseAbiItem(

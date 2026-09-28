@@ -7,6 +7,8 @@ import { createMinimalWagmiConfig } from '@/lib/blockchain/minimal-wagmi-config'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
 import { WalletConnectUriOpener } from '@/components/wallet/WalletConnectUriOpener'
+import { EnforceManualWalletDisconnect } from '@/lib/blockchain/EnforceManualWalletDisconnect'
+import { isManualWalletDisconnectActive } from '@/lib/blockchain/wallet-disconnect'
 
 /**
  * Wagmi + React Query without RainbowKit in AA auth mode.
@@ -33,8 +35,13 @@ export function MinimalWagmiProviders({
   )
 
   return (
-    <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
+    <WagmiProvider
+      config={config}
+      initialState={initialState}
+      reconnectOnMount={!isManualWalletDisconnectActive()}
+    >
       <WagmiConfigSync />
+      <EnforceManualWalletDisconnect />
       <WalletConnectRelayRecovery />
       <WalletConnectUriOpener />
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

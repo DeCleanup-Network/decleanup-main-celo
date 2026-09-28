@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-/** Legacy route — wallet sync + unlock live on Account settings. */
+/** Legacy route - wallet sync + unlock live on Account settings. */
 export default function RecoveryPage() {
   const router = useRouter()
 

@@ -119,7 +119,7 @@ export function TrashAthleteVerifierSection({
       <p className="mb-4 text-sm text-muted-foreground">
         Open the social link and confirm cleanup photos before approving. Reward: {TRASH_ATHLETE_LEVEL_COPY} +{' '}
         {TRASH_ATHLETE_DCU_POINTS} DCU + {TRASH_ATHLETE_BONUS_CDCU} $cDCU. If they already have an NFT, tell them to
-        Claim/Upgrade once — do not Safe-mint again.
+        Claim/Upgrade once - do not Safe-mint again.
       </p>
       {challenges.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">

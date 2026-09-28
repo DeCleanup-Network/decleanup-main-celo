@@ -18,7 +18,7 @@ const toneClass = {
 } as const
 
 /**
- * Lucide icon in a soft ring — landing “chip dot” energy for dashboard sections.
+ * Lucide icon in a soft ring - landing “chip dot” energy for dashboard sections.
  */
 export function IconAccent({ icon: Icon, tone = 'yellow', size = 'md', className }: IconAccentProps) {
   const box = size === 'sm' ? 'h-8 w-8' : 'h-10 w-10'

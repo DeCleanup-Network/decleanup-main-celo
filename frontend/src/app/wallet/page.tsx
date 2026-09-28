@@ -135,7 +135,7 @@ export default function AccountSettingsPage() {
         </>
       )}
 
-      {/* Always visible when signed in — not gated on wallet unlock phase */}
+      {/* Always visible when signed in - not gated on wallet unlock phase */}
       {status === 'authenticated' && <PushNotificationSettings />}
     </div>
   )

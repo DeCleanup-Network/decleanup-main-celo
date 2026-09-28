@@ -130,7 +130,7 @@ export function getActivityMultiplierWei(totalPointsWei: bigint): bigint {
   return getProgressiveMultiplierWei(totalPointsWei)
 }
 
-/** Floor(P / 50 DCU) — how many 50-point milestones the user has reached. */
+/** Floor(P / 50 DCU) - how many 50-point milestones the user has reached. */
 export function tiersReachedWei(totalPointsWei: bigint): bigint {
   return totalPointsWei / ELIGIBILITY_THRESHOLD_WEI
 }
@@ -357,9 +357,9 @@ export async function getCleanupCampaignClaimsInTx(
  * Uses RewardManager totalEarned points. Each claim unlocks one 50-DCU tranche;
  * the next claim needs 50 more points (next milestone).
  *
- * @param opts.mintRecipient — optional payout address; when set, milestones are at least the
+ * @param opts.mintRecipient - optional payout address; when set, milestones are at least the
  *   on-chain CleanupCampaign claim count (fixes Vercel ephemeral file store).
- * @param opts.linkedAccount — optional smart account to merge reward points from (EOA-first).
+ * @param opts.linkedAccount - optional smart account to merge reward points from (EOA-first).
  */
 export async function getEligibilityAndClaimable(
   recipient: Address,

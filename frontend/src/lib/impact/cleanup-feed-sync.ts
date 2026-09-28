@@ -67,7 +67,7 @@ async function mapEntryToFeedRow(
   const details = readAt
     ? await getCleanupDetailsAt(readAt, onChainId)
     : await getCleanupDetailsFresh(onChainId)
-  // Use on-chain microdegrees from contract — entry.latitude/longitude are already degrees from indexer.
+  // Use on-chain microdegrees from contract - entry.latitude/longitude are already degrees from indexer.
   const { lat, lng } = parseCoordsFromContractRaw(details.latitude, details.longitude)
 
   let locationPlaceName: string | null = existing?.location_place_name ?? null

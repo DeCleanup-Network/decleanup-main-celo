@@ -2,15 +2,25 @@ import { Address } from 'viem'
 import {
   getCleanupDetailsFresh,
   findLatestClaimableCleanup,
-  getUserSubmissions,
   getUserSubmissionsFresh,
 } from './contracts'
 
-/** Verified submissions (approved, not rejected) for this user — drives level claim eligibility vs NFT userLevel. */
-export async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
-  const submissionIds = await getUserSubmissions(user)
-  if (submissionIds.length === 0) return 0
-  const detailsList = await Promise.all(submissionIds.map((sid) => getCleanupDetailsFresh(sid)))
+/** Verified submissions (approved, not rejected) for this user - drives level claim eligibility vs NFT userLevel. */
+export async function countVerifiedCleanupsForUser(
+  user: Address,
+  extraIds: bigint[] = []
+): Promise<number> {
+  const submissionIds = await getUserSubmissionsFresh(user)
+  const seen = new Set<string>()
+  const ids: bigint[] = []
+  for (const id of [...submissionIds, ...extraIds]) {
+    const key = id.toString()
+    if (seen.has(key)) continue
+    seen.add(key)
+    ids.push(id)
+  }
+  if (ids.length === 0) return 0
+  const detailsList = await Promise.all(ids.map((sid) => getCleanupDetailsFresh(sid)))
   let n = 0
   for (const d of detailsList) {
     if (d.verified && !d.rejected) n++
@@ -121,12 +131,12 @@ export async function isCleanupClaimedEffective(
   cleanupId: bigint
 ): Promise<boolean> {
   if (!isCleanupClaimed(user, cleanupId)) return false
-  const verifiedCount = await countVerifiedCleanupsForUser(user)
+  const verifiedCount = await countVerifiedCleanupsForUser(user, [cleanupId])
   const { getUserLevelFresh } = await import('./contracts')
   const nftLevel = await getUserLevelFresh(user)
   if (verifiedCount > 0 && nftLevel < verifiedCount) {
     unmarkCleanupClaimed(user, cleanupId)
-    console.log('[verification] Ignoring stale local claimed — NFT level still behind verified count', {
+    console.log('[verification] Ignoring stale local claimed - NFT level still behind verified count', {
       cleanupId: cleanupId.toString(),
       nftLevel,
       verifiedCount,
@@ -336,14 +346,14 @@ export async function getLatestCleanupStatus(
     const claimed = localClaimed
 
     // Claim eligibility: verified, not rejected, not locally claimed.
-    // NFT level vs verified count (below) is the on-chain source of truth — not rewarded/balance heuristics.
+    // NFT level vs verified count (below) is the on-chain source of truth - not rewarded/balance heuristics.
     let canClaim = verified && !rejected && !claimed
 
     // On-chain source of truth: each verified cleanup should eventually mint one Impact Product level.
     // localStorage "claimed" can be missing (new device / cleared storage) while NFT level already caught up.
     if (canClaim && verified) {
       try {
-        const verifiedCount = await countVerifiedCleanupsForUser(user)
+        const verifiedCount = await countVerifiedCleanupsForUser(user, [cleanupId])
         const { getUserLevelFresh } = await import('./contracts')
         const nftLevel = await getUserLevelFresh(user)
         if (verifiedCount > 0 && nftLevel >= verifiedCount) {

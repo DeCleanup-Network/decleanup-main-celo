@@ -30,7 +30,7 @@ export function reloadOnceForStaleChunk(): boolean {
     if (last > 0 && now - last < RELOAD_COOLDOWN_MS) return false
     sessionStorage.setItem(RELOAD_AT_KEY, String(now))
   } catch {
-    // sessionStorage blocked — still attempt one reload
+    // sessionStorage blocked - still attempt one reload
   }
   window.location.reload()
   return true

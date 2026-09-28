@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Address } from 'viem'
 import { formatEther } from 'viem'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { getActiveAppChainId } from '@/lib/blockchain/active-contracts'
 import {
   getUserRewardStats,
-  getUserLevel,
   getUserTokenId,
   getClaimFee,
   getUserSubmissions,
@@ -19,7 +18,12 @@ import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { getMergedUserRewardStats, getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { loadImpactProductDisplay, type ImpactProductDisplayState } from '@/lib/dashboard/load-impact-product-display'
 import { scheduleIdle } from '@/lib/dashboard/schedule-idle'
-import { invalidateSubmissionDetailsCache } from '@/lib/contractCache'
+import { getClientExperienceTokenBalance } from '@/lib/smart-account/client'
+import {
+  invalidateImpactProductClaimCaches,
+  invalidateSubmissionDetailsCache,
+  invalidateUserSubmissionsCache,
+} from '@/lib/contractCache'
 
 export type HomeCleanupStatus = {
   hasPendingCleanup: boolean
@@ -123,7 +127,7 @@ type Params = {
 
 /**
  * Home dashboard on-chain data with phased loading:
- * - Phase 1 (immediate): status, rewards summary, level, claim fee — hero + REWARDS card
+ * - Phase 1 (immediate): status, rewards summary, level, claim fee - hero + REWARDS card
  * - Phase 2 (idle or breakdown open): submission details, verifier DCU, contributor stats
  * - Phase 3 (async): Impact Product IPFS metadata
  */
@@ -150,6 +154,7 @@ export function useHomeDashboardOnChain({
   const [rewardStats, setRewardStats] = useState<HomeRewardStats>(EMPTY_REWARD_STATS)
   const [impactProduct, setImpactProduct] = useState<ImpactProductDisplayState>(EMPTY_IMPACT_PRODUCT)
   const [claimFeeInfo, setClaimFeeInfo] = useState<{ fee: bigint; enabled: boolean } | null>(null)
+  const [rewardTokenBalance, setRewardTokenBalance] = useState<string | null>(null)
   const [hasLoadedCoreOnce, setHasLoadedCoreOnce] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
 
@@ -246,6 +251,13 @@ export function useHomeDashboardOnChain({
       identityAliases.push(address)
     }
     const cancelled = { current: false }
+    const appChainId = chainId ?? getActiveAppChainId()
+    invalidateUserSubmissionsCache(appChainId, owner)
+    invalidateImpactProductClaimCaches({
+      chainId: appChainId,
+      ownerAddress: owner,
+      cleanupId: pendingCleanupIdRef.current,
+    })
 
     try {
       const [status, rewardStatsData, level, tokenId, feeInfo] = await Promise.all([
@@ -264,13 +276,20 @@ export function useHomeDashboardOnChain({
       setRewardStats(rewardStatsFromContract(rewardStatsData, level))
       setHasLoadedCoreOnce(true)
       loadImpactProduct(level, tokenId, cancelled)
+      void getClientExperienceTokenBalance(rewardIdentity, appChainId)
+        .then((bal) => {
+          if (!cancelledRef.current) setRewardTokenBalance(bal)
+        })
+        .catch(() => {
+          if (!cancelledRef.current) setRewardTokenBalance(null)
+        })
 
       return { owner, level, rewardStatsData }
     } catch (error) {
       console.error('Error loading dashboard core:', error)
       return null
     }
-  }, [submissionOwner, rewardIdentity, address, loadImpactProduct])
+  }, [submissionOwner, rewardIdentity, address, chainId, loadImpactProduct])
 
   // Refresh immediately when a cleanup is submitted (home may mount before chain index catches up).
   useEffect(() => {
@@ -316,6 +335,7 @@ export function useHomeDashboardOnChain({
       setRewardStats(EMPTY_REWARD_STATS)
       setImpactProduct(EMPTY_IMPACT_PRODUCT)
       setClaimFeeInfo(null)
+      setRewardTokenBalance(null)
       setHasLoadedCoreOnce(false)
       return () => {
         cancelledRef.current = true
@@ -346,7 +366,7 @@ export function useHomeDashboardOnChain({
       if (typeof document === 'undefined' || document.visibilityState !== 'visible') return
       const cleanupId = pendingCleanupIdRef.current
       if (cleanupId !== undefined) {
-        invalidateSubmissionDetailsCache(REQUIRED_CHAIN_ID, cleanupId)
+        invalidateSubmissionDetailsCache(chainId ?? getActiveAppChainId(), cleanupId)
       }
       void loadCore()
     }
@@ -359,7 +379,7 @@ export function useHomeDashboardOnChain({
       document.removeEventListener('visibilitychange', onVisibility)
       idleCancelRef.current?.()
     }
-  }, [mounted, isConnected, address, submissionOwner, loadCore])
+  }, [mounted, isConnected, address, submissionOwner, chainId, loadCore])
 
   // Defer heavy submission details until idle or breakdown opened
   useEffect(() => {
@@ -408,6 +428,7 @@ export function useHomeDashboardOnChain({
     rewardStats,
     impactProduct,
     claimFeeInfo,
+    rewardTokenBalance,
     hasLoadedDashboardOnce: hasLoadedCoreOnce,
     detailsLoading,
     refreshDashboard: refreshFull,

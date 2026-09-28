@@ -14,6 +14,7 @@ import {
   CONTRACT_READ_TTL_MS,
   invalidateImpactProductClaimCaches,
   invalidateSubmissionDetailsCache,
+  invalidateUserSubmissionsCache,
 } from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
 import { REQUIRED_BLOCK_EXPLORER_URL, ROBINHOOD_TESTNET_CHAIN_ID, getChainConfig } from './chain-constants'
@@ -46,7 +47,7 @@ export type GaslessClient = {
   accountAddress?: Address
 }
 
-/** Gasless / AA claim path — pass smart account + EOA when wagmi is not connected. */
+/** Gasless / AA claim path - pass smart account + EOA when wagmi is not connected. */
 export type EmbeddedEoaWriteFn = (params: {
   address: Address
   abi: readonly unknown[]
@@ -55,12 +56,12 @@ export type EmbeddedEoaWriteFn = (params: {
   value?: bigint
 }) => Promise<`0x${string}`>
 
-/** Gasless / AA claim path — pass smart account + EOA when wagmi is not connected. */
+/** Gasless / AA claim path - pass smart account + EOA when wagmi is not connected. */
 export type GaslessClaimOptions = {
   gaslessClient?: GaslessClient
   smartAccountAddress?: Address
   eoaAddress?: Address
-  /** Google/email embedded EOA — bypasses wagmi when cleanup owner is the embedded signer. */
+  /** Google/email embedded EOA - bypasses wagmi when cleanup owner is the embedded signer. */
   embeddedEoaWrite?: EmbeddedEoaWriteFn
 }
 
@@ -137,7 +138,7 @@ function resolveClaimIdentity(options?: GaslessClaimOptions): {
         options.gaslessClient.accountAddress ??
         null
       : null)
-  // Same hex as EOA — treat as a normal wallet claim (avoids false "smart account only" blocks).
+  // Same hex as EOA - treat as a normal wallet claim (avoids false "smart account only" blocks).
   if (eoa && smart && eoa.toLowerCase() === smart.toLowerCase()) {
     smart = null
   }
@@ -270,7 +271,7 @@ function isNoDataOrWrongChainError(error: unknown): boolean {
   return false
 }
 
-/** Impact product contract reverts when the user has not minted yet — not an error for the UI. */
+/** Impact product contract reverts when the user has not minted yet - not an error for the UI. */
 function isExpectedNoImpactNftError(error: unknown): boolean {
   if (isNoDataOrWrongChainError(error)) return true
   const msg = (error as { message?: string })?.message
@@ -636,7 +637,7 @@ export async function submitCleanup(
     }
 
     // Confirm the receipt. If the receipt can't be fetched (transient RPC/timeout), the tx was
-    // still broadcast — surface it as pending rather than a hard failure.
+    // still broadcast - surface it as pending rather than a hard failure.
     let receipt
     try {
       receipt = await waitForOnChainConfirmation(hash, gasless)
@@ -861,7 +862,7 @@ export async function getCleanupDetails(cleanupId: bigint): Promise<CleanupDetai
   )
 }
 
-/** Bypass read cache — verifier UI and other snapshots that must reflect recent mints / claims. */
+/** Bypass read cache - verifier UI and other snapshots that must reflect recent mints / claims. */
 export async function getCleanupDetailsFresh(cleanupId: bigint): Promise<CleanupDetails> {
   return getCleanupDetailsImpl(cleanupId)
 }
@@ -1087,9 +1088,9 @@ export async function getUserReferrer(user: Address): Promise<Address | null> {
   }
 }
 
-/** Count of approved (non-rejected) submissions — must match NFT userLevel after all levels are claimed. */
+/** Count of approved (non-rejected) submissions - must match NFT userLevel after all levels are claimed. */
 async function countVerifiedCleanupsForUser(user: Address): Promise<number> {
-  const submissionIds = await getUserSubmissions(user)
+  const submissionIds = await getUserSubmissionsFresh(user)
   let n = 0
   for (const sid of submissionIds) {
     try {
@@ -1116,7 +1117,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
       nftLvl = await getUserLevelFresh(user)
       if (verifiedCnt > 0 && nftLvl >= verifiedCnt) {
         console.log(
-          `[findLatestClaimableCleanup] NFT level ${nftLvl} >= verified cleanups ${verifiedCnt} — no pending level claim`
+          `[findLatestClaimableCleanup] NFT level ${nftLvl} >= verified cleanups ${verifiedCnt} - no pending level claim`
         )
         return null
       }
@@ -1144,13 +1145,13 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
         if (!claimedIds) return false
         const parsed = JSON.parse(claimedIds) as string[]
         if (!parsed.includes(submissionId.toString())) return false
-        // Stale local "claimed" from old bugs — on-chain NFT level wins
+        // Stale local "claimed" from old bugs - on-chain NFT level wins
         if (verifiedCnt > 0 && nftLvl < verifiedCnt) {
           const filtered = parsed.filter((id) => id !== submissionId.toString())
           if (filtered.length === 0) localStorage.removeItem(claimedKey)
           else localStorage.setItem(claimedKey, JSON.stringify(filtered))
           console.log(
-            `[findLatestClaimableCleanup] Cleared stale claimed flag for ${submissionId.toString()} — NFT ${nftLvl} < verified ${verifiedCnt}`
+            `[findLatestClaimableCleanup] Cleared stale claimed flag for ${submissionId.toString()} - NFT ${nftLvl} < verified ${verifiedCnt}`
           )
           return false
         }
@@ -1167,7 +1168,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
       const latestSubmissionId = sortedIds[0]
       if (localClaimedEffective(latestSubmissionId)) {
         console.log(
-          `[findLatestClaimableCleanup] Latest submission ${latestSubmissionId.toString()} already claimed — waiting for a new submission before next claim`
+          `[findLatestClaimableCleanup] Latest submission ${latestSubmissionId.toString()} already claimed - waiting for a new submission before next claim`
         )
         return null
       }
@@ -1179,7 +1180,7 @@ export async function findLatestClaimableCleanup(user: Address): Promise<bigint 
 
         if (localClaimedEffective(submissionId)) {
           console.log(
-            `[findLatestClaimableCleanup] Skip ${submissionId.toString()} — already in claimed_cleanup_ids (claim again requires a new submission)`
+            `[findLatestClaimableCleanup] Skip ${submissionId.toString()} - already in claimed_cleanup_ids (claim again requires a new submission)`
           )
           continue
         }
@@ -1419,24 +1420,20 @@ export async function verifyCleanup(
     }
 
     invalidateSubmissionDetailsCache(getActiveAppChainId(), cleanupId)
-
-    let rdcuMintHash: `0x${string}` | undefined
-    if (robinhoodDemo) {
-      try {
-        rdcuMintHash = await settleRobinhoodRdcuAfterVerify(cleanupId)
-      } catch (mintError) {
-        const mintMessage = mintError instanceof Error ? mintError.message : String(mintError)
-        if (!/AlreadyMinted|already minted/i.test(mintMessage)) {
-          console.warn('Robinhood $rDCU mint-on-verify skipped:', mintError)
-        }
-      }
+    if (details.user) {
+      invalidateUserSubmissionsCache(getActiveAppChainId(), details.user)
+      invalidateImpactProductClaimCaches({
+        chainId: getActiveAppChainId(),
+        ownerAddress: details.user,
+        cleanupId,
+      })
     }
 
     if (!hash) {
       throw new Error('Missing verify transaction hash')
     }
 
-    return { hash, rdcuMintHash }
+    return { hash }
   } catch (error: any) {
     console.error('Error verifying cleanup:', error)
     let errorMessage = 'Unknown error'
@@ -1690,7 +1687,7 @@ const REWARD_MANAGER_STATS_ABI_7 = [
   },
 ] as const
 
-/** Public mapping on DCURewardManager — source of truth for recyclables bucket (7-tuple stats ABI omits this field). */
+/** Public mapping on DCURewardManager - source of truth for recyclables bucket (7-tuple stats ABI omits this field). */
 const REWARD_MANAGER_RECYCLABLES_LEDGER_ABI = [
   {
     type: 'function',
@@ -1946,7 +1943,7 @@ export async function getUserLevelFresh(userAddress: Address): Promise<number> {
   return getUserLevelImpl(userAddress)
 }
 
-/** Approved-cleanup count used to keep tRWA upgrades at one level per cleanup. */
+/** Approved-cleanup count used to keep tRWI upgrades at one level per cleanup. */
 export async function getUserCleanupCount(userAddress: Address): Promise<number | null> {
   if (!getSubmissionAddress() || usesBaseMiniAppSubmission()) return null
   try {
@@ -2081,7 +2078,7 @@ export async function claimImpactProductFromVerification(
   const ownerLower = cleanupDetails.user.toLowerCase()
   const matchesEoa = !!(eoaAddress && ownerLower === eoaAddress.toLowerCase())
   const matchesSmart = !!(smartFromClient && ownerLower === smartFromClient.toLowerCase())
-  /** On-chain submission owner is the connected wallet — claim with EOA + gas, not smart-account UserOps. */
+  /** On-chain submission owner is the connected wallet - claim with EOA + gas, not smart-account UserOps. */
   const eoaOwnsCleanupOnChain = matchesEoa
 
   if (!matchesEoa && !matchesSmart) {
@@ -2105,7 +2102,7 @@ export async function claimImpactProductFromVerification(
   /** Execute writes as Safe UserOp only when cleanup owner is the smart account (not the connected EOA). */
   const useGasless = matchesSmart && gasless && !eoaOwnsCleanupOnChain
   console.log('Submission owner (claim address):', submissionOwner)
-  console.log('Connected EOA:', eoaAddress ?? '(gasless — not required)')
+  console.log('Connected EOA:', eoaAddress ?? '(gasless - not required)')
   console.log('Smart account:', smartFromClient ?? '(none)')
   console.log('Cleanup ID:', cleanupId.toString())
   console.log('Cleanup verified:', cleanupDetails.verified)
@@ -2114,7 +2111,7 @@ export async function claimImpactProductFromVerification(
   console.log('✅ Cleanup is verified - proceeding to claim flow')
   
   // Mint/upgrade must succeed before submission bonuses when both apply, or users only see recyclables/report
-  // DCU while cleanup DCU (claimRewardsAmount) stays 0 — a failed mint must not be masked by a bonus tx.
+  // DCU while cleanup DCU (claimRewardsAmount) stays 0 - a failed mint must not be masked by a bonus tx.
 
   let hash: `0x${string}` | null = null
   let nftTxHash: `0x${string}` | null = null
@@ -2177,7 +2174,7 @@ export async function claimImpactProductFromVerification(
       }
     } else {
       throw new Error(
-        'tRWA contract not configured. Set NEXT_PUBLIC_IMPACT_PRODUCT_NFT (or NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT) in the environment.'
+        'tRWI contract not configured. Set NEXT_PUBLIC_IMPACT_PRODUCT_NFT (or NEXT_PUBLIC_IMPACT_PRODUCT_CONTRACT) in the environment.'
       )
     }
 
@@ -2307,9 +2304,17 @@ export async function claimImpactProductFromVerification(
 
     if (getActiveAppChainId() === ROBINHOOD_TESTNET_CHAIN_ID) {
       try {
+        await settleRobinhoodRdcuAfterVerify(cleanupId)
+      } catch (mintError) {
+        const mintMessage = mintError instanceof Error ? mintError.message : String(mintError)
+        if (!/AlreadyMinted|already minted/i.test(mintMessage)) {
+          console.warn('Robinhood $rDCU mint-on-claim skipped:', mintError)
+        }
+      }
+      try {
         await settleRobinhoodRdcuForUser(submissionOwner)
       } catch (settleError) {
-        console.warn('Robinhood $rDCU settle after tRWA claim skipped:', settleError)
+        console.warn('Robinhood $rDCU ledger settle after tRWI claim skipped:', settleError)
       }
     }
 
@@ -2503,7 +2508,7 @@ export async function mintImpactProductNFT(
   bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
   if (!getImpactProductAddress()) {
-    throw new Error('tRWA contract address not configured')
+    throw new Error('tRWI contract address not configured')
   }
 
   const gasless = !!options?.gaslessClient
@@ -2555,13 +2560,13 @@ export async function mintImpactProductNFT(
     const errorMessage = error?.message || error?.shortMessage || 'Unknown error'
     if (errorMessage.includes('verified POI') || errorMessage.includes('not a verified POI')) {
       throw new Error(
-        'Not marked as a verified Proof of Impact (POI) on the tRWA contract — minting requires that flag. ' +
-        'If your cleanup is already approved, the Submission contract may not be linked on tRWA (deploy script should call setSubmissionContract), ' +
+        'Not marked as a verified Proof of Impact (POI) on the tRWI contract - minting requires that flag. ' +
+        'If your cleanup is already approved, the Submission contract may not be linked on tRWI (deploy script should call setSubmissionContract), ' +
           'or you were approved before that fix and need the contract owner to call verifyPOI for your address. ' +
           'Ask the team to run `npx hardhat run contracts/scripts/setup-roles.ts --network celoSepolia` and retry.'
       )
     }
-    throw new Error(`Failed to mint tRWA: ${errorMessage}`)
+    throw new Error(`Failed to mint tRWI: ${errorMessage}`)
   }
 }
 
@@ -2571,7 +2576,7 @@ export async function upgradeImpactProductNFT(
   bonusSubmissionId?: bigint
 ): Promise<`0x${string}`> {
   if (!getImpactProductAddress()) {
-    throw new Error('tRWA contract address not configured')
+    throw new Error('tRWI contract address not configured')
   }
 
   const gasless = !!options?.gaslessClient
@@ -2592,7 +2597,7 @@ export async function upgradeImpactProductNFT(
     const currentLevel = await getUserLevel(user)
     const approvedCount = await getUserCleanupCount(user)
     if (approvedCount != null && currentLevel + 1 > approvedCount) {
-      throw new Error('Upgrade requires one approved cleanup per tRWA level.')
+      throw new Error('Upgrade requires one approved cleanup per tRWI level.')
     }
   }
 
@@ -2641,7 +2646,7 @@ export async function upgradeImpactProductNFT(
     if (errorMessage.includes('maximum level')) {
       throw new Error('You have reached the maximum level (10).')
     }
-    throw new Error(`Failed to upgrade tRWA: ${errorMessage}`)
+    throw new Error(`Failed to upgrade tRWI: ${errorMessage}`)
   }
 }
 

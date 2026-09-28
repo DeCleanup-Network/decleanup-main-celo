@@ -3,7 +3,7 @@
  * after a successful onchain cleanup submission.
  *
  * Embedded / AA submits are slower and mobile Safari often cancels in-flight
- * fetches if the tab backgrounds — use keepalive + more retries.
+ * fetches if the tab backgrounds - use keepalive + more retries.
  */
 
 const CLIENT_RETRIES = 5

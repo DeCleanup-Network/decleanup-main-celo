@@ -1,7 +1,8 @@
 'use client'
 
 import { usePrivy, useLogin, useLogout } from '@privy-io/react-auth'
-import { useAccount, useDisconnect } from 'wagmi'
+import { useAccount, useConfig } from 'wagmi'
+import { disconnectAllWallets } from '@/lib/blockchain/wallet-disconnect'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
@@ -24,7 +25,7 @@ export function EmbeddedWalletConnect() {
   const { login } = useLogin()
   const { logout } = useLogout()
   const { address, chainId } = useAccount()
-  const { disconnect } = useDisconnect()
+  const config = useConfig()
 
   useEffect(() => {
     setMounted(true)
@@ -62,8 +63,10 @@ export function EmbeddedWalletConnect() {
           size="sm"
           className="h-8 shrink-0 px-2.5 text-[11px] sm:h-9 sm:text-sm"
           onClick={() => {
-            logout()
-            disconnect()
+            void (async () => {
+              await disconnectAllWallets(config)
+              await logout()
+            })()
           }}
         >
           Disconnect

@@ -12,7 +12,7 @@ export type WalletMetadata = {
   walletVersion: number
 }
 
-/** Server never decrypts — stores opaque blob from client. */
+/** Server never decrypts - stores opaque blob from client. */
 export async function upsertWalletMetadata(params: {
   userId: string
   address: Address

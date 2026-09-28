@@ -20,6 +20,7 @@ import {
   X,
   TrendingUp,
   HelpCircle,
+  ExternalLink,
 } from 'lucide-react'
 import {
   claimImpactProductFromVerification,
@@ -34,7 +35,8 @@ import {
   CELO_MAINNET_CHAIN_ID, 
   BASE_MAINNET_CHAIN_ID, 
   CELO_SEPOLIA_CHAIN_ID, 
-  BASE_SEPOLIA_CHAIN_ID 
+  BASE_SEPOLIA_CHAIN_ID,
+  ROBINHOOD_TESTNET_CHAIN_ID,
 } from '@/lib/blockchain/chain-constants'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { DashboardImpactProduct } from '@/components/dashboard/DashboardImpactProduct'
@@ -68,6 +70,7 @@ import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHer
 import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
 import { websiteGuideUrl } from '@/lib/guides/website-guides'
 import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
 import { buildImpactProductClaimMessage, impactProductNftVerb } from '@/lib/notifications/claim-success-copy'
@@ -94,6 +97,7 @@ const WalletConnect = dynamic(
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
   const { chainId: experienceChainId, isCelo, isBase, isRobinhood } = useExperienceChain()
+  const experience = getExperienceDisplay(experienceChainId)
   const aaAuth = isAaAuthEnabledClient()
   const {
     address,
@@ -117,6 +121,7 @@ function HomeContent() {
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [showVerifierRulesModal, setShowVerifierRulesModal] = useState(false)
   const [showEarnModal, setShowEarnModal] = useState(false)
+  const [showTokenHelpModal, setShowTokenHelpModal] = useState(false)
   const [isClaiming, setIsClaiming] = useState(false)
   const [claimModal, setClaimModal] = useState<{
     variant: 'success' | 'error' | 'warning'
@@ -174,6 +179,7 @@ function HomeContent() {
     rewardStats,
     impactProduct,
     claimFeeInfo,
+    rewardTokenBalance,
     hasLoadedDashboardOnce,
     refreshDashboard,
   } = useHomeDashboardOnChain({
@@ -230,7 +236,7 @@ function HomeContent() {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-          purpose: 'claim your tRWA asset level',
+          purpose: 'claim your tRWI asset level',
         })
         return
       }
@@ -238,14 +244,14 @@ function HomeContent() {
       if (!canTransact || !gaslessClient) {
         setSignGate({
           mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-          purpose: 'claim your tRWA asset level',
+          purpose: 'claim your tRWI asset level',
         })
         return
       }
     } else if (eoaOwnsCleanupOnChain && isEmbeddedAccount && !canTransact) {
       setSignGate({
         mode: walletPhase === 'pending-password' ? 'set-password' : 'unlock',
-        purpose: 'claim your tRWA asset level',
+        purpose: 'claim your tRWI asset level',
       })
       return
     } else if (!wagmiIsConnected && !wagmiConnected) {
@@ -329,7 +335,7 @@ function HomeContent() {
 
       setClaimModal({
         variant: claimResult.bonusError ? 'warning' : 'success',
-        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'tRWA claimed',
+        title: claimResult.bonusError ? 'Level claimed, bonuses pending' : 'tRWI claimed',
         message: successMessage,
       })
 
@@ -374,7 +380,7 @@ function HomeContent() {
     )
   }
 
-  // Hero before login — full DeCleanup app only after /login (Google, email, wallet)
+  // Hero before login - full DeCleanup app only after /login (Google, email, wallet)
   if (!showMainApp) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -496,7 +502,7 @@ function HomeContent() {
           </div>
         )}
         {isCelo ? <AirdropPendingBanner /> : null}
-        {/* HERO — primary CTA first */}
+        {/* HERO - primary CTA first */}
         <section className="min-w-0 space-y-4 sm:space-y-5">
           <div className="text-center sm:text-left">
             <h1
@@ -529,7 +535,7 @@ function HomeContent() {
             )}
             {heroMaxLevelLocked && !showHeroClaimCta && !showHeroUnderReview && (
               <p className="max-w-md text-center text-sm text-muted-foreground sm:text-left">
-                Maximum tRWA asset level reached. New submissions are closed for this program phase.
+                Maximum tRWI asset level reached. New submissions are closed for this program phase.
               </p>
             )}
             {showHeroClaimCta && (
@@ -569,6 +575,14 @@ function HomeContent() {
               <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
                 Your cleanup is being verified. This usually takes a few hours.
               </p>
+            ) : isRobinhood && showHeroClaimCta ? (
+              <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
+                Your cleanup is verified. Claim level to mint $rDCU and your tRWI.
+              </p>
+            ) : isRobinhood && impactProduct.level > 0 && !showHeroClaimCta ? (
+              <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
+                tRWI is current with your verified cleanups. Submit another cleanup to unlock the next claim.
+              </p>
             ) : null}
             <Button
               asChild
@@ -584,7 +598,7 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* Referral notification — right after hero */}
+        {/* Referral notification - right after hero */}
         {showReferralNotification && referrerAddress && (
           <div className="rounded-lg border-2 border-brand-green bg-brand-green/10 p-4 flex-shrink-0">
             <div className="flex items-start gap-3">
@@ -639,12 +653,12 @@ function HomeContent() {
           ) : cleanupStatus?.canClaim ? (
             <div className="dcu-card dcu-card-glow flex min-h-0 flex-1 flex-col border-brand-yellow/30 p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
-                Your tRWA asset level
+                Your tRWI asset level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 w-full max-w-md rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 p-4">
                   <p className="text-sm sm:text-base text-brand-yellow">
-                    Your cleanup is verified. Claim level above to mint your tRWA
+                    Your cleanup is verified. Claim level above to mint your tRWI
                   </p>
                 </div>
                 <div className="mb-4 rounded-2xl border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/10 to-transparent p-8">
@@ -656,7 +670,7 @@ function HomeContent() {
           ) : (
             <div className="dcu-card flex min-h-0 flex-1 flex-col p-5 sm:p-8 lg:h-full">
               <SectionHeading icon={Award} aside={<ImpactProductLevelHelp />}>
-                Your tRWA asset level
+                Your tRWI asset level
               </SectionHeading>
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="mb-4 rounded-[10px] border border-white/10 bg-gradient-to-br from-brand-green/5 to-transparent p-8 sm:p-12">
@@ -664,7 +678,7 @@ function HomeContent() {
                 </div>
                 <h3 className="mb-2 font-heading text-2xl sm:text-3xl tracking-wider text-foreground">Not minted yet</h3>
                 <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
-                  Submit your first cleanup to mint your tRWA. Use <span className="text-foreground">Submit cleanup</span>{' '}
+                  Submit your first cleanup to mint your tRWI. Use <span className="text-foreground">Submit cleanup</span>{' '}
                   at the top of the page to begin.
                 </p>
               </div>
@@ -706,7 +720,9 @@ function HomeContent() {
                         aria-label={
                           isCelo
                             ? 'About DCU points, $cDCU, eligibility, and how to earn more'
-                            : 'About DCU points and how to earn more on Base'
+                            : isRobinhood
+                              ? 'About DCU points and $rDCU on Robinhood'
+                              : 'About DCU points and how to earn more on Base'
                         }
                       >
                         <HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -724,6 +740,32 @@ function HomeContent() {
                   {publicWalletAddress && onchainOwnerAddress && isCelo ? (
                     <div className="min-w-0 w-full">
                       <DashboardClaimCdcu rewardAddress={publicWalletAddress} payoutAddress={publicWalletAddress} />
+                    </div>
+                  ) : experience.tokenExplorerHref ? (
+                    <div className="min-w-0 rounded-xl border border-brand-green/30 bg-brand-green/5 p-3 sm:p-4">
+                      <div className="mb-1.5 flex items-center gap-1.5">
+                        <span className="text-[11px] font-sans font-semibold uppercase tracking-wide text-muted-foreground">
+                          {experience.tokenSymbol}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowTokenHelpModal(true)}
+                          className="inline-flex rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
+                          aria-label={`About ${experience.tokenSymbol} and the token contract`}
+                        >
+                          <HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        </button>
+                      </div>
+                      <p className="font-heading text-2xl leading-none text-brand-green sm:text-3xl">
+                        {!hasLoadedDashboardOnce ? (
+                          <Loader2 className="h-7 w-7 animate-spin text-brand-green/80" aria-hidden />
+                        ) : rewardTokenBalance != null ? (
+                          Number(rewardTokenBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                        ) : (
+                          '0'
+                        )}
+                      </p>
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">Wallet balance</p>
                     </div>
                   ) : null}
                 </div>
@@ -744,7 +786,7 @@ function HomeContent() {
                 {showBreakdown ? (
                   <div className="mt-3 space-y-4 border-t border-border/50 pt-3">
               <div className="mb-4 rounded-xl border border-border/80 bg-background/40 p-3 sm:p-4">
-                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">tRWA asset level</h3>
+                <h3 className="font-heading text-lg tracking-wider text-foreground sm:text-xl">tRWI asset level</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Level {hasLoadedDashboardOnce ? rewardStats.userLevel : '-'} of {MAX_IMPACT_PRODUCT_LEVEL}
                 </p>
@@ -760,67 +802,77 @@ function HomeContent() {
                 </div>
               </div>
               {hasLoadedDashboardOnce &&
+                !isRobinhood &&
                 rewardStats.verifiedCleanupsCount > 0 &&
                 rewardStats.cleanupsDCU === 0 && (
                   <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
                     You have {rewardStats.verifiedCleanupsCount} verified cleanup
                     {rewardStats.verifiedCleanupsCount === 1 ? '' : 's'} onchain, but &quot;Impact level DCU&quot; is still
-                    0. That bucket fills when you claim tRWA asset levels after verification (and only if the
+                    0. That bucket fills when you claim tRWI asset levels after verification (and only if the
                     deployed NFT has impact rewards enabled). Other rows (reports, recyclables, etc.) can still show
                     DCU from their own contracts.
                   </p>
                 )}
+              {hasLoadedDashboardOnce && isRobinhood ? (
+                  <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
+                    On Robinhood, {experience.tokenSymbol} is minted when you claim tRWI after verification.
+                    These rows are participation points. Your wallet {experience.tokenSymbol} is shown next to Total DCU.
+                  </p>
+                ) : null}
               <div className="grid grid-cols-2 gap-2">
                                 {[
                   {
                     label: 'Cleanups',
-                    value: rewardStats.cleanupsDCU.toFixed(0),
-                    showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                    hint: isRobinhood ? 'verified' : undefined,
+                    value: isRobinhood
+                      ? String(rewardStats.verifiedCleanupsCount)
+                      : rewardStats.cleanupsDCU.toFixed(0),
+                    showToken: !isRobinhood,
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   {
                     label: 'Referrals',
                     value: rewardStats.referralsDCU.toFixed(0),
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   { 
                     label: 'Streak', 
                     value: rewardStats.streakDCU.toFixed(0), 
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   {
                     label: 'Impact reports',
                     value: rewardStats.reportsDCU.toFixed(0),
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID] // Celo only
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   {
                     label: 'Recyclables',
                     value: rewardStats.recyclablesDCU.toFixed(0),
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID] // Celo only
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   {
                     label: 'Hypercerts',
                     hint: 'impact certificates',
                     value: rewardStats.hypercertsDCU.toFixed(0),
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID] // Celo only
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   { 
                     label: 'Verifier', 
                     value: rewardStats.verifierDCU.toFixed(0), 
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                   {
                     label: 'Contributed',
                     hint: 'cleanups',
                     value: String(rewardStats.contributorCleanupCount),
                     showToken: false,
-                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]
+                    chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                 ].filter(stat => stat.chains.includes(experienceChainId)).map((stat) => (
                   <div
@@ -843,7 +895,7 @@ function HomeContent() {
                       ) : (
                         <span className="break-words">
                           {stat.value}
-                          {stat.showToken ? ' DCU' : ''}
+                          {stat.showToken ? (isRobinhood ? ` ${experience.tokenTicker}` : ' DCU') : ''}
                         </span>
                       )}
                     </p>
@@ -931,7 +983,7 @@ function HomeContent() {
           }}
           title={
             claimModal.title ??
-            (claimModal.variant === 'success' ? 'tRWA claimed' : 'Claim failed')
+            (claimModal.variant === 'success' ? 'tRWI claimed' : 'Claim failed')
           }
           message={claimModal.message}
           variant={claimModal.variant}
@@ -982,7 +1034,7 @@ function HomeContent() {
               </button>
             </div>
             <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-              New verifier applicants need tRWA asset level{' '}
+              New verifier applicants need tRWI asset level{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minLevel}</strong>, at least{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minDCUBalance}</strong> DCU, and{' '}
               <strong className="text-foreground">{VERIFIER_CONFIG.requirements.minApprovedCleanups}</strong> verified
@@ -1036,6 +1088,77 @@ function HomeContent() {
         </div>
       ) : null}
 
+      {showTokenHelpModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reward-token-help-title"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <h2 id="reward-token-help-title" className="font-heading text-2xl tracking-wider text-foreground">
+                About {experience.tokenSymbol}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowTokenHelpModal(false)}
+                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-muted-foreground">
+              {isRobinhood ? (
+                <p>
+                  <strong className="text-foreground">What is $rDCU?</strong> $rDCU is the Robinhood testnet reward
+                  token. After a cleanup is verified, come back and claim to mint $rDCU and your tRWI. It is an ERC-20
+                  you can hold or send like any other token. Gas on this network is test ETH.
+                </p>
+              ) : (
+                <p>
+                  <strong className="text-foreground">What is {experience.tokenSymbol}?</strong> {experience.tokenSymbol}{' '}
+                  is the reward token on this network. Verified cleanups can pay it to your wallet. It is an ERC-20 you
+                  can hold or send like any other token. Gas is {experience.gasSymbol}.
+                </p>
+              )}
+              <p>
+                The number on the card is your current wallet balance of {experience.tokenSymbol}. Total DCU next to it
+                is participation points, not the same as this token.
+              </p>
+              <div className="rounded-lg border border-border bg-background/80 p-4">
+                <p className="mb-2 font-heading text-sm tracking-wide text-foreground">Token contract</p>
+                <code className="mb-3 block max-w-full break-all rounded border border-border bg-muted/40 px-2 py-1.5 text-[11px] text-foreground">
+                  {experience.tokenAddress}
+                </code>
+                {experience.tokenExplorerHref ? (
+                  <a
+                    href={experience.tokenExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 font-medium text-brand-green underline-offset-4 hover:underline"
+                  >
+                    Open contract on explorer
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </a>
+                ) : null}
+              </div>
+              <p className="text-xs">
+                To see {experience.tokenSymbol} in MetaMask or another wallet, import the token and paste the contract
+                address above. Symbol {experience.tokenTicker}, 18 decimals.
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowTokenHelpModal(false)}
+              className="mt-6 w-full bg-brand-green font-semibold uppercase text-black hover:bg-brand-green/90"
+            >
+              Got it
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {showEarnModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6">
@@ -1069,9 +1192,9 @@ function HomeContent() {
               </p>
               ) : isRobinhood ? (
               <p>
-                <strong className="text-foreground">Rewards on Robinhood.</strong> $rDCU mints when the action
-                happens: 10 on verify, then streak, referral, tRWA claim, reports, and verifier work follow the same
-                DCU amounts. Gas is test ETH. There is no $cDCU claim vault on this path.
+                <strong className="text-foreground">Rewards on Robinhood.</strong> After a cleanup is verified,
+                come back and claim to mint $rDCU and your tRWI. Streak, referral, reports, and verifier amounts
+                settle in that same claim. Gas is test ETH. There is no $cDCU claim vault on this path.
               </p>
               ) : (
               <p>
@@ -1081,9 +1204,9 @@ function HomeContent() {
               )}
               {isRobinhood ? (
               <p>
-                <strong className="text-foreground">When it pays.</strong> Confirm the follow-up wallet prompt after
-                verify or tRWA claim. That prompt mints any new $rDCU for that action. Streaks need another verified
-                cleanup within 7 days. Referrals pay when the invited person claims their first tRWA.
+                <strong className="text-foreground">When it pays.</strong> Confirm Claim Level in your wallet after
+                verify. That mint pays $rDCU and upgrades tRWI. Streaks need another verified cleanup within 7 days.
+                Referrals pay when the invited person claims their first tRWI.
               </p>
               ) : (
               <p>
@@ -1096,17 +1219,17 @@ function HomeContent() {
 
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-heading text-lg text-brand-green">1. tRWA</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">1. tRWI</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">{isRobinhood ? '10 $rDCU' : '10 DCU'}</strong> per level by submitting before-and-after cleanup
-                  photos and passing verification{isRobinhood ? '. On Robinhood, 10 $rDCU also mints at verify, then another 10 when you claim the tRWA.' : '. Ten levels are live today; more may follow.'}
+                  photos and passing verification{isRobinhood ? '. On Robinhood, 10 $rDCU mints when you claim the tRWI after verify.' : '. Ten levels are live today; more may follow.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">2. Referrals</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">{isRobinhood ? '3 $rDCU' : '3 DCU'}</strong> when someone joins through your link and {isRobinhood ? 'claims their first tRWA. Both of you are paid in that claim settle.' : 'completes a verified cleanup.'}
+                  Earn <strong className="text-foreground">{isRobinhood ? '3 $rDCU' : '3 DCU'}</strong> when someone joins through your link and {isRobinhood ? 'claims their first tRWI. Both of you are paid in that claim settle.' : 'completes a verified cleanup.'}
                 </p>
               </div>
 
@@ -1122,7 +1245,7 @@ function HomeContent() {
                 <h3 className="mb-2 font-heading text-lg text-brand-green">4. Reports &amp; recyclables</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">{isRobinhood ? '5 $rDCU' : '5 DCU'}</strong> for each verified impact report or recyclables
-                  submission tied to a cleanup{isRobinhood ? ', minted when you claim the tRWA.' : '.'}
+                  submission tied to a cleanup{isRobinhood ? ', minted when you claim the tRWI.' : '.'}
                 </p>
               </div>
 

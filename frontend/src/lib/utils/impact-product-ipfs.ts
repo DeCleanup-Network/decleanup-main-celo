@@ -1,6 +1,6 @@
 /**
- * tRWA IPFS Utilities
- * Functions for uploading and managing tRWA images and metadata on IPFS
+ * tRWI IPFS Utilities
+ * Functions for uploading and managing tRWI images and metadata on IPFS
  */
 
 import { uploadToIPFS, uploadJSONToIPFS, type IPFSUploadResult } from '@/lib/blockchain/ipfs'
@@ -94,8 +94,8 @@ export function createImpactProductMetadata(
   const animationUrl = animationHash ? `ipfs://${animationHash}` : undefined
 
   const metadata: ImpactProductMetadata = {
-    name: `DeCleanup tRWA - Level ${level}`,
-    description: `A tokenized representation of environmental cleanup impact. Level ${level} (${levelName}) tRWA with ${actualCleanupsCompleted} cleanups completed and ${hypercertsEarned} hypercerts earned.`,
+    name: `DeCleanup tRWI - Level ${level}`,
+    description: `A tokenized representation of environmental cleanup impact. Level ${level} (${levelName}) tRWI with ${actualCleanupsCompleted} cleanups completed and ${hypercertsEarned} hypercerts earned.`,
     image: imageUrl,
     external_url: process.env.NEXT_PUBLIC_APP_URL || 'https://decleanup.network',
     attributes: [

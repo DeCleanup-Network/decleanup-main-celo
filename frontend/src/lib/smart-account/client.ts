@@ -74,6 +74,25 @@ export async function getClientSmartAccountBalance(address: Address): Promise<st
   return formatEther(wei)
 }
 
+/** Native gas token (CELO or ETH) for the selected experience chain. */
+export async function getClientExperienceNativeBalance(
+  address: Address,
+  chainId?: number
+): Promise<string | null> {
+  const display = getExperienceDisplay(chainId)
+  if (!isAddress(address)) return null
+  try {
+    const publicClient = createPublicClient({
+      chain: getActiveAaChain(display.chainId),
+      transport: http(display.rpcUrl),
+    })
+    const wei = await publicClient.getBalance({ address })
+    return formatEther(wei)
+  } catch {
+    return null
+  }
+}
+
 /** ERC-20 reward token ($cDCU, $bDCU, or $rDCU) for a specific experience chain. */
 export async function getClientExperienceTokenBalance(
   address: Address,

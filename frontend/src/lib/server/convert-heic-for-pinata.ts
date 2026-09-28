@@ -1,8 +1,11 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import sharp from 'sharp'
+
+const require = createRequire(import.meta.url)
 
 const HEIC_BRANDS = ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1']
 
@@ -32,12 +35,13 @@ function getHeicPythonBin(): string {
  */
 function tryHeifConvertCliToJpegBuffer(input: Buffer): Buffer | null {
   const bin = getHeifConvertBin()
+  if (!existsSync(bin)) return null
   const dir = mkdtempSync(join(tmpdir(), 'decleanup-heif-'))
   const inPath = join(dir, 'in.heic')
   const outPath = join(dir, 'out.jpg')
   try {
     writeFileSync(inPath, input)
-    execFileSync(bin, [inPath, outPath], { stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 })
+    execFileSync(bin, [inPath, outPath], { stdio: 'pipe', maxBuffer: 50 * 1024 * 1024, timeout: 20_000 })
     return readFileSync(outPath)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -52,9 +56,10 @@ function tryHeifConvertCliToJpegBuffer(input: Buffer): Buffer | null {
   }
 }
 
-/** GPU venv pi_heif — works on VPS when system libheif is too old for iPhone HEIC. */
+/** GPU venv pi_heif - works on VPS when system libheif is too old for iPhone HEIC. */
 function tryPythonPiHeifToJpegBuffer(input: Buffer): Buffer | null {
   const python = getHeicPythonBin()
+  if (!existsSync(python)) return null
   const dir = mkdtempSync(join(tmpdir(), 'decleanup-heif-py-'))
   const inPath = join(dir, 'in.heic')
   const outPath = join(dir, 'out.jpg')
@@ -69,7 +74,7 @@ register_heif_opener()
 Image.open(${JSON.stringify(inPath)}).convert("RGB").save(${JSON.stringify(outPath)}, "JPEG", quality=90)
 `
     )
-    execFileSync(python, [scriptPath], { stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 })
+    execFileSync(python, [scriptPath], { stdio: 'pipe', maxBuffer: 50 * 1024 * 1024, timeout: 20_000 })
     return readFileSync(outPath)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -84,7 +89,61 @@ Image.open(${JSON.stringify(inPath)}).convert("RGB").save(${JSON.stringify(outPa
   }
 }
 
-function convertHeifBufferToJpeg(input: Buffer): Buffer {
+/** macOS Preview decoder - available on local Next and any Darwin host. */
+function trySipsToJpegBuffer(input: Buffer): Buffer | null {
+  if (process.platform !== 'darwin') return null
+  const bin = '/usr/bin/sips'
+  if (!existsSync(bin)) return null
+  const dir = mkdtempSync(join(tmpdir(), 'decleanup-sips-'))
+  const inPath = join(dir, 'in.heic')
+  const outPath = join(dir, 'out.jpg')
+  try {
+    writeFileSync(inPath, input)
+    execFileSync(bin, ['-s', 'format', 'jpeg', inPath, '--out', outPath], {
+      stdio: 'pipe',
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: 20_000,
+    })
+    return readFileSync(outPath)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('[HEIC] sips failed:', msg.slice(0, 300))
+    return null
+  } finally {
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function tryHeicConvertNpm(input: Buffer): Promise<Buffer | null> {
+  try {
+    const loaded = require('heic-convert') as
+      | ((opts: { buffer: Buffer; format: string; quality: number }) => Promise<ArrayBuffer>)
+      | { default: (opts: { buffer: Buffer; format: string; quality: number }) => Promise<ArrayBuffer> }
+    const convert = typeof loaded === 'function' ? loaded : loaded.default
+    const out = await convert({
+      buffer: input,
+      format: 'JPEG',
+      quality: 0.9,
+    })
+    return Buffer.from(out)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('[HEIC] heic-convert failed:', msg.slice(0, 300))
+    return null
+  }
+}
+
+async function convertHeifBufferToJpeg(input: Buffer): Promise<Buffer> {
+  // Do not try sharp first: bundled libheif often hangs on iPhone HEVC-in-HEIC.
+  const sips = trySipsToJpegBuffer(input)
+  if (sips) {
+    console.log('[HEIC] converted via sips')
+    return sips
+  }
   const heifCli = tryHeifConvertCliToJpegBuffer(input)
   if (heifCli) {
     console.log('[HEIC] converted via heif-convert')
@@ -95,15 +154,14 @@ function convertHeifBufferToJpeg(input: Buffer): Buffer {
     console.log('[HEIC] converted via python pi_heif')
     return python
   }
+  const wasm = await tryHeicConvertNpm(input)
+  if (wasm) {
+    console.log('[HEIC] converted via heic-convert')
+    return wasm
+  }
   throw new Error(
-    'HEIC/HEIF decode failed (heif-convert and python pi_heif). Install libheif-examples + libheif-plugin-libde265 on the VPS, or set ML_HEIC_PYTHON.'
+    'HEIC/HEIF decode failed. Install libheif-examples + libheif-plugin-libde265, or set ML_HEIC_PYTHON.'
   )
-}
-
-function tryHeifConvertCliToJpeg(input: Buffer, outName: string): File | null {
-  const jpegBuf = tryHeifConvertCliToJpegBuffer(input)
-  if (!jpegBuf) return null
-  return new File([new Uint8Array(jpegBuf)], outName, { type: 'image/jpeg' })
 }
 
 /**
@@ -120,7 +178,7 @@ export async function normalizeImageBufferToJpeg(input: Buffer): Promise<Buffer>
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('[HEIC] sharp→JPEG failed, trying CLI/python:', msg.slice(0, 200))
     if (isHeifBuffer(input)) {
-      return convertHeifBufferToJpeg(input)
+      return await convertHeifBufferToJpeg(input)
     }
     const heifCli = tryHeifConvertCliToJpegBuffer(input)
     if (heifCli) return heifCli
@@ -137,35 +195,17 @@ export async function normalizeImageBufferToJpeg(input: Buffer): Promise<Buffer>
 export async function convertHeicToJpegIfNeeded(file: File): Promise<File> {
   const lower = file.name.toLowerCase()
   const extHeic = lower.endsWith('.heic') || lower.endsWith('.heif')
-  const type = (file.type || '').trim()
-  let needsConvert = type === 'image/heic' || type === 'image/heif' || type === '' || extHeic
-
+  const type = (file.type || '').toLowerCase().trim()
   const input = Buffer.from(await file.arrayBuffer())
-  if (type === '' || extHeic) {
-    const ftyp = input.length >= 8 ? input.slice(4, 8).toString('ascii') : ''
-    const brand = input.length >= 12 ? input.slice(8, 12).toString('ascii') : ''
-    needsConvert = needsConvert && ftyp === 'ftyp' && HEIC_BRANDS.includes(brand)
-  }
+  const heif = isHeifBuffer(input)
+  const labeledHeic = type.includes('heic') || type.includes('heif') || extHeic
+  const needsConvert = heif || labeledHeic
 
   if (!needsConvert) return file
 
   const withoutHeif = file.name.replace(/\.(heic|heif)$/i, '')
   const stem = withoutHeif.replace(/\.[^/.]+$/, '') || withoutHeif || 'photo'
   const outName = `${stem}.jpg`
-
-  if (isHeifBuffer(input)) {
-    const jpegBuf = convertHeifBufferToJpeg(input)
-    return new File([new Uint8Array(jpegBuf)], outName, { type: 'image/jpeg' })
-  }
-
-  try {
-    const jpegBuf = await sharp(input).jpeg({ quality: 92 }).toBuffer()
-    return new File([new Uint8Array(jpegBuf)], outName, { type: 'image/jpeg' })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn('sharp HEIC→JPEG failed, trying heif-convert if available:', msg)
-    const fallback = tryHeifConvertCliToJpeg(input, outName)
-    if (fallback) return fallback
-    throw err
-  }
+  const jpegBuf = await convertHeifBufferToJpeg(input)
+  return new File([new Uint8Array(jpegBuf)], outName, { type: 'image/jpeg' })
 }

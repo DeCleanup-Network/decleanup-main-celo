@@ -1,5 +1,5 @@
 /**
- * Client-encrypted wallet blob. Server stores this JSON as opaque data — never decrypts.
+ * Client-encrypted wallet blob. Server stores this JSON as opaque data - never decrypts.
  */
 export type EncryptedWalletBlob = {
   version: 1

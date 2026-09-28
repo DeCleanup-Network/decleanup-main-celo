@@ -1,7 +1,7 @@
 import 'server-only'
 import { getActivePimlicoSlug, getPimlicoBundlerUrl } from '@/lib/blockchain/aa-chain'
 
-/** @deprecated Use getActivePimlicoSlug — kept for existing imports. */
+/** @deprecated Use getActivePimlicoSlug - kept for existing imports. */
 export function getPimlicoChainSlug(): string {
   return getActivePimlicoSlug()
 }

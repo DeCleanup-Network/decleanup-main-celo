@@ -8,6 +8,8 @@ import { config } from './blockchain/wagmi'
 import { WagmiConfigSync } from '@/lib/blockchain/WagmiConfigSync'
 import { CustomAvatar } from '@/components/wallet/CustomAvatar'
 import { WalletConnectRelayRecovery } from '@/hooks/useWalletConnectRelayRecovery'
+import { EnforceManualWalletDisconnect } from '@/lib/blockchain/EnforceManualWalletDisconnect'
+import { isManualWalletDisconnectActive } from '@/lib/blockchain/wallet-disconnect'
 import '@rainbow-me/rainbowkit/styles.css'
 
 const APP_NAME = 'DeCleanup Rewards'
@@ -45,8 +47,13 @@ export function RainbowKitProviders({
   })
 
   return (
-    <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
+    <WagmiProvider
+      config={config}
+      initialState={initialState}
+      reconnectOnMount={!isManualWalletDisconnectActive()}
+    >
       <WagmiConfigSync />
+      <EnforceManualWalletDisconnect />
       <WalletConnectRelayRecovery />
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider

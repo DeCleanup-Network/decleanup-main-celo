@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // cleanupId is used as an on-disk directory name below — reject traversal.
+    // cleanupId is used as an on-disk directory name below - reject traversal.
     if (!/^[a-zA-Z0-9-_]+$/.test(cleanupId)) {
       return NextResponse.json(
         { error: 'Invalid cleanupId' },

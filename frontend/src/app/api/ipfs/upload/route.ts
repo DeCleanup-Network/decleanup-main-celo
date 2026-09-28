@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Pinata not configured. Set PINATA_JWT in .env.local (from Pinata dashboard API Keys — use the JWT), or legacy PINATA_API_KEY and PINATA_SECRET_KEY. See ENV_TEMPLATE.md.',
+            'Pinata not configured. Set PINATA_JWT in .env.local (from Pinata dashboard API Keys - use the JWT), or legacy PINATA_API_KEY and PINATA_SECRET_KEY. See ENV_TEMPLATE.md.',
         },
         { status: 500 }
       )
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
       if (msg.includes('fetch failed') || msg.includes('Network') || causeCode) {
         if (causeCode === 'ENOTFOUND') {
           userMessage =
-            'Server cannot resolve api.pinata.cloud (DNS). On the VPS run: getent hosts api.pinata.cloud — fix DNS or outbound rules.'
+            'Server cannot resolve api.pinata.cloud (DNS). On the VPS run: getent hosts api.pinata.cloud - fix DNS or outbound rules.'
         } else if (causeCode === 'ECONNREFUSED' || causeCode === 'ECONNRESET') {
           userMessage =
             'Server connection to Pinata was refused or reset. Check VPS firewall / outbound HTTPS (443) to api.pinata.cloud.'
@@ -367,7 +367,7 @@ export async function GET(request: NextRequest) {
         : pinataTestStatus && pinataTestStatus !== 200
           ? pinataTestStatus === 403 || pinataTestStatus === 401
             ? 'Pinata rejected credentials (403/401). Regenerate PINATA_JWT in Pinata dashboard and set it on this server (Vercel env or VPS .env.local), then restart.'
-            : 'Credentials rejected by Pinata or wrong tier — regenerate JWT in Pinata dashboard.'
+            : 'Credentials rejected by Pinata or wrong tier - regenerate JWT in Pinata dashboard.'
           : authMode === 'legacy'
             ? 'Using key+secret. Prefer PINATA_JWT (Bearer) from Pinata API Keys page.'
             : 'JWT accepted by Pinata test endpoint. If POST /api/ipfs/upload still fails, check file size limits or PM2 logs.',

@@ -71,7 +71,7 @@ export async function publishHypercertToAtProto(
       console.warn(`[ATProto] Impact enrichment skipped for ${requestId}:`, err)
     }
 
-    // 3. Map to AT records — org DID must match AT login (validated in publishActivity)
+    // 3. Map to AT records - org DID must match AT login (validated in publishActivity)
     const orgDid = getAtProtoOrgDid().trim()
     const finalVerifierDid = verifierDid || orgDid
 

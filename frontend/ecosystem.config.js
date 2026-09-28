@@ -92,7 +92,7 @@ module.exports = {
       // Use loopback when Next.js and GPU share the VPS (GPU fetches photos via this URL).
       PUBLIC_URL_BASE: getEnv('PUBLIC_URL_BASE', 'http://127.0.0.1:3000'),
       
-      // Pinata (for IPFS uploads) — PINATA_JWT preferred per Pinata pinFileToIPFS docs
+      // Pinata (for IPFS uploads) - PINATA_JWT preferred per Pinata pinFileToIPFS docs
       PINATA_JWT: getEnv('PINATA_JWT', ''),
       PINATA_API_KEY: getEnv('PINATA_API_KEY', ''),
       PINATA_SECRET_KEY: getEnv('PINATA_SECRET_KEY', ''),

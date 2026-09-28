@@ -44,7 +44,7 @@ function missingAaTransport(config: Config): boolean {
 let serverSingleton: Config | null = null
 let clientSingleton: Config | null = null
 
-/** SSR cookie hydration only — same connector options as client. */
+/** SSR cookie hydration only - same connector options as client. */
 export function getServerMinimalWagmiConfig(): Config {
   if (serverSingleton && missingAaTransport(serverSingleton)) serverSingleton = null
   if (!serverSingleton) serverSingleton = buildMinimalWagmiConfig()

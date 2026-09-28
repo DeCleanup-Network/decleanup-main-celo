@@ -86,7 +86,7 @@ type WalletContextValue = {
   unlock: (password: string, sessionDuration?: SessionDurationId) => Promise<void>
   unlockWithPasskey: (sessionDuration?: SessionDurationId) => Promise<void>
   lock: () => void
-  /** Temporary delegated signer — active until session expires. */
+  /** Temporary delegated signer - active until session expires. */
   signingSession: ActiveSigningSession | null
   hasActiveSigningSession: boolean
   endSigningSession: () => void
@@ -932,4 +932,8 @@ export function useWallet() {
   const ctx = useContext(WalletContext)
   if (!ctx) throw new Error('useWallet must be used within WalletProvider')
   return ctx
+}
+
+export function useWalletOptional() {
+  return useContext(WalletContext)
 }

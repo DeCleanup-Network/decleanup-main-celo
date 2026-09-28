@@ -1,7 +1,7 @@
 import { isAllowedIpfsFetchHost } from '@/lib/utils/ipfs-fetch-allowed'
 import { fetchFromIpfsGateways } from '@/lib/utils/ipfs-fetch-gateways'
 
-/** On-chain tokenURI may be `data:application/json;base64,...` — decode locally (CSP blocks fetch to data:). */
+/** On-chain tokenURI may be `data:application/json;base64,...` - decode locally (CSP blocks fetch to data:). */
 function responseFromDataUri(url: string): Response | null {
   const trimmed = url.trim()
   if (!trimmed.startsWith('data:')) return null

@@ -38,7 +38,7 @@ export async function signInWithConnectedWallet(opts: {
     if (result?.error) {
       const hint =
         result.error === 'Configuration'
-          ? 'Database or auth config issue — check DATABASE_URL and restart the app.'
+          ? 'Database or auth config issue - check DATABASE_URL and restart the app.'
           : result.error === 'CredentialsSignin'
             ? 'Signature or sign-in session expired. Try again.'
             : `Wallet sign-in failed (${result.error}).`

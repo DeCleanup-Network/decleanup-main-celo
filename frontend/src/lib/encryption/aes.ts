@@ -35,7 +35,7 @@ export function encryptSecret(plaintext: string): EncryptedPayload {
   }
 }
 
-/** Decrypt to UTF-8 string. Server-only — never send result to the client. */
+/** Decrypt to UTF-8 string. Server-only - never send result to the client. */
 export function decryptSecret(payload: EncryptedPayload): string {
   const key = getEncryptionKey()
   const iv = Buffer.from(payload.iv, 'base64')

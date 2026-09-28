@@ -13,7 +13,7 @@ export async function authorizeWalletCredentials(credentials: Record<string, unk
   if (!fields) return null
   if (!(await consumeWalletNonce(fields.address, fields.nonce))) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[auth] wallet sign-in: nonce missing or expired — try Sign in again')
+      console.warn('[auth] wallet sign-in: nonce missing or expired - try Sign in again')
     }
     return null
   }

@@ -2,7 +2,7 @@
  * Verifier Application Types
  */
 
-/** Matches DB `verifier_applications.status` (varchar(20) max — keep values ≤20 chars). */
+/** Matches DB `verifier_applications.status` (varchar(20) max - keep values ≤20 chars). */
 export type VerifierApplicationStatus =
   | 'PENDING'
   | 'PENDING_ONCHAIN'

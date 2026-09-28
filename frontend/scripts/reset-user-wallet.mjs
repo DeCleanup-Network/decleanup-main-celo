@@ -176,7 +176,7 @@ try {
     console.log('signer (EOA):     ', walletRow.address)
     console.log('smart account:    ', walletRow.smartAccountAddress)
   } else {
-    console.log('UserWallet:       (none — nothing to delete)')
+    console.log('UserWallet:       (none - nothing to delete)')
   }
   console.log('passkey creds:    ', passkeys.rows[0].n)
 

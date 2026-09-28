@@ -13,6 +13,10 @@ import { safeCallbackUrl } from '@/lib/auth/safe-callback-url'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { useWalletConnectUri } from '@/components/wallet/WalletConnectUriOpener'
 import { openWalletConnectFallbackLink } from '@/lib/blockchain/wallet-connect-mobile-link'
+import {
+  clearManualWalletDisconnect,
+  isManualWalletDisconnectActive,
+} from '@/lib/blockchain/wallet-disconnect'
 
 type Props = {
   callbackUrl: string
@@ -27,7 +31,7 @@ function hasInjectedProvider(): boolean {
 const CONNECT_TIMEOUT_MS = 90_000
 
 /**
- * MetaMask / WalletConnect login (pre–RainbowKit AA path).
+ * MetaMask / WalletConnect login (pre-RainbowKit AA path).
  * Desktop WC: QR modal + Celo chainId. Mobile WC: deep-link without AppKit bottom sheet.
  * After connect, asks for a one-time signature so notification prefs / inbox work.
  */
@@ -45,6 +49,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const [authError, setAuthError] = useState<string | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [blockAutoLogin, setBlockAutoLogin] = useState(isManualWalletDisconnectActive)
   const [linkCopied, setLinkCopied] = useState(false)
   const redirectedRef = useRef(false)
   const walletConnectUri = useWalletConnectUri()
@@ -72,6 +77,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   }, [isPending, connecting, reset])
 
   useEffect(() => {
+    if (blockAutoLogin || isManualWalletDisconnectActive()) return
     if (!isConnected || !address || redirectedRef.current) return
     redirectedRef.current = true
     let cancelled = false
@@ -106,7 +112,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     return () => {
       cancelled = true
     }
-  }, [isConnected, address, status, router, target, signMessageAsync])
+  }, [blockAutoLogin, isConnected, address, status, router, target, signMessageAsync])
 
   useEffect(() => {
     if (!isConnected) redirectedRef.current = false
@@ -118,6 +124,8 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
     setAuthError(null)
     setConnectError(null)
     setLinkCopied(false)
+    clearManualWalletDisconnect()
+    setBlockAutoLogin(false)
     setConnecting(true)
     reset()
 
@@ -145,6 +153,7 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
   const showBrowserWallet = Boolean(browserWalletConnector)
   const showWalletConnect = Boolean(walletConnectConnector)
   const busy = isPending || connecting || authBusy
+  const sessionLive = isConnected && !blockAutoLogin
 
   return (
     <div className="space-y-2">
@@ -152,12 +161,12 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
         <Button type="button" disabled className="w-full">
           Connect wallet
         </Button>
-      ) : isConnected && authBusy ? (
+      ) : sessionLive && authBusy ? (
         <p className="text-center text-xs text-brand-green">
-          Connected — sign the message in your wallet to finish…
+          Connected - sign the message in your wallet to finish…
         </p>
-      ) : isConnected && !authError ? (
-        <p className="text-center text-xs text-brand-green">Connected — opening app…</p>
+      ) : sessionLive && !authError ? (
+        <p className="text-center text-xs text-brand-green">Connected - opening app…</p>
       ) : (
         <>
           {showBrowserWallet ? (

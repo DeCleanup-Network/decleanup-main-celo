@@ -17,7 +17,7 @@ type RateLimitResult = { ok: true } | { ok: false; response: Response }
 
 /**
  * Global rate limit (Upstash when configured, else in-memory per instance).
- * Node runtime only — middleware must import from edge-rate-limit instead.
+ * Node runtime only - middleware must import from edge-rate-limit instead.
  */
 export async function enforceApiRateLimit(params: {
   request: NextRequest

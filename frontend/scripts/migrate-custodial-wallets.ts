@@ -2,7 +2,7 @@
  * One-time migration helper for legacy server-custodial wallets.
  *
  * Requires WALLET_ENCRYPTION_KEY (old server key) and DATABASE_URL.
- * Outputs per-user JSON files with decrypted private keys — handle securely and delete after users re-import.
+ * Outputs per-user JSON files with decrypted private keys - handle securely and delete after users re-import.
  *
  * Usage:
  *   cd frontend && npx tsx scripts/migrate-custodial-wallets.ts
@@ -40,7 +40,7 @@ async function main() {
   const outDir = join(process.cwd(), 'migration-exports')
   mkdirSync(outDir, { recursive: true })
 
-  // Legacy schema columns — adjust if your DB still has them
+  // Legacy schema columns - adjust if your DB still has them
   const rows = await prisma.$queryRawUnsafe<
     Array<{
       userId: string

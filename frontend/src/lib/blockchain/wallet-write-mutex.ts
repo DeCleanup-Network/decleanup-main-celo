@@ -15,7 +15,7 @@
  *   // with:    await lockedSwitchToRequiredChain(config)
  *
  * Gasless paths (gaslessClient.sendTransaction) go through the AA bundler,
- * not WalletConnect — they don't need this mutex.
+ * not WalletConnect - they don't need this mutex.
  */
 
 import type { Config } from 'wagmi'
@@ -30,7 +30,7 @@ import { waitForWalletConnectChainReady } from '@/lib/blockchain/wait-for-wc-cha
 type WriteContractParams = Parameters<typeof writeContract>[1]
 
 /**
- * Input accepted by lockedWriteContract — widened so payable txs (value) and
+ * Input accepted by lockedWriteContract - widened so payable txs (value) and
  * const ABIs type-check at call sites; cast to WriteContractParams at invoke.
  */
 export type LockedWriteContractInput = WriteContractParams extends infer P
@@ -39,7 +39,7 @@ export type LockedWriteContractInput = WriteContractParams extends infer P
     : never
   : never
 
-// Module-level promise chain — all wallet ops queue behind this.
+// Module-level promise chain - all wallet ops queue behind this.
 let _queue: Promise<unknown> = Promise.resolve()
 
 /**
@@ -48,14 +48,14 @@ let _queue: Promise<unknown> = Promise.resolve()
  */
 function enqueue<T>(op: () => Promise<T>): Promise<T> {
   const next = _queue.then(op)
-  // Keep the queue moving even if this op throws — callers get the real error,
+  // Keep the queue moving even if this op throws - callers get the real error,
   // but the next enqueued op still runs.
   _queue = next.catch(() => {})
   return next
 }
 
 /**
- * Serialized writeContract — drop-in replacement for @wagmi/core writeContract.
+ * Serialized writeContract - drop-in replacement for @wagmi/core writeContract.
  * Waits for any in-flight wallet op to finish before sending this tx.
  */
 export function lockedWriteContract(
@@ -79,7 +79,7 @@ export function lockedWriteContract(
 }
 
 /**
- * Serialized chain switch — drop-in replacement for switchToRequiredChain.
+ * Serialized chain switch - drop-in replacement for switchToRequiredChain.
  * Prevents a chain switch from overlapping with an in-flight tx request.
  */
 export function lockedSwitchToRequiredChain(config: Config): Promise<boolean> {
@@ -135,7 +135,7 @@ async function prepareMobileWalletWrite(config: Config): Promise<void> {
 }
 
 /**
- * Serialized personal_sign — use instead of useSignMessage().signMessageAsync on WC/mobile.
+ * Serialized personal_sign - use instead of useSignMessage().signMessageAsync on WC/mobile.
  */
 export function lockedSignMessage(
   config: Config,
@@ -157,7 +157,7 @@ export function isWalletOpInProgress(): boolean {
   return _busy
 }
 
-// Internal version that tracks busy state — used by writeContractViaWalletProvider
+// Internal version that tracks busy state - used by writeContractViaWalletProvider
 // which already handles settle/switch logic and just needs the queue.
 export function lockedWriteContractRaw(
   config: Config,

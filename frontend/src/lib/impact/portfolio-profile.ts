@@ -127,7 +127,7 @@ function clampField(value: unknown, max: number): string {
 function clampEmail(value: unknown): string {
   const v = clampField(value, PROFILE_LIMITS.publicEmail).toLowerCase()
   if (!v) return ''
-  // Soft validate — empty if clearly not an email
+  // Soft validate - empty if clearly not an email
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return ''
   return v
 }

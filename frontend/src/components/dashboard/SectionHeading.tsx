@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 export type SectionHeadingProps = {
   icon: LucideIcon
   children: ReactNode
-  /** Optional right side (e.g. “How to earn”, links) — stacks below title on narrow screens */
+  /** Optional right side (e.g. “How to earn”, links) - stacks below title on narrow screens */
   aside?: ReactNode
   className?: string
 }

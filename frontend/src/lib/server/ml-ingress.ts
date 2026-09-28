@@ -3,7 +3,7 @@ import { getMlBackendProxyConfig } from '@/lib/server/ml-backend-proxy'
 
 /**
  * On the ML host (ml.decleanup.net / VPS), require x-ml-proxy-secret when ML_PROXY_SHARED_SECRET is set.
- * On Vercel (ML_BACKEND_ORIGIN set), skip — the dapp receives public verify requests and adds the
+ * On Vercel (ML_BACKEND_ORIGIN set), skip - the dapp receives public verify requests and adds the
  * header when forwarding server-to-server to the ML host.
  */
 export function rejectUnauthorizedMlIngress(request: NextRequest): NextResponse | null {

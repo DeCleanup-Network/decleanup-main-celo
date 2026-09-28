@@ -5,25 +5,18 @@ import Link from 'next/link'
 import { BackToDeCleanupLink } from '@/components/layout/BackToDeCleanupLink'
 import { useRouter } from 'next/navigation'
 import { useAccount, useBalance, useChainId, useSwitchChain } from 'wagmi'
-import { formatEther, type Address } from 'viem'
+import { formatEther, isAddress, type Address } from 'viem'
 import { Button } from '@/components/ui/button'
 import { CopyableAddress } from '@/components/ui/copyable-address'
 import { useENSName } from '@/hooks/useENSName'
 import { useSignOutAll } from '@/hooks/useSignOutAll'
 import { useWalletConnectionMode } from '@/hooks/useWalletConnectionMode'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { PushNotificationSettings } from '@/components/notifications/PushNotificationSettings'
-import {
-  REQUIRED_CHAIN_ID,
-  REQUIRED_CHAIN_NAME,
-} from '@/lib/blockchain/chain-constants'
+import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
+import { chainLabelFromId } from '@/components/aa/WalletAccountHelpModal'
 
-function chainLabel(chainId: number | undefined): string {
-  if (chainId === REQUIRED_CHAIN_ID) return REQUIRED_CHAIN_NAME
-  if (chainId == null) return 'Unknown'
-  return `Chain ${chainId}`
-}
-
-function formatCeloDisplay(wei: bigint): string {
+function formatNativeDisplay(wei: bigint): string {
   const ether = formatEther(wei)
   const n = Number(ether)
   if (!Number.isFinite(n) || n === 0) return '0'
@@ -37,22 +30,38 @@ export default function ExternalWalletSettingsPage() {
   const router = useRouter()
   const { hasExternalWallet, hasSmartAccountSession } = useWalletConnectionMode()
   const { signOutAll, disconnecting: signingOut } = useSignOutAll()
-  const { address, isConnected, connector } = useAccount()
+  const { address, isConnected } = useAccount()
   const chainId = useChainId()
+  const { chainId: experienceChainId } = useExperienceChain()
+  const experience = getExperienceDisplay(experienceChainId)
   const { switchChain, isPending: switching } = useSwitchChain()
   const { ensName, isLoading: ensLoading, lookupFailed } = useENSName(address as Address | undefined)
+  const tokenAddress =
+    experience.tokenAddress && isAddress(experience.tokenAddress)
+      ? (experience.tokenAddress as Address)
+      : undefined
   const {
     data: chainBalance,
     isLoading: balanceLoading,
     isError: balanceError,
   } = useBalance({
     address,
-    chainId: REQUIRED_CHAIN_ID,
+    chainId: experience.chainId,
+  })
+  const {
+    data: tokenBalance,
+    isLoading: tokenLoading,
+  } = useBalance({
+    address,
+    chainId: experience.chainId,
+    token: tokenAddress,
+    query: { enabled: Boolean(address && tokenAddress) },
   })
 
-  const wrongNetwork = isConnected && chainId != null && chainId !== REQUIRED_CHAIN_ID
+  const wrongNetwork = isConnected && chainId != null && chainId !== experience.chainId
 
   useEffect(() => {
+    if (signingOut) return
     if (!isConnected) {
       router.replace('/')
       return
@@ -60,7 +69,7 @@ export default function ExternalWalletSettingsPage() {
     if (hasSmartAccountSession && !hasExternalWallet) {
       router.replace('/wallet')
     }
-  }, [isConnected, hasSmartAccountSession, hasExternalWallet, router])
+  }, [isConnected, hasSmartAccountSession, hasExternalWallet, router, signingOut])
 
   if (!isConnected) {
     return (
@@ -97,7 +106,13 @@ export default function ExternalWalletSettingsPage() {
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 space-y-4">
         <h2 className="text-base font-semibold text-white">Connected account</h2>
-        {address && <CopyableAddress address={address} className="text-sm text-gray-200" />}
+        {address && (
+          <CopyableAddress
+            address={address}
+            href={experience.addressExplorerHref(address)}
+            className="text-sm text-gray-200"
+          />
+        )}
         <div className="space-y-1 text-sm">
           <p className="text-gray-500">ENS name (Ethereum mainnet)</p>
           {ensLoading ? (
@@ -116,26 +131,49 @@ export default function ExternalWalletSettingsPage() {
           )}
         </div>
         <div className="space-y-1 text-sm">
-          <p className="text-gray-500">Balance ({REQUIRED_CHAIN_NAME})</p>
+          <p className="text-gray-500">
+            Balance ({experience.networkName})
+          </p>
           {balanceLoading ? (
             <p className="text-gray-400">Loading…</p>
           ) : balanceError ? (
             <p className="text-gray-400">Could not load balance right now.</p>
           ) : (
             <p className="font-medium text-white">
-              {formatCeloDisplay(chainBalance?.value ?? 0n)} CELO
+              {formatNativeDisplay(chainBalance?.value ?? 0n)} {experience.gasSymbol}
             </p>
           )}
         </div>
+        {tokenAddress ? (
+          <div className="space-y-1 text-sm">
+            <p className="text-gray-500">
+              {experience.tokenExplorerHref ? (
+                <a
+                  href={experience.tokenExplorerHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-green hover:underline"
+                >
+                  {experience.tokenSymbol}
+                </a>
+              ) : (
+                experience.tokenSymbol
+              )}
+            </p>
+            <p className="font-medium text-white">
+              {tokenLoading ? 'Loading…' : `${formatNativeDisplay(tokenBalance?.value ?? 0n)} ${experience.tokenSymbol}`}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 space-y-4">
         <h2 className="text-base font-semibold text-white">Network</h2>
         <p className="text-sm text-gray-400">
-          Current: <span className="text-gray-200">{chainLabel(chainId)}</span>
+          Current: <span className="text-gray-200">{chainLabelFromId(chainId)}</span>
           {wrongNetwork && (
             <span className="block mt-1 text-amber-300">
-              DeCleanup Rewards expects {REQUIRED_CHAIN_NAME}. Switch below before submitting onchain.
+              DeCleanup Rewards expects {experience.networkName}. Switch below before submitting onchain.
             </span>
           )}
         </p>
@@ -143,9 +181,9 @@ export default function ExternalWalletSettingsPage() {
           type="button"
           disabled={switching || !wrongNetwork}
           className="w-full disabled:opacity-50"
-          onClick={() => switchChain({ chainId: REQUIRED_CHAIN_ID })}
+          onClick={() => switchChain({ chainId: experience.chainId })}
         >
-          {switching ? 'Switching…' : `Switch to ${REQUIRED_CHAIN_NAME}`}
+          {switching ? 'Switching…' : `Switch to ${experience.networkName}`}
         </Button>
       </div>
 

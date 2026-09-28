@@ -1,4 +1,4 @@
-/** Local calendar date as YYYY-MM-DD (not UTC — avoids off-by-one near midnight). */
+/** Local calendar date as YYYY-MM-DD (not UTC - avoids off-by-one near midnight). */
 export function getLocalTodayDateString(): string {
   const now = new Date()
   const y = now.getFullYear()

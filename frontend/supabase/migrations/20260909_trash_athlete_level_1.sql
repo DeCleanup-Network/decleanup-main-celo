@@ -1,4 +1,4 @@
--- Trash Athlete reward package is level 1 (Safe mint) + 30 DCU + 150 $cDCU — not level 3.
+-- Trash Athlete reward package is level 1 (Safe mint) + 30 DCU + 150 $cDCU - not level 3.
 alter table public.trash_athlete_challenges
   alter column level_target set default 1;
 

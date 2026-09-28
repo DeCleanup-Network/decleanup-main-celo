@@ -2,7 +2,7 @@
  * Adapts a wagmi/viem WalletClient (e.g. from Web3Auth) to a viem Account
  * for permissionless Safe smart accounts.
  *
- * Must use walletClient.signMessage / signTypedData — NOT manual personal_sign
+ * Must use walletClient.signMessage / signTypedData - NOT manual personal_sign
  * with hashMessage(...). The latter double-applies EIP-191 vs what the wallet
  * expects and breaks Safe ERC-4337 UserOp verification (EntryPoint AA24).
  */
