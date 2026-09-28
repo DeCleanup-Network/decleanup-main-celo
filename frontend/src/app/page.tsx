@@ -816,7 +816,9 @@ function HomeContent() {
               {hasLoadedDashboardOnce && isRobinhood ? (
                   <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
                     On Robinhood, {experience.tokenSymbol} is minted when you claim tRWI after verification.
-                    These rows are participation points. Your wallet {experience.tokenSymbol} is shown next to Total DCU.
+                    These rows are participation points. Total DCU is the points ledger (signer + smart account,
+                    plus 10 DCU per cleanup you were listed on). Your wallet {experience.tokenSymbol} is the ERC-20
+                    balance in those wallets. They are not a 1:1 conversion.
                   </p>
                 ) : null}
               <div className="grid grid-cols-2 gap-2">
@@ -869,9 +871,17 @@ function HomeContent() {
                   },
                   {
                     label: 'Contributed',
-                    hint: 'cleanups',
-                    value: String(rewardStats.contributorCleanupCount),
-                    showToken: false,
+                    hint:
+                      rewardStats.contributorWelcomeDcu > 0
+                        ? `${rewardStats.contributorCleanupCount} cleanup${
+                            rewardStats.contributorCleanupCount === 1 ? '' : 's'
+                          }`
+                        : 'cleanups',
+                    value:
+                      rewardStats.contributorWelcomeDcu > 0
+                        ? rewardStats.contributorWelcomeDcu.toFixed(0)
+                        : String(rewardStats.contributorCleanupCount),
+                    showToken: rewardStats.contributorWelcomeDcu > 0,
                     chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
                 ].filter(stat => stat.chains.includes(experienceChainId)).map((stat) => (
@@ -1124,8 +1134,10 @@ function HomeContent() {
                 </p>
               )}
               <p>
-                The number on the card is your current wallet balance of {experience.tokenSymbol}. Total DCU next to it
-                is participation points, not the same as this token.
+                The number on the card is your current {experience.tokenSymbol} across the connected signer and smart
+                account, added together. Total DCU next to it is participation points on the reward ledger, not an
+                exchange rate into this token. Unclaimed settle, a send, or tokens sitting on only one of those
+                addresses will make the two numbers differ.
               </p>
               <div className="rounded-lg border border-border bg-background/80 p-4">
                 <p className="mb-2 font-heading text-sm tracking-wide text-foreground">Token contract</p>
@@ -1194,7 +1206,8 @@ function HomeContent() {
               <p>
                 <strong className="text-foreground">Rewards on Robinhood.</strong> After a cleanup is verified,
                 come back and claim to mint $rDCU and your tRWI. Streak, referral, reports, and verifier amounts
-                settle in that same claim. Gas is test ETH. There is no $cDCU claim vault on this path.
+                settle in that same claim. Gas is test ETH. There is no $cDCU claim vault on this path. Total DCU and
+                $rDCU are not 1:1: DCU is points, $rDCU is the ERC-20 in your wallets after claim.
               </p>
               ) : (
               <p>
@@ -1257,9 +1270,18 @@ function HomeContent() {
                 </p>
               </div>
 
+              <div className="rounded-lg border border-border bg-background p-4">
+                <h3 className="mb-2 font-heading text-lg text-brand-green">6. Listed as a contributor</h3>
+                <p className="text-sm text-muted-foreground">
+                  Earn <strong className="text-foreground">10 DCU</strong> when someone lists your email, wallet, or
+                  smart account on their cleanup and that cleanup is verified. If you connect later, the mention still
+                  counts and the credit is granted once per submission.
+                </p>
+              </div>
+
               {isCelo ? (
               <div className="rounded-lg border border-border bg-background p-4">
-                <h3 className="mb-2 font-heading text-lg text-brand-green">6. Impact certificates (Hypercerts)</h3>
+                <h3 className="mb-2 font-heading text-lg text-brand-green">7. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
                   Earn <strong className="text-foreground">10 DCU</strong> for every ten verified cleanups when you publish an
                   impact certificate via the Hypercerts hub (verifier approval required).

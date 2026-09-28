@@ -2,7 +2,7 @@
 
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { createPublicClient, erc20Abi, formatEther, http, isAddress } from 'viem'
+import { createPublicClient, erc20Abi, formatEther, getAddress, http, isAddress, parseEther } from 'viem'
 import { entryPoint07Address } from 'viem/account-abstraction'
 import { CONTRACT_ADDRESSES, REQUIRED_RPC_URL } from '@/lib/blockchain/chain-constants'
 import { getActiveAaChain, getPimlicoBundlerUrl } from '@/lib/blockchain/aa-chain'
@@ -116,6 +116,37 @@ export async function getClientExperienceTokenBalance(
   } catch {
     return null
   }
+}
+
+/** Sum $cDCU / $bDCU / $rDCU across signer and smart account (they are not always the same address). */
+export async function getMergedExperienceTokenBalance(
+  addresses: Array<Address | string | null | undefined>,
+  chainId?: number
+): Promise<string | null> {
+  const unique: Address[] = []
+  const seen = new Set<string>()
+  for (const raw of addresses) {
+    if (!raw || !isAddress(raw)) continue
+    const addr = getAddress(raw)
+    const key = addr.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(addr)
+  }
+  if (unique.length === 0) return null
+  const parts = await Promise.all(unique.map((addr) => getClientExperienceTokenBalance(addr, chainId)))
+  let sumWei = 0n
+  let any = false
+  for (const part of parts) {
+    if (part == null) continue
+    any = true
+    try {
+      sumWei += parseEther(part)
+    } catch {
+      /* skip unparseable */
+    }
+  }
+  return any ? formatEther(sumWei) : null
 }
 
 /** ERC-20 $cDCU balance on an address (smart account or EOA). Returns null if token not configured. */

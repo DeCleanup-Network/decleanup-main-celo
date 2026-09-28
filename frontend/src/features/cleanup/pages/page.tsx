@@ -50,7 +50,7 @@ import { switchToExperienceChain } from '@/lib/blockchain/switch-to-required-cha
 import { useExperienceChain, useShowImpactPortfolio } from '@/hooks/useExperienceChain'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
-import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
+import { compressImageToUploadLimit } from '@/lib/utils/compress-image-for-upload'
 import {
   getLocalTodayDateString,
   isCleanupDateAllowed,
@@ -728,8 +728,12 @@ function CleanupContent() {
       void (async () => {
         const file = (e.target as HTMLInputElement).files?.[0]
         if (!file) return
-        if (file.size > 10 * 1024 * 1024) {
-          setAlertModal({ message: 'Image size must be less than 10 MB', variant: 'warning' })
+        if (file.size > 40 * 1024 * 1024) {
+          setAlertModal({
+            message:
+              'This file is over 40 MB. iPhone photos are compressed automatically, but ProRAW or very large originals cannot be used. Pick a JPEG or HEIC from Photos.',
+            variant: 'warning',
+          })
           return
         }
         if (file.size < 32) {
@@ -744,7 +748,7 @@ function CleanupContent() {
         let ready = file
         try {
           ready = await normalizeImageFileForUpload(file)
-          ready = await compressImageIfLarge(ready)
+          ready = await compressImageToUploadLimit(ready)
         } catch (err) {
           const message =
             err instanceof Error && err.message
@@ -756,7 +760,11 @@ function CleanupContent() {
           setPhotoProcessing(null)
         }
         if (ready.size > 10 * 1024 * 1024) {
-          setAlertModal({ message: 'Image size must be less than 10 MB after conversion', variant: 'warning' })
+          setAlertModal({
+            message:
+              'This photo is still over 10 MB after compression. Export a JPEG from Photos (not ProRAW or a Live Photo video) and try again.',
+            variant: 'warning',
+          })
           return
         }
         if (type === 'before') {
@@ -2430,7 +2438,7 @@ function CleanupContent() {
               Submit Cleanup Photos
             </h1>
             <p className="text-sm text-gray-400">
-              Before/after photos with location. JPEG, JPG, or HEIC, max 10 MB each. Optional video up to {MAX_CLEANUP_VIDEO_DURATION_SEC}s.
+              Before/after photos with location. JPEG, JPG, or HEIC from the camera roll. Large iPhone photos are compressed automatically. Optional video up to {MAX_CLEANUP_VIDEO_DURATION_SEC}s.
             </p>
             <p className="mt-2 text-xs text-gray-500">
               For the best AI pre-screening: use clear, well-lit photos taken close to the litter. Blurry or very distant shots make the litter hard to detect.
@@ -2999,7 +3007,7 @@ function CleanupContent() {
                 Contributors
               </label>
               <p className="mb-2 text-xs text-gray-500">
-                Add people who helped by email, wallet (0x…), or ENS (name.eth). Registered users get 10 DCU after this cleanup is verified (once per submission). Unmatched contacts stay on the invite sheet.
+                Add people who helped by email, wallet (0x…), or ENS (name.eth). If they later sign in or connect a smart account, that mention still counts and they get 10 DCU after this cleanup is verified (once per submission). Unmatched contacts stay on the invite sheet.
               </p>
               <div className="space-y-2">
                 <div className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-400">
@@ -3047,7 +3055,7 @@ function CleanupContent() {
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 hover:bg-white/[0.06]"
                 >
                   <span className="text-lg">+</span>
-                  Add contributor email
+                  Add contributor
                 </button>
               </div>
             </div>

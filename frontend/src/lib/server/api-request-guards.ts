@@ -3,6 +3,8 @@ import { z } from 'zod'
 
 /** Align with Nginx `client_max_body_size` in VPS_SECURITY_PROTOCOL §2.2 */
 export const MAX_MULTIPART_BODY_BYTES = 12 * 1024 * 1024
+/** iPhone camera-roll HEIC before JPEG conversion (convert route only). */
+export const MAX_HEIC_CONVERT_BYTES = 40 * 1024 * 1024
 /** Optional cleanup video (MP4/MOV), separate from photo cap. */
 export const MAX_CLEANUP_VIDEO_BYTES = 20 * 1024 * 1024
 

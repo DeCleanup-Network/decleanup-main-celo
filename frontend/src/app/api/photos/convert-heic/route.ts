@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { convertHeicToJpegIfNeeded } from '@/lib/server/convert-heic-for-pinata'
 import { apiErrorMessage, logApiError } from '@/lib/server/api-error'
 import {
-  MAX_MULTIPART_BODY_BYTES,
+  MAX_HEIC_CONVERT_BYTES,
   isAllowedCleanupImageMime,
   rejectIfContentLengthExceeds,
   toUploadedFile,
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     return tooManyRequestsResponse(rateLimit.resetAt)
   }
 
-  const tooLarge = rejectIfContentLengthExceeds(request, MAX_MULTIPART_BODY_BYTES)
+  const tooLarge = rejectIfContentLengthExceeds(request, MAX_HEIC_CONVERT_BYTES)
   if (tooLarge) return tooLarge
 
   let formData: FormData
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   if (!file) {
     return NextResponse.json({ error: 'No photo provided' }, { status: 400 })
   }
-  if (file.size > MAX_MULTIPART_BODY_BYTES) {
+  if (file.size > MAX_HEIC_CONVERT_BYTES) {
     return NextResponse.json({ error: 'File too large' }, { status: 413 })
   }
   if (!isAllowedCleanupImageMime(file)) {

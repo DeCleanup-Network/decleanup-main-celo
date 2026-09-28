@@ -1426,6 +1426,14 @@ export default function VerifierPage() {
                     <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Pending Verification
                     </h2>
+                    {isRobinhoodExperience(getActiveAppChainId()) ? (
+                        <p className="mb-4 text-xs leading-relaxed text-amber-200/90">
+                            WalletConnect into MetaMask on this testnet often shows Review alerts and a network-fee
+                            warning. That is expected: the submission contract is unverified on a custom network, so
+                            MetaMask cannot simulate the call. If the request is approveSubmission and the fee is under
+                            US$0.01, you can confirm.
+                        </p>
+                    ) : null}
                     {pendingCleanups.length === 0 ? (
                         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
                             No pending cleanups to verify.

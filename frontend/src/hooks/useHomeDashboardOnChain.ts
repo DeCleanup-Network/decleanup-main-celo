@@ -18,7 +18,7 @@ import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { getMergedUserRewardStats, getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
 import { loadImpactProductDisplay, type ImpactProductDisplayState } from '@/lib/dashboard/load-impact-product-display'
 import { scheduleIdle } from '@/lib/dashboard/schedule-idle'
-import { getClientExperienceTokenBalance } from '@/lib/smart-account/client'
+import { getMergedExperienceTokenBalance } from '@/lib/smart-account/client'
 import {
   invalidateImpactProductClaimCaches,
   invalidateSubmissionDetailsCache,
@@ -48,6 +48,7 @@ export type HomeRewardStats = {
   userLevel: number
   contributorCleanupCount: number
   impactReportsAttributed: number
+  contributorWelcomeDcu: number
 }
 
 const EMPTY_REWARD_STATS: HomeRewardStats = {
@@ -66,6 +67,7 @@ const EMPTY_REWARD_STATS: HomeRewardStats = {
   userLevel: 0,
   contributorCleanupCount: 0,
   impactReportsAttributed: 0,
+  contributorWelcomeDcu: 0,
 }
 
 const EMPTY_IMPACT_PRODUCT: ImpactProductDisplayState = {
@@ -77,6 +79,27 @@ const EMPTY_IMPACT_PRODUCT: ImpactProductDisplayState = {
   metadataDescription: null,
   metadataExternalUrl: null,
   metadataAttributes: [],
+}
+
+async function fetchContributorMe(wallets: Array<Address | string | undefined>): Promise<{
+  mentionCount: number
+  grantedDcu: number
+}> {
+  const unique = [...new Set(wallets.filter((w): w is Address | string => Boolean(w)))]
+  if (unique.length === 0) return { mentionCount: 0, grantedDcu: 0 }
+  try {
+    const res = await fetch(`/api/contributors/me?wallets=${encodeURIComponent(unique.join(','))}`, {
+      credentials: 'include',
+    })
+    if (!res.ok) return { mentionCount: 0, grantedDcu: 0 }
+    const data = (await res.json()) as { mentionCount?: number; grantedDcu?: number }
+    return {
+      mentionCount: Number(data.mentionCount) || 0,
+      grantedDcu: Number(data.grantedDcu) || 0,
+    }
+  } catch {
+    return { mentionCount: 0, grantedDcu: 0 }
+  }
 }
 
 function rewardStatsFromContract(
@@ -92,7 +115,7 @@ function rewardStatsFromContract(
   const recyclablesDCU = Number(formatEther(rewardStatsData.recyclablesRewardsAmount))
 
   return {
-    totalEarnedDCU,
+    totalEarnedDCU: totalEarnedDCU + (extras.contributorWelcomeDcu ?? 0),
     cleanupsDCU,
     cleanupsCount: Math.floor(cleanupsDCU / 10),
     referralsDCU,
@@ -107,6 +130,7 @@ function rewardStatsFromContract(
     verifierDCU: extras.verifierDCU ?? 0,
     contributorCleanupCount: extras.contributorCleanupCount ?? 0,
     impactReportsAttributed: extras.impactReportsAttributed ?? 0,
+    contributorWelcomeDcu: extras.contributorWelcomeDcu ?? 0,
   }
 }
 
@@ -208,10 +232,18 @@ export function useHomeDashboardOnChain({
           chainId,
         })
 
-        const [verifierCount, contribStats] = await Promise.all([
+        const contribIdentity = {
+          addresses: [owner, rewardIdentity, address].filter(Boolean) as Address[],
+        }
+        const [verifierCount, contribStats, contribMe] = await Promise.all([
           getVerifierRewardsCount(owner),
-          getContributorMentionStats(owner),
+          getContributorMentionStats(contribIdentity),
+          fetchContributorMe(contribIdentity.addresses),
         ])
+        const contributorCleanupCount = Math.max(
+          contribStats.contributorCleanupCount,
+          contribMe.mentionCount
+        )
 
         if (cancelledRef.current) return
 
@@ -228,8 +260,12 @@ export function useHomeDashboardOnChain({
             verifiedCleanupsCount,
             hypercertsDCU: 0,
             verifierDCU: verifierCount,
-            contributorCleanupCount: contribStats.contributorCleanupCount,
-            impactReportsAttributed: contribStats.impactReportsAttributed,
+            contributorCleanupCount,
+            impactReportsAttributed: Math.max(
+              contribStats.impactReportsAttributed,
+              contribMe.mentionCount
+            ),
+            contributorWelcomeDcu: contribMe.grantedDcu,
           })
         )
         detailsLoadedRef.current = true
@@ -237,7 +273,7 @@ export function useHomeDashboardOnChain({
         if (!cancelledRef.current) setDetailsLoading(false)
       }
     },
-    [chainId]
+    [chainId, rewardIdentity, address]
   )
 
   const loadCore = useCallback(async () => {
@@ -276,13 +312,23 @@ export function useHomeDashboardOnChain({
       setRewardStats(rewardStatsFromContract(rewardStatsData, level))
       setHasLoadedCoreOnce(true)
       loadImpactProduct(level, tokenId, cancelled)
-      void getClientExperienceTokenBalance(rewardIdentity, appChainId)
+      void getMergedExperienceTokenBalance([rewardIdentity, owner, address], appChainId)
         .then((bal) => {
           if (!cancelledRef.current) setRewardTokenBalance(bal)
         })
         .catch(() => {
           if (!cancelledRef.current) setRewardTokenBalance(null)
         })
+      void fetchContributorMe([rewardIdentity, owner, address]).then((contribMe) => {
+        if (cancelledRef.current) return
+        setRewardStats((prev) => ({
+          ...prev,
+          contributorCleanupCount: Math.max(prev.contributorCleanupCount, contribMe.mentionCount),
+          impactReportsAttributed: Math.max(prev.impactReportsAttributed, contribMe.mentionCount),
+          contributorWelcomeDcu: contribMe.grantedDcu,
+          totalEarnedDCU: Number(formatEther(rewardStatsData.totalEarned)) + contribMe.grantedDcu,
+        }))
+      })
 
       return { owner, level, rewardStatsData }
     } catch (error) {

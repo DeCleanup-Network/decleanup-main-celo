@@ -19,6 +19,7 @@ const {
 import { Address } from 'viem'
 import { waitForTransactionReceipt } from 'wagmi/actions'
 import { config, REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_NAME, REQUIRED_CHAIN_ID } from '@/lib/blockchain/wagmi'
+import { ROBINHOOD_TESTNET_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
 import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
@@ -1717,6 +1718,14 @@ export default function VerifierPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-gray-400">
                       Level will be assigned automatically based on user's current tRWI asset level (next level up, max 10)
+                      {chainId === ROBINHOOD_TESTNET_CHAIN_ID ? (
+                        <p className="mt-2 text-xs leading-relaxed text-amber-200/90">
+                          WalletConnect into MetaMask on this testnet often shows Review alerts and a network-fee
+                          warning. That is expected: the submission contract is unverified on a custom network, so
+                          MetaMask cannot simulate the call. If the request is approveSubmission and the fee is under
+                          US$0.01, you can confirm.
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-3">
                       <Button

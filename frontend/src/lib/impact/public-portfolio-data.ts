@@ -312,7 +312,9 @@ export async function fetchPublicPortfolioData(
     rewardStatsForProfile(rewardOwner, linkedForRewards),
     getVerifierRewardsCount(rewardOwner),
     linkedForRewards ? getVerifierRewardsCount(linkedForRewards) : Promise.resolve(0),
-    getContributorMentionStats(rewardOwner).catch(() => ({
+    getContributorMentionStats({
+      addresses: [rewardOwner, linkedForRewards].filter(Boolean) as Address[],
+    }).catch(() => ({
       contributorCleanupCount: 0,
       impactReportsAttributed: 0,
     })),

@@ -1,42 +1,43 @@
 /**
- * Stats for addresses listed as contributors on others' impact reports.
- * No DCU rewards; attribution / reputation only.
+ * Stats for people listed as contributors on others' impact reports.
+ * Matches wallet, smart account, email, and ENS-as-written.
  */
 import type { Address } from 'viem'
 import { getImpactIndex } from './indexer'
+import {
+  addressSet,
+  contributorFieldMatches,
+  type ContributorIdentity,
+} from './contributor-match'
 
-function normAddr(a: string): string {
-  const s = String(a).trim().toLowerCase()
-  return s.startsWith('0x') && s.length === 42 ? s : s
-}
+export type { ContributorIdentity }
+export { contributorFieldMatches }
 
-/** True if contributor string refers to the same wallet as `target`. */
-function contributorMatches(contributorField: string, target: Address): boolean {
-  const t = target.toLowerCase()
-  const c = normAddr(contributorField)
-  if (c.startsWith('0x') && c.length === 42) return c === t
-  // Plain names can't be matched to onchain stats without manual linking
-  return false
+function asIdentity(identity: Address | ContributorIdentity): ContributorIdentity {
+  if (typeof identity === 'string') return { addresses: [identity] }
+  return identity
 }
 
 export type ContributorMentionStats = {
-  /** Verified cleanups (with impact form) where this address was listed as contributor, excluding own submissions */
+  /** Verified cleanups (with impact form) where this person was listed, excluding own submissions */
   contributorCleanupCount: number
   /** Same count: each such cleanup counts as one "impact report filled" for attribution */
   impactReportsAttributed: number
 }
 
-export async function getContributorMentionStats(address: Address): Promise<ContributorMentionStats> {
+export async function getContributorMentionStats(
+  identity: Address | ContributorIdentity
+): Promise<ContributorMentionStats> {
+  const id = asIdentity(identity)
+  const mine = addressSet(id.addresses)
   const entries = await getImpactIndex()
-  const target = address.toLowerCase()
   let n = 0
   for (const e of entries) {
-    const sub = e.submitter ? String(e.submitter).toLowerCase() : ''
+    const sub = e.submitter ? String(e.submitter).trim().toLowerCase() : ''
     if (!sub || sub === '0x0000000000000000000000000000000000000000') continue
-    if (sub === target) continue
+    if (mine.has(sub)) continue
     const list = Array.isArray(e.contributors) ? e.contributors : []
-    const has = list.some((c) => contributorMatches(String(c), address))
-    if (has) n++
+    if (list.some((c) => contributorFieldMatches(String(c), id))) n++
   }
   return {
     contributorCleanupCount: n,

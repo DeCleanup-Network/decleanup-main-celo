@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { chainLabelFromId } from '@/components/aa/WalletAccountHelpModal'
 import {
   getClientExperienceNativeBalance,
-  getClientExperienceTokenBalance,
+  getMergedExperienceTokenBalance,
 } from '@/lib/smart-account/client'
 import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
 import { useExperienceChain, useShowImpactPortfolio } from '@/hooks/useExperienceChain'
@@ -151,6 +151,8 @@ export function WalletStatusCard({ wallet, loading }: Props) {
   /** Display identity: signer EOA (MetaMask / import). */
   const displayAddress = wallet?.eoaAddress || wallet?.smartAccountAddress
   const tokenBalanceAddress = (wallet?.eoaAddress || wallet?.smartAccountAddress) as Address | undefined
+  const eoaAddress = wallet?.eoaAddress as Address | undefined
+  const smartAddress = wallet?.smartAccountAddress as Address | undefined
 
   useEffect(() => {
     if (!tokenBalanceAddress) {
@@ -161,7 +163,7 @@ export function WalletStatusCard({ wallet, loading }: Props) {
     let cancelled = false
     void (async () => {
       const [token, native] = await Promise.all([
-        getClientExperienceTokenBalance(tokenBalanceAddress, experienceChainId),
+        getMergedExperienceTokenBalance([eoaAddress, smartAddress, tokenBalanceAddress], experienceChainId),
         getClientExperienceNativeBalance(tokenBalanceAddress, experienceChainId),
       ])
       if (cancelled) return
@@ -171,7 +173,7 @@ export function WalletStatusCard({ wallet, loading }: Props) {
     return () => {
       cancelled = true
     }
-  }, [tokenBalanceAddress, experienceChainId])
+  }, [tokenBalanceAddress, eoaAddress, smartAddress, experienceChainId])
 
   if (loading && !wallet) {
     return (

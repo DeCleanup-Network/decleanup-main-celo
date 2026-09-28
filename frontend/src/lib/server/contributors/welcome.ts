@@ -6,8 +6,16 @@ import {
 } from './parse-identifier'
 import { resolveUserIdByEmail, resolveUserIdByWallet } from '@/lib/server/notifications/resolve-user'
 import { createNotification } from '@/lib/server/notifications/service'
+import { findWalletByUserId } from '@/lib/wallet/repository'
 
 const WELCOME_DCU = 10
+const LATE_MATCH_SUBMISSION_CAP = 40
+
+export type ContributorMeStats = {
+  mentionCount: number
+  grantedDcu: number
+  newlyGranted: number
+}
 
 export async function registerCleanupContributors(params: {
   submissionId: string
@@ -90,36 +98,173 @@ export async function processContributorWelcomeOnVerify(params: {
     if (!userId) continue
     if (submitterUserId && userId === submitterUserId) continue
 
-    const existing = await prisma.contributorWelcomeGrant.findUnique({
-      where: {
-        contributorUserId_submissionId: {
-          contributorUserId: userId,
-          submissionId: params.submissionId,
-        },
-      },
+    const ok = await grantWelcomeIfNeeded({
+      userId,
+      submissionId: params.submissionId,
+      submitterUserId,
     })
-    if (existing) continue
+    if (ok) granted += 1
+  }
 
+  return { granted }
+}
+
+function isWalletLocalEmail(email: string | null | undefined): boolean {
+  return Boolean(email && email.toLowerCase().endsWith('@wallet.local'))
+}
+
+/** Email, signer, and smart-account keys that can appear on someone else's cleanup. */
+export async function collectUserContributorKeys(
+  userId: string,
+  extraWallets: string[] = []
+): Promise<string[]> {
+  const keys = new Set<string>()
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  })
+  if (user?.email && !isWalletLocalEmail(user.email)) {
+    keys.add(user.email.trim().toLowerCase())
+  }
+
+  const wallet = await findWalletByUserId(userId)
+  if (wallet?.address) keys.add(wallet.address.toLowerCase())
+  if (wallet?.smartAccountAddress) keys.add(wallet.smartAccountAddress.toLowerCase())
+
+  const accounts = await prisma.account.findMany({
+    where: { userId, provider: 'wallet' },
+    select: { providerAccountId: true },
+  })
+  for (const row of accounts) {
+    const id = row.providerAccountId?.trim().toLowerCase()
+    if (id) keys.add(id)
+  }
+
+  for (const raw of extraWallets) {
+    const s = raw.trim().toLowerCase()
+    if (s.startsWith('0x') && s.length === 42) keys.add(s)
+  }
+
+  return [...keys]
+}
+
+async function grantWelcomeIfNeeded(params: {
+  userId: string
+  submissionId: string
+  submitterUserId: string | null
+}): Promise<boolean> {
+  if (params.submitterUserId && params.userId === params.submitterUserId) return false
+
+  const existing = await prisma.contributorWelcomeGrant.findUnique({
+    where: {
+      contributorUserId_submissionId: {
+        contributorUserId: params.userId,
+        submissionId: params.submissionId,
+      },
+    },
+  })
+  if (existing) return false
+
+  try {
     await prisma.contributorWelcomeGrant.create({
       data: {
-        contributorUserId: userId,
+        contributorUserId: params.userId,
         submissionId: params.submissionId,
         amountDcu: WELCOME_DCU,
         status: 'pending_ops',
       },
     })
-
-    await createNotification({
-      userId,
-      type: 'contributor_welcome',
-      title: 'Thanks for helping on a cleanup',
-      body: `You were credited ${WELCOME_DCU} DCU for being listed as a contributor. Submit your own photos from that day to grow further.`,
-      href: '/cleanup',
-      meta: { submissionId: params.submissionId, amountDcu: WELCOME_DCU },
-    })
-
-    granted += 1
+  } catch (e: unknown) {
+    const code = typeof e === 'object' && e && 'code' in e ? String((e as { code?: string }).code) : ''
+    if (code === 'P2002') return false
+    throw e
   }
 
-  return { granted }
+  await createNotification({
+    userId: params.userId,
+    type: 'contributor_welcome',
+    title: 'Thanks for helping on a cleanup',
+    body: `You were credited ${WELCOME_DCU} DCU for being listed as a contributor. Submit your own photos from that day to grow further.`,
+    href: '/cleanup',
+    meta: { submissionId: params.submissionId, amountDcu: WELCOME_DCU },
+  })
+
+  return true
+}
+
+/**
+ * When someone listed by email or an older wallet later signs in (or connects a smart account),
+ * credit the 10 DCU welcome that was skipped at verify time.
+ */
+export async function processPendingContributorWelcomeForUser(params: {
+  userId: string
+  extraWallets?: string[]
+}): Promise<{ granted: number; mentionCount: number; grantedDcu: number }> {
+  const keys = await collectUserContributorKeys(params.userId, params.extraWallets)
+  if (keys.length === 0) {
+    return { granted: 0, mentionCount: 0, grantedDcu: 0 }
+  }
+
+  const entries = await prisma.cleanupContributorEntry.findMany({
+    where: { normalized: { in: keys } },
+    select: { submissionId: true, kind: true, normalized: true },
+  })
+  const submissionIds = [...new Set(entries.map((e) => e.submissionId))]
+  const mentionCount = submissionIds.length
+
+  const grants = await prisma.contributorWelcomeGrant.findMany({
+    where: { contributorUserId: params.userId },
+    select: { submissionId: true, amountDcu: true },
+  })
+  const grantedIds = new Set(grants.map((g) => g.submissionId))
+  let grantedDcu = grants.reduce((sum, g) => sum + (g.amountDcu || WELCOME_DCU), 0)
+
+  const pendingIds = submissionIds.filter((id) => !grantedIds.has(id)).slice(0, LATE_MATCH_SUBMISSION_CAP)
+  if (pendingIds.length === 0) {
+    return { granted: 0, mentionCount, grantedDcu }
+  }
+
+  const { getCleanupDetailsFresh } = await import('@/lib/blockchain/contracts')
+  let newlyGranted = 0
+  for (const submissionId of pendingIds) {
+    let verified = false
+    let submitterWallet: string | undefined
+    try {
+      const details = await getCleanupDetailsFresh(BigInt(submissionId))
+      verified = Boolean(details?.verified)
+      submitterWallet = details?.user
+    } catch (e) {
+      console.warn('[contributors] late-match cleanup read failed', submissionId, e)
+      continue
+    }
+    if (!verified) continue
+
+    let submitterUserId: string | null = null
+    if (submitterWallet) {
+      submitterUserId = await resolveUserIdByWallet(submitterWallet)
+    }
+    const ok = await grantWelcomeIfNeeded({
+      userId: params.userId,
+      submissionId,
+      submitterUserId,
+    })
+    if (ok) {
+      newlyGranted += 1
+      grantedDcu += WELCOME_DCU
+    }
+  }
+
+  return { granted: newlyGranted, mentionCount, grantedDcu }
+}
+
+export async function getContributorMeStats(params: {
+  userId: string
+  extraWallets?: string[]
+}): Promise<ContributorMeStats> {
+  const result = await processPendingContributorWelcomeForUser(params)
+  return {
+    mentionCount: result.mentionCount,
+    grantedDcu: result.grantedDcu,
+    newlyGranted: result.granted,
+  }
 }
