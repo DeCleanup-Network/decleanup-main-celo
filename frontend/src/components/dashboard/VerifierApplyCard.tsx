@@ -26,7 +26,6 @@ export function VerifierApplyCard() {
     latestApp,
     loading: loadingApplication,
     applicationApproved,
-    onChainRoleWithoutApplication,
     refreshApplication,
   } = useVerifierAccess()
   const { eligibility, isLoading, error } = useVerifierEligibility()
@@ -283,13 +282,6 @@ export function VerifierApplyCard() {
                 )}
               </div>
             </div>
-
-            {onChainRoleWithoutApplication && (
-              <p className="text-xs text-amber-300/90">
-                This wallet has an onchain verifier role from testing, but no approved application on file.
-                Verifier tools stay hidden until an application is approved.
-              </p>
-            )}
 
             {showApprovedState && (
               <>

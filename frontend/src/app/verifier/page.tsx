@@ -722,7 +722,7 @@ export default function VerifierPage() {
             const message = (
                 <>
                     <p className="mb-3 text-gray-300">
-                      Cleanup verified. The submitter can come back and claim $rDCU plus their tRWI.
+                      Cleanup verified. $rDCU is minted to the submitter in the background. They can come back and claim tRWI.
                     </p>
                     <p className="mb-3 font-mono text-xs text-gray-400 break-all">
                         {txHash.slice(0, 10)}…{txHash.slice(-8)}
@@ -1119,7 +1119,12 @@ export default function VerifierPage() {
 
                 {verifierActionPending ? (
                   <div className="mb-4">
-                    <TransactionWaitNotice active />
+                    <TransactionWaitNotice
+                      active
+                      transactionCount={
+                        isRobinhoodExperience(getActiveAppChainId()) && processingId !== null ? 1 : undefined
+                      }
+                    />
                   </div>
                 ) : null}
 
@@ -1426,14 +1431,6 @@ export default function VerifierPage() {
                     <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Pending Verification
                     </h2>
-                    {isRobinhoodExperience(getActiveAppChainId()) ? (
-                        <p className="mb-4 text-xs leading-relaxed text-amber-200/90">
-                            WalletConnect into MetaMask on this testnet often shows Review alerts and a network-fee
-                            warning. That is expected: the submission contract is unverified on a custom network, so
-                            MetaMask cannot simulate the call. If the request is approveSubmission and the fee is under
-                            US$0.01, you can confirm.
-                        </p>
-                    ) : null}
                     {pendingCleanups.length === 0 ? (
                         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
                             No pending cleanups to verify.

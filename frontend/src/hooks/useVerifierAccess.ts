@@ -11,7 +11,7 @@ import {
   pickOwnedVerifierApplication,
 } from '@/lib/verifier/owned-application'
 import { scheduleIdle } from '@/lib/dashboard/schedule-idle'
-import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 
 type Options = {
   /** Wait until browser idle before hitting verifier APIs / on-chain role check. */
@@ -22,6 +22,7 @@ type Options = {
  * Celo/Base cabinet UX follows an approved application. Robinhood testnet uses on-chain VERIFIER_ROLE.
  */
 export function useVerifierAccess(options?: Options) {
+  const { isRobinhood } = useExperienceChain()
   const defer = options?.defer ?? false
   const [active, setActive] = useState(!defer)
   const { submissionOwnerAddress } = useSmartAccountClient()
@@ -42,10 +43,10 @@ export function useVerifierAccess(options?: Options) {
   }, [defer, active])
 
   const applicationApproved = latestApp?.status === 'APPROVED'
-  const robinhoodOnChain = isRobinhoodExperience() && onChainRole
+  const robinhoodOnChain = isRobinhood && onChainRole
   const showVerifierFeatures = active && (applicationApproved || robinhoodOnChain)
   const showVerifierApplyCard =
-    active && isAuthenticated && !applicationApproved && !isRobinhoodExperience()
+    active && isAuthenticated && !applicationApproved && !isRobinhood
 
   const loadApplication = useCallback(async () => {
     if (!active) return
@@ -109,7 +110,6 @@ export function useVerifierAccess(options?: Options) {
     applicationApproved,
     showVerifierFeatures,
     showVerifierApplyCard,
-    onChainRoleWithoutApplication: active && onChainRole && !applicationApproved,
     onChainRole,
     refreshApplication: loadApplication,
   }

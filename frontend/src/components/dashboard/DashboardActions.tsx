@@ -64,7 +64,7 @@ export function DashboardActions({
     const { eligibility } = useVerifierEligibility()
     const { showVerifierFeatures } = useVerifierAccess()
     const { walletReady } = useAppWalletAddress()
-    const { isCelo: isCeloNetwork, chainId: experienceChainId } = useExperienceChain()
+    const { isCelo: isCeloNetwork, isRobinhood, chainId: experienceChainId } = useExperienceChain()
 
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
@@ -133,7 +133,13 @@ export function DashboardActions({
                 </ActionHint>
 
                 {cleanupStatus?.canClaim ? (
-                    <ActionHint hint="Get your tRWI and level-tied rewards. Keep this page open after you tap - your wallet may ask you to approve in a few seconds.">
+                    <ActionHint
+                      hint={
+                        isRobinhood
+                          ? 'Get your tRWI. Keep this page open after you tap - your wallet will ask you to approve 1 transaction.'
+                          : 'Get your tRWI and level-tied rewards. Keep this page open after you tap - your wallet may ask you to approve in a few seconds.'
+                      }
+                    >
                         <button
                             type="button"
                             onClick={(e) => {
@@ -179,8 +185,8 @@ export function DashboardActions({
                     </ActionHint>
                 )}
 
-                {/* Hide Hypercerts on Base */}
-                {isCeloNetwork && (
+                {/* Hypercerts on Celo and Robinhood; hide on Base */}
+                {(isCeloNetwork || isRobinhood) && (
                     <ActionHint hint={hypercertHint}>
                         <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
                             <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -202,7 +208,7 @@ export function DashboardActions({
 
             {isClaiming ? (
               <div className="mx-auto mt-3 w-full max-w-lg">
-                <TransactionWaitNotice active />
+                <TransactionWaitNotice active transactionCount={isRobinhood ? 1 : undefined} />
               </div>
             ) : null}
 

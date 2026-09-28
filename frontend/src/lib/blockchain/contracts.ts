@@ -17,7 +17,8 @@ import {
   invalidateUserSubmissionsCache,
 } from '@/lib/contractCache'
 import { getConfig } from './get-wagmi-config'
-import { REQUIRED_BLOCK_EXPLORER_URL, ROBINHOOD_TESTNET_CHAIN_ID, getChainConfig } from './chain-constants'
+import { requestRobinhoodRdcuSettle } from './rdcu-settle-client'
+import { REQUIRED_BLOCK_EXPLORER_URL, ROBINHOOD_TESTNET_CHAIN_ID } from './chain-constants'
 import { getActiveAaChain } from './aa-chain'
 import {
   getActiveAppChainId,
@@ -1255,71 +1256,22 @@ export async function isVerifier(_address: Address): Promise<boolean> {
   }
 }
 
-const RDCU_TOKEN_ABI = [
-  {
-    type: 'function',
-    name: 'settleAfterVerify',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'submissionId', type: 'uint256' }],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'settleUser',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [],
-  },
-] as const
-
 export type VerifyCleanupResult = {
   hash: `0x${string}`
   rdcuMintHash?: `0x${string}`
 }
 
-function getRobinhoodRdcuTokenAddress(): Address | undefined {
-  const token = getChainConfig(ROBINHOOD_TESTNET_CHAIN_ID).contracts.DCU_TOKEN?.trim()
-  return token ? (token as Address) : undefined
-}
-
-async function writeRobinhoodRdcu(
-  functionName: 'settleAfterVerify' | 'settleUser',
-  args: readonly [bigint] | readonly [Address]
-): Promise<`0x${string}` | undefined> {
-  if (getActiveAppChainId() !== ROBINHOOD_TESTNET_CHAIN_ID) return undefined
-  const token = getRobinhoodRdcuTokenAddress()
-  const account = getAccount(getConfig())
-  if (!token || !account.address) return undefined
-
-  const mintHash = await lockedWriteContract(getConfig(), {
-    chainId: ROBINHOOD_TESTNET_CHAIN_ID,
-    address: token,
-    abi: RDCU_TOKEN_ABI,
-    functionName,
-    args: args as [bigint] | [Address],
-    account: account.address,
-  })
-
-  await waitForTransactionReceipt(getConfig(), {
-    chainId: ROBINHOOD_TESTNET_CHAIN_ID,
-    hash: mintHash,
-    confirmations: 1,
-    pollingInterval: 2000,
-    timeout: 120000,
-  })
-  return mintHash
-}
-
-async function settleRobinhoodRdcuAfterVerify(
+/** Server mints $rDCU so the connected wallet only signs approve or tRWI. */
+async function settleRobinhoodRdcuBestEffort(params: {
   submissionId: bigint
-): Promise<`0x${string}` | undefined> {
-  return writeRobinhoodRdcu('settleAfterVerify', [submissionId])
-}
-
-async function settleRobinhoodRdcuForUser(
-  user: Address
-): Promise<`0x${string}` | undefined> {
-  return writeRobinhoodRdcu('settleUser', [user])
+  user?: Address
+}): Promise<`0x${string}` | undefined> {
+  try {
+    return await requestRobinhoodRdcuSettle(params)
+  } catch (error) {
+    console.warn('[rDCU] server settle failed:', error)
+    return undefined
+  }
 }
 
 export async function verifyCleanup(
@@ -1433,9 +1385,33 @@ export async function verifyCleanup(
       throw new Error('Missing verify transaction hash')
     }
 
-    return { hash }
+    let rdcuMintHash: `0x${string}` | undefined
+    if (robinhoodDemo) {
+      rdcuMintHash = await settleRobinhoodRdcuBestEffort({
+        submissionId: cleanupId,
+        user: details.user,
+      })
+    }
+
+    return { hash, rdcuMintHash }
   } catch (error: any) {
     console.error('Error verifying cleanup:', error)
+    if (robinhoodDemo) {
+      try {
+        const fresh = await getCleanupDetailsFresh(cleanupId)
+        if (fresh.verified) {
+          const rdcuMintHash = await settleRobinhoodRdcuBestEffort({
+            submissionId: cleanupId,
+            user: fresh.user,
+          })
+          if (rdcuMintHash) {
+            return { hash: hash || rdcuMintHash, rdcuMintHash }
+          }
+        }
+      } catch (settleRetryError) {
+        console.warn('Robinhood $rDCU settle retry after verify error:', settleRetryError)
+      }
+    }
     let errorMessage = 'Unknown error'
     
     if (error?.message) {
@@ -2192,9 +2168,13 @@ export async function claimImpactProductFromVerification(
       }
     }
 
-    /** Optional: separate `claimSubmissionBonusRewards` after NFT when atomic contract tx is off. */
+    /** Optional: separate `claimSubmissionBonusRewards` after NFT when atomic contract tx is off.
+     *  Robinhood skips this extra wallet prompt; verifier already minted 10 $rDCU on approve,
+     *  and settleUser after tRWI picks up leftover RewardManager points. */
     const wantsSubmissionBonus =
-      isSubmissionBonusClaimEnabled() && !isAtomicContractTxEnabled()
+      isSubmissionBonusClaimEnabled() &&
+      !isAtomicContractTxEnabled() &&
+      getActiveAppChainId() !== ROBINHOOD_TESTNET_CHAIN_ID
 
     // After NFT mint/upgrade, submission bonus (impact report + recyclables on RewardManager) unless env disables it.
     if (wantsSubmissionBonus) {
@@ -2285,8 +2265,9 @@ export async function claimImpactProductFromVerification(
     }
 
     const needsBonus = wantsSubmissionBonus
+    const robinhoodClaim = getActiveAppChainId() === ROBINHOOD_TESTNET_CHAIN_ID
 
-    if (!hash) {
+    if (!hash && !robinhoodClaim) {
       if (nftStepRequired) {
         throw new Error('Claim flow did not complete onchain. No transaction hash returned.')
       }
@@ -2302,20 +2283,21 @@ export async function claimImpactProductFromVerification(
       cleanupId,
     })
 
-    if (getActiveAppChainId() === ROBINHOOD_TESTNET_CHAIN_ID) {
-      try {
-        await settleRobinhoodRdcuAfterVerify(cleanupId)
-      } catch (mintError) {
-        const mintMessage = mintError instanceof Error ? mintError.message : String(mintError)
-        if (!/AlreadyMinted|already minted/i.test(mintMessage)) {
-          console.warn('Robinhood $rDCU mint-on-claim skipped:', mintError)
+    if (robinhoodClaim) {
+      const settleHash = await settleRobinhoodRdcuBestEffort({
+        submissionId: cleanupId,
+        user: submissionOwner,
+      })
+      if (!hash) {
+        if (!settleHash) {
+          throw new Error('Could not mint $rDCU for this claim. Try again.')
         }
+        hash = settleHash
       }
-      try {
-        await settleRobinhoodRdcuForUser(submissionOwner)
-      } catch (settleError) {
-        console.warn('Robinhood $rDCU ledger settle after tRWI claim skipped:', settleError)
-      }
+    }
+
+    if (!hash) {
+      throw new Error('Claim flow did not complete onchain. No transaction hash returned.')
     }
 
     return {

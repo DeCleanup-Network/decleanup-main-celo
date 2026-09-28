@@ -539,7 +539,11 @@ function HomeContent() {
               </p>
             )}
             {showHeroClaimCta && (
-              <TransactionActionBlock pending={isClaiming} className="flex flex-col items-center sm:items-start">
+              <TransactionActionBlock
+                pending={isClaiming}
+                transactionCount={isRobinhood ? 1 : undefined}
+                className="flex flex-col items-center sm:items-start"
+              >
                 <Button
                 type="button"
                 variant="brandYellow"
@@ -577,7 +581,8 @@ function HomeContent() {
               </p>
             ) : isRobinhood && showHeroClaimCta ? (
               <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
-                Your cleanup is verified. Claim level to mint $rDCU and your tRWI.
+                Your cleanup is verified. Claim level for your tRWI. $rDCU mints in the background after verify and
+                after this claim.
               </p>
             ) : isRobinhood && impactProduct.level > 0 && !showHeroClaimCta ? (
               <p className="max-w-md text-center text-xs text-muted-foreground sm:text-sm">
@@ -814,13 +819,10 @@ function HomeContent() {
                   </p>
                 )}
               {hasLoadedDashboardOnce && isRobinhood ? (
-                  <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
-                    On Robinhood, {experience.tokenSymbol} is minted when you claim tRWI after verification.
-                    These rows are participation points. Total DCU is the points ledger (signer + smart account,
-                    plus 10 DCU per cleanup you were listed on). Your wallet {experience.tokenSymbol} is the ERC-20
-                    balance in those wallets. They are not a 1:1 conversion.
-                  </p>
-                ) : null}
+                <p className="mb-3 rounded-lg border border-border/80 bg-background/50 p-3 text-xs leading-relaxed text-muted-foreground">
+                  DCU are points in the system, $rDCU is a rewards token. They are not 1:1 conversion.
+                </p>
+              ) : null}
               <div className="grid grid-cols-2 gap-2">
                                 {[
                   {
@@ -905,7 +907,7 @@ function HomeContent() {
                       ) : (
                         <span className="break-words">
                           {stat.value}
-                          {stat.showToken ? (isRobinhood ? ` ${experience.tokenTicker}` : ' DCU') : ''}
+                          {stat.showToken ? ' DCU' : ''}
                         </span>
                       )}
                     </p>
@@ -938,7 +940,7 @@ function HomeContent() {
 
         <div
           className={`mt-2 grid grid-cols-1 gap-3 sm:mt-4 ${
-            isCelo ? 'min-[480px]:grid-cols-3' : 'min-[480px]:grid-cols-2'
+            isBase ? 'min-[480px]:grid-cols-2' : 'min-[480px]:grid-cols-3'
           }`}
         >
           <Link href="/leaderboard" className="block min-h-[88px]">
@@ -957,7 +959,7 @@ function HomeContent() {
               </div>
             </Link>
           )}
-          {isCelo ? (
+          {isCelo || isRobinhood ? (
             <Link href="/hypercerts" className="block min-h-[88px]">
               <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
                 <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
@@ -1122,9 +1124,9 @@ function HomeContent() {
             <div className="space-y-4 text-sm text-muted-foreground">
               {isRobinhood ? (
                 <p>
-                  <strong className="text-foreground">What is $rDCU?</strong> $rDCU is the Robinhood testnet reward
-                  token. After a cleanup is verified, come back and claim to mint $rDCU and your tRWI. It is an ERC-20
-                  you can hold or send like any other token. Gas on this network is test ETH.
+                  <strong className="text-foreground">What is $rDCU?</strong> $rDCU is the Robinhood testnet ERC-20.
+                  The verifier mints 10 $rDCU when they approve your cleanup. Claiming tRWI then mints any new DCU
+                  points as $rDCU. Gas on this network is test ETH.
                 </p>
               ) : (
                 <p>
@@ -1204,10 +1206,9 @@ function HomeContent() {
               </p>
               ) : isRobinhood ? (
               <p>
-                <strong className="text-foreground">Rewards on Robinhood.</strong> After a cleanup is verified,
-                come back and claim to mint $rDCU and your tRWI. Streak, referral, reports, and verifier amounts
-                settle in that same claim. Gas is test ETH. There is no $cDCU claim vault on this path. Total DCU and
-                $rDCU are not 1:1: DCU is points, $rDCU is the ERC-20 in your wallets after claim.
+                <strong className="text-foreground">Rewards on Robinhood.</strong> DCU in this breakdown is points.
+                $rDCU is the token in your wallets. They are not 1:1 conversion. The app mints $rDCU after the
+                verifier approves and after you claim tRWI. Gas is test ETH. There is no $cDCU claim vault on this path.
               </p>
               ) : (
               <p>
@@ -1217,9 +1218,8 @@ function HomeContent() {
               )}
               {isRobinhood ? (
               <p>
-                <strong className="text-foreground">When it pays.</strong> Confirm Claim Level in your wallet after
-                verify. That mint pays $rDCU and upgrades tRWI. Streaks need another verified cleanup within 7 days.
-                Referrals pay when the invited person claims their first tRWI.
+                <strong className="text-foreground">When it pays.</strong> Verifier signs one approve. You sign one
+                tRWI claim. $rDCU minting is a background settle, not extra wallet prompts.
               </p>
               ) : (
               <p>
@@ -1234,22 +1234,22 @@ function HomeContent() {
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">1. tRWI</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">{isRobinhood ? '10 $rDCU' : '10 DCU'}</strong> per level by submitting before-and-after cleanup
-                  photos and passing verification{isRobinhood ? '. On Robinhood, 10 $rDCU mints when you claim the tRWI after verify.' : '. Ten levels are live today; more may follow.'}
+                  Earn <strong className="text-foreground">10 DCU</strong> per level by submitting before-and-after cleanup
+                  photos and passing verification{isRobinhood ? '. On Robinhood, 10 $rDCU mints in the background after the verifier approves. You only sign the tRWI claim.' : '. Ten levels are live today; more may follow.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">2. Referrals</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">{isRobinhood ? '3 $rDCU' : '3 DCU'}</strong> when someone joins through your link and {isRobinhood ? 'claims their first tRWI. Both of you are paid in that claim settle.' : 'completes a verified cleanup.'}
+                  Earn <strong className="text-foreground">3 DCU</strong> when someone joins through your link and {isRobinhood ? 'claims their first tRWI. Those points can mint as $rDCU in the background settle.' : 'completes a verified cleanup.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">3. Streaks</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">{isRobinhood ? '3 $rDCU' : '3 DCU'}</strong> per streak level by submitting at least one cleanup
+                  Earn <strong className="text-foreground">3 DCU</strong> per streak level by submitting at least one cleanup
                   {isRobinhood ? ' that gets verified within 7 days of your last approved cleanup.' : ' each calendar week.'}
                 </p>
               </div>
@@ -1257,16 +1257,16 @@ function HomeContent() {
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">4. Reports &amp; recyclables</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">{isRobinhood ? '5 $rDCU' : '5 DCU'}</strong> for each verified impact report or recyclables
-                  submission tied to a cleanup{isRobinhood ? ', minted when you claim the tRWI.' : '.'}
+                  Earn <strong className="text-foreground">5 DCU</strong> for each verified impact report or recyclables
+                  submission tied to a cleanup{isRobinhood ? '. Those points can mint as $rDCU in the background settle after claim.' : '.'}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">5. Verifier work</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">{isRobinhood ? '1 $rDCU' : '1 DCU'}</strong> per submission you review (approved or rejected
-                  with a clear reason) once you are an active verifier{isRobinhood ? '. Paid in the same settle as verify.' : '.'}
+                  Earn <strong className="text-foreground">1 DCU</strong> per submission you review (approved or rejected
+                  with a clear reason) once you are an active verifier{isRobinhood ? '. Paid in the background settle after approve.' : '.'}
                 </p>
               </div>
 
@@ -1279,12 +1279,13 @@ function HomeContent() {
                 </p>
               </div>
 
-              {isCelo ? (
+              {isCelo || isRobinhood ? (
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">7. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn <strong className="text-foreground">10 DCU</strong> for every ten verified cleanups when you publish an
-                  impact certificate via the Hypercerts hub (verifier approval required).
+                  {isRobinhood
+                    ? 'On Robinhood you can mint a Hypercert after 1 verified cleanup. Open Impact certificate from Actions.'
+                    : 'Earn 10 DCU for every ten verified cleanups when you publish an impact certificate via the Hypercerts hub (verifier approval required).'}
                 </p>
               </div>
               ) : null}

@@ -9,14 +9,31 @@ export const TRANSACTION_WAIT_HINT =
 
 export const TRANSACTION_WAIT_ACTIVE = 'Keep this page open while your wallet approves.'
 
+function waitNoticeText(active: boolean, transactionCount?: number): string {
+  if (!active) return TRANSACTION_WAIT_HINT
+  if (transactionCount && transactionCount > 1) {
+    return `Keep this page open while you approve ${transactionCount} transactions in the wallet.`
+  }
+  if (transactionCount === 1) {
+    return 'Keep this page open while you approve 1 transaction in the wallet.'
+  }
+  return TRANSACTION_WAIT_ACTIVE
+}
+
 type TransactionWaitNoticeProps = {
   /** Stronger styling while a wallet / chain action is in progress. */
   active?: boolean
+  /** When set, the yellow note names how many wallet approvals to expect. */
+  transactionCount?: number
   className?: string
 }
 
-export function TransactionWaitNotice({ active = false, className }: TransactionWaitNoticeProps) {
-  const text = active ? TRANSACTION_WAIT_ACTIVE : TRANSACTION_WAIT_HINT
+export function TransactionWaitNotice({
+  active = false,
+  transactionCount,
+  className,
+}: TransactionWaitNoticeProps) {
+  const text = waitNoticeText(active, transactionCount)
 
   return (
     <div
@@ -53,6 +70,7 @@ type TransactionActionBlockProps = {
   pending?: boolean
   /** Show the subtle hint when idle (default false; notice appears with spinner when pending). */
   showHint?: boolean
+  transactionCount?: number
   className?: string
 }
 
@@ -61,6 +79,7 @@ export function TransactionActionBlock({
   children,
   pending = false,
   showHint = false,
+  transactionCount,
   className,
 }: TransactionActionBlockProps) {
   if (!pending && !showHint) {
@@ -69,7 +88,7 @@ export function TransactionActionBlock({
 
   return (
     <div className={cn('flex flex-col items-center gap-3', className)}>
-      <TransactionWaitNotice active={pending} className="w-full" />
+      <TransactionWaitNotice active={pending} transactionCount={transactionCount} className="w-full" />
       {children}
     </div>
   )
