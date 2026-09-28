@@ -1,7 +1,7 @@
 /**
  * Ops helper (Safe / owner): after Trash Athlete is APPROVED in the verifier UI,
  * grant 30 DCU via DCURewardManager.distributeRewards to the **signer EOA**
- * (`trash_athlete_challenges.wallet_address` — MetaMask / import address).
+ * (`trash_athlete_challenges.wallet_address` - MetaMask / import address).
  *
  * Level 1 (verifyPOI + mint) and 150 $cDCU are also manual for now (Safe):
  *   - $cDCU: ClaimVault mint to the same signer EOA
@@ -11,7 +11,7 @@
  *   node scripts/grant-trash-athlete-dcu.mjs --wallet 0x... [--confirm]
  *
  * Requires in .env.local a key that can call distributeRewards (Safe owner execution
- * or a hot key that still owns DCURewardManager — usually not available if ownership
+ * or a hot key that still owns DCURewardManager - usually not available if ownership
  * is only on the Safe; then run the same call from Safe Transaction Builder).
  *
  *   DCU_REWARD_OWNER_PRIVATE_KEY (or CONTRACT_OWNER_PRIVATE_KEY)

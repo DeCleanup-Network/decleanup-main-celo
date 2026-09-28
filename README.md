@@ -10,7 +10,7 @@ Celo mainnet stack for verified cleanups → onchain **Impact Products**, **DCU*
 |------|----------|
 | `contracts/` | Hardhat: Submission, DCURewardManager, ImpactProductNFT, CDCUToken, ClaimVault |
 | `frontend/` | Next.js app (dashboard, cleanup, verifier, APIs, Supabase) |
-| `gpu-inference-service/` | Optional YOLOv8 worker for ML pre-screening |
+| `gpu-inference-service/` | Optional YOLOv8 worker for ML pre-screening (**AGPL-3.0**, not MIT) |
 | `docs/` | Architecture, deployment, VPS, ML, public API |
 | `scripts/vps/` | Deploy and harden VPS (PM2, Nginx, GPU) |
 
@@ -37,6 +37,12 @@ Copy **`frontend/ENV_TEMPLATE.md`** → `frontend/.env.local`. For mainnet local
 | [`docs/VPS_DEPLOYMENT.md`](docs/VPS_DEPLOYMENT.md) | VPS + ML enablement |
 | [`docs/PUBLIC_IMPACT_API.md`](docs/PUBLIC_IMPACT_API.md) | Landing page feed API |
 | [`docs/B_CDCU_ONLY_ARCHITECTURE.md`](docs/B_CDCU_ONLY_ARCHITECTURE.md) | DCU vs `$cDCU`, ClaimVault |
+
+## License
+
+The dApp, contracts, and docs are **MIT** (root `LICENSE`). The optional GPU
+worker is **not**: see [`NOTICE`](NOTICE) and
+[`gpu-inference-service/LICENSE`](gpu-inference-service/LICENSE) (AGPL-3.0).
 
 ## Links
 

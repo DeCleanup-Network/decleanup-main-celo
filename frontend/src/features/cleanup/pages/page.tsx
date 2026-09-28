@@ -47,7 +47,7 @@ import { getConfig } from '@/lib/blockchain/get-wagmi-config'
 import { lockedSignMessage } from '@/lib/blockchain/wallet-write-mutex'
 import { buildCleanupMetaSignMessage } from '@/lib/impact/cleanup-meta-sign'
 import { switchToExperienceChain } from '@/lib/blockchain/switch-to-required-chain'
-import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { useExperienceChain, useShowImpactPortfolio } from '@/hooks/useExperienceChain'
 import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { normalizeImageFileForUpload } from '@/lib/utils/heic-convert'
 import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
@@ -65,7 +65,7 @@ import { HYPERCERT_RIGHTS_PRESETS } from '@/lib/blockchain/hypercerts/rights-pre
 
 type Step = 'photos' | 'enhanced' | 'recyclables' | 'review'
 
-/** Shown when GPS fails or before first capture — covers phone OS + browser site permissions. */
+/** Shown when GPS fails or before first capture - covers phone OS + browser site permissions. */
 const LOCATION_PERMISSION_HINT =
   'Enable location in phone Settings and allow this site in your browser (site settings > Location).'
 
@@ -139,7 +139,7 @@ function cleanupFailureHints(errorMessage: string): string {
     return (
       `Photo upload uses this site’s server (not your wallet’s chain). Try:\n` +
       `- Retry on Wi‑Fi; turn off VPN / iCloud Private Relay / strict content blockers\n` +
-      `- Use a smaller photo (under ~8 MB) or export JPEG instead of HEIC\n` +
+      `- Use a smaller photo (under ~8 MB)\n` +
       `- Safari: Settings → Safari → turn off “Prevent Cross-Site Tracking” for a test, or try Chrome\n` +
       `- For the onchain step you still need ${REQUIRED_CHAIN_NAME} (Chain ID: ${REQUIRED_CHAIN_ID}) in MetaMask`
     )
@@ -246,6 +246,7 @@ function CleanupContent() {
     embeddedSponsoredSubmit,
   } = useAppWalletAddress()
   const { isCelo, isRobinhood } = useExperienceChain()
+  const showImpactPortfolio = useShowImpactPortfolio()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
     purpose: string
@@ -329,7 +330,7 @@ function CleanupContent() {
     }
   }, [router])
 
-  // Sticky app header (~4.5–5.5rem): scroll each step so the title + intro sit below it, not mid-form.
+  // Sticky app header (~4.5-5.5rem): scroll each step so the title + intro sit below it, not mid-form.
   useLayoutEffect(() => {
     if (step !== 'enhanced' && step !== 'recyclables' && step !== 'review') return
     const el = document.getElementById(`cleanup-flow-step-${step}`)
@@ -731,14 +732,26 @@ function CleanupContent() {
           setAlertModal({ message: 'Image size must be less than 10 MB', variant: 'warning' })
           return
         }
+        if (file.size < 32) {
+          setAlertModal({
+            message:
+              'This photo is empty or still downloading (common with iCloud Photos on desktop). Wait until it finishes, then pick it again.',
+            variant: 'warning',
+          })
+          return
+        }
         setPhotoProcessing(type)
         let ready = file
         try {
           ready = await normalizeImageFileForUpload(file)
           ready = await compressImageIfLarge(ready)
         } catch (err) {
-          console.warn('Browser HEIC conversion failed, passing raw file to server:', err)
-          ready = file
+          const message =
+            err instanceof Error && err.message
+              ? err.message
+              : 'Could not convert this iPhone photo. Pick it again, or try a JPEG from Photos.'
+          setAlertModal({ message, variant: 'warning' })
+          return
         } finally {
           setPhotoProcessing(null)
         }
@@ -773,7 +786,7 @@ function CleanupContent() {
   const handleOptionalVideoSelect = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    // video/* first — some Android pickers ignore the dialog when only specific types are listed.
+    // video/* first - some Android pickers ignore the dialog when only specific types are listed.
     input.accept = 'video/*,video/mp4,video/quicktime'
     input.onchange = (e) => {
       void (async () => {
@@ -1302,7 +1315,7 @@ function CleanupContent() {
     setMlVerificationLoading(false)
     setMlVerificationSummary(null)
     setMlVerificationStats(null)
-    /** Use live validation at submit time — avoids stale `hasImpactForm` state skipping the IPFS hash. */
+    /** Use live validation at submit time - avoids stale `hasImpactForm` state skipping the IPFS hash. */
     const impactFormEligible = validation.hasStartedFilling && validation.isValid
     const resolvedCleanupDate = enhancedData.cleanupDate.trim() || getLocalTodayDateString()
     if (!isCleanupDateAllowed(resolvedCleanupDate)) {
@@ -1471,7 +1484,7 @@ function CleanupContent() {
 
         // Rare recovery path: the tx landed but we couldn't read the id (transient RPC), or the
         // receipt itself couldn't be confirmed. Show success/pending and skip the id-dependent
-        // steps — never a false "submission failed".
+        // steps - never a false "submission failed".
         if (cleanupId === null) {
           setIsSubmitting(false)
           if (isRobinhood) {
@@ -1556,7 +1569,7 @@ function CleanupContent() {
 
         console.log('✅ Referrer address used in submission:', referrerAddress || 'none (no referrer)')
         if (referrerAddress && referrerAddress !== '0x0000000000000000000000000000000000000000') {
-          console.log('✅ Referral reward will be distributed when cleanup is verified and user claims their first tRWA asset level!')
+          console.log('✅ Referral reward will be distributed when cleanup is verified and user claims their first tRWI asset level!')
         }
 
         const saveRecyclablesMeta = () => {
@@ -1740,7 +1753,7 @@ function CleanupContent() {
             }
 
             // The verify POST can outlive the serverless window on slow inference, but the
-            // ML host still finishes and writes ml_result.json — so before giving up we poll
+            // ML host still finishes and writes ml_result.json - so before giving up we poll
             // the result endpoint, which serves that file once it exists.
             const pollMlResult = async () => {
               const POLL_INTERVAL_MS = 12_000
@@ -1839,7 +1852,7 @@ function CleanupContent() {
           return
         }
 
-        // Wrong chain / Sepolia confusion (narrow — avoid matching every "Celo" substring)
+        // Wrong chain / Sepolia confusion (narrow - avoid matching every "Celo" substring)
         const isCeloError =
           errorMessage.includes('Celo Sepolia') ||
           (REQUIRED_CHAIN_ID === 42220 &&
@@ -2001,7 +2014,7 @@ function CleanupContent() {
   const hasPendingCleanup = pendingCleanup !== null && pendingCleanup !== undefined
   const canClaimPendingLevel =
     hasPendingCleanup && !!pendingCleanup?.verified && !pendingCleanup?.claimed
-  /** Blocks starting a new onchain submission — not photo pickers (IPFS upload is off-chain). */
+  /** Blocks starting a new onchain submission - not photo pickers (IPFS upload is off-chain). */
   const isNewSubmissionBlocked =
     !walletReady ||
     (hasPendingCleanup && !pendingCleanup.verified) ||
@@ -2129,8 +2142,8 @@ function CleanupContent() {
           <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-6 space-y-3">
             <h2 className="text-xl font-heading tracking-wide text-foreground">SUBMISSION CLOSED</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              You&apos;ve reached tRWA asset level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed.
-              {isCelo && address ? (
+              You&apos;ve reached tRWI asset level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed.
+              {showImpactPortfolio && address ? (
                 <>
                   {' '}
                   See your{' '}
@@ -2204,7 +2217,7 @@ function CleanupContent() {
               <h3 className="text-sm font-semibold text-brand-yellow">Ready to claim</h3>
               <p className="text-sm text-gray-200">
                 Cleanup #{pendingCleanup.id.toString()} is verified. On home, tap{' '}
-                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your tRWA.
+                <span className="font-semibold text-brand-yellow">CLAIM LEVEL</span> to mint your tRWI.
               </p>
               <Button asChild className={claimLevelButtonClasses}>
                 <Link href="/" className="inline-flex items-center justify-center">
@@ -2424,7 +2437,7 @@ function CleanupContent() {
             </p>
             {lowResPhoto && (
               <p className="mt-2 text-xs text-amber-400">
-                One of your photos is low-resolution. For a full AI assessment, upload a larger original (about 1200px or more on the long side). You can still submit — a human verifier reviews every cleanup.
+                One of your photos is low-resolution. For a full AI assessment, upload a larger original (about 1200px or more on the long side). You can still submit - a human verifier reviews every cleanup.
               </p>
             )}
           </div>
@@ -2453,7 +2466,7 @@ function CleanupContent() {
               ) : photoProcessing === 'before' ? (
                 <div className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900">
                   <Loader2 className="mb-2 h-8 w-8 animate-spin text-brand-green" />
-                  <p className="text-sm text-gray-400">Processing photo…</p>
+                  <p className="text-sm text-gray-400">Preparing photo...</p>
                 </div>
               ) : (
                 <button
@@ -2508,7 +2521,7 @@ function CleanupContent() {
               ) : photoProcessing === 'after' ? (
                 <div className="flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-900">
                   <Loader2 className="mb-2 h-8 w-8 animate-spin text-brand-green" />
-                  <p className="text-sm text-gray-400">Processing photo…</p>
+                  <p className="text-sm text-gray-400">Preparing photo...</p>
                 </div>
               ) : (
                 <button
@@ -2557,7 +2570,7 @@ function CleanupContent() {
                     onError={() => {
                       setAlertModal({
                         message:
-                          'This browser could not play a preview of that clip (codec or format). You can still submit if it is an MP4/MOV under 10 seconds — or pick another clip from Photos.',
+                          'This browser could not play a preview of that clip (codec or format). You can still submit if it is an MP4/MOV under 10 seconds - or pick another clip from Photos.',
                         variant: 'warning',
                       })
                     }}
@@ -2728,7 +2741,7 @@ function CleanupContent() {
             </p>
           </div>
 
-          {/* Full form — page scrolls naturally so users can return to the heading after scrolling down */}
+          {/* Full form - page scrolls naturally so users can return to the heading after scrolling down */}
           <div
             className="mb-6 space-y-4 pr-1 sm:pr-2"
             onWheel={(e) => {
@@ -3051,7 +3064,7 @@ function CleanupContent() {
               </div>
             )}
 
-            {/* Hypercerts rights (required — 5 preset licenses) */}
+            {/* Hypercerts rights (required - 5 preset licenses) */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-300">
                 Photo sharing license *
@@ -3470,7 +3483,7 @@ function CleanupContent() {
     )
   }
 
-  // Step 6: Success/Review (single inline screen — no success AlertModal)
+  // Step 6: Success/Review (single inline screen - no success AlertModal)
   if (step === 'review') {
     const mlStatsCompact =
       mlVerificationStats &&

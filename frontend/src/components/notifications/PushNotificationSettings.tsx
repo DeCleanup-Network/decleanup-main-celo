@@ -303,7 +303,7 @@ export function PushNotificationSettings({ className }: Props) {
                       {subscribed ? 'On' : 'Off'}
                     </span>
                     {isIos() && !isStandalonePwa()
-                      ? ' — on iPhone, use the Home Screen app.'
+                      ? ' - on iPhone, use the Home Screen app.'
                       : null}
                   </p>
                   {!subscribed ? (

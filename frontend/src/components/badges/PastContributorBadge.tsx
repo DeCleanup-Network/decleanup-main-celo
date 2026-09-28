@@ -17,7 +17,7 @@ export function PastContributorBadge({ className, size = 'sm' }: Props) {
         size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs',
         className
       )}
-      title="Early DeCleanup Network supporter — past contributor airdrop claimed"
+      title="Early DeCleanup Network supporter - past contributor airdrop claimed"
     >
       <Award className={size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'} aria-hidden />
       Past contributor

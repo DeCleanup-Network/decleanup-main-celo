@@ -7,12 +7,12 @@
  *   node scripts/send-airdrop-manual.mjs --recipient 0xFc8c... --confirm
  *
  * Env (frontend/.env.local):
- *   CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY — signs the claim
+ *   CLAIM_VAULT_AUTHORIZED_SIGNER_PRIVATE_KEY - signs the claim
  *   NEXT_PUBLIC_CLAIMVAULT_ADDRESS
  *   NEXT_PUBLIC_CHAIN_ID (42220 mainnet)
  *   NEXT_PUBLIC_RPC_URL or CELO_RPC_URL
- *   Optional AIRDROP_GAS_PRIVATE_KEY — pays gas (defaults to signer key)
- *   Optional SUPABASE_SERVICE_ROLE_KEY — marks allocation claimed in DB after mint
+ *   Optional AIRDROP_GAS_PRIVATE_KEY - pays gas (defaults to signer key)
+ *   Optional SUPABASE_SERVICE_ROLE_KEY - marks allocation claimed in DB after mint
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
@@ -116,7 +116,7 @@ async function markClaimedInSupabase(recipient) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
   const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim()
   if (!url || !key) {
-    console.warn('No Supabase service key — skip DB claimed flag (add manually if needed).')
+    console.warn('No Supabase service key - skip DB claimed flag (add manually if needed).')
     return
   }
   const client = createClient(url, key, { auth: { persistSession: false } })

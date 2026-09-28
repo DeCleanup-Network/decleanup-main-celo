@@ -20,7 +20,7 @@ const HYPERCERT_MINTER_ABI = [
   },
 ] as const
 
-/** AllowAll — same default used on other Hypercerts test deploys. */
+/** AllowAll - same default used on other Hypercerts test deploys. */
 const TRANSFER_ALLOW_ALL = 0
 const FULL_UNITS = 10_000n
 

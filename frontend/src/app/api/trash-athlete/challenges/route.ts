@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     const timestamp = Number(body?.timestamp)
 
     if (!username || username.length < 2 || username.length > 64) {
-      return NextResponse.json({ error: 'Username must be 2–64 characters' }, { status: 400 })
+      return NextResponse.json({ error: 'Username must be 2-64 characters' }, { status: 400 })
     }
     if (!URL_RE.test(socialProfileUrl)) {
       return NextResponse.json(
@@ -111,13 +111,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Notes too long (max 2000 characters)' }, { status: 400 })
     }
 
-    /** Signer EOA — MetaMask / import address; Trash Athlete history + rewards key off this. */
+    /** Signer EOA - MetaMask / import address; Trash Athlete history + rewards key off this. */
     let rewardWallet: Address
     let email: string | null = session?.user?.email ?? null
     let submitUserId: string | null = userId
 
     if (userId) {
-      // Email / embedded account path — store signer EOA (not smart account)
+      // Email / embedded account path - store signer EOA (not smart account)
       const wallet = await findWalletMetadata(userId)
       if (!wallet) {
         return NextResponse.json(

@@ -12,19 +12,28 @@ declare global {
 declare const self: ServiceWorkerGlobalScope
 
 /**
- * Never cache auth, wallet, or API traffic — stale responses break login / AA / passkeys.
+ * Never cache auth, wallet, or API traffic - stale responses break login / AA / passkeys.
  * NetworkOnly rules must come before defaultCache.
  */
 function isAuthDocument(url: URL): boolean {
   return url.pathname === '/login' || url.pathname.startsWith('/login/')
 }
 
-/** NetworkOnly throws `no-response` when a navigation is aborted (Auth.js bounce). Swallow that. */
+/** NetworkOnly throws `no-response` when a navigation is aborted (Auth.js bounce, CSP, offline). Swallow that. */
 const swallowAbortedNetwork: ConstructorParameters<typeof NetworkOnly>[0] = {
   plugins: [
     {
-      handlerDidError: async () =>
-        new Response(undefined, { status: 504, statusText: 'network-unavailable' }),
+      handlerDidError: async ({ request }) => {
+        if (request?.mode === 'navigate') {
+          try {
+            const offline = await caches.match('/~offline')
+            if (offline) return offline
+          } catch {
+            /* ignore cache miss */
+          }
+        }
+        return new Response(undefined, { status: 504, statusText: 'network-unavailable' })
+      },
     },
   ],
 }
@@ -37,6 +46,11 @@ const sensitiveNetworkOnly: RuntimeCaching[] = [
   {
     matcher: ({ sameOrigin, url }) =>
       sameOrigin && (isAuthDocument(url) || url.pathname.startsWith('/api/auth')),
+    handler: new NetworkOnly(swallowAbortedNetwork),
+  },
+  {
+    matcher: ({ sameOrigin, request, url }) =>
+      sameOrigin && request.mode === 'navigate' && !isAuthDocument(url) && !url.pathname.startsWith('/api/'),
     handler: new NetworkOnly(swallowAbortedNetwork),
   },
 ]

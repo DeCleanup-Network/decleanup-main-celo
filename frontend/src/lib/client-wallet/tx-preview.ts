@@ -40,7 +40,7 @@ export function buildTransactionPreview(params: {
       errors: ['Invalid recipient address.'],
       warnings: [],
       kind: 'invalid',
-      summary: 'Cannot preview — invalid address.',
+      summary: 'Cannot preview - invalid address.',
       to: null,
       valueWei: 0n,
       valueFormatted: '0',
@@ -72,7 +72,7 @@ export function buildTransactionPreview(params: {
   const selector = getFunctionSelector(data)
 
   if (kind === 'contract-call') {
-    warnings.push('Contract call detected — signing session only allows plain CELO transfers.')
+    warnings.push('Contract call detected - signing session only allows plain CELO transfers.')
     sessionNotes.push('End session and use full unlock for governance or Safe App interactions.')
   }
 

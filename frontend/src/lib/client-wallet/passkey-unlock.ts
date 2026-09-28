@@ -41,7 +41,7 @@ export function hasPasskeyUnlockRecord(userId: string): boolean {
 
 /**
  * Wrap the wallet unlock password with the server-issued unlock key (only after WebAuthn proof).
- * Never persist unlockKey — only the encrypted password blob.
+ * Never persist unlockKey - only the encrypted password blob.
  */
 export async function wrapUnlockPassword(
   userId: string,

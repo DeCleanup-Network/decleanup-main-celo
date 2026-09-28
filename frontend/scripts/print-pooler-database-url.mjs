@@ -33,7 +33,7 @@ try {
 
 const hostMatch = u.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/i)
 const projectRef = hostMatch?.[1] ?? 'dhykmgtynlctpdpbznqj'
-/** Supabase pooler host prefix: aws-0 or aws-1 — copy from Dashboard → Connect if unsure */
+/** Supabase pooler host prefix: aws-0 or aws-1 - copy from Dashboard → Connect if unsure */
 const poolerPrefix = process.env.SUPABASE_POOLER_PREFIX ?? 'aws-1'
 const region = process.env.SUPABASE_POOLER_REGION ?? 'us-east-2'
 const password = encodeURIComponent(u.password)
@@ -43,9 +43,9 @@ if (!u.password) {
   process.exit(1)
 }
 
-// Session pooler (5432) — copy this exact URI from Supabase Dashboard → Database → Connect if unsure
+// Session pooler (5432) - copy this exact URI from Supabase Dashboard → Database → Connect if unsure
 const sessionPooler = `postgresql://postgres.${projectRef}:${password}@${poolerPrefix}-${region}.pooler.supabase.com:5432/postgres?sslmode=require`
-// Transaction pooler (6543) — alternative if session mode fails
+// Transaction pooler (6543) - alternative if session mode fails
 const txnPooler = `postgresql://postgres.${projectRef}:${password}@${poolerPrefix}-${region}.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require`
 
 const directUrl = `postgresql://postgres.${projectRef}:${password}@${poolerPrefix}-${region}.pooler.supabase.com:5432/postgres?sslmode=require`

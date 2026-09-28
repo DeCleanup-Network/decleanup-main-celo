@@ -12,7 +12,7 @@ export function getCeloSepoliaHttpRpcUrl(): string {
   )
 
   if (typeof window !== 'undefined' && window.location?.origin) {
-    // In embedded iframes, `origin` is not the dapp — same-origin proxy would point at the wrong host.
+    // In embedded iframes, `origin` is not the dapp - same-origin proxy would point at the wrong host.
     const inIframe =
       typeof window.self !== 'undefined' &&
       typeof window.top !== 'undefined' &&

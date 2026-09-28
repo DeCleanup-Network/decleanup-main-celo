@@ -38,7 +38,7 @@ export function LoginEmailForm({ callbackUrl }: Props) {
       if (result?.error) {
         const hint =
           result.error === 'Configuration'
-            ? 'Server misconfiguration (database or auth env). On Vercel set AUTH_SECRET, DATABASE_URL, DIRECT_URL, AUTH_URL, and RESEND_API_KEY — then redeploy.'
+            ? 'Server misconfiguration (database or auth env). On Vercel set AUTH_SECRET, DATABASE_URL, DIRECT_URL, AUTH_URL, and RESEND_API_KEY - then redeploy.'
             : result.error === 'EmailSignin'
               ? 'Could not send email. With Resend test sender onboarding@resend.dev, use the same email as your Resend account. Check RESEND_API_KEY and EMAIL_FROM on Vercel.'
               : `Could not send sign-in link (${result.error}). Check RESEND_API_KEY (or EMAIL_SERVER) in env.`

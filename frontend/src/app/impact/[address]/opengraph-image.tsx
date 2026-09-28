@@ -122,7 +122,7 @@ export default async function Image({ params }: { params: Promise<{ address: str
             { label: 'DCU (recognized)', value: totalDcu },
             { label: 'Verified cleanups', value: verified },
             { label: 'Impact reports', value: reports },
-            { label: 'tRWA', value: level },
+            { label: 'tRWI', value: level },
           ].map((item) => (
             <div
               key={item.label}

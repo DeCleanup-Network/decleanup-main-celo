@@ -1,5 +1,5 @@
 -- Approve verifier application for dashboard + app UX (Supabase).
--- Does NOT grant on-chain VERIFIER_ROLE — run grant-verifier-role.ts for that.
+-- Does NOT grant on-chain VERIFIER_ROLE - run grant-verifier-role.ts for that.
 --
 -- Run in Supabase SQL Editor (decleanup project).
 

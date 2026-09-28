@@ -27,13 +27,13 @@ type EmbeddedPath = 'unset' | 'yes' | 'no'
  * - AA auth: user unlocked embedded wallet (WalletProvider signing session), or
  * - Privy/Web3Auth: embedded social/email wallet on the active chain (not external WC/MetaMask).
  *
- * `publicWalletAddress` — EOA (user-visible identity).
- * `onchainOwnerAddress` / `submissionOwnerAddress` — Safe when gasless, else EOA (submissions + claims).
+ * `publicWalletAddress` - EOA (user-visible identity).
+ * `onchainOwnerAddress` / `submissionOwnerAddress` - Safe when gasless, else EOA (submissions + claims).
  */
 export function useSmartAccountClient(): {
   client: unknown | null
   smartAccountAddress: Address | null
-  /** @deprecated Prefer `onchainOwnerAddress` — same value. */
+  /** @deprecated Prefer `onchainOwnerAddress` - same value. */
   submissionOwnerAddress: Address | undefined
   publicWalletAddress: Address | undefined
   onchainOwnerAddress: Address | undefined
@@ -257,7 +257,7 @@ export function useSmartAccountClient(): {
     submissionOwnerAddress,
     publicWalletAddress,
     onchainOwnerAddress,
-    /** Background gasless init — do not block UI; submit checks client when tapped. */
+    /** Background gasless init - do not block UI; submit checks client when tapped. */
     isLoading: detectingEmbedded,
     error,
     expectsSponsoredGas,

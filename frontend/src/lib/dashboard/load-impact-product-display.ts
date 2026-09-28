@@ -134,7 +134,7 @@ export async function loadImpactProductDisplay(
             .filter((a) => a?.trait_type != null)
             .map((a) => ({
               trait_type: String(a.trait_type),
-              value: a.value != null ? String(a.value) : '—',
+              value: a.value != null ? String(a.value) : '-',
             }))
 
           if (metadata?.image) {

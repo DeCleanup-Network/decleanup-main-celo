@@ -1,4 +1,4 @@
-/** Green burst on primary CTA click — matches decleanup-landing-standalone. */
+/** Green burst on primary CTA click - matches decleanup-landing-standalone. */
 export function spawnCtaParticles(
   el: HTMLElement,
   clientX: number,

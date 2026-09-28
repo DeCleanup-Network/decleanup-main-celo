@@ -27,7 +27,7 @@ function HypercertTableRow({ row }: { row: PortfolioHypercertRecord }) {
       </td>
       <td className="px-3 py-2 font-mono text-[11px]">
         {row.workTimeframeStart && row.workTimeframeEnd
-          ? `${formatDate(row.workTimeframeStart)} – ${formatDate(row.workTimeframeEnd)}`
+          ? `${formatDate(row.workTimeframeStart)} - ${formatDate(row.workTimeframeEnd)}`
           : '-'}
       </td>
       <td className="px-3 py-2">
@@ -97,7 +97,7 @@ export function PortfolioHypercertsSection({
 
       {timeframeStart && timeframeEnd ? (
         <p className="mt-3 font-mono text-[11px] text-muted-foreground">
-          Work timeframe: {formatDate(timeframeStart)} – {formatDate(timeframeEnd)}
+          Work timeframe: {formatDate(timeframeStart)} - {formatDate(timeframeEnd)}
         </p>
       ) : null}
 

@@ -49,7 +49,7 @@ export function WalletConnectRelayRecovery() {
         }
       } catch (err) {
         if (reason === 'stale-session' || isStaleWalletConnectError(err)) {
-          console.warn('[WC] stale session — disconnecting so you can reconnect cleanly')
+          console.warn('[WC] stale session - disconnecting so you can reconnect cleanly')
           try {
             await disconnect(config)
           } catch {

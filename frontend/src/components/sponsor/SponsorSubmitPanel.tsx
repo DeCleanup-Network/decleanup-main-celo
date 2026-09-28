@@ -79,7 +79,7 @@ export function SponsorSubmitPanel() {
 
         {!isConnected ? (
           <div className="space-y-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
-            <p className={campaignText.body}>Connect the wallet that holds your tRWA.</p>
+            <p className={campaignText.body}>Connect the wallet that holds your tRWI.</p>
             <Button type="button" className="w-full" disabled={isPending} onClick={() => void connect()}>
               {isPending ? 'Connecting…' : 'Connect wallet'}
             </Button>
@@ -160,7 +160,7 @@ export function SponsorSubmitPanel() {
             </Link>
           ) : (
             <p className={campaignText.note}>
-              Reach tRWA asset level {MIN_LEVEL}, then come back to apply. Verifiers will review
+              Reach tRWI asset level {MIN_LEVEL}, then come back to apply. Verifiers will review
               before your page goes live for donors.
             </p>
           )}

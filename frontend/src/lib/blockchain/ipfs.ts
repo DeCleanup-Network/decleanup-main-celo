@@ -138,7 +138,7 @@ async function uploadToIPFSOnce(
           'Upload blocked by hosting security (firewall or bot protection). Try another browser or network, or contact support.'
       } else if (response.status === 403 && !errorData.error) {
         baseMessage =
-          'Upload forbidden (403). Server may be missing valid Pinata credentials — open /api/ipfs/upload for a diagnostic.'
+          'Upload forbidden (403). Server may be missing valid Pinata credentials - open /api/ipfs/upload for a diagnostic.'
       }
       const baseString = String(baseMessage)
       const looksLikePinataAuthIssue =
@@ -192,7 +192,7 @@ async function uploadToIPFSOnce(
       if (isFetchFail) {
         throw new Error(
           'Could not reach this site’s upload service (browser network error). ' +
-            'This is not your wallet’s blockchain network—try Wi‑Fi, disable VPN / iCloud Private Relay / content blockers, use a smaller JPEG, or try Chrome if you’re on Safari.'
+            'This is not your wallet’s blockchain network-try Wi‑Fi, disable VPN / iCloud Private Relay / content blockers, use a smaller JPEG, or try Chrome if you’re on Safari.'
         )
       }
       if (msg.includes('Network') || msg.includes('Failed to fetch')) {

@@ -77,7 +77,7 @@ export function DashboardReferralLinkCard({
           size="sm"
           variant="outline"
           className="border-border hover:bg-muted"
-          onClick={() => shareOnX('Join me on DeCleanup Rewards — verified real-world cleanups onchain.', link)}
+          onClick={() => shareOnX('Join me on DeCleanup Rewards - verified real-world cleanups onchain.', link)}
         >
           Share on X
         </Button>

@@ -1,6 +1,6 @@
 /**
  * Submission IDs hidden from verifier UI and public impact APIs.
- * On-chain records are unchanged — this is an off-chain display filter only.
+ * On-chain records are unchanged - this is an off-chain display filter only.
  *
  * Default IDs 1, 2, 4 are Celo mainnet-only. Robinhood / Base keep every id.
  *

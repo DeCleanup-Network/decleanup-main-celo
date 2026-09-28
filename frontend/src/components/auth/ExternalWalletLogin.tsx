@@ -31,7 +31,7 @@ function hasInjectedProvider(): boolean {
 const CONNECT_TIMEOUT_MS = 90_000
 
 /**
- * MetaMask / WalletConnect login (pre–RainbowKit AA path).
+ * MetaMask / WalletConnect login (pre-RainbowKit AA path).
  * Desktop WC: QR modal + Celo chainId. Mobile WC: deep-link without AppKit bottom sheet.
  * After connect, asks for a one-time signature so notification prefs / inbox work.
  */
@@ -163,10 +163,10 @@ export function ExternalWalletLogin({ callbackUrl }: Props) {
         </Button>
       ) : sessionLive && authBusy ? (
         <p className="text-center text-xs text-brand-green">
-          Connected — sign the message in your wallet to finish…
+          Connected - sign the message in your wallet to finish…
         </p>
       ) : sessionLive && !authError ? (
-        <p className="text-center text-xs text-brand-green">Connected — opening app…</p>
+        <p className="text-center text-xs text-brand-green">Connected - opening app…</p>
       ) : (
         <>
           {showBrowserWallet ? (

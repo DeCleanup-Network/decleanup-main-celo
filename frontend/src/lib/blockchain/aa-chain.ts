@@ -1,6 +1,6 @@
 /**
  * AA / Pimlico helpers for the active chain (Celo or Base).
- * Bundler slug comes from CHAIN_CONFIGS — do not hardcode celo vs celo-sepolia.
+ * Bundler slug comes from CHAIN_CONFIGS - do not hardcode celo vs celo-sepolia.
  */
 
 import { base, baseSepolia, celo, type Chain } from 'viem/chains'

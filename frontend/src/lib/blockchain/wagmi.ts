@@ -75,7 +75,7 @@ const APP_NAME = 'DeCleanup Rewards'
 
 /**
  * WalletConnect compares `metadata.url` to the page URL. Using only build-time env breaks when the
- * same build is served on a custom domain (e.g. dapp.decleanup.net) vs the preview URL — use the live
+ * same build is served on a custom domain (e.g. dapp.decleanup.net) vs the preview URL - use the live
  * origin in the browser when available.
  */
 function getWalletConnectAppUrl(): string {

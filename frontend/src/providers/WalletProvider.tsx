@@ -86,7 +86,7 @@ type WalletContextValue = {
   unlock: (password: string, sessionDuration?: SessionDurationId) => Promise<void>
   unlockWithPasskey: (sessionDuration?: SessionDurationId) => Promise<void>
   lock: () => void
-  /** Temporary delegated signer — active until session expires. */
+  /** Temporary delegated signer - active until session expires. */
   signingSession: ActiveSigningSession | null
   hasActiveSigningSession: boolean
   endSigningSession: () => void

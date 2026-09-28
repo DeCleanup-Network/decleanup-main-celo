@@ -10,7 +10,7 @@ const isPrivyEnabled = typeof process !== 'undefined' && Boolean(process.env.NEX
 
 /**
  * Read `eth_chainId` from the active wagmi WalletClient.
- * Do not use `usePrivy()` here — that hook requires PrivyProvider; builds without
+ * Do not use `usePrivy()` here - that hook requires PrivyProvider; builds without
  * NEXT_PUBLIC_PRIVY_APP_ID use RainbowKit only and would crash during SSG.
  */
 export function useResolvedChainId(): number | undefined {
@@ -60,7 +60,7 @@ export function useResolvedChainId(): number | undefined {
     }
   }, [walletClient])
 
-  // Google/email smart accounts use app RPC — not wagmi's connected chain.
+  // Google/email smart accounts use app RPC - not wagmi's connected chain.
   if (aa && isEmbeddedAccount) return REQUIRED_CHAIN_ID
 
   if (!isPrivyEnabled) return wagmiChainId

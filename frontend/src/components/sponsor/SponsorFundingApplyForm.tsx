@@ -115,7 +115,7 @@ export function SponsorFundingApplyForm() {
     e.preventDefault()
     setError(null)
     if (!eligible || !rewardIdentity) {
-      setError(`Reach tRWA asset level ${MIN_LEVEL} first.`)
+      setError(`Reach tRWI asset level ${MIN_LEVEL} first.`)
       return
     }
     if (!name.trim() || !location.trim() || !whyFunding.trim()) {

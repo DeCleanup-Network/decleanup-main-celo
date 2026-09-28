@@ -94,9 +94,13 @@ export function DashboardImpactProduct({
   const animationUrlToUse = rawAnimation ? proxyIpfsHttpUrl(rawAnimation) : null
 
   useEffect(() => {
-    if (imageUrlToUse) {
-      setImageLoading(true)
+    if (!imageUrlToUse) {
+      setImageLoading(false)
+      return
     }
+    setImageLoading(true)
+    const timeout = window.setTimeout(() => setImageLoading(false), 8000)
+    return () => window.clearTimeout(timeout)
   }, [imageUrlToUse])
 
   const contractExplorerUrl =
@@ -130,7 +134,7 @@ export function DashboardImpactProduct({
   async function handleAddNftToWallet() {
     setAddWalletMessage(null)
     if (!contractAddress || tokenId == null) {
-      setAddWalletMessage('Mint your tRWA first to get a token ID, then add it here.')
+      setAddWalletMessage('Mint your tRWI first to get a token ID, then add it here.')
       return
     }
     const eth = typeof window !== 'undefined' ? (window as unknown as { ethereum?: { request?: (a: unknown) => Promise<unknown> } }).ethereum : undefined
@@ -170,7 +174,7 @@ export function DashboardImpactProduct({
                 type="button"
                 onClick={openDetails}
                 className="inline-flex rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50"
-                aria-label="tRWA details, contract, and metadata"
+                aria-label="tRWI details, contract, and metadata"
                 aria-expanded={detailsOpen}
               >
                 <Info className="h-4 w-4" aria-hidden />
@@ -179,7 +183,7 @@ export function DashboardImpactProduct({
           </div>
         }
       >
-        Your tRWA asset level
+        Your tRWI asset level
       </SectionHeading>
 
       {level > 0 ? (
@@ -207,7 +211,7 @@ export function DashboardImpactProduct({
                       const img = document.createElement('img')
                       img.src = imageUrlToUse
                       img.className = 'h-full w-full object-contain object-center'
-                      img.alt = `Level ${level} tRWA`
+                      img.alt = `Level ${level} tRWI`
                       target.parentElement.replaceChild(img, target)
                     }
                   }}
@@ -215,9 +219,9 @@ export function DashboardImpactProduct({
               ) : imageUrlToUse ? (
                 <img
                   src={imageUrlToUse}
-                  alt={`Level ${level} tRWA`}
+                  alt={`Level ${level} tRWI`}
                   className="h-full w-full object-contain object-center"
-                  loading="lazy"
+                  loading="eager"
                   onLoad={() => setImageLoading(false)}
                   onError={() => setImageLoading(false)}
                 />
@@ -228,6 +232,9 @@ export function DashboardImpactProduct({
               )}
             </div>
           </div>
+          <p className="mt-3 font-heading text-sm tracking-wider text-foreground">
+            Level {level}
+          </p>
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
@@ -250,7 +257,7 @@ export function DashboardImpactProduct({
           <div className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <h2 id="impact-product-details-title" className="font-heading text-xl tracking-wider text-foreground">
-                tRWA details
+                tRWI details
               </h2>
               <button
                 type="button"
@@ -263,7 +270,7 @@ export function DashboardImpactProduct({
             </div>
             <div className="space-y-5 overflow-y-auto px-5 py-4 text-sm" style={{ maxHeight: 'min(70dvh, 560px)' }}>
               <p className="leading-relaxed text-muted-foreground">
-                tRWA (tokenized RWA) is an asset tied to your account. It levels up when cleanups are verified and
+                tRWI (tokenized real-world impact) is an asset tied to your account. It levels up when cleanups are verified and
                 proves your participation in DeCleanup Network. Leveling it up gives you{' '}
                 <span className="font-semibold text-foreground">10 DCU points</span> each time.
               </p>
@@ -280,7 +287,7 @@ export function DashboardImpactProduct({
                   ) : (
                     <>
                       Level <span className="font-semibold text-brand-yellow">{level}</span> tracks verified cleanups on your
-                      tRWA path. Each step is real environmental work on the network.
+                      tRWI path. Each step is real environmental work on the network.
                     </>
                   )}
                 </p>
@@ -419,7 +426,7 @@ export function DashboardImpactProduct({
                         <p className="font-mono text-[11px] text-foreground">{tokenId.toString()}</p>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-muted-foreground">Token ID appears after your tRWA is minted.</p>
+                      <p className="text-[11px] text-muted-foreground">Token ID appears after your tRWI is minted.</p>
                     )}
                   </div>
                 ) : (

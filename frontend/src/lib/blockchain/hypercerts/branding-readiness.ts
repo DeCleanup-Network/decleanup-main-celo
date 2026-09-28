@@ -1,4 +1,4 @@
-/** DeCleanup minimums before submit — stricter than AT lexicon required fields alone. */
+/** DeCleanup minimums before submit - stricter than AT lexicon required fields alone. */
 export const HYPERCERT_BRANDING_MIN_TITLE = 3
 export const HYPERCERT_BRANDING_MIN_DESCRIPTION = 20
 

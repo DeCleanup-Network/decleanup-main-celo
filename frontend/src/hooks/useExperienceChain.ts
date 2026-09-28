@@ -3,18 +3,30 @@
 import { useEffect, useState } from 'react'
 import { REQUIRED_CHAIN_ID, type SupportedChainId } from '@/lib/blockchain/chain-constants'
 import {
+  CHAIN_PREFERENCE_CHANGE_EVENT,
   isBaseExperience,
   isCeloExperience,
   isRobinhoodExperience,
   readChainPreference,
 } from '@/lib/blockchain/chain-preference'
 
-/** Live Celo/Base pick after mount. Defaults to env chain until localStorage is read. */
+function liveExperienceChainId(): SupportedChainId {
+  return readChainPreference() ?? REQUIRED_CHAIN_ID
+}
+
+/** Live Celo/Base/Robinhood pick after mount. Defaults to env chain until localStorage is read. */
 export function useExperienceChain() {
   const [chainId, setChainId] = useState<SupportedChainId>(REQUIRED_CHAIN_ID)
 
   useEffect(() => {
-    setChainId(readChainPreference() ?? REQUIRED_CHAIN_ID)
+    const sync = () => setChainId(liveExperienceChainId())
+    sync()
+    window.addEventListener('storage', sync)
+    window.addEventListener(CHAIN_PREFERENCE_CHANGE_EVENT, sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener(CHAIN_PREFERENCE_CHANGE_EVENT, sync)
+    }
   }, [])
 
   return {
@@ -23,4 +35,23 @@ export function useExperienceChain() {
     isCelo: isCeloExperience(chainId),
     isRobinhood: isRobinhoodExperience(chainId),
   }
+}
+
+/** Impact portfolio is Celo-only. Hidden until the live experience is known so Robinhood/Base never flash the link. */
+export function useShowImpactPortfolio() {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    const sync = () => {
+      const id = liveExperienceChainId()
+      setShow(isCeloExperience(id) && !isBaseExperience(id) && !isRobinhoodExperience(id))
+    }
+    sync()
+    window.addEventListener('storage', sync)
+    window.addEventListener(CHAIN_PREFERENCE_CHANGE_EVENT, sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener(CHAIN_PREFERENCE_CHANGE_EVENT, sync)
+    }
+  }, [])
+  return show
 }

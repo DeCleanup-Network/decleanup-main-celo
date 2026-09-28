@@ -6,7 +6,7 @@ const RainbowKitProviders = lazy(() =>
   import('@/lib/RainbowKitProviders').then((m) => ({ default: m.RainbowKitProviders }))
 )
 
-/** RainbowKit only on login — keeps AA app shell on minimal wagmi elsewhere. */
+/** RainbowKit only on login - keeps AA app shell on minimal wagmi elsewhere. */
 export function LoginRainbowKitProviders({ children }: { children: ReactNode }) {
   return (
     <Suspense

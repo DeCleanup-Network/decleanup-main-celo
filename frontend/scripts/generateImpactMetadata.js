@@ -1,5 +1,5 @@
 /**
- * Generate tRWA metadata JSON files.
+ * Generate tRWI metadata JSON files.
  *
  * Usage:
  *   npm run generate:metadata
@@ -37,7 +37,7 @@ function buildMetadata(levelConfig) {
   const { level, name, impactValue, cleanups, dcu, hasAnimation } = levelConfig
 
   const metadata = {
-    name: `DeCleanup tRWA • Level ${level}`,
+    name: `DeCleanup tRWI • Level ${level}`,
     description: 'Tokenized proof of real-world cleanups, verified by DeCleanup Rewards.',
     external_url: 'https://decleanup.network',
     image: `ipfs://${BASE_CID}/images/level${level}.png`,

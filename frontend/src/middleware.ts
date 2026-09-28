@@ -9,7 +9,7 @@ import {
 
 /**
  * Edge gate: scanner-path 404, spoofed-Googlebot write block, wallet API rate limits.
- * User-Agent is never trusted alone — Google crawlers must match published CIDRs.
+ * User-Agent is never trusted alone - Google crawlers must match published CIDRs.
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -51,7 +51,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Do not match `/` or `/_not-found` — a catch-all Edge matcher pulled Node
+  // Do not match `/` or `/_not-found` - a catch-all Edge matcher pulled Node
   // Upstash into the middleware graph and broke `next build` prerender.
   matcher: [
     '/api/:path*',

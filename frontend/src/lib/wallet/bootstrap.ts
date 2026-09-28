@@ -11,7 +11,7 @@ export type WalletBootstrapResult = {
   hasWallet: boolean
 }
 
-/** Read-only metadata — wallet creation happens on the client. */
+/** Read-only metadata - wallet creation happens on the client. */
 export async function getWalletBootstrapState(userId: string): Promise<WalletBootstrapResult> {
   const meta = await findWalletMetadata(userId)
   if (!meta) {

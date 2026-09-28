@@ -1,7 +1,7 @@
 -- Supabase Security Advisor: rls_disabled_in_public + sensitive columns exposed
 --
 -- Auth.js / wallet tables: Prisma uses DATABASE_URL (direct Postgres). PostgREST must not
--- expose these via anon/authenticated — enable RLS with no permissive policies.
+-- expose these via anon/authenticated - enable RLS with no permissive policies.
 --
 -- App data tables (airdrop, cdcu, verifier, …): server-only via SUPABASE_SERVICE_ROLE_KEY.
 -- Service role bypasses RLS; anon/authenticated are denied.
@@ -48,7 +48,7 @@ revoke all on table public."PasskeyUnlockSecret" from anon, authenticated;
 revoke all on table public."WebAuthnChallenge" from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Server-only KV / workflow tables (RLS on, no policies — service role only)
+-- Server-only KV / workflow tables (RLS on, no policies - service role only)
 -- ---------------------------------------------------------------------------
 
 alter table if exists public.airdrop_issued_store enable row level security;

@@ -3,12 +3,12 @@
  * applies the product scoring formula, and hashes results for audit / on-chain use.
  *
  * Env:
- * - GPU_INFERENCE_SERVICE_URL — base URL (e.g. http://127.0.0.1:8000)
- * - GPU_SHARED_SECRET — sent as Authorization: Bearer <secret> when non-empty
- * - GPU_INFERENCE_PATH — optional path segment (default /infer)
+ * - GPU_INFERENCE_SERVICE_URL - base URL (e.g. http://127.0.0.1:8000)
+ * - GPU_SHARED_SECRET - sent as Authorization: Bearer <secret> when non-empty
+ * - GPU_INFERENCE_PATH - optional path segment (default /infer)
  *
  * The GPU service (gpu-inference-service/main.py) expects POST /infer with JSON:
- * { submissionId, imageUrl, phase: "before"|"after" } — it downloads the image itself.
+ * { submissionId, imageUrl, phase: "before"|"after" } - it downloads the image itself.
  *
  * Scoring incorporates stability-aware logic (PR #29): negative-delta handling,
  * confidence variance, and thresholds tuned to reduce false rejections.
@@ -178,7 +178,7 @@ export interface ScoreThresholds {
  * The score is the fraction of detected "before" litter that is gone in "after"
  * (`(before - after) / before`). This compares the same detector against itself on
  * the two photos, so it stays meaningful even when the model under-counts a busy field
- * (distant/small litter is routinely missed — see SAHI tiling in the GPU service). It
+ * (distant/small litter is routinely missed - see SAHI tiling in the GPU service). It
  * deliberately does NOT fold in the detector's absolute confidence, which for litter
  * models sits at ~0.1-0.2 and would otherwise cap every real cleanup below "approved".
  *
@@ -199,7 +199,7 @@ export function computeVerificationScore(
   const delta = beforeCount - afterCount
   const confidenceVariance = Math.abs(before.meanConfidence - after.meanConfidence)
 
-  // Detector saw no litter in the "before" photo — it cannot judge a cleanup it never
+  // Detector saw no litter in the "before" photo - it cannot judge a cleanup it never
   // saw, so hand it to the human verifier rather than guessing from the "after" alone.
   if (beforeCount === 0) {
     return {
@@ -261,7 +261,7 @@ function scoreThresholdsFromEnv(): ScoreThresholds {
  * Run full verification: two inference calls + scoring + hash.
  *
  * A genuine "model saw no litter" (both counts 0) is a real, scored pending result.
- * Infrastructure failures (GPU down, auth, timeout, unreachable image) THROW instead —
+ * Infrastructure failures (GPU down, auth, timeout, unreachable image) THROW instead -
  * the caller returns an error status and does not persist a zeroed ml_result.json, so
  * outages stay visible and the client keeps polling for the real result.
  */

@@ -46,7 +46,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware — do not pair wildcard origins with credentials.
+# CORS middleware - do not pair wildcard origins with credentials.
 _cors_origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
@@ -86,7 +86,7 @@ def is_waste_class(class_name: str) -> bool:
 
 # --- Tiled (SAHI) inference ---------------------------------------------------
 # Litter models miss small/distant objects in a wide field. SAHI slices the image
-# into overlapping tiles, runs the model per tile, and merges — recovering the
+# into overlapping tiles, runs the model per tile, and merges - recovering the
 # background litter a single full-frame pass drops. Opt-in via INFER_TILED=true.
 INFER_TILED = os.getenv("INFER_TILED", "false").strip().lower() in ("1", "true", "yes", "on")
 INFER_TILE = int(os.getenv("INFER_TILE", "768"))
@@ -184,7 +184,7 @@ def run_detections(image: Image.Image) -> List[dict]:
 # Note: These are example URLs - actual model files may be at different locations
 # Recommended: Download manually from the repos listed in README
 MODEL_URLS = {
-    # TACO fine-tuned — weights committed in jeremy-rico/litter-detection runs/
+    # TACO fine-tuned - weights committed in jeremy-rico/litter-detection runs/
     "yolov8-taco": (
         "https://raw.githubusercontent.com/jeremy-rico/litter-detection/master/"
         "runs/detect/train/yolov8n_100epochs/weights/best.pt"

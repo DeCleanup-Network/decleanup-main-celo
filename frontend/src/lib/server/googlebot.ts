@@ -5,7 +5,7 @@ import {
 
 /**
  * Google crawler User-Agent tokens.
- * User-Agent is not identity — always pair with {@link classifyGoogleCrawler}.
+ * User-Agent is not identity - always pair with {@link classifyGoogleCrawler}.
  * @see https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers
  */
 const GOOGLE_CRAWLER_UA =

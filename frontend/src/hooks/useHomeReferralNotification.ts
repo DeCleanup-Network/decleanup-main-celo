@@ -18,7 +18,7 @@ type Params = {
   submissionOwnerAddress?: Address
 }
 
-/** Referral banner — deferred until browser idle to avoid competing with dashboard core RPCs. */
+/** Referral banner - deferred until browser idle to avoid competing with dashboard core RPCs. */
 export function useHomeReferralNotification({
   mounted,
   address,

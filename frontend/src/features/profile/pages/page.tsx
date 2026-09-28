@@ -559,7 +559,7 @@ useEffect(() => {
             hasActiveStreak={profileData.hasActiveStreak}
           />
 
-          {/* Middle Column: tRWA */}
+          {/* Middle Column: tRWI */}
           <DashboardImpactProduct
             level={profileData.level}
             imageUrl={profileData.imageUrl}
@@ -573,7 +573,7 @@ useEffect(() => {
               .filter((a) => a?.trait_type != null)
               .map((a) => ({
                 trait_type: String(a.trait_type),
-                value: a.value != null ? String(a.value) : '—',
+                value: a.value != null ? String(a.value) : '-',
               }))}
             verifiedCleanupsCount={profileData.verifiedCleanupsCount}
           />
@@ -766,7 +766,7 @@ useEffect(() => {
           onClose={() => setClaimModal(null)}
           title={
             claimModal.variant === 'success'
-              ? 'tRWA claimed'
+              ? 'tRWI claimed'
               : claimModal.variant === 'warning'
                 ? 'Level claimed, bonuses pending'
                 : 'Claim failed'

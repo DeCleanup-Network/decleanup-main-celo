@@ -18,7 +18,7 @@ import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 
 interface DashboardActionsProps {
     address: string
-    /** Current tRWA asset level (0-10). At max level, submit cleanup is locked. */
+    /** Current tRWI asset level (0-10). At max level, submit cleanup is locked. */
     userImpactLevel?: number
     hypercertEligibility?: {
         isEligible: boolean
@@ -84,7 +84,7 @@ export function DashboardActions({
     const verifierHighlighted = !showVerifierFeatures && !!eligibility?.eligible
 
     const { minLevel, minDCUBalance, minApprovedCleanups } = VERIFIER_CONFIG.requirements
-    const verifierApplyTitle = `Apply if you meet all requirements: tRWA asset level ${minLevel}+, ${minDCUBalance}+ DCU points, and ${minApprovedCleanups}+ verified cleanups. Open to apply or check your status.`
+    const verifierApplyTitle = `Apply if you meet all requirements: tRWI asset level ${minLevel}+, ${minDCUBalance}+ DCU points, and ${minApprovedCleanups}+ verified cleanups. Open to apply or check your status.`
 
     const bonusExplicitlyOff =
         process.env.NEXT_PUBLIC_ENABLE_SUBMISSION_BONUS_CLAIM === '0' ||
@@ -108,7 +108,7 @@ export function DashboardActions({
                             !walletReady
                                 ? 'Your account is still setting up'
                                 : submitLockedMaxLevel
-                                  ? 'Maximum tRWA asset level reached'
+                                  ? 'Maximum tRWI asset level reached'
                                   : 'Finish your current cleanup step first'
                         }
                     >
@@ -133,7 +133,7 @@ export function DashboardActions({
                 </ActionHint>
 
                 {cleanupStatus?.canClaim ? (
-                    <ActionHint hint="Get your tRWA and level-tied rewards. Keep this page open after you tap — your wallet may ask you to approve in a few seconds.">
+                    <ActionHint hint="Get your tRWI and level-tied rewards. Keep this page open after you tap - your wallet may ask you to approve in a few seconds.">
                         <button
                             type="button"
                             onClick={(e) => {
@@ -155,7 +155,7 @@ export function DashboardActions({
                         </button>
                     </ActionHint>
                 ) : (
-                    <ActionHint hint="Get your tRWA and level-tied rewards (available after a cleanup is verified)">
+                    <ActionHint hint="Get your tRWI and level-tied rewards (available after a cleanup is verified)">
                         <span className={stepClass(false)}>
                             <Award className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
                             CLAIM LEVEL
@@ -191,7 +191,7 @@ export function DashboardActions({
 
                 {/* Hide Sponsor/Funding on Base */}
                 {isCeloNetwork && (
-                    <ActionHint hint={`Community cUSD donations after tRWA asset level ${SPONSOR_CONFIG.minLevelToPropose}+`}>
+                    <ActionHint hint={`Community cUSD donations after tRWI asset level ${SPONSOR_CONFIG.minLevelToPropose}+`}>
                         <Link href="/sponsor/submit" className={stepClass(userImpactLevel >= SPONSOR_CONFIG.minLevelToPropose)}>
                             <HandCoins className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             Apply for funding

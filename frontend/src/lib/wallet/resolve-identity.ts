@@ -21,7 +21,7 @@ const SAFE_GET_OWNERS_ABI = [
 export type ResolvedWalletIdentity = {
   eoaAddress: Address
   smartAccountAddress: Address | null
-  /** Canonical public identity — always the EOA when known. */
+  /** Canonical public identity - always the EOA when known. */
   publicAddress: Address
   /** Input matched a stored smart account and should redirect to the EOA URL. */
   redirectToPublicAddress: boolean

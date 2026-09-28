@@ -699,8 +699,8 @@ export default function VerifierPage() {
               : 0
             const nextLevel = Math.min(10, Math.max(1, currentLevel + 1))
             console.log('Starting verification for submission:', id.toString(), 'level', nextLevel)
-            const { hash: txHash, rdcuMintHash } = await verifyCleanup(id, nextLevel)
-            console.log('Verification successful, transaction hash:', txHash, 'rDCU mint:', rdcuMintHash)
+            const { hash: txHash } = await verifyCleanup(id, nextLevel)
+            console.log('Verification successful, transaction hash:', txHash)
             if (address) {
                 setCleanups((prev) =>
                     prev.map((c) =>
@@ -722,10 +722,7 @@ export default function VerifierPage() {
             const message = (
                 <>
                     <p className="mb-3 text-gray-300">
-                      Cleanup verified successfully
-                      {rdcuMintHash
-                        ? '. $rDCU settled for the cleanup, plus any streak or verifier amount.'
-                        : '.'}
+                      Cleanup verified. The submitter can come back and claim $rDCU plus their tRWI.
                     </p>
                     <p className="mb-3 font-mono text-xs text-gray-400 break-all">
                         {txHash.slice(0, 10)}…{txHash.slice(-8)}
@@ -745,7 +742,7 @@ export default function VerifierPage() {
             {
               const { emitNotificationEvent } = await import('@/lib/notifications/client-emit')
               // Prefer on-chain lookup by submissionId (works without Auth.js on verifier).
-              // Retry shortly — tx may not be indexed on the RPC yet.
+              // Retry shortly - tx may not be indexed on the RPC yet.
               const payload = {
                 event: 'cleanup_verified' as const,
                 submissionId: id.toString(),

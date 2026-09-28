@@ -2,7 +2,7 @@
  * Admin Role Verification
  * Checks onchain if address may act as "admin" for verifier APIs:
  * - DEFAULT_ADMIN_ROLE (AccessControl super-admin), or
- * - Submission contract ADMIN_ROLE (custom; fee/reward admin — same addresses as setup-roles)
+ * - Submission contract ADMIN_ROLE (custom; fee/reward admin - same addresses as setup-roles)
  *
  * API routes run in Node: use viem + REQUIRED_RPC_URL (same as /api/verifier/review/confirm) so reads
  * match chain-constants and do not depend on wagmi calling localhost:3000 from the server.

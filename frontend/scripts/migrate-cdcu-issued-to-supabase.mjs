@@ -67,7 +67,7 @@ async function main() {
 
   const jsonPath = defaultJsonPath()
   if (!existsSync(jsonPath)) {
-    console.log(`No local store at ${jsonPath} — nothing to migrate.`)
+    console.log(`No local store at ${jsonPath} - nothing to migrate.`)
     return
   }
 

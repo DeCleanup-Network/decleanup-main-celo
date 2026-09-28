@@ -1,0 +1,18 @@
+DeCleanup Network license notice
+================================
+
+The MIT License in the root `LICENSE` file applies to this repository
+except `gpu-inference-service/`.
+
+`gpu-inference-service/` is an optional ML pre-screening worker. It
+imports Ultralytics YOLOv8, which is licensed under the GNU Affero
+General Public License v3.0 (AGPL-3.0). That directory is therefore
+licensed under AGPL-3.0 only. See `gpu-inference-service/LICENSE`.
+
+The MIT License does not grant rights to use, copy, or distribute
+`gpu-inference-service/` or Ultralytics.
+
+The Next.js app and this worker talk over HTTP only. They are separate
+programs. The rest of the repository stays MIT.
+
+This worker is optional. Cleanup submit and human verify work without it.

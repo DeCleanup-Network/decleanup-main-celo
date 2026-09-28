@@ -62,7 +62,7 @@ export function newTrashAthleteChallengeId(): string {
 export async function insertTrashAthleteChallenge(params: {
   id?: string
   userId?: string | null
-  /** Signer EOA — stored in wallet_address */
+  /** Signer EOA - stored in wallet_address */
   walletAddress: string
   email?: string | null
   username: string

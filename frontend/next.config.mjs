@@ -35,7 +35,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    // lucide-react omitted — optimizePackageImports can reference missing vendor-chunks in dev.
+    // lucide-react omitted - optimizePackageImports can reference missing vendor-chunks in dev.
     optimizePackageImports: [
       'viem',
       'wagmi',
@@ -130,7 +130,7 @@ const nextConfig = {
           aggregateTimeout: 300,
         }
       }
-      // Do not set config.devtool — Next.js forces eval-source-map in dev and logs
+      // Do not set config.devtool - Next.js forces eval-source-map in dev and logs
       // https://nextjs.org/docs/messages/improper-devtool if you override it.
     }
     return config

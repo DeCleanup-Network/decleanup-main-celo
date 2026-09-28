@@ -12,7 +12,7 @@ import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
 import { useEmbeddedAuth } from '@/hooks/useEmbeddedAuth'
 import { useWallet } from '@/providers/WalletProvider'
 import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
-import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { useExperienceChain, useShowImpactPortfolio } from '@/hooks/useExperienceChain'
 import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
 import { cn } from '@/lib/utils'
 
@@ -47,6 +47,7 @@ export function DashboardProfileCard({
       : (submissionOwnerAddress ?? address)
   const { showPastContributorBadge } = usePastContributorBadge(badgeAddress)
   const { chainId: experienceChainId, isCelo } = useExperienceChain()
+  const showImpactPortfolio = useShowImpactPortfolio()
   const chain = getExperienceDisplay(experienceChainId)
   const showAirdropBadge = showPastContributorBadge && isCelo
 
@@ -83,7 +84,9 @@ export function DashboardProfileCard({
           !showVerifierFeatures && '-mt-1'
         )}
       >
-        Complete cleanups, build your rank and reputation, create impact profile
+        {showImpactPortfolio
+          ? 'Complete cleanups, build your rank and reputation, create impact profile'
+          : 'Complete cleanups, build your rank and reputation'}
       </p>
       {accountEmail ? (
         <div className="mb-3">
@@ -109,10 +112,7 @@ export function DashboardProfileCard({
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Network
           </p>
-          <p className="text-xs text-foreground sm:text-sm">
-            {chain.networkName}{' '}
-            <span className="text-muted-foreground">({chain.chainId})</span>
-          </p>
+          <p className="text-xs text-foreground sm:text-sm">{chain.networkName}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             Gas: {chain.gasSymbol}
             {chain.tokenExplorerHref ? (
@@ -122,17 +122,19 @@ export function DashboardProfileCard({
                   href={chain.tokenExplorerHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title={`View ${chain.tokenSymbol} on explorer`}
+                  title={`View ${chain.tokenSymbol} contract`}
                   className="font-medium text-brand-green hover:underline"
                 >
                   {chain.tokenSymbol}
                 </a>
               </>
-            ) : null}
+            ) : (
+              <> · {chain.tokenSymbol}</>
+            )}
           </p>
         </div>
       </div>
-      {isCelo ? (
+      {showImpactPortfolio ? (
         <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
           <Link href={impactHref} className="inline-flex items-center justify-center gap-2">
             <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />

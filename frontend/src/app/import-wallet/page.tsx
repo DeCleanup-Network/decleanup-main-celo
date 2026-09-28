@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-/** Legacy route — sign in and unlock on Account settings instead. */
+/** Legacy route - sign in and unlock on Account settings instead. */
 export default function ImportWalletPage() {
   const router = useRouter()
 

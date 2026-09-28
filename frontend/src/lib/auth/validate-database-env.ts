@@ -10,7 +10,7 @@ export function warnIfDatabaseMisconfigured(): void {
   if (!url) {
     console.warn(
       '[auth] DATABASE_URL is missing. Google sign-in needs PostgreSQL for Auth.js (Prisma). ' +
-        'See .env.aa.example — use Supabase → Project Settings → Database → Connection string (URI).'
+        'See .env.aa.example - use Supabase → Project Settings → Database → Connection string (URI).'
     )
     return
   }
@@ -26,7 +26,7 @@ export function warnIfDatabaseMisconfigured(): void {
   if (!/sslmode=/i.test(url)) {
     console.warn(
       '[auth] Supabase usually needs ?sslmode=require on DATABASE_URL. ' +
-        'Run: npm run db:check — then npm run db:push (or prisma/supabase-auth-tables.sql in SQL Editor).'
+        'Run: npm run db:check - then npm run db:push (or prisma/supabase-auth-tables.sql in SQL Editor).'
     )
   }
 }

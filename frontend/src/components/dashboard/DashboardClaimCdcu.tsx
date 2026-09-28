@@ -24,7 +24,7 @@ interface EligibilityData {
   milestonesClaimed?: number
   nextMilestonePoints?: string
   dcuPointsPerTranche?: number
-  /** e.g. "1.1" — from Reward Manager total DCU; each mint uses one 50-DCU slice under this multiplier curve */
+  /** e.g. "1.1" - from Reward Manager total DCU; each mint uses one 50-DCU slice under this multiplier curve */
   activityMultiplier?: string | null
 }
 

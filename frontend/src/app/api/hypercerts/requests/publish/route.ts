@@ -138,6 +138,6 @@ export async function GET(request: NextRequest) {
       configError ??
       (connection?.ok
         ? 'AT login succeeded. If publish still fails, read the error under the Publish button or POST response body.'
-        : connection?.error ?? 'PDS login failed — fix AT credentials on the server.'),
+        : connection?.error ?? 'PDS login failed - fix AT credentials on the server.'),
   })
 }

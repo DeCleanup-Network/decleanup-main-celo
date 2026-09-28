@@ -3,7 +3,7 @@ import { getAddress, isAddress, isHash } from 'viem'
 import { markAirdropClaimed } from '@/lib/airdrop/store'
 import { hasAirdropClaimInTx } from '@/lib/airdrop/onchain-claimed'
 
-/** Body: { recipient, txHash } — txHash must contain the recipient's airdrop claim. */
+/** Body: { recipient, txHash } - txHash must contain the recipient's airdrop claim. */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))

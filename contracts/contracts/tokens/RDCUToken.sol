@@ -40,7 +40,7 @@ interface IRobinhoodRewardLedger {
  * @title RDCUToken
  * @dev Robinhood Chain testnet demo ERC-20 ($rDCU). Owner can mint for the demo.
  *      Verify pays a one-time 10 $rDCU cleanup reward. Other actions (streak, referral,
- *      tRWA claim, reports, verifier) mint the DCURewardManager ledger delta as $rDCU.
+ *      tRWI claim, reports, verifier) mint the DCURewardManager ledger delta as $rDCU.
  *      Separate from Celo $cDCU / ClaimVault — do not use this on Celo or Base.
  */
 contract RDCUToken is ERC20, Ownable {
@@ -102,7 +102,7 @@ contract RDCUToken is ERC20, Ownable {
         _sync(rewardManager.getReferrer(submitter));
     }
 
-    /// @notice Mint newly accrued DCURewardManager points (tRWA claim, referral, reports) as $rDCU.
+    /// @notice Mint newly accrued DCURewardManager points (tRWI claim, referral, reports) as $rDCU.
     function settleUser(address user) external {
         _sync(user);
         if (user != address(0)) {

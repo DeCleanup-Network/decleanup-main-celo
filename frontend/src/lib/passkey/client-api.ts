@@ -65,7 +65,7 @@ async function registerNewPasskey(userId: string, unlockPassword: string): Promi
     })
   } catch (e) {
     if (isPreviouslyRegisteredError(e)) {
-      // Same Face ID already on this Apple ID — re-link instead of creating a duplicate.
+      // Same Face ID already on this Apple ID - re-link instead of creating a duplicate.
       await rebindPasskey(userId, unlockPassword)
       return
     }
@@ -101,7 +101,7 @@ export async function registerPasskey(userId: string, unlockPassword: string): P
       await rebindPasskey(userId, unlockPassword)
       return
     } catch (rebindErr) {
-      // Keychain credential missing or user cancelled — try fresh registration.
+      // Keychain credential missing or user cancelled - try fresh registration.
       const msg = (rebindErr instanceof Error ? rebindErr.message : String(rebindErr)).toLowerCase()
       if (
         msg.includes('cancelled') ||

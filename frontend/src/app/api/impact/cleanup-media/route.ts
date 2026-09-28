@@ -1,6 +1,6 @@
 /**
- * POST /api/impact/cleanup-media — attach optional video CID to a submission (off-chain).
- * GET  /api/impact/cleanup-media?submissionId=123 — read optional video for verifiers.
+ * POST /api/impact/cleanup-media - attach optional video CID to a submission (off-chain).
+ * GET  /api/impact/cleanup-media?submissionId=123 - read optional video for verifiers.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

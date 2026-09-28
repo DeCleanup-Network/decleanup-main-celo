@@ -40,6 +40,9 @@ export function readChainPreference(): SupportedChainId | null {
   return isSupportedExperienceChain(id) ? id : null
 }
 
+export const CHAIN_PREFERENCE_CHANGE_EVENT = 'decleanup-chain-preference'
+
 export function writeChainPreference(chainId: SupportedChainId): void {
   window.localStorage.setItem(CHAIN_PREFERENCE_KEY, String(chainId))
+  window.dispatchEvent(new Event(CHAIN_PREFERENCE_CHANGE_EVENT))
 }

@@ -1,8 +1,8 @@
 # Environment Variables Template
 
-**Canonical copy-paste file:** **`frontend/.env.example`** — hand this to new devs; copy to `frontend/.env.local`.
+**Canonical copy-paste file:** **`frontend/.env.example`** - hand this to new devs; copy to `frontend/.env.local`.
 
-Structure: **MUST HAVE** (wallet + submit flow) first, then **OPTIONAL — * flow** blocks (embedded login, claims, Supabase, ML, etc.).
+Structure: **MUST HAVE** (wallet + submit flow) first, then **OPTIONAL - * flow** blocks (embedded login, claims, Supabase, ML, etc.).
 
 Next.js loads **`.env.local`** only for the app. This markdown file adds setup notes and production blocks.
 
@@ -12,7 +12,7 @@ Put comments on their own lines (inline `#` after URLs can break RPC parsing).
 
 ---
 
-## Production (Celo mainnet — copy this block for Vercel)
+## Production (Celo mainnet - copy this block for Vercel)
 
 ```bash
 NEXT_PUBLIC_CHAIN_ID=42220
@@ -66,7 +66,7 @@ NEXT_PUBLIC_BLOCK_EXPLORER_NAME=CeloScan
 # NEXT_PUBLIC_BLOCK_EXPLORER_URL=https://celo-sepolia.blockscout.com
 
 # ============================================
-# Contracts (mainnet — see deployed_addresses.json)
+# Contracts (mainnet - see deployed_addresses.json)
 # ============================================
 NEXT_PUBLIC_SUBMISSION_CONTRACT=
 NEXT_PUBLIC_IMPACT_PRODUCT_NFT=
@@ -108,7 +108,7 @@ DATABASE_URL=postgresql://...@...supabase.com:5432/postgres?sslmode=require
 DIRECT_URL=postgresql://...@...supabase.com:5432/postgres?sslmode=require
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-# Magic link email (optional — if unset, login page hides "Continue with Email")
+# Magic link email (optional - if unset, login page hides "Continue with Email")
 # Preferred: Resend HTTP API (create key at https://resend.com/api-keys)
 RESEND_API_KEY=re_YOUR_API_KEY
 EMAIL_FROM=DeCleanup <onboarding@resend.dev>
@@ -118,8 +118,8 @@ EMAIL_FROM=DeCleanup <onboarding@resend.dev>
 # Legacy SMTP (only if you do not use RESEND_API_KEY):
 # EMAIL_SERVER=smtp://resend:re_YOUR_API_KEY@smtp.resend.com:587
 # NEXT_PUBLIC_PIMLICO_API_KEY=
-# Same key for Celo + Base. In the Pimlico dashboard, add Base (8453) — and Base
-# Sepolia if you use it — to the sponsorship policy. Bundler slug is read from
+# Same key for Celo + Base. In the Pimlico dashboard, add Base (8453) - and Base
+# Sepolia if you use it - to the sponsorship policy. Bundler slug is read from
 # the user's Celo/Base pick (CHAIN_CONFIGS.pimlicoSlug), not hardcoded to Celo.
 
 # ============================================
@@ -147,7 +147,7 @@ IMPACT_SYNC_SECRET=
 # IMPACT_FEED_LEGACY_SUBMISSION_CONTRACT=
 
 # ============================================
-# ML verification (VPS / ml host — off on Vercel by default)
+# ML verification (VPS / ml host - off on Vercel by default)
 # ============================================
 # ML_VERIFICATION_ENABLED=true
 # GPU_INFERENCE_SERVICE_URL=http://127.0.0.1:8000
@@ -186,7 +186,7 @@ NEXT_PUBLIC_HYPERCERTS_NETWORK=celo
 # ============================================
 # Impact contributor Google Sheet (optional)
 # ============================================
-# Apps Script Web App URL — see docs/CONTRIBUTOR_SHEET.md
+# Apps Script Web App URL - see docs/CONTRIBUTOR_SHEET.md
 # CONTRIBUTOR_SHEET_WEBHOOK_URL=
 
 # ============================================
@@ -208,10 +208,10 @@ NEXT_PUBLIC_IMPACT_METADATA_CID=
 
 ## Where to get keys
 
-1. **Pinata** — https://app.pinata.cloud/developers/api-keys  
-2. **WalletConnect** — https://cloud.walletconnect.com/  
-3. **Supabase** — apply `frontend/supabase/migrations/`  
-4. **ClaimVault signer** — dedicated hot wallet; `npm run check:claimvault-signer`  
-5. **ML / VPS** — `docs/VPS_DEPLOYMENT.md`
+1. **Pinata** - https://app.pinata.cloud/developers/api-keys  
+2. **WalletConnect** - https://cloud.walletconnect.com/  
+3. **Supabase** - apply `frontend/supabase/migrations/`  
+4. **ClaimVault signer** - dedicated hot wallet; `npm run check:claimvault-signer`  
+5. **ML / VPS** - `docs/VPS_DEPLOYMENT.md`
 
 Hypercerts SDK minting works without `NEXT_PUBLIC_HYPERCERTS_API_KEY`.

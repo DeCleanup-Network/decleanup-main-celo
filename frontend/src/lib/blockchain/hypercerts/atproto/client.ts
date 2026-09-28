@@ -100,7 +100,7 @@ async function getAgent(): Promise<Agent> {
   }
 }
 
-/** Login test for diagnostics — does not publish. */
+/** Login test for diagnostics - does not publish. */
 export async function testAtProtoConnection(): Promise<AtProtoConnectionStatus> {
   const configuredDid = getAtProtoOrgDid().trim()
   const handle = getAtProtoHandle().trim()

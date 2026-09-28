@@ -28,7 +28,7 @@ export async function notifyCleanupVerified(wallet: string, submissionId: string
   return notifyWallet(wallet, {
     type: 'cleanup_verified',
     title: 'Cleanup verified',
-    body: `Your cleanup #${submissionId} was verified. Claim your tRWA asset level when ready.`,
+    body: `Your cleanup #${submissionId} was verified. Claim your tRWI asset level when ready.`,
     href: '/',
     meta: { submissionId },
   })
@@ -77,8 +77,8 @@ export async function notifyLevelClaimed(
 
   let body =
     typeof opts?.level === 'number'
-      ? `Your tRWA was ${action} to level ${opts.level}.`
-      : `Your tRWA was ${action}.`
+      ? `Your tRWI was ${action} to level ${opts.level}.`
+      : `Your tRWI was ${action}.`
 
   if (reportParts.length === 1) {
     body += ` Additional reward will be granted for submitting ${reportParts[0]}.`
@@ -89,7 +89,7 @@ export async function notifyLevelClaimed(
   return createNotification({
     userId,
     type: 'level_claimed',
-    title: action === 'minted' ? 'tRWA minted' : 'tRWA upgraded',
+    title: action === 'minted' ? 'tRWI minted' : 'tRWI upgraded',
     body,
     href: '/',
     meta: {

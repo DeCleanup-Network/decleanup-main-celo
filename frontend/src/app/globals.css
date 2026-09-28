@@ -61,7 +61,7 @@ body {
   color: #ffffff;
 }
 
-/* Design tokens — decleanup-landing-standalone */
+/* Design tokens - decleanup-landing-standalone */
 :root {
   --radius: 0.625rem;
   --background: #0a0a0a;
@@ -187,7 +187,7 @@ body {
     z-index: 1;
   }
 
-  /* Display headings — Space Grotesk (font-heading) */
+  /* Display headings - Space Grotesk (font-heading) */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading), var(--font-inter), sans-serif;
     font-weight: 700;
@@ -208,12 +208,12 @@ body {
     text-transform: uppercase;
   }
 
-  /* Buttons, section titles, nav — use with font-semibold / font-bold as needed */
+  /* Buttons, section titles, nav - use with font-semibold / font-bold as needed */
   .font-heading {
     font-family: var(--font-heading), var(--font-inter), sans-serif;
   }
 
-  /* Landing body copy (Inter) — hero subhead, hints */
+  /* Landing body copy (Inter) - hero subhead, hints */
   .text-landing-lede {
     font-family: var(--font-inter), sans-serif;
     font-weight: 500;
@@ -230,7 +230,7 @@ body {
     line-height: 1.5;
   }
 
-  /* Secondary CTA — matches Button brandGhost */
+  /* Secondary CTA - matches Button brandGhost */
   .landing-ghost-link {
     display: inline-flex;
     align-items: center;
@@ -258,7 +258,7 @@ body {
     background: rgba(255, 255, 255, 0.04);
   }
 
-  /* Footer / nav links — Space Grotesk, compact uppercase */
+  /* Footer / nav links - Space Grotesk, compact uppercase */
   .footer-link {
     font-family: var(--font-heading), var(--font-inter), sans-serif;
     font-size: 10px;
@@ -319,7 +319,7 @@ body {
     font-feature-settings: 'tnum' 1;
   }
 
-  /* Brand mark — animated gradient; solid fallback avoids flash before clip paints */
+  /* Brand mark - animated gradient; solid fallback avoids flash before clip paints */
   .gradient-text {
     display: inline-block;
     background: linear-gradient(
@@ -465,7 +465,7 @@ body {
 }
 
 /* WalletConnect / Reown AppKit modals above app chrome.
-   Do NOT force display/position — that keeps closed modals as full-screen overlays
+   Do NOT force display/position - that keeps closed modals as full-screen overlays
    and blocks desktop MetaMask / WalletConnect clicks. */
 [data-rk] [role="dialog"],
 div[id^="rk_connect"],

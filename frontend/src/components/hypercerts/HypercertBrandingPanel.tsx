@@ -139,7 +139,7 @@ export function HypercertBrandingPanel({
             className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-brand-yellow/50"
           />
           <p className="text-xs text-muted-foreground">
-            {HYPERCERT_BRANDING_MIN_TITLE}–{HYPERCERT_BRANDING_MAX_TITLE} characters. Shown as your certificate
+            {HYPERCERT_BRANDING_MIN_TITLE}-{HYPERCERT_BRANDING_MAX_TITLE} characters. Shown as your certificate
             name on Hyperscan.
           </p>
         </div>
@@ -166,7 +166,7 @@ export function HypercertBrandingPanel({
             className="h-24 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-brand-yellow/50"
           />
           <p className="text-xs text-muted-foreground">
-            {HYPERCERT_BRANDING_MIN_DESCRIPTION}–{HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES} characters. Extra
+            {HYPERCERT_BRANDING_MIN_DESCRIPTION}-{HYPERCERT_BRANDING_MAX_DESCRIPTION_GRAPHEMES} characters. Extra
             text is blocked at the limit.
           </p>
         </div>

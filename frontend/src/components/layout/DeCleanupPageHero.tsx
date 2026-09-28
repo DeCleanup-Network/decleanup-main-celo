@@ -14,7 +14,7 @@ export type DeCleanupPageHeroProps = {
   /** Optional narrow label above the main title. */
   pageTagline?: string
   description: ReactNode
-  /** Header actions (back, Home, wallet) — aligned to the end on large screens. */
+  /** Header actions (back, Home, wallet) - aligned to the end on large screens. */
   trailing?: ReactNode
   align?: 'left' | 'center'
   className?: string

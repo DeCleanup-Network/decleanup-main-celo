@@ -9,7 +9,7 @@ import { encryptedBlobSchema } from '@/lib/aa/validation'
 export const WALLET_BACKUP_FORMAT = 'decleanup-wallet-backup' as const
 export const WALLET_BACKUP_VERSION = 2 as const
 
-/** Portable encrypted wallet backup — safe to store in cloud/USB; useless without unlock password. */
+/** Portable encrypted wallet backup - safe to store in cloud/USB; useless without unlock password. */
 export type WalletBackupFile = {
   format: typeof WALLET_BACKUP_FORMAT
   version: typeof WALLET_BACKUP_VERSION
@@ -124,7 +124,7 @@ export async function parseWalletBackupFile(raw: unknown): Promise<ParsedWalletB
         encryptedBlob: backup.encryptedBlob,
       })
       if (data.checksum !== expected) {
-        return { ok: false, error: 'Backup checksum mismatch — file may be corrupted.' }
+        return { ok: false, error: 'Backup checksum mismatch - file may be corrupted.' }
       }
     }
     return { ok: true, backup }

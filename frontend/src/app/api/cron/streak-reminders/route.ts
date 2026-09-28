@@ -16,7 +16,7 @@ function assertCronAuth(request: NextRequest): boolean {
 }
 
 /**
- * Streak ending ~6h: users whose last verified cleanup was 6.5–7 days ago
+ * Streak ending ~6h: users whose last verified cleanup was 6.5-7 days ago
  * (weekly streak about to break). Requires cleanup_feed + push/inbox users.
  */
 export async function GET(request: NextRequest) {

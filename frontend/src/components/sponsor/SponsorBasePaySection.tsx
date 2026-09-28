@@ -131,7 +131,7 @@ export function SponsorBasePaySection({ event, recipientAddress, onRecorded }: P
         <h2 className={campaignText.label}>USDC on Base</h2>
         <p className={campaignText.note}>
           Funds go to {shortAddr(recipientAddress)} on Base. Base Pay opens a Coinbase / Base Account
-          checkout — no MiniPay or Celo switch.
+          checkout - no MiniPay or Celo switch.
         </p>
         {testnet ? (
           <p className="text-xs text-amber-200">Testnet mode: Base Sepolia USDC.</p>

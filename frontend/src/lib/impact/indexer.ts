@@ -138,7 +138,7 @@ export async function getImpactIndex(): Promise<ImpactEntry[]> {
   return rebuildInFlight
 }
 
-/** Build impact index from a specific Submission contract (no shared cache — for legacy feed backfill). */
+/** Build impact index from a specific Submission contract (no shared cache - for legacy feed backfill). */
 export async function buildImpactIndexAt(submissionAddress: Address): Promise<ImpactEntry[]> {
   const submissionCount = Number(await getCleanupCounterAt(submissionAddress))
   console.log(`📊 [${submissionAddress}] Found ${submissionCount} total submissions`)

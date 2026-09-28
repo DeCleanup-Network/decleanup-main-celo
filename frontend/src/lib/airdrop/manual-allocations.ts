@@ -17,7 +17,7 @@ const GIVETH_DONOR_ALLOCATIONS: readonly AirdropAllocation[] = GIVETH_DONOR_WALL
   })
 )
 
-/** Past contributors (250 cDCU each). Use signer EOA — same address as MetaMask / gardens.fund. */
+/** Past contributors (250 cDCU each). Use signer EOA - same address as MetaMask / gardens.fund. */
 const PAST_CONTRIBUTOR_ALLOCATIONS: readonly AirdropAllocation[] = [
   {
     walletAddress: '0xEf0862aE5175dF25E59Db4E9115Fb6987Cf4B779',
