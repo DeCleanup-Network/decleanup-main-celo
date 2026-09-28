@@ -78,6 +78,7 @@ const VERIFIER_AUTH_MESSAGE = 'I am requesting access to the DeCleanup Verifier 
 const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 
 export default function VerifierPage() {
+    const hideHypercertsAndMl = isRobinhoodExperience(getActiveAppChainId())
     const router = useRouter()
     const [mounted, setMounted] = useState(false)
     const { address, isConnected } = useAccount()
@@ -326,6 +327,10 @@ export default function VerifierPage() {
             setCleanups(filterExcludedSubmissionIds(submissions, (s) => s.id, getActiveAppChainId()))
 
             if (isVerifierUserRef.current) {
+                if (isRobinhoodExperience(getActiveAppChainId())) {
+                    setHypercertRequests([])
+                    setVerifierContext(null)
+                } else {
                 try {
                     const pending = await fetchHypercertRequestsByStatus('PENDING')
                     console.log('📋 Pending Hypercert requests:', pending.length)
@@ -333,6 +338,7 @@ export default function VerifierPage() {
                     setVerifierContext(buildVerifierContext(pending))
                 } catch (reqError) {
                     console.error('Error loading Hypercert requests:', reqError)
+                }
                 }
                 try {
                     if (addressRef.current) {
@@ -1269,7 +1275,7 @@ export default function VerifierPage() {
                 ) : null}
 
                 {/* Hypercert queue + impact stats: verifiers (same as review API) */}
-                {isVerifierUser && verifierContext && (
+                {isVerifierUser && !hideHypercertsAndMl && verifierContext && (
                   <div className="mb-6 rounded-xl border border-brand-green/20 bg-card p-6">
                     <div className="mb-4">
                       <h3 className="font-heading text-xl uppercase tracking-wide text-foreground">
@@ -1330,7 +1336,7 @@ export default function VerifierPage() {
                   />
                 )}
 
-                {isVerifierUser && (
+                {isVerifierUser && !hideHypercertsAndMl && (
                 <div className="mb-8">
                     <h2 className="mb-4 font-heading text-2xl uppercase tracking-wide text-foreground">
                         Pending Hypercert Requests
@@ -1491,7 +1497,9 @@ export default function VerifierPage() {
                                             )}
                                         </div>
 
-                                        <VerifierMlScoreBlock cleanupId={cleanup.id.toString()} />
+                                        {!hideHypercertsAndMl ? (
+                                          <VerifierMlScoreBlock cleanupId={cleanup.id.toString()} />
+                                        ) : null}
                                         <OptionalSubmissionVideo submissionId={cleanup.id.toString()} />
                                         
                                         {/* Impact Report Details */}

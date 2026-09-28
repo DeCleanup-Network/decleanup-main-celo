@@ -114,6 +114,7 @@ export function getHypercertRequestsByUser(address: string): HypercertRequest[] 
 export async function submitHypercertRequest(params: {
   requester: string
   metadata: HypercertMetadata
+  chainId?: number
   signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>
 }): Promise<HypercertRequest> {
   const metadataRaw = JSON.stringify(params.metadata)
@@ -135,6 +136,7 @@ export async function submitHypercertRequest(params: {
       metadataCommitment,
       timestamp,
       signature,
+      chainId: params.chainId,
     }),
   })
 

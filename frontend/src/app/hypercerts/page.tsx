@@ -2,19 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { PageBackButton } from '@/components/layout/PageBackButton'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
 import { DeCleanupPageHero } from '@/components/layout/DeCleanupPageHero'
 import { useAppWalletAddress } from '@/hooks/useAppWalletAddress'
 import { useHypercertWallet } from '@/hooks/useHypercertWallet'
-import { useResolvedChainId } from '@/hooks/useResolvedChainId'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { getUserSubmissions, getCleanupDetails } from '@/lib/blockchain/contracts'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { aggregateUserCleanups } from '@/lib/blockchain/hypercerts/aggregation'
 import { buildHypercertMetadata } from '@/lib/blockchain/hypercerts/metadata'
-import { mintHypercertOnRobinhood } from '@/lib/blockchain/hypercerts/onchain-mint'
-import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
-import { ROBINHOOD_TESTNET_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { uploadToIPFS } from '@/lib/blockchain/ipfs'
 import { compressImageIfLarge } from '@/lib/utils/compress-image-for-upload'
 import {
@@ -42,7 +40,12 @@ export default function HypercertsCertificationPage() {
   const { showMainApp } = useAppWalletAddress()
   const { eoaAddress, eligibilityAddress, canSignMessages, needsUnlock, signMessageAsync } =
     useHypercertWallet()
-  const chainId = useResolvedChainId()
+  const { chainId, isRobinhood } = useExperienceChain()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isRobinhood) router.replace('/')
+  }, [isRobinhood, router])
 
   const [loading, setLoading] = useState(false)
   const [eligibility, setEligibility] = useState<ReturnType<typeof checkHypercertEligibility> | null>(null)
@@ -82,7 +85,7 @@ export default function HypercertsCertificationPage() {
   }, [eoaAddress, eligibilityAddress])
 
   useEffect(() => {
-    if (!showMainApp) return
+    if (!showMainApp || isRobinhood) return
 
     async function loadData() {
       setLoading(true)
@@ -112,14 +115,7 @@ export default function HypercertsCertificationPage() {
           }
         }
 
-        const validChainId =
-          chainId === 11142220 ||
-          chainId === 42220 ||
-          chainId === 8453 ||
-          chainId === 84532 ||
-          chainId === ROBINHOOD_TESTNET_CHAIN_ID
-            ? chainId
-            : 11142220
+        const validChainId = chainId
 
         let requests = userRequests
         if (eoaAddress) {
@@ -232,35 +228,6 @@ export default function HypercertsCertificationPage() {
     }
   }, [eoaAddress, eligibilityAddress])
 
-  const handleMintOnchain = async () => {
-    if (!metadata || !eoaAddress) return
-
-    setSubmitResult('')
-    setSubmitResult('Minting Hypercert...')
-    try {
-      const { txHash, uri } = await mintHypercertOnRobinhood({
-        account: eoaAddress as `0x${string}`,
-        metadata,
-      })
-      setSubmitResult('')
-      setActionModal({
-        title: 'Hypercert minted',
-        message:
-          `Your Hypercert was minted on Robinhood Chain testnet.\n\nTransaction: ${txHash}\nMetadata: ${uri}`,
-        variant: 'success',
-      })
-      setRequestsRefreshKey((k) => k + 1)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setSubmitResult('')
-      setActionModal({
-        title: 'Mint failed',
-        message,
-        variant: 'error',
-      })
-    }
-  }
-
   const handleSubmitRequest = async () => {
     if (!metadata || !eoaAddress || !canSignMessages) return
 
@@ -270,6 +237,7 @@ export default function HypercertsCertificationPage() {
       const request = await submitHypercertRequest({
         requester: eoaAddress,
         metadata,
+        chainId,
         signMessageAsync: async ({ message }) => signMessageAsync(message),
       })
       setSubmitResult('')
@@ -322,6 +290,9 @@ export default function HypercertsCertificationPage() {
   const backButton = <PageBackButton />
 
   if (!showMainApp) {
+    if (isRobinhood) {
+      return <div className="flex min-h-screen bg-background" />
+    }
     return (
       <div className="flex min-h-screen w-full flex-col bg-background">
         <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
@@ -427,23 +398,21 @@ export default function HypercertsCertificationPage() {
         ? submittedBrandingReadiness
         : publishedBrandingReadiness ?? brandingReadiness
 
-  const robinhoodMint = isRobinhoodExperience(chainId)
+  const canRequestHypercert =
+    Boolean(eligibility?.eligible) &&
+    !workflowBlocked &&
+    brandingReadiness.ready &&
+    canSignMessages &&
+    !needsUnlock
 
-  const canRequestHypercert = robinhoodMint
-    ? Boolean(eligibility?.eligible) && Boolean(metadata) && Boolean(eoaAddress) && !needsUnlock
-    : Boolean(eligibility?.eligible) &&
-      !workflowBlocked &&
-      brandingReadiness.ready &&
-      canSignMessages &&
-      !needsUnlock
-
-  const isTransactionPending =
-    submitResult === 'Submitting request...' || submitResult === 'Minting Hypercert...'
-  const showRequestStep = robinhoodMint
-    ? Boolean(eligibility?.eligible)
-    : !workflowBlocked && Boolean(eligibility?.eligible)
+  const isTransactionPending = submitResult === 'Submitting request...'
+  const showRequestStep = !workflowBlocked && Boolean(eligibility?.eligible)
   const showNextMilestoneHint =
     publishedComplete && !workflowBlocked && !eligibility?.eligible && Boolean(eligibility?.reason)
+
+  if (isRobinhood) {
+    return <div className="flex min-h-screen bg-background" />
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
@@ -474,6 +443,7 @@ export default function HypercertsCertificationPage() {
             timeframeStart={aggregatedData?.timeframeStart}
             timeframeEnd={aggregatedData?.timeframeEnd}
             complete={aggregateComplete}
+            minReports={isRobinhood ? 0 : 1}
           />
 
           <HypercertBrandingPanel
@@ -515,8 +485,7 @@ export default function HypercertsCertificationPage() {
               canRequest={canRequestHypercert}
               pending={isTransactionPending}
               submitResult={submitResult}
-              mode={robinhoodMint ? 'onchain-mint' : 'request'}
-              onRequest={() => void (robinhoodMint ? handleMintOnchain() : handleSubmitRequest())}
+              onRequest={() => void handleSubmitRequest()}
             />
           ) : null}
 

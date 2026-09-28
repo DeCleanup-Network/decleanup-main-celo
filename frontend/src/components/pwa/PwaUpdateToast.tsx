@@ -53,7 +53,7 @@ export function PwaUpdateToast() {
   if (!waiting) return null
 
   return (
-    <div className="fixed inset-x-0 top-safe z-[60] flex justify-center px-3 pt-2">
+    <div className="fixed inset-x-0 z-[60] flex justify-center px-3 top-[calc(env(safe-area-inset-top,0px)+4.5rem+0.5rem)] sm:top-[calc(env(safe-area-inset-top,0px)+5.5rem+0.5rem)]">
       <div className="flex max-w-md items-center gap-3 rounded-xl border border-brand-green/40 bg-gray-950/95 px-3 py-2 text-sm shadow-lg backdrop-blur-md">
         <span className="text-foreground">App update ready</span>
         <Button

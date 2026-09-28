@@ -1072,7 +1072,7 @@ function CleanupContent() {
                               hasBags || 
                               hasNumberStarted(enhancedData.hours) || 
                               hasNumberStarted(enhancedData.minutes) || 
-                              hasRightsAssignment || 
+                              (!isRobinhood && hasRightsAssignment) || 
                               hasEnvironmentalChallenges || 
                               hasPreventionIdeas
     
@@ -1086,7 +1086,7 @@ function CleanupContent() {
       hasBags && 
       hasHours && 
       hasMinutes && 
-      hasRightsAssignment && 
+      (isRobinhood || hasRightsAssignment) && 
       hasEnvironmentalChallenges && 
       hasPreventionIdeas
     )
@@ -1108,7 +1108,7 @@ function CleanupContent() {
         hasPreventionIdeas,
       }
     }
-  }, [enhancedData])
+  }, [enhancedData, isRobinhood])
 
   // Log validation changes only when state actually changes (not on every render)
   const prevValidationRef = useRef<{ isValid: boolean; hasStartedFilling: boolean } | null>(null)
@@ -1723,13 +1723,14 @@ function CleanupContent() {
         setStep('review')
 
         const mlPublicOff = process.env.NEXT_PUBLIC_ML_VERIFICATION_ENABLED === 'false'
+        const skipMl = mlPublicOff || isRobinhood
 
-        if (!mlPublicOff) {
+        if (!skipMl) {
           setMlVerificationLoading(true)
           setMlVerificationSummary(null)
         }
 
-        if (mlPublicOff) {
+        if (skipMl) {
           setMlVerificationSummary(
             'Automated photo checks are off for now. Human verifiers will still review your submission.',
           )
@@ -2440,14 +2441,16 @@ function CleanupContent() {
             <p className="text-sm text-gray-400">
               Before/after photos with location. JPEG, JPG, or HEIC from the camera roll. Large iPhone photos are compressed automatically. Optional video up to {MAX_CLEANUP_VIDEO_DURATION_SEC}s.
             </p>
+            {!isRobinhood ? (
             <p className="mt-2 text-xs text-gray-500">
               For the best AI pre-screening: use clear, well-lit photos taken close to the litter. Blurry or very distant shots make the litter hard to detect.
             </p>
-            {lowResPhoto && (
+            ) : null}
+            {lowResPhoto && !isRobinhood ? (
               <p className="mt-2 text-xs text-amber-400">
                 One of your photos is low-resolution. For a full AI assessment, upload a larger original (about 1200px or more on the long side). You can still submit - a human verifier reviews every cleanup.
               </p>
-            )}
+            ) : null}
           </div>
 
           <div className="mb-6 space-y-6">
@@ -3072,7 +3075,8 @@ function CleanupContent() {
               </div>
             )}
 
-            {/* Hypercerts rights (required - 5 preset licenses) */}
+            {/* Hypercerts rights (Celo only) */}
+            {!isRobinhood ? (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-300">
                 Photo sharing license *
@@ -3105,6 +3109,7 @@ function CleanupContent() {
                 ))}
               </select>
             </div>
+            ) : null}
 
             {/* Environmental Challenges */}
             <div>
@@ -3542,6 +3547,7 @@ function CleanupContent() {
             Pending verification (often 2-12 hours). Claim rewards after approval.
           </p>
 
+          {!isRobinhood ? (
           <div className="mb-4 rounded-lg border border-cyan-500/40 bg-cyan-950/30 p-3 text-left">
             <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-cyan-200/90">
               AI pre-screening
@@ -3566,6 +3572,7 @@ function CleanupContent() {
               </p>
             )}
           </div>
+          ) : null}
 
           {beforePhoto && afterPhoto && beforePhotoPreview && afterPhotoPreview && (
             <div className="mb-4 grid grid-cols-2 gap-2">

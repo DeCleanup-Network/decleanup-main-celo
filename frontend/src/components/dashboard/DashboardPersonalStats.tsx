@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { TrendingUp, Flame, Users, FileText, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useShowHypercertsHub } from '@/hooks/useExperienceChain'
 
 interface PersonalStatsProps {
     dcuBalance: number
@@ -28,6 +29,7 @@ export function DashboardPersonalStats({
     hasActiveStreak,
 }: PersonalStatsProps) {
     const [showEarnModal, setShowEarnModal] = useState(false)
+    const showHypercerts = useShowHypercertsHub()
 
     return (
         <div className="rounded-xl border-2 border-brand-green/30 bg-gradient-to-b from-brand-green/10 to-black p-3 flex flex-col h-full min-h-0 overflow-y-auto">
@@ -111,7 +113,8 @@ export function DashboardPersonalStats({
                         <div className="mb-6 space-y-3 rounded-lg border border-brand-green/25 bg-black/40 p-4 text-sm text-gray-300">
                             <p>
                                 <span className="font-semibold text-white">What is DCU?</span> DCU are onchain participation
-                                points for cleanups, referrals, streaks, reports, verifier work, Hypercerts, and related
+                                points for cleanups, referrals, streaks, reports, verifier work
+                                {showHypercerts ? ', Hypercerts,' : ','} and related
                                 activity.
                             </p>
                             <p>
@@ -177,6 +180,7 @@ export function DashboardPersonalStats({
                                 </p>
                             </div>
 
+                            {showHypercerts ? (
                             <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-4">
                                 <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-green font-heading text-lg text-black">6</span>
@@ -187,6 +191,7 @@ export function DashboardPersonalStats({
                                     cleanups when you create a Hypercert.
                                 </p>
                             </div>
+                            ) : null}
                         </div>
 
                         <Button

@@ -1,6 +1,5 @@
 import { ROBINHOOD_TESTNET_CHAIN_ID } from '../chain-constants'
 import { HYPERCERTS_CONFIG } from './config'
-import { isTestingMode, useRelaxedHypercertThresholds } from './testing'
 import { HypercertEligibilityResult } from './types'
 
 export function checkHypercertEligibility(params: {
@@ -11,15 +10,13 @@ export function checkHypercertEligibility(params: {
   chainId?: number
 }): HypercertEligibilityResult {
   const publishedCount = Math.max(0, params.publishedCount ?? 0)
-  const relaxed = useRelaxedHypercertThresholds() && isTestingMode(params.chainId)
-  const testing = relaxed
 
+  // Celo (mainnet and Sepolia) always uses production: 10 cleanups + 1 impact report.
+  // Only Robinhood Chain testnet is the 1-cleanup demo. Never inherit env REQUIRED_CHAIN_ID.
   const thresholds =
     params.chainId === ROBINHOOD_TESTNET_CHAIN_ID
       ? { minCleanups: 1, minReports: 0 }
-      : testing
-        ? HYPERCERTS_CONFIG.thresholds.testing
-        : HYPERCERTS_CONFIG.thresholds.production
+      : HYPERCERTS_CONFIG.thresholds.production
 
   const nextMilestoneCleanups = thresholds.minCleanups * (publishedCount + 1)
   const meetsCleanups = params.cleanupsCount >= nextMilestoneCleanups
@@ -43,7 +40,6 @@ export function checkHypercertEligibility(params: {
     reportsCount: params.reportsCount,
     publishedCount,
     nextMilestoneCleanups,
-    testingOverride: relaxed ? true : undefined,
     reason,
   }
 }

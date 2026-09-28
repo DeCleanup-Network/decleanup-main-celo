@@ -15,7 +15,7 @@ import {
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { getBrandingLengthError } from '@/lib/blockchain/hypercerts/branding-readiness'
 import { extractImpactSummaryFromMetadata } from '@/lib/blockchain/hypercerts/metadata'
-import { REQUIRED_CHAIN_ID } from '@/lib/blockchain/chain-constants'
+import { ROBINHOOD_TESTNET_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { enforceApiRateLimit } from '@/lib/server/rate-limit'
 import { apiErrorMessage, isProduction, logApiError } from '@/lib/server/api-error'
 
@@ -106,6 +106,7 @@ type CreateBody = {
   requester: string
   timestamp: number
   signature: `0x${string}`
+  chainId?: number
 }
 
 export async function POST(request: NextRequest) {
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
       cleanupsCount: Number(summary.totalCleanups) || 0,
       reportsCount: Number(summary.totalReports) || 0,
       publishedCount,
-      chainId: REQUIRED_CHAIN_ID,
+      chainId: Number(body.chainId) === ROBINHOOD_TESTNET_CHAIN_ID ? ROBINHOOD_TESTNET_CHAIN_ID : undefined,
     })
     if (!eligibility.eligible) {
       return NextResponse.json(

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, type ReactNode } from 'react'
-import { useAccount, useSignMessage, useSwitchChain } from 'wagmi'
 import { useRouter } from 'next/navigation'
+import { useAccount, useSignMessage, useSwitchChain } from 'wagmi'
+import { useExperienceChain } from '@/hooks/useExperienceChain'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/layout/BackButton'
 import { CheckCircle, XCircle, Clock, MapPin, User, Calendar, ExternalLink, Loader2, Shield, RefreshCw, Users } from 'lucide-react'
@@ -67,6 +68,7 @@ const VERIFIED_VERIFIER_KEY = 'decleanup_verified_verifier'
 export default function VerifierPage() {
   const { address, isConnected } = useAccount()
   const chainId = useResolvedChainId()
+  const { isRobinhood } = useExperienceChain()
   const { switchChain } = useSwitchChain()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -120,15 +122,16 @@ export default function VerifierPage() {
     // Load cleanups initially
     loadCleanups()
     
-    // Load hypercert requests initially
-    loadHypercertRequests()
+    if (!isRobinhood) {
+      loadHypercertRequests()
+    }
     
     // Refresh cleanups and requests every 30 seconds
     const interval = setInterval(() => {
       // Only refresh if not currently loading
       if (!isLoadingCleanups) {
         loadCleanups()
-        loadHypercertRequests()
+        if (!isRobinhood) loadHypercertRequests()
       }
     }, 30000)
     
@@ -1005,7 +1008,7 @@ export default function VerifierPage() {
           )}
           {impactData.rightsAssignment && (
             <div>
-              <dt className="text-xs uppercase text-gray-400">Photo sharing license (Hypercert: rights)</dt>
+              <dt className="text-xs uppercase text-gray-400">Photo sharing license</dt>
               <dd className="text-base text-white">{formatRightsAssignment(impactData.rightsAssignment)}</dd>
             </div>
           )}
@@ -1037,7 +1040,7 @@ export default function VerifierPage() {
   }
 
           {/* Hypercert Impact Context */}
-          {verifierContext && (
+          {!isRobinhood && verifierContext && (
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-6 mb-6">
               <h3 className="mb-4 font-heading text-xl uppercase tracking-wide text-foreground">
                 Hypercert Impact Context
@@ -1064,6 +1067,7 @@ export default function VerifierPage() {
           )}
 
   {/* Pending Hypercert Requests */}
+        {!isRobinhood ? (
         <div className="mb-8">
           <h2 className="mb-4 text-2xl font-bold uppercase text-white">Pending Hypercert Requests</h2>
           {hypercertRequests.length === 0 ? (
@@ -1187,6 +1191,7 @@ export default function VerifierPage() {
             </div>
           )}
         </div>
+        ) : null}
 
   const pendingCleanups = cleanups.filter((c) => !c.verified && !c.rejected)
   const verifiedCleanups = cleanups.filter((c) => c.verified)

@@ -73,6 +73,7 @@ import { usePastContributorBadge } from '@/hooks/usePastContributorBadge'
 import { PastContributorBadge } from '@/components/badges/PastContributorBadge'
 import { PortfolioSdgGrid } from '@/components/impact/PortfolioSdgBadge'
 import { PortfolioHypercertsSection } from '@/components/impact/PortfolioHypercertsSection'
+import { useShowHypercertsHub } from '@/hooks/useExperienceChain'
 import { PortfolioImpactNarrative } from '@/components/impact/PortfolioImpactNarrative'
 import { PortfolioEndorsementsSection } from '@/components/impact/PortfolioEndorsementsSection'
 import type { PortfolioEndorsement } from '@/lib/impact/portfolio-endorsements'
@@ -177,6 +178,7 @@ type WalletIdentityPayload = {
 }
 
 function PublicPortfolioContent() {
+  const showHypercerts = useShowHypercertsHub()
   const { data: session } = useSession()
   const { isEmbeddedAccount } = useEmbeddedAuth()
   const { address: connectedAddress } = useAccount()
@@ -607,7 +609,7 @@ function PublicPortfolioContent() {
         { label: 'Recyclables', value: reward.recyclablesDCU, color: 'bg-emerald-600' },
         { label: 'Hypercerts', value: reward.hypercertsDCU, color: 'bg-green-800' },
         { label: 'Verifier', value: reward.verifierDCU, color: 'bg-green-950' },
-      ]
+      ].filter((s) => showHypercerts || s.label !== 'Hypercerts')
     : []
   const downloadJsonExport = useCallback(() => {
     if (!data || !shareUrl) return
@@ -1043,7 +1045,9 @@ function PublicPortfolioContent() {
                 { label: 'DCU Recognized', value: reward.totalDcuBreakdown, icon: ShieldCheck },
                 { label: 'Verified Cleanups', value: data.verifiedCleanups, icon: Trash2 },
                 { label: 'Impact Reports', value: data.verifiedWithReport, icon: FileText },
-                { label: 'Hypercerts', value: data.hypercerts.length, icon: Layers },
+                ...(showHypercerts
+                  ? [{ label: 'Hypercerts' as const, value: data.hypercerts.length, icon: Layers }]
+                  : []),
                 { label: 'Cumulative Weight', value: `${formatNum(data.cumulative.weightKg, 1)} kg`, icon: Scale },
                 { label: 'Cumulative Area', value: `${formatNum(data.cumulative.areaSqm, 1)} m²`, icon: Ruler },
               ].map((k) => (
@@ -1460,6 +1464,7 @@ function PublicPortfolioContent() {
             </section>
 
             {/* 8) Impact hypercerts: after reports, before progression credential */}
+            {showHypercerts ? (
             <PortfolioHypercertsSection
               hypercerts={data.hypercerts}
               hypercertsDcu={reward.hypercertsDCU}
@@ -1468,6 +1473,7 @@ function PublicPortfolioContent() {
               timeframeStart={data.aggregated?.timeframeStart}
               timeframeEnd={data.aggregated?.timeframeEnd}
             />
+            ) : null}
 
             {/* 9) tRWI credential */}
             <section className="rounded-xl border border-border bg-card p-4">

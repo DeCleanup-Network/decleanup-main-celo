@@ -37,8 +37,8 @@ export function useExperienceChain() {
   }
 }
 
-/** Impact portfolio is Celo-only. Hidden until the live experience is known so Robinhood/Base never flash the link. */
-export function useShowImpactPortfolio() {
+/** Celo-only hubs (impact portfolio, Hypercerts). Hidden until the live pick is known so Robinhood/Base never flash those links. */
+export function useShowCeloOnlyHubs() {
   const [show, setShow] = useState(false)
   useEffect(() => {
     const sync = () => {
@@ -54,4 +54,14 @@ export function useShowImpactPortfolio() {
     }
   }, [])
   return show
+}
+
+/** Impact portfolio is Celo-only. Hidden until the live experience is known so Robinhood/Base never flash the link. */
+export function useShowImpactPortfolio() {
+  return useShowCeloOnlyHubs()
+}
+
+/** Hypercerts hub and DCU row are Celo-only. Same mount gate as the impact portfolio link. */
+export function useShowHypercertsHub() {
+  return useShowCeloOnlyHubs()
 }

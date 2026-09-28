@@ -86,7 +86,7 @@ function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: 
             <>
               <p>
                 <strong className="text-white">Robinhood Chain testnet</strong> is the demo path: submit one cleanup,
-                verify it, mint a Hypercert, and hold $rDCU. Gas is test ETH.
+                verify it, and hold $rDCU. Gas is test ETH.
               </p>
               <p className="text-gray-400">
                 Chain ID <span className="font-mono text-gray-300">46630</span>.

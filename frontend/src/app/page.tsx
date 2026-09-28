@@ -51,7 +51,6 @@ import { markCleanupAsClaimed, clearPendingCleanup } from '@/lib/blockchain/veri
 import { resetCleanupState, resetAllCleanupState } from '@/lib/utils/reset-cleanup'
 import { DashboardReferralLinkCard } from '@/components/dashboard/DashboardReferralLinkCard'
 import { ReferralInviteMessage } from '@/components/referral/ReferralInviteMessage'
-import { useResolvedChainId } from '@/hooks/useResolvedChainId'
 import { useSmartAccountClient } from '@/hooks/useSmartAccountClient'
 import { useHomeDashboardOnChain } from '@/hooks/useHomeDashboardOnChain'
 import { useHomeReferralNotification } from '@/hooks/useHomeReferralNotification'
@@ -69,7 +68,7 @@ import { InlineLoginCta } from '@/components/auth/InlineLoginCta'
 import { decleanupRewardsTitleStyle } from '@/components/layout/DeCleanupPageHero'
 import { BuiltOnNetwork } from '@/components/layout/BuiltOnNetwork'
 import { websiteGuideUrl } from '@/lib/guides/website-guides'
-import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { useExperienceChain, useShowHypercertsHub } from '@/hooks/useExperienceChain'
 import { getExperienceDisplay } from '@/lib/blockchain/experience-display'
 import { useWallet } from '@/providers/WalletProvider'
 import type { Address } from 'viem'
@@ -97,6 +96,7 @@ const WalletConnect = dynamic(
 function HomeContent() {
   const [mounted, setMounted] = useState(false)
   const { chainId: experienceChainId, isCelo, isBase, isRobinhood } = useExperienceChain()
+  const showHypercerts = useShowHypercertsHub()
   const experience = getExperienceDisplay(experienceChainId)
   const aaAuth = isAaAuthEnabledClient()
   const {
@@ -170,7 +170,6 @@ function HomeContent() {
     }
   }, [address])
 
-  const chainId = useResolvedChainId()
   const { submissionOwnerAddress, publicWalletAddress, onchainOwnerAddress, client: gaslessClient, expectsSponsoredGas } =
     useSmartAccountClient()
   const {
@@ -188,7 +187,7 @@ function HomeContent() {
     address: address as Address | undefined,
     publicWalletAddress: publicWalletAddress as Address | undefined,
     onchainOwnerAddress: onchainOwnerAddress as Address | undefined,
-    chainId: chainId ?? undefined,
+    chainId: experienceChainId,
     wantSubmissionDetails: showBreakdown,
   })
   const { showReferralNotification, setShowReferralNotification, referrerAddress } =
@@ -397,7 +396,7 @@ function HomeContent() {
               </h1>
               <p className="text-landing-lede mx-auto max-w-2xl normal-case animate-fade-in-up">
                 {isRobinhood
-                  ? 'Robinhood testnet demo. Submit one cleanup, verify it, mint a Hypercert, and hold $rDCU.'
+                  ? 'Robinhood testnet demo. Submit one cleanup, verify it, and hold $rDCU.'
                   : isBase
                     ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
                     : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
@@ -863,7 +862,7 @@ function HomeContent() {
                     hint: 'impact certificates',
                     value: rewardStats.hypercertsDCU.toFixed(0),
                     showToken: true,
-                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
+                    chains: [CELO_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID]
                   },
                   { 
                     label: 'Verifier', 
@@ -886,7 +885,10 @@ function HomeContent() {
                     showToken: rewardStats.contributorWelcomeDcu > 0,
                     chains: [CELO_MAINNET_CHAIN_ID, BASE_MAINNET_CHAIN_ID, CELO_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID]
                   },
-                ].filter(stat => stat.chains.includes(experienceChainId)).map((stat) => (
+                ].filter((stat) => {
+                  if (stat.label === 'Hypercerts') return showHypercerts
+                  return stat.chains.includes(experienceChainId)
+                }).map((stat) => (
                   <div
                     key={stat.label}
                     className="min-w-0 rounded-lg border border-border bg-background/50 p-2.5 transition-all hover:border-brand-green/50 hover:bg-background sm:p-3"
@@ -940,7 +942,7 @@ function HomeContent() {
 
         <div
           className={`mt-2 grid grid-cols-1 gap-3 sm:mt-4 ${
-            isBase ? 'min-[480px]:grid-cols-2' : 'min-[480px]:grid-cols-3'
+            showHypercerts ? 'min-[480px]:grid-cols-3' : 'min-[480px]:grid-cols-2'
           }`}
         >
           <Link href="/leaderboard" className="block min-h-[88px]">
@@ -959,7 +961,7 @@ function HomeContent() {
               </div>
             </Link>
           )}
-          {isCelo || isRobinhood ? (
+          {showHypercerts ? (
             <Link href="/hypercerts" className="block min-h-[88px]">
               <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-all hover:border-brand-green/50">
                 <Heart className="mb-2 h-5 w-5 shrink-0 text-brand-yellow" aria-hidden />
@@ -1194,7 +1196,7 @@ function HomeContent() {
               <p>
                 <strong className="text-foreground">What is DCU?</strong> DCU (DeCleanup Units) are participation points you
                 earn onchain for cleanups, referrals, streaks
-                {isCelo ? ', reports, verification work, Hypercerts, and similar activity' : ', and verification work'}.
+                {showHypercerts ? ', reports, verification work, Hypercerts, and similar activity' : ', and verification work'}.
               </p>
               {isCelo ? (
               <p>
@@ -1279,13 +1281,11 @@ function HomeContent() {
                 </p>
               </div>
 
-              {isCelo || isRobinhood ? (
+              {showHypercerts ? (
               <div className="rounded-lg border border-border bg-background p-4">
                 <h3 className="mb-2 font-heading text-lg text-brand-green">7. Impact certificates (Hypercerts)</h3>
                 <p className="text-sm text-muted-foreground">
-                  {isRobinhood
-                    ? 'On Robinhood you can mint a Hypercert after 1 verified cleanup. Open Impact certificate from Actions.'
-                    : 'Earn 10 DCU for every ten verified cleanups when you publish an impact certificate via the Hypercerts hub (verifier approval required).'}
+                  Earn 10 DCU for every ten verified cleanups when you publish an impact certificate via the Hypercerts hub (verifier approval required).
                 </p>
               </div>
               ) : null}

@@ -13,6 +13,7 @@ import {
   getVerifierRewardsCount,
 } from '@/lib/blockchain/contracts'
 import { getUserCleanupStatus } from '@/lib/blockchain/verification'
+import { isRobinhoodExperience } from '@/lib/blockchain/chain-preference'
 import { checkHypercertEligibility } from '@/lib/blockchain/hypercerts/eligibility'
 import { getContributorMentionStats } from '@/lib/impact/contributor-stats'
 import { getMergedUserRewardStats, getMergedUserLevel } from '@/lib/blockchain/merge-reward-stats'
@@ -226,11 +227,24 @@ export function useHomeDashboardOnChain({
           }
         }
 
-        const eligibilityResult = checkHypercertEligibility({
-          cleanupsCount: verifiedCleanupsCount,
-          reportsCount: impactReportsCount,
-          chainId,
-        })
+        if (cancelledRef.current) return
+
+        if (isRobinhoodExperience(chainId)) {
+          setHypercertEligibility(null)
+        } else {
+          const eligibilityResult = checkHypercertEligibility({
+            cleanupsCount: verifiedCleanupsCount,
+            reportsCount: impactReportsCount,
+            chainId,
+          })
+          setHypercertEligibility({
+            isEligible: eligibilityResult.eligible,
+            cleanupsCount: eligibilityResult.cleanupsCount,
+            reportsCount: eligibilityResult.reportsCount,
+            nextMilestoneCleanups: eligibilityResult.nextMilestoneCleanups ?? 10,
+            reason: eligibilityResult.reason,
+          })
+        }
 
         const contribIdentity = {
           addresses: [owner, rewardIdentity, address].filter(Boolean) as Address[],
@@ -246,14 +260,6 @@ export function useHomeDashboardOnChain({
         )
 
         if (cancelledRef.current) return
-
-        setHypercertEligibility({
-          isEligible: eligibilityResult.eligible,
-          cleanupsCount: eligibilityResult.cleanupsCount,
-          reportsCount: eligibilityResult.reportsCount,
-          nextMilestoneCleanups: eligibilityResult.nextMilestoneCleanups ?? 10,
-          reason: eligibilityResult.reason,
-        })
 
         setRewardStats(
           rewardStatsFromContract(rewardStatsData, level, {

@@ -12,6 +12,7 @@ type Props = {
   timeframeStart?: number
   timeframeEnd?: number
   complete: boolean
+  minReports?: number
 }
 
 export function HypercertImpactStep({
@@ -23,6 +24,7 @@ export function HypercertImpactStep({
   timeframeStart,
   timeframeEnd,
   complete,
+  minReports = 1,
 }: Props) {
   return (
     <section
@@ -67,8 +69,9 @@ export function HypercertImpactStep({
           ) : null}
           {!eligible && !loading ? (
             <p className="mt-4 text-xs text-muted-foreground">
-              {cleanupsCount}/{nextMilestoneCleanups} verified cleanups and at least 1 impact report required for your
-              next certificate.
+              {cleanupsCount}/{nextMilestoneCleanups} verified cleanups
+              {minReports > 0 ? ` and at least ${minReports} impact report${minReports === 1 ? '' : 's'}` : ''}{' '}
+              required for your next certificate.
             </p>
           ) : null}
         </>

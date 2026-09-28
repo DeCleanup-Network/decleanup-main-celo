@@ -8,7 +8,7 @@ import { ActionHint } from '@/components/ui/action-hint'
 import { TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
-import { useExperienceChain } from '@/hooks/useExperienceChain'
+import { useExperienceChain, useShowHypercertsHub } from '@/hooks/useExperienceChain'
 import { getActiveNativeGasSymbol } from '@/lib/blockchain/aa-chain'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
@@ -65,6 +65,7 @@ export function DashboardActions({
     const { showVerifierFeatures } = useVerifierAccess()
     const { walletReady } = useAppWalletAddress()
     const { isCelo: isCeloNetwork, isRobinhood, chainId: experienceChainId } = useExperienceChain()
+    const showHypercerts = useShowHypercertsHub()
 
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
@@ -185,8 +186,8 @@ export function DashboardActions({
                     </ActionHint>
                 )}
 
-                {/* Hypercerts on Celo and Robinhood; hide on Base */}
-                {(isCeloNetwork || isRobinhood) && (
+                {/* Hypercerts: Celo only, never on Robinhood/Base (gated after live chain is known) */}
+                {showHypercerts && (
                     <ActionHint hint={hypercertHint}>
                         <Link href="/hypercerts" className={stepClass(hypercertHighlighted)}>
                             <Heart className="h-3.5 w-3.5 shrink-0" aria-hidden />

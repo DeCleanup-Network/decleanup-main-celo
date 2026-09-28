@@ -1,13 +1,12 @@
-import { REQUIRED_CHAIN_IS_TESTNET, REQUIRED_CHAIN_ID, ROBINHOOD_TESTNET_CHAIN_ID } from '../chain-constants'
+import { REQUIRED_CHAIN_IS_TESTNET, REQUIRED_CHAIN_ID } from '../chain-constants'
 
 const CELO_MAINNET_CHAIN_ID = 42220
 
 /**
- * When true, hypercert mint eligibility uses relaxed test thresholds (e.g. 1 cleanup).
- * Default false: uses production thresholds (10 cleanups + reports) even on Celo Sepolia.
+ * When true, unused leftover for local experiments. Celo Hypercerts always use
+ * production thresholds (10 cleanups + 1 report). Robinhood is the 1-cleanup demo.
  */
 export function useRelaxedHypercertThresholds(): boolean {
-  if (REQUIRED_CHAIN_ID === ROBINHOOD_TESTNET_CHAIN_ID) return true
   if (typeof process === 'undefined') return false
   return process.env.NEXT_PUBLIC_HYPERCERT_RELAXED_ELIGIBILITY === 'true'
 }
