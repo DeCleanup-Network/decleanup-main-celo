@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { disconnect, getAccount, reconnect } from '@wagmi/core'
 import { useConfig } from 'wagmi'
+import { isManualWalletDisconnectActive } from '@/lib/blockchain/wallet-disconnect'
 
 function isStaleWalletConnectError(reason: unknown): boolean {
   const msg =
@@ -32,6 +33,7 @@ export function WalletConnectRelayRecovery() {
     if (typeof document === 'undefined') return
 
     const runRecover = async (reason: 'visibility' | 'stale-session') => {
+      if (isManualWalletDisconnectActive()) return
       const account = getAccount(config)
       if (!account.isConnected || account.connector?.id !== 'walletConnect') return
 

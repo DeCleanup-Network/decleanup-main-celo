@@ -53,6 +53,7 @@ export default function ExternalWalletSettingsPage() {
   const wrongNetwork = isConnected && chainId != null && chainId !== REQUIRED_CHAIN_ID
 
   useEffect(() => {
+    if (signingOut) return
     if (!isConnected) {
       router.replace('/')
       return
@@ -60,7 +61,7 @@ export default function ExternalWalletSettingsPage() {
     if (hasSmartAccountSession && !hasExternalWallet) {
       router.replace('/wallet')
     }
-  }, [isConnected, hasSmartAccountSession, hasExternalWallet, router])
+  }, [isConnected, hasSmartAccountSession, hasExternalWallet, router, signingOut])
 
   if (!isConnected) {
     return (

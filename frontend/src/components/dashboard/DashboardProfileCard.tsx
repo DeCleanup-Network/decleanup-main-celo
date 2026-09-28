@@ -132,12 +132,14 @@ export function DashboardProfileCard({
           </p>
         </div>
       </div>
-      <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
-        <Link href={impactHref} className="inline-flex items-center justify-center gap-2">
-          <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
-          Impact portfolio
-        </Link>
-      </Button>
+      {isCelo ? (
+        <Button variant="outline" asChild className="w-full border-border font-heading tracking-wide sm:w-auto">
+          <Link href={impactHref} className="inline-flex items-center justify-center gap-2">
+            <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+            Impact portfolio
+          </Link>
+        </Button>
+      ) : null}
       {cleanupStatus?.canClaim && claimFeeInfo?.enabled && claimFeeInfo.fee > 0n ? (
         <div className="mt-3">
           <FeeDisplay feeAmount={claimFeeInfo.fee} feeSymbol={chain.gasSymbol} type="claim" className="mt-1" />

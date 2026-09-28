@@ -1,5 +1,6 @@
 import { reconnect, type Config, type Connector } from '@wagmi/core'
 import { isMobileBrowser } from '@/lib/blockchain/mobile-browser'
+import { clearManualWalletDisconnect } from '@/lib/blockchain/wallet-disconnect'
 
 /**
  * Start WalletConnect from a user gesture.
@@ -12,6 +13,7 @@ export async function connectWithWalletConnect(params: {
   connectAsync: (args: { connector: Connector }) => Promise<unknown>
 }): Promise<void> {
   const { config, connector, connectAsync } = params
+  clearManualWalletDisconnect()
   if (isMobileBrowser()) {
     void reconnect(config).catch(() => {})
   }

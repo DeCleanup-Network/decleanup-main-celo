@@ -933,3 +933,7 @@ export function useWallet() {
   if (!ctx) throw new Error('useWallet must be used within WalletProvider')
   return ctx
 }
+
+export function useWalletOptional() {
+  return useContext(WalletContext)
+}

@@ -245,7 +245,7 @@ function CleanupContent() {
     isEmbeddedAccount,
     embeddedSponsoredSubmit,
   } = useAppWalletAddress()
-  const { isRobinhood } = useExperienceChain()
+  const { isCelo, isRobinhood } = useExperienceChain()
   const [signGate, setSignGate] = useState<{
     mode: SignUnlockModalMode
     purpose: string
@@ -2129,14 +2129,17 @@ function CleanupContent() {
           <div className="rounded-lg border border-muted-foreground/40 bg-muted/20 p-6 space-y-3">
             <h2 className="text-xl font-heading tracking-wide text-foreground">SUBMISSION CLOSED</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              You&apos;ve reached tRWA asset level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed. See your{' '}
-              <Link
-                href={`/impact/${address as string}`}
-                className="text-brand-green underline"
-              >
-                Impact Portfolio
-              </Link>
-              .
+              You&apos;ve reached tRWA asset level {MAX_IMPACT_PRODUCT_LEVEL}. New submissions are closed.
+              {isCelo && address ? (
+                <>
+                  {' '}
+                  See your{' '}
+                  <Link href={`/impact/${address}`} className="text-brand-green underline">
+                    Impact Portfolio
+                  </Link>
+                  .
+                </>
+              ) : null}
             </p>
           </div>
         </div>

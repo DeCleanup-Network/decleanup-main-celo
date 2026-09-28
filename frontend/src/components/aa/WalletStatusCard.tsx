@@ -140,7 +140,7 @@ function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: 
 export function WalletStatusCard({ wallet, loading }: Props) {
   const [networkHelpOpen, setNetworkHelpOpen] = useState(false)
   const [tokenBalance, setTokenBalance] = useState<string | null>(null)
-  const { chainId: experienceChainId } = useExperienceChain()
+  const { chainId: experienceChainId, isCelo } = useExperienceChain()
   const chain = getExperienceDisplay(experienceChainId)
 
   /** Display identity: signer EOA (MetaMask / import). */
@@ -201,12 +201,14 @@ export function WalletStatusCard({ wallet, loading }: Props) {
           className="text-sm text-gray-200"
         />
 
-        <Link
-          href={portfolioHref}
-          className="inline-flex text-sm font-medium text-brand-green hover:underline"
-        >
-          View impact portfolio
-        </Link>
+        {isCelo ? (
+          <Link
+            href={portfolioHref}
+            className="inline-flex text-sm font-medium text-brand-green hover:underline"
+          >
+            View impact portfolio
+          </Link>
+        ) : null}
 
         <div className="space-y-2 border-t border-gray-800 pt-4">
           <div className="flex flex-wrap gap-6 text-sm">
