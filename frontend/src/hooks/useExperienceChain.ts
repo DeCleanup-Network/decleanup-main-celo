@@ -65,3 +65,19 @@ export function useShowImpactPortfolio() {
 export function useShowHypercertsHub() {
   return useShowCeloOnlyHubs()
 }
+
+/** Robinhood testnet progress (cleanup loop + campaign pay). Hidden until the live pick is known. */
+export function useShowRobinhoodHubs() {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    const sync = () => setShow(isRobinhoodExperience(liveExperienceChainId()))
+    sync()
+    window.addEventListener('storage', sync)
+    window.addEventListener(CHAIN_PREFERENCE_CHANGE_EVENT, sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener(CHAIN_PREFERENCE_CHANGE_EVENT, sync)
+    }
+  }, [])
+  return show
+}

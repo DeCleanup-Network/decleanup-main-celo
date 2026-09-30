@@ -173,3 +173,6 @@ handoff/ml-verification-dev-pack/04-SECRETS.env
 handoff/ml-verification-dev-pack-*.zip
 handoff/.ml-handoff-staging/
 handoff/.ml-handoff-zip-password.txt
+
+# Local research drafts (do not publish or commit)
+docs/research/activation/

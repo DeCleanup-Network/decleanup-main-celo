@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button'
 import { Home } from 'lucide-react'
 import Link from 'next/link'
 
@@ -13,11 +12,12 @@ export default function NotFound() {
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
         <div className="flex justify-center">
-          <Link href="/">
-            <Button>
-              <Home className="h-4 w-4 mr-2" />
-              Go Home
-            </Button>
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center rounded-lg border border-brand-green bg-brand-green px-4 font-heading text-sm font-semibold uppercase tracking-wide text-[#0a0a0a]"
+          >
+            <Home className="h-4 w-4 mr-2" />
+            Go Home
           </Link>
         </div>
       </div>

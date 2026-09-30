@@ -21,6 +21,7 @@ import {
   TrendingUp,
   HelpCircle,
   ExternalLink,
+  HandCoins,
 } from 'lucide-react'
 import {
   claimImpactProductFromVerification,
@@ -396,7 +397,7 @@ function HomeContent() {
               </h1>
               <p className="text-landing-lede mx-auto max-w-2xl normal-case animate-fade-in-up">
                 {isRobinhood
-                  ? 'Robinhood testnet demo. Submit one cleanup, verify it, and hold $rDCU.'
+                  ? 'Robinhood testnet progress: submit → verify → claim ($rDCU). You can also pay an existing campaign in test ETH.'
                   : isBase
                     ? 'Simple cleanup on Base. Sign in, submit proof, earn $bDCU.'
                     : 'Log cleanups. Build a verified record. Earn your voice in the network.'}
@@ -431,7 +432,7 @@ function HomeContent() {
             <p className="text-landing-hint">
               {aaAuth
                 ? isRobinhood
-                  ? 'Connect a wallet on Robinhood Chain testnet. You need a little test ETH for gas. Demo $rDCU is on this chain.'
+                  ? 'Connect a wallet on Robinhood Chain testnet. Submit, verify, and claim, or pay a campaign. You need a little test ETH for gas.'
                   : isBase
                     ? 'Sign in with Google, email, or wallet, then use DeCleanup Rewards on Base.'
                     : 'Sign in with Google, email, or wallet, then use DeCleanup Rewards.'
@@ -588,17 +589,33 @@ function HomeContent() {
                 tRWI is current with your verified cleanups. Submit another cleanup to unlock the next claim.
               </p>
             ) : null}
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="h-auto px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground sm:self-start"
-            >
-              <Link href="/cleanup/trash-athlete" className="inline-flex items-center gap-1.5">
-                <Trophy className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                Trash Athlete Challenge
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:self-start sm:justify-start">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                <Link href="/cleanup/trash-athlete" className="inline-flex items-center gap-1.5">
+                  <Trophy className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Trash Athlete Challenge
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                <a
+                  href="https://dapp.decleanup.net/sponsor"
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <HandCoins className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Fund existing cleanups
+                </a>
+              </Button>
+            </div>
           </div>
         </section>
 

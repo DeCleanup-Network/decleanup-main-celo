@@ -1324,7 +1324,7 @@ export default function VerifierPage() {
                   />
                 )}
 
-                {isVerifierUser && address && (
+                {isVerifierUser && address && !hideHypercertsAndMl && (
                   <FundingApplicationsVerifierSection
                     reviewerAddress={address as Address}
                     signMessage={async (message) =>
