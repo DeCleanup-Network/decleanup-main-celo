@@ -23,15 +23,23 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethodKind, string> = {
   local: 'Other local payment method',
   crypto: 'Crypto (cUSD on Celo)',
   'crypto-base': 'Crypto on Base',
-  'crypto-robinhood': 'Crypto (ETH on Robinhood)',
+  'crypto-robinhood': 'Robinhood Chain (test ETH)',
 }
+
+export const SELECTABLE_PAYMENT_KINDS: PaymentMethodKind[] = [
+  'bank',
+  'local',
+  'crypto',
+  'crypto-base',
+  'crypto-robinhood',
+]
 
 export const PAYMENT_METHOD_HINT: Record<PaymentMethodKind, string> = {
   bank: 'Account name, bank, and number for a manual transfer.',
   local: 'PromptPay, GCash, or another local rail. Add a QR and notes.',
   crypto: 'Donors send cUSD in the app with MiniPay or a wallet.',
   'crypto-base': 'Donors pay USDC with Base Pay. No Celo wallet needed.',
-  'crypto-robinhood': 'Donors send test ETH on Robinhood Chain testnet.',
+  'crypto-robinhood': 'Pay on Robinhood Chain (testnet ETH for now).',
 }
 
 export function isOnchainPaymentKind(kind: PaymentMethodKind): boolean {
@@ -102,7 +110,7 @@ export function validatePaymentMethods(methods: SponsorPaymentMethod[]): string 
         return method.kind === 'crypto-base'
           ? 'Crypto on Base needs a valid 0x recipient wallet.'
           : method.kind === 'crypto-robinhood'
-            ? 'Crypto on Robinhood needs a valid 0x recipient wallet.'
+            ? 'Robinhood Chain needs a valid 0x recipient wallet.'
             : 'Crypto needs a valid 0x recipient wallet.'
       }
     }
@@ -112,11 +120,18 @@ export function validatePaymentMethods(methods: SponsorPaymentMethod[]): string 
 
 export function eventPaymentMethods(event: Pick<SponsorEventDto, 'paymentMethods' | 'recipientAddress'>): SponsorPaymentMethod[] {
   const stored = parsePaymentMethods(event.paymentMethods)
-  if (stored.length > 0) return stored
-  if (event.recipientAddress && isAddress(event.recipientAddress)) {
-    return [{ kind: 'crypto', recipientAddress: getAddress(event.recipientAddress) }]
+  const methods =
+    stored.length > 0
+      ? stored
+      : event.recipientAddress && isAddress(event.recipientAddress)
+        ? [{ kind: 'crypto' as const, recipientAddress: getAddress(event.recipientAddress) }]
+        : []
+  if (methods.some((m) => m.kind === 'crypto-robinhood') || methods.length >= MAX_PAYMENT_METHODS) {
+    return methods
   }
-  return []
+  const recipient = cryptoRecipientFromMethods(methods, event.recipientAddress)
+  if (!recipient) return methods
+  return [...methods, { kind: 'crypto-robinhood', recipientAddress: recipient }]
 }
 
 export function cryptoRecipientFromMethods(

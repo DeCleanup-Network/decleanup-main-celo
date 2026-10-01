@@ -22,6 +22,19 @@ import type { SponsorEventDto } from '@/lib/sponsor/types'
 
 const EXPLORER_TX = 'https://explorer.testnet.chain.robinhood.com/tx'
 
+function ExplorerLink({ hash, label }: { hash: string; label: string }) {
+  return (
+    <a
+      href={`${EXPLORER_TX}/${hash}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-brand-green/40 bg-brand-green/15 px-3 font-heading text-xs font-semibold uppercase tracking-wide text-brand-green hover:bg-brand-green/25"
+    >
+      {label}
+    </a>
+  )
+}
+
 type Props = {
   event: SponsorEventDto
   recipientAddress: string
@@ -52,6 +65,7 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
   })
 
   const balance = balanceData != null ? Number(formatEther(balanceData.value)) : null
+  const noTestEth = balance != null && balance <= 0
   const amountNum = Number(amount)
   const amountValid = Number.isFinite(amountNum) && amountNum > 0
   const exceedsBalance = balance != null && amountValid && amountNum > balance + 1e-12
@@ -89,7 +103,7 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
         if (!cancelled) {
           setActionError(
             e instanceof Error
-              ? `${e.message} (tx may still have succeeded; save your hash: ${txHash})`
+              ? `${e.message} Payment went through on Robinhood; save this hash if the campaign does not update: ${txHash}`
               : 'Record failed'
           )
         }
@@ -128,6 +142,12 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Connect failed'
+      if (/provider not found/i.test(msg)) {
+        setActionError(
+          'No browser wallet in this session. Use Connect wallet, or open this page in a wallet browser that can add Robinhood Chain testnet (46630).'
+        )
+        return
+      }
       if (!/rejected|denied|cancel/i.test(msg)) setActionError(msg)
     }
   }
@@ -138,12 +158,16 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
       const ok = await switchToExperienceChain(getConfig(), ROBINHOOD_TESTNET_CHAIN_ID)
       if (!ok) await switchChainAsync({ chainId: ROBINHOOD_TESTNET_CHAIN_ID })
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Could not switch to Robinhood testnet')
+      setActionError(
+        e instanceof Error
+          ? e.message
+          : 'Could not switch to Robinhood Chain testnet (46630). Add the chain in your wallet and try again.'
+      )
     }
   }
 
   const sponsor = async () => {
-    if (!address || !amountValid || !onRobinhood || !recipientOk) return
+    if (!address || !amountValid || !onRobinhood || !recipientOk || noTestEth) return
     setActionError(null)
     setSuccess(null)
     setTxHash(null)
@@ -156,6 +180,12 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
       setTxHash(hash)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Transaction failed'
+      if (/insufficient|exceeds|not enough/i.test(msg)) {
+        setActionError(
+          'Not enough test ETH on Robinhood Chain testnet (46630) to cover this send and gas.'
+        )
+        return
+      }
       if (!/rejected|denied|cancel/i.test(msg)) setActionError(msg)
       else setActionError('Transaction cancelled.')
     }
@@ -163,7 +193,14 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
 
   const busy = connecting || writing || confirming || recording || switching
   const canSend =
-    isConnected && onRobinhood && recipientOk && amountValid && !exceedsBalance && !busy && !success
+    isConnected &&
+    onRobinhood &&
+    recipientOk &&
+    amountValid &&
+    !exceedsBalance &&
+    !noTestEth &&
+    !busy &&
+    !success
 
   return (
     <div className="space-y-3">
@@ -197,11 +234,19 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
             <p className={campaignText.formValue}>{shortAddr(address!)}</p>
             {!onRobinhood ? (
               <div className="space-y-2">
-                <p className="text-amber-200">Switch to Robinhood Chain testnet to send ETH.</p>
+                <p className="text-amber-200">
+                  This wallet is on chain {chainId ?? 'unknown'}. Switch to Robinhood Chain testnet
+                  (46630) to send ETH.
+                </p>
                 <Button type="button" className="w-full" disabled={switching} onClick={() => void switchToRobinhood()}>
                   {switching ? 'Switching…' : 'Switch to Robinhood testnet'}
                 </Button>
               </div>
+            ) : noTestEth ? (
+              <p className="text-amber-200">
+                Connected on Robinhood Chain testnet (46630), but this wallet has no test ETH. The
+                send is blocked until you add a small amount.
+              </p>
             ) : (
               <p className={campaignText.formLabel}>
                 ETH balance:{' '}
@@ -221,7 +266,7 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
         )}
       </section>
 
-      {isConnected && onRobinhood && !success ? (
+      {isConnected && onRobinhood && !success && !noTestEth ? (
         <section className="space-y-3 rounded-xl border border-white/10 bg-zinc-950/80 p-4">
           <h2 className={campaignText.label}>Amount</h2>
           <p className={campaignText.note}>
@@ -232,7 +277,7 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
             <input
               type="text"
               inputMode="decimal"
-              placeholder="0.01"
+              placeholder="0.001"
               value={amount}
               onChange={(e) => {
                 setAmount(e.target.value.replace(/[^0-9.]/g, ''))
@@ -256,20 +301,24 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
         </section>
       ) : null}
 
+      {txHash && !success ? (
+        <div className="space-y-2 rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-3">
+          <p className={campaignText.note}>
+            {confirming || recording
+              ? 'Transaction submitted. Keep this explorer link while it confirms.'
+              : 'Transaction hash is on Robinhood even if saving the campaign record failed.'}
+          </p>
+          <ExplorerLink hash={txHash} label="Open on Robinhood explorer" />
+        </div>
+      ) : null}
+
       {success ? (
         <div className="space-y-3 rounded-xl border border-brand-green/40 bg-brand-green/10 px-3 py-4 text-sm">
           <p className="font-medium text-brand-green">Donation confirmed</p>
           <p className="text-gray-200">
             {success.amount} ETH sent to {event.name}.
           </p>
-          <a
-            href={`${EXPLORER_TX}/${success.txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-brand-green/40 bg-brand-green/15 px-3 font-heading text-xs font-semibold uppercase tracking-wide text-brand-green hover:bg-brand-green/25"
-          >
-            Check your transaction
-          </a>
+          <ExplorerLink hash={success.txHash} label="Check your transaction" />
         </div>
       ) : null}
 

@@ -8,7 +8,12 @@ import { ActionHint } from '@/components/ui/action-hint'
 import { TransactionWaitNotice } from '@/components/ui/transaction-wait-notice'
 import { SectionHeading } from '@/components/dashboard/SectionHeading'
 import { MAX_IMPACT_PRODUCT_LEVEL } from '@/lib/blockchain/chain-constants'
-import { useExperienceChain, useShowHypercertsHub } from '@/hooks/useExperienceChain'
+import {
+    useExperienceChain,
+    useShowCeloOnlyHubs,
+    useShowHypercertsHub,
+    useShowRobinhoodHubs,
+} from '@/hooks/useExperienceChain'
 import { getActiveNativeGasSymbol } from '@/lib/blockchain/aa-chain'
 import { VERIFIER_CONFIG } from '@/config/verifier'
 import { SPONSOR_CONFIG } from '@/config/sponsor'
@@ -66,6 +71,8 @@ export function DashboardActions({
     const { walletReady } = useAppWalletAddress()
     const { isCelo: isCeloNetwork, isRobinhood, chainId: experienceChainId } = useExperienceChain()
     const showHypercerts = useShowHypercertsHub()
+    const showFundingApply = useShowCeloOnlyHubs()
+    const showRobinhoodProgress = useShowRobinhoodHubs()
 
     const canSubmit = !cleanupStatus?.hasPendingCleanup && !cleanupStatus?.canClaim
     const submitLockedMaxLevel = userImpactLevel >= MAX_IMPACT_PRODUCT_LEVEL
@@ -196,8 +203,8 @@ export function DashboardActions({
                     </ActionHint>
                 )}
 
-                {/* Hide Sponsor/Funding on Base */}
-                {isCeloNetwork && (
+                {/* Funding apply is Celo-only. Hidden on Robinhood/Base until the live pick is known. */}
+                {showFundingApply && (
                     <ActionHint hint={`Community cUSD donations after tRWI asset level ${SPONSOR_CONFIG.minLevelToPropose}+`}>
                         <Link href="/sponsor/submit" className={stepClass(userImpactLevel >= SPONSOR_CONFIG.minLevelToPropose)}>
                             <HandCoins className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -206,6 +213,13 @@ export function DashboardActions({
                     </ActionHint>
                 )}
             </div>
+
+            {showRobinhoodProgress ? (
+                <p className="mx-auto mt-3 max-w-lg text-center text-[11px] leading-relaxed text-muted-foreground">
+                    Live on this testnet: submit cleanup → wait for verification → claim tRWI ($rDCU in the
+                    background). Campaign pay is extra settlement, not a second proof stack.
+                </p>
+            ) : null}
 
             {isClaiming ? (
               <div className="mx-auto mt-3 w-full max-w-lg">

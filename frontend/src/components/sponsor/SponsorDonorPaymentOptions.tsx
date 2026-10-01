@@ -11,7 +11,6 @@ import {
   type SponsorPaymentMethod,
 } from '@/lib/sponsor/payment-methods'
 import { SponsorDonateSection } from '@/components/sponsor/SponsorDonateSection'
-import { SponsorRobinhoodDonateSection } from '@/components/sponsor/SponsorRobinhoodDonateSection'
 import { campaignText } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
@@ -20,6 +19,17 @@ const SponsorBasePaySection = dynamic(
   {
     ssr: false,
     loading: () => <p className={campaignText.note}>Loading Base Pay…</p>,
+  }
+)
+
+const SponsorRobinhoodDonateSection = dynamic(
+  () =>
+    import('@/components/sponsor/SponsorRobinhoodDonateSection').then(
+      (m) => m.SponsorRobinhoodDonateSection
+    ),
+  {
+    ssr: false,
+    loading: () => <p className={campaignText.note}>Loading Robinhood pay…</p>,
   }
 )
 
@@ -105,7 +115,7 @@ export function SponsorDonorPaymentOptions({
         <h2 className={campaignText.section}>How to donate</h2>
         <p className={campaignText.noteBox}>
           Pick a method this cleanup accepts. Bank and local payments are manual. Celo cUSD, Base
-          USDC, and Robinhood ETH are sent in this app.
+          USDC, and Robinhood test ETH are sent in this app.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-2">
@@ -133,7 +143,7 @@ export function SponsorDonorPaymentOptions({
                   : method.kind === 'crypto-base'
                     ? 'Pay USDC with Base Pay.'
                     : method.kind === 'crypto-robinhood'
-                      ? 'Pay test ETH on Robinhood Chain.'
+                      ? 'Pay on Robinhood Chain (testnet ETH for now).'
                       : 'Manual payment, outside the app.'}
               </span>
             </button>
@@ -168,7 +178,8 @@ export function SponsorDonorPaymentOptions({
       {active?.kind === 'crypto-robinhood' ? (
         <div className="space-y-3">
           <p className={campaignText.noteBox}>
-            Connect a wallet on Robinhood Chain testnet. You need a little test ETH for gas and the gift.
+            This pays the campaign recipient for a cleanup already on record. Proof stays on Celo;
+            Robinhood only settles this payment.
           </p>
           <SponsorRobinhoodDonateSection
             event={event}

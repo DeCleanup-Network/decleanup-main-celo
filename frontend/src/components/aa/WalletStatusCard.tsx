@@ -85,8 +85,9 @@ function NetworkHelpModal({ open, onClose, chainId }: { open: boolean; onClose: 
           ) : isRobinhood ? (
             <>
               <p>
-                <strong className="text-white">Robinhood Chain testnet</strong> is the demo path: submit one cleanup,
-                verify it, and hold $rDCU. Gas is test ETH.
+                <strong className="text-white">Robinhood Chain testnet</strong> is build progress: submit a cleanup,
+                get it verified, claim tRWI, and hold $rDCU. You can also pay an existing campaign in test ETH.
+                Gas is test ETH. Campaign pay is settlement only — it does not re-run cleanup proof.
               </p>
               <p className="text-gray-400">
                 Chain ID <span className="font-mono text-gray-300">46630</span>.

@@ -4,11 +4,13 @@ import {
   parsePaymentMethods,
   validatePaymentMethods,
   cryptoRecipientFromMethods,
+  eventPaymentMethods,
+  SELECTABLE_PAYMENT_KINDS,
 } from '@/lib/sponsor/payment-methods'
 import { formatUsdAmount, normalizeBasePaymentTxHash, pickBasePayPayer } from '@/lib/sponsor/base-pay'
 
 describe('sponsor payment methods', () => {
-  it('parses Celo, Base, and Robinhood crypto cards', () => {
+  it('parses Celo, Base, and Robinhood cards, and new apps can pick Robinhood', () => {
     const methods = parsePaymentMethods([
       { kind: 'crypto', recipientAddress: '0x1111111111111111111111111111111111111111' },
       { kind: 'crypto-base', recipientAddress: '0x2222222222222222222222222222222222222222' },
@@ -18,7 +20,25 @@ describe('sponsor payment methods', () => {
     expect(methods[0]?.kind).toBe('crypto')
     expect(methods[1]?.kind).toBe('crypto-base')
     expect(methods[2]?.kind).toBe('crypto-robinhood')
+    expect(SELECTABLE_PAYMENT_KINDS).toContain('crypto-robinhood')
     expect(MAX_PAYMENT_METHODS).toBe(3)
+    expect(
+      eventPaymentMethods({
+        paymentMethods: methods,
+        recipientAddress: null,
+      })
+    ).toHaveLength(3)
+  })
+
+  it('offers Robinhood pay to the same 0x when a campaign already has a Celo recipient', () => {
+    const listed = eventPaymentMethods({
+      paymentMethods: [
+        { kind: 'crypto', recipientAddress: '0x1111111111111111111111111111111111111111' },
+      ],
+      recipientAddress: null,
+    })
+    expect(listed.map((m) => m.kind)).toEqual(['crypto', 'crypto-robinhood'])
+    expect(listed[1]?.recipientAddress).toBe(getAddress('0x1111111111111111111111111111111111111111'))
   })
 
   it('requires a recipient for Base crypto', () => {
@@ -41,7 +61,7 @@ describe('sponsor payment methods', () => {
     ).toBeNull()
   })
 
-  it('prefers Celo recipient, then Base', () => {
+  it('prefers Celo recipient, then Base, then Robinhood', () => {
     expect(
       cryptoRecipientFromMethods([
         { kind: 'crypto-base', recipientAddress: '0x2222222222222222222222222222222222222222' },

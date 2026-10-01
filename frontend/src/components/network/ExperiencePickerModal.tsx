@@ -45,7 +45,8 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
           Choose your experience
         </h2>
         <p className="mb-6 text-center text-sm text-gray-300 leading-relaxed">
-          Pick a network first. Celo is the full app. Base is the simple cleanup path. Robinhood Testnet is the submit, verify, and $rDCU demo.
+          Pick a network first. Celo is the full app. Base is the simple cleanup path. Robinhood
+          Testnet is build progress: submit → verify → claim ($rDCU), and pay a campaign in test ETH.
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <button
@@ -70,7 +71,7 @@ export function ExperiencePickerModal({ onSelect, onDismiss }: Props) {
             className="flex flex-col items-center gap-2 rounded-lg border-2 border-white/10 p-4 hover:border-brand-green hover:bg-gray-800 transition-colors"
           >
             <span className="text-lg font-bold text-white">Robinhood</span>
-            <span className="text-xs text-gray-400 text-center">Testnet demo. Cleanup, $rDCU</span>
+            <span className="text-xs text-gray-400 text-center">Submit, verify, claim. Pay a campaign.</span>
           </button>
         </div>
       </div>

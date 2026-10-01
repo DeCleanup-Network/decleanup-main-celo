@@ -42,7 +42,7 @@ export function LoginOptions({ callbackUrl, emailLoginEnabled, className }: Prop
     <div className={cn('space-y-2', className)}>
       {socialDisabled ? (
         <p className="text-center text-xs text-zinc-400">
-          Robinhood demo uses a wallet. Google and email are off.
+          Robinhood testnet uses a wallet for submit → verify → claim and campaign pay. Google and email are off.
         </p>
       ) : null}
 

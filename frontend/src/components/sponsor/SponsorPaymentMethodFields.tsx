@@ -9,6 +9,7 @@ import {
   PAYMENT_METHOD_HINT,
   PAYMENT_METHOD_LABEL,
   PAYMENT_NOTES_MAX,
+  SELECTABLE_PAYMENT_KINDS,
   type PaymentMethodKind,
   type SponsorPaymentMethod,
 } from '@/lib/sponsor/payment-methods'
@@ -17,7 +18,7 @@ import { campaignText } from '@/lib/sponsor/display'
 const inputClass =
   'w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-green/50'
 
-const KINDS: PaymentMethodKind[] = ['bank', 'local', 'crypto', 'crypto-base', 'crypto-robinhood']
+const KINDS: PaymentMethodKind[] = SELECTABLE_PAYMENT_KINDS
 
 const ICONS = {
   bank: Landmark,
@@ -106,7 +107,7 @@ export function SponsorPaymentMethodFields({
         <p className={campaignText.formLabel}>How can donors pay you?</p>
         <p className={`mt-1 ${campaignText.note}`}>
           Pick one method, then you can add up to two more. Bank and local payments happen outside the
-          app. Celo cUSD, Base USDC, and Robinhood ETH are in-app.
+          app. Celo cUSD, Base USDC, and Robinhood test ETH are in-app.
         </p>
       </div>
 
@@ -236,7 +237,7 @@ export function SponsorPaymentMethodFields({
                 method.kind === 'crypto-base'
                   ? 'Defaults to your connected wallet. Same 0x works on Base. Donors pay with Base Pay.'
                   : method.kind === 'crypto-robinhood'
-                    ? 'Defaults to your connected wallet. Donors send test ETH on Robinhood Chain testnet.'
+                    ? 'Defaults to your connected wallet. Donors pay on Robinhood Chain (testnet ETH for now).'
                     : 'Defaults to your connected wallet. Donors send cUSD in MiniPay or WalletConnect.'
               }
             >

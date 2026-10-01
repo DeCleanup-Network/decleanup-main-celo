@@ -57,7 +57,7 @@ export default function LoginPageClient({ emailLoginEnabled }: Props) {
       <h1 className={`text-center ${campaignText.title}`}>Sign in</h1>
       <p className={`mt-2 text-center ${campaignText.note}`}>
         {robinhoodPath
-          ? 'Robinhood testnet demo. Connect a wallet. Google and email are off.'
+          ? 'Robinhood testnet. Connect a wallet for submit → verify → claim, or to pay a campaign. Google and email are off.'
           : basePath
             ? 'Base cleanup path. Sign in, then use DeCleanup Rewards.'
             : 'Pick one way in. You can add the others later.'}
