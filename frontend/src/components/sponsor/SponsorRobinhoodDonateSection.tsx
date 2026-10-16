@@ -17,7 +17,7 @@ import { ROBINHOOD_TESTNET_CHAIN_ID } from '@/lib/blockchain/chain-constants'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
 import { getConfig } from '@/lib/blockchain/get-wagmi-config'
 import { switchToExperienceChain } from '@/lib/blockchain/switch-to-required-chain'
-import { campaignText, formatCusd, shortAddr } from '@/lib/sponsor/display'
+import { campaignText, formatCusd, shortAddr, shouldRecordSponsorship } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
 const EXPLORER_TX = 'https://explorer.testnet.chain.robinhood.com/tx'
@@ -83,18 +83,20 @@ export function SponsorRobinhoodDonateSection({ event, recipientAddress, onRecor
       setRecording(true)
       setActionError(null)
       try {
-        const res = await fetch('/api/sponsor/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId: event.id,
-            sponsorAddress: address,
-            amountCusd: amountNum,
-            txHash,
-          }),
-        })
-        const data = (await res.json()) as { error?: string }
-        if (!res.ok) throw new Error(data.error || 'Failed to save sponsorship')
+        if (shouldRecordSponsorship(event.id)) {
+          const res = await fetch('/api/sponsor/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              eventId: event.id,
+              sponsorAddress: address,
+              amountCusd: amountNum,
+              txHash,
+            }),
+          })
+          const data = (await res.json()) as { error?: string }
+          if (!res.ok) throw new Error(data.error || 'Failed to save sponsorship')
+        }
         if (cancelled) return
         setSuccess({ txHash, amount })
         onRecorded?.()

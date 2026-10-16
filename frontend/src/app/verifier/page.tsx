@@ -16,7 +16,7 @@ import {
     rejectCleanup,
     grantVerifierRole
 } from '@/lib/blockchain/contracts'
-import { getIPFSUrl } from '@/lib/blockchain/ipfs'
+import { CleanupPhotoThumbs } from '@/components/verifier/CleanupPhotoThumbs'
 import type { Address } from 'viem'
 import { REQUIRED_BLOCK_EXPLORER_URL } from '@/lib/blockchain/wagmi'
 import { buildSignedActionMessage } from '@/lib/auth/signed-action-message'
@@ -1445,36 +1445,10 @@ export default function VerifierPage() {
                         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                             {pendingCleanups.map(cleanup => (
                                 <div key={cleanup.id.toString()} className="min-w-0 rounded-lg border border-border bg-card overflow-hidden">
-                                    <div className="grid grid-cols-2 gap-1 bg-gray-900">
-                                        {cleanup.beforePhotoHash ? (
-                                            <img 
-                                                src={getIPFSUrl(cleanup.beforePhotoHash)} 
-                                                alt="Before" 
-                                                className="h-32 w-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23333"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999" font-size="12"%3EBefore%3C/text%3E%3C/svg%3E'
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className="flex h-32 w-full items-center justify-center bg-gray-800 text-xs text-gray-500">
-                                                Before
-                                            </div>
-                                        )}
-                                        {cleanup.afterPhotoHash ? (
-                                            <img 
-                                                src={getIPFSUrl(cleanup.afterPhotoHash)} 
-                                                alt="After" 
-                                                className="h-32 w-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23333"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999" font-size="12"%3EAfter%3C/text%3E%3C/svg%3E'
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className="flex h-32 w-full items-center justify-center bg-gray-800 text-xs text-gray-500">
-                                                After
-                                            </div>
-                                        )}
-                                    </div>
+                                    <CleanupPhotoThumbs
+                                        beforeHash={cleanup.beforePhotoHash}
+                                        afterHash={cleanup.afterPhotoHash}
+                                    />
                                     <div className="p-4">
                                         <div className="mb-2 flex items-center justify-between">
                                             <span className="font-mono text-xs text-gray-400">ID: {cleanup.id.toString()}</span>
@@ -1558,36 +1532,10 @@ export default function VerifierPage() {
                         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                             {verifiedCleanups.map(cleanup => (
                                 <div key={cleanup.id.toString()} className="min-w-0 rounded-lg border border-border bg-card overflow-hidden opacity-75">
-                                    <div className="grid grid-cols-2 gap-1 bg-gray-900">
-                                        {cleanup.beforePhotoHash ? (
-                                            <img 
-                                                src={getIPFSUrl(cleanup.beforePhotoHash)} 
-                                                alt="Before" 
-                                                className="h-32 w-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23333"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999" font-size="12"%3EBefore%3C/text%3E%3C/svg%3E'
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className="flex h-32 w-full items-center justify-center bg-gray-800 text-xs text-gray-500">
-                                                Before
-                                            </div>
-                                        )}
-                                        {cleanup.afterPhotoHash ? (
-                                            <img 
-                                                src={getIPFSUrl(cleanup.afterPhotoHash)} 
-                                                alt="After" 
-                                                className="h-32 w-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23333"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999" font-size="12"%3EAfter%3C/text%3E%3C/svg%3E'
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className="flex h-32 w-full items-center justify-center bg-gray-800 text-xs text-gray-500">
-                                                After
-                                            </div>
-                                        )}
-                                    </div>
+                                    <CleanupPhotoThumbs
+                                        beforeHash={cleanup.beforePhotoHash}
+                                        afterHash={cleanup.afterPhotoHash}
+                                    />
                                     <div className="p-4">
                                         <div className="mb-2 flex items-center justify-between">
                                             <span className="font-mono text-xs text-gray-400">ID: {cleanup.id.toString()}</span>

@@ -21,7 +21,7 @@ import {
   isMiniPayInjected,
 } from '@/lib/blockchain/cusd'
 import { connectWithWalletConnect } from '@/lib/blockchain/connect-wallet-connect'
-import { campaignText, formatCusd, shortAddr } from '@/lib/sponsor/display'
+import { campaignText, formatCusd, shortAddr, shouldRecordSponsorship } from '@/lib/sponsor/display'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
 
 type Props = {
@@ -86,18 +86,20 @@ export function SponsorDonateSection({ event, onRecorded }: Props) {
       setRecording(true)
       setActionError(null)
       try {
-        const res = await fetch('/api/sponsor/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId: event.id,
-            sponsorAddress: address,
-            amountCusd: amountNum,
-            txHash,
-          }),
-        })
-        const data = (await res.json()) as { error?: string }
-        if (!res.ok) throw new Error(data.error || 'Failed to save sponsorship')
+        if (shouldRecordSponsorship(event.id)) {
+          const res = await fetch('/api/sponsor/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              eventId: event.id,
+              sponsorAddress: address,
+              amountCusd: amountNum,
+              txHash,
+            }),
+          })
+          const data = (await res.json()) as { error?: string }
+          if (!res.ok) throw new Error(data.error || 'Failed to save sponsorship')
+        }
         if (cancelled) return
         setSuccess({ txHash, amount })
         onRecorded?.()

@@ -166,7 +166,11 @@ export function SponsorDonorPaymentOptions({
 
       {active?.kind === 'crypto-base' ? (
         <div className="space-y-3">
-          <p className={campaignText.noteBox}>Base Pay sends USDC on Base. You do not need MiniPay.</p>
+          <img
+            src="/base-pay-logo-white.svg"
+            alt="Base Pay"
+            className="h-7 w-auto"
+          />
           <SponsorBasePaySection
             event={event}
             recipientAddress={active.recipientAddress || event.recipientAddress}

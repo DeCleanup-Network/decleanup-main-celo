@@ -39,7 +39,13 @@ export default function RootClientBody({
   wagmiInitialState?: State
 }) {
   const pathname = usePathname()
-  const showGlobalFooter = pathname !== '/'
+  const isPublicProof = pathname === '/proof' || pathname.startsWith('/proof/')
+  const isSponsor = pathname === '/sponsor' || pathname.startsWith('/sponsor/')
+  const showGlobalFooter = pathname !== '/' && !isPublicProof
+
+  if (isPublicProof) {
+    return <RootErrorBoundary>{children}</RootErrorBoundary>
+  }
 
   return (
     <RootErrorBoundary>
@@ -51,7 +57,7 @@ export default function RootClientBody({
           <PwaInstallBanner />
           <AutoSwitchToAppChain />
           <NetworkChecker />
-          <FirstVisitExperienceGate />
+          {isSponsor ? null : <FirstVisitExperienceGate />}
           <Header />
           <main className="flex min-h-0 flex-1 flex-col bg-background pb-mobile-safe">{children}</main>
           {showGlobalFooter ? (

@@ -21,7 +21,8 @@ import { Address } from 'viem'
 import { waitForTransactionReceipt } from 'wagmi/actions'
 import { config, REQUIRED_BLOCK_EXPLORER_URL, REQUIRED_CHAIN_NAME, REQUIRED_CHAIN_ID } from '@/lib/blockchain/wagmi'
 import { WalletConnect } from '@/features/wallet/components/WalletConnect'
-import { getIPFSUrl, getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
+import { getIPFSFallbackUrls } from '@/lib/blockchain/ipfs'
+import { hashToProxyDisplayUrl } from '@/lib/impact/public-portfolio-shared'
 import { findCleanupsByWallet } from '@/lib/utils/find-cleanup'
 import {
   fetchHypercertRequestsByStatus,
@@ -810,11 +811,9 @@ export default function VerifierPage() {
   }
 
   function getIPFSUrl(hash: string): string | null {
-    if (!hash || hash === '' || hash === '0x' || hash.length === 0) return null
-    // Remove ipfs:// prefix if present
-    const cleanHash = hash.replace(/^ipfs:\/\//, '')
-    if (!cleanHash || cleanHash.length === 0) return null
-    return `${IPFS_GATEWAY}${cleanHash}`
+    if (!hash || hash === '' || hash === '0x') return null
+    const url = hashToProxyDisplayUrl(hash)
+    return url || null
   }
 
   function formatDate(timestamp: bigint): string {
