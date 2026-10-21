@@ -607,13 +607,21 @@ function HomeContent() {
                 size="sm"
                 className="h-auto px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
-                <a
-                  href="https://dapp.decleanup.net/sponsor"
-                  className="inline-flex items-center gap-1.5"
-                >
+                <Link href="/sponsor" className="inline-flex items-center gap-1.5">
                   <HandCoins className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                  Fund existing cleanups
-                </a>
+                  Fund campaigns
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                <Link href="/proof" className="inline-flex items-center gap-1.5">
+                  <Heart className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Donate to organizers
+                </Link>
               </Button>
             </div>
           </div>

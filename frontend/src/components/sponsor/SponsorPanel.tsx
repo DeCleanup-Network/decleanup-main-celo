@@ -14,6 +14,7 @@ import {
 } from '@/lib/sponsor/display'
 import { eventPaymentMethods, paymentMethodBadges } from '@/lib/sponsor/payment-methods'
 import type { SponsorEventDto } from '@/lib/sponsor/types'
+import { SponsorOrganizerDonateSection } from '@/components/sponsor/SponsorOrganizerDonateSection'
 
 function SponsorExitLinks() {
   return (
@@ -81,12 +82,15 @@ export function SponsorPanel() {
         <SponsorExitLinks />
         <h1 className={`mt-4 ${campaignText.title}`}>Sponsor a cleanup</h1>
         <p className={`mt-1 ${campaignText.note}`}>
-          Open a campaign to see the story, then donate with cUSD on Celo, USDC on Base, or ETH on Robinhood.
+          Donate to a verified cleanup organizer, or to campaigns open for sponsorship. Pay with
+          cUSD on Celo, USDC on Base, or ETH on Robinhood.
         </p>
       </div>
 
+      <SponsorOrganizerDonateSection />
+
       <section className="space-y-3">
-        <h2 className={campaignText.label}>Open cleanups</h2>
+        <h2 className={campaignText.label}>Campaigns submitted for sponsorship</h2>
         {loadingEvents ? (
           <div className="h-28 animate-pulse rounded-xl bg-zinc-900" />
         ) : loadError ? (
@@ -95,7 +99,7 @@ export function SponsorPanel() {
           </p>
         ) : events.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-4">
-            <p className={campaignText.note}>No active or upcoming cleanups yet.</p>
+            <p className={campaignText.note}>No campaigns submitted for sponsorship yet.</p>
           </div>
         ) : (
           <ul className="space-y-3">

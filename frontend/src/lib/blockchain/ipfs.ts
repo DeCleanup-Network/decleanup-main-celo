@@ -271,10 +271,13 @@ export async function uploadJSONToIPFS(data: any, name: string = 'data'): Promis
 export function getIPFSUrl(hash: string): string {
   if (!hash) return ''
 
-  // Clean hash (remove any query params or fragments)
-  const cleanHash = hash.split('?')[0].split('#')[0]
+  const cleanHash = hash
+    .replace(/^ipfs:\/\//i, '')
+    .split('?')[0]
+    .split('#')[0]
+    .trim()
+  if (!cleanHash) return ''
 
-  // Use configured gateway or default to ipfs.io (better CORS support)
   const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://ipfs.io/ipfs/'
   return `${gateway}${cleanHash}`
 }

@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi'
 import { isAddress } from 'viem'
 import { getPaymentStatus, pay } from '@base-org/account/payment'
 import { Button } from '@/components/ui/button'
-import { campaignText, formatCusd, shortAddr } from '@/lib/sponsor/display'
+import { campaignText, formatCusd, shortAddr, shouldRecordSponsorship } from '@/lib/sponsor/display'
 import {
   BASESCAN_TX,
   formatUsdAmount,
@@ -79,18 +79,20 @@ export function SponsorBasePaySection({ event, recipientAddress, onRecorded }: P
       })
 
       if (txHash && payer) {
-        const res = await fetch('/api/sponsor/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId: event.id,
-            sponsorAddress: payer,
-            amountCusd: Number(usd),
-            txHash,
-          }),
-        })
-        const data = (await res.json()) as { error?: string }
-        if (!res.ok) throw new Error(data.error || 'Payment sent, but saving the receipt failed.')
+        if (shouldRecordSponsorship(event.id)) {
+          const res = await fetch('/api/sponsor/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              eventId: event.id,
+              sponsorAddress: payer,
+              amountCusd: Number(usd),
+              txHash,
+            }),
+          })
+          const data = (await res.json()) as { error?: string }
+          if (!res.ok) throw new Error(data.error || 'Payment sent, but saving the receipt failed.')
+        }
         onRecorded?.()
       }
 

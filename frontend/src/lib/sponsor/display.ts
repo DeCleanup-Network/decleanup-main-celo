@@ -49,6 +49,11 @@ export function isOpenForDonations(event: Pick<SponsorEventDto, 'status'>): bool
   return event.status === 'active' || event.status === 'upcoming'
 }
 
+export function shouldRecordSponsorship(eventId: string): boolean {
+  const id = eventId.trim()
+  return id.length > 0 && !id.startsWith('proof:')
+}
+
 export function verifiedCleanupLabel(count: number): string {
   const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
   return n === 1 ? '1 verified cleanup' : `${n} verified cleanups`

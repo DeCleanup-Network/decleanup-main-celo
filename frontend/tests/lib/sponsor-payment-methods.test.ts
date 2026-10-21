@@ -1,3 +1,5 @@
+import { shouldRecordSponsorship } from '@/lib/sponsor/display'
+import { organizerDonateEvent } from '@/lib/sponsor/organizer-donate'
 import { getAddress } from 'viem'
 import {
   MAX_PAYMENT_METHODS,
@@ -108,5 +110,24 @@ describe('Base Pay helpers', () => {
         connectedAddress: '0x4444444444444444444444444444444444444444',
       })
     ).toBe('0x4444444444444444444444444444444444444444')
+  })
+})
+
+describe('organizer donate from a verified cleanup', () => {
+  it('fills Celo, Base, and Robinhood to the same organizer wallet', () => {
+    const event = organizerDonateEvent({
+      recipient: '0x90ded2b61f1f23db8c953a494d2916d9b5ad1c00',
+      cleanupId: '15',
+      place: 'Ko Pha-ngan, Thailand',
+    })
+    expect(event?.id).toBe('proof:15')
+    expect(event?.recipientAddress).toBe(getAddress('0x90ded2b61f1f23db8c953a494d2916d9b5ad1c00'))
+    expect(event?.paymentMethods?.map((m) => m.kind)).toEqual([
+      'crypto',
+      'crypto-base',
+      'crypto-robinhood',
+    ])
+    expect(shouldRecordSponsorship(event!.id)).toBe(false)
+    expect(shouldRecordSponsorship('evt_123')).toBe(true)
   })
 })
